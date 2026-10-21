@@ -68,13 +68,32 @@ const npcLines = ['alguém pra ajudar na entrega?', 'ouviu esses tiros?', 'o mer
 
 // ---------- efeitos ----------
 function emit(o) { parts.push(Object.assign({ vx: 0, vy: 0, vz: 0, life: 1, max: 1, g: 9.8, size: 0.04 }, o)); }
+// Os dois tipos de folha (vento e disparo) usam paintLeaf() do world.js:
+// mesmo contorno, mesmo espectro de cores e comportamento de queda.
+function spawnTreeShotLeaves(hit) {
+  if (!hit.ref || !hit.ref.sp || parts.length > 210) return;
+  const sp=hit.ref.sp, colors=sp.leafColors;
+  const count=sp.kind==='pine'?14:24;
+  for(let i=0;i<count;i++) {
+    const angle=rnd(0,TAU),speed=rnd(.6,2.1),height=sp.trunkH+rnd(.3,sp.r*1.35),
+      fallSpeed=rnd(.55,.95),lifetime=Math.min(13,height/fallSpeed+1.8);
+    emit({kind:'falling-leaf',x:hit.x+rnd(-sp.r*.23,sp.r*.23),
+      y:hit.y+rnd(-sp.r*.23,sp.r*.23),z:height,
+      vx:Math.cos(angle)*speed+(hit.nx||0)*.5,
+      vy:Math.sin(angle)*speed+(hit.ny||0)*.5,
+      vz:rnd(.45,1.6),g:0,fallSpeed,age:0,phase:rnd(0,TAU),
+      spin:rnd(-5,5),life:lifetime,max:lifetime,size:rnd(.058,.095),
+      col:colors[(Math.random()*colors.length)|0],shot:true});
+  }
+}
 function impact(hit, z) {
   const n = hit.kind === 'tree' ? 'leaf' : hit.glass ? 'glass' : hit.kind === 'none' ? 'dirt' : 'chip';
   const cols = { leaf: ['#4a7d32', '#6e9d40', '#2e5a26'], glass: ['#cfe6ef', '#9cc0d8', '#ffffff'], dirt: ['#7a6040', '#5a4a30', '#a08860'], chip: ['#cfc6b0', '#8a8278', '#f2e2b0'] }[n];
-  for (let i = 0; i < (n === 'leaf' ? 10 : 7); i++) {
+  if (n === 'leaf') spawnTreeShotLeaves(hit);
+  else for (let i = 0; i < 7; i++) {
     const a = rnd(0, TAU), sp = rnd(0.6, 2.4);
-    emit({ x: hit.x, y: hit.y, z: n === 'leaf' ? rnd(2.2, 4) : z, vx: (hit.nx || 0) * sp + Math.cos(a) * 0.8, vy: (hit.ny || 0) * sp + Math.sin(a) * 0.8, vz: rnd(0.5, 2.5),
-      life: rnd(0.4, 0.9), max: 0.9, col: cols[i % 3], kind: n, g: n === 'leaf' ? 1.2 : 9.8, size: n === 'leaf' ? 0.07 : 0.035 });
+    emit({ x: hit.x, y: hit.y, z, vx: (hit.nx || 0) * sp + Math.cos(a) * 0.8, vy: (hit.ny || 0) * sp + Math.sin(a) * 0.8, vz: rnd(0.5, 2.5),
+      life: rnd(0.4, 0.9), max: 0.9, col: cols[i % 3], kind: n, g: 9.8, size: 0.035 });
   }
   emit({ x: hit.x, y: hit.y, z, life: 0.5, max: 0.5, kind: 'puff', g: -0.6, vz: 0.4, size: 0.18, col: n === 'dirt' ? '#8a7a5a' : '#d8d2c4' });
   if (hit.ref && hit.kind === 'target') { hit.ref.hit = 0.25; hit.ref.wob = 0.5; }
@@ -208,9 +227,13 @@ function updateParts(dt) {
       // Movimento pendular, giro e queda lenta guiada pelo vento local.
       const breeze = wind(T, q.x, q.y);
       if (q.z > 0.025) {
-        q.x += (q.vx + breeze * .13 + Math.sin(q.phase + q.age * 2.4)*.12)*dt;
-        q.y += (q.vy + breeze * .09 + Math.cos(q.phase + q.age * 1.8)*.10)*dt;
-        q.z = Math.max(.025, q.z - (q.fallSpeed + Math.cos(q.phase+q.age*3)*.08)*dt);
+        // Ao atirar, a folha recebe impulso radial que perde energia no vento.
+        q.vx *= Math.exp(-dt*(q.shot?1.65:.32));
+        q.vy *= Math.exp(-dt*(q.shot?1.65:.32));
+        q.x += (q.vx + breeze*.13 + Math.sin(q.phase+q.age*2.4)*.12)*dt;
+        q.y += (q.vy + breeze*.09 + Math.cos(q.phase+q.age*1.8)*.10)*dt;
+        q.vz=Math.max(-q.fallSpeed,(q.vz||0)-(q.shot?3.4:2)*dt);
+        q.z=Math.max(.025,q.z+(q.vz+Math.cos(q.phase+q.age*3)*.08)*dt);
       } else {
         q.life = Math.min(q.life, 1.2);
       }
@@ -232,20 +255,12 @@ function updateParts(dt) {
 
 function drawPart(q) {
   const p = proj(q.x, q.y, q.z), a = clamp(q.life / q.max * 2, 0, 1), s = Math.max(1, q.size * cam.zoom);
-  if (q.kind === 'falling-leaf') {
-    // Pequena folha em perspectiva, sem quadrado artificial.
+  if (q.kind === 'falling-leaf' || q.kind === 'leaf') {
     g.save();
-    g.globalAlpha = Math.min(1, Math.max(0, q.life / 1.1)) * Math.min(1, q.age*3);
-    g.translate(p.x, p.y);
-    g.rotate(q.phase + q.age * q.spin);
-    const rx = Math.max(1.7, s*.9), ry = Math.max(1.1, s*.42);
-    g.fillStyle = q.col; g.beginPath();
-    g.moveTo(-rx, 0); g.quadraticCurveTo(-rx*.12,-ry,rx,0);
-    g.quadraticCurveTo(-rx*.15,ry*.9,-rx,0); g.fill();
-    if (rx > 3.2) {
-      g.strokeStyle = 'rgba(243,235,169,.42)'; g.lineWidth = .65;
-      g.beginPath(); g.moveTo(-rx*.7,0); g.lineTo(rx*.7,0); g.stroke();
-    }
+    g.globalAlpha = Math.min(1,Math.max(0,q.life/1.1)) * Math.min(1,(q.age||.4)*3);
+    const len=Math.max(1.5,s*1.75),angle=q.phase+(q.age||0)*q.spin;
+    // Compartilha a forma exata das folhas desenhadas na copa.
+    paintLeaf(g,p.x,p.y,len,angle,q.col,len>3.8);
     g.restore();
   } else if (q.kind === 'puff') {
     g.globalAlpha = a * 0.55; g.fillStyle = q.col; g.beginPath(); g.arc(p.x, p.y, s * (1.6 - q.life / q.max), 0, TAU); g.fill(); g.globalAlpha = 1;
