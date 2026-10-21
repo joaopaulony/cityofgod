@@ -308,14 +308,23 @@ function paintLeaf(g,x,y,len,angle,color,vein=false) {
 }
 // Agrupa milhares de folhas de mesma cor em UM preenchimento por camada.
 // Evita 100 mil fill() isolados durante o pré-render de cada sprite.
+// NUNCA enviar 100 mil curvas para o mesmo fill(): os backends de Canvas
+// podem descartar caminhos gigantes por limites de tesselação/rasterização.
+// Quebra em blocos seguros de até 256 folhas sem perder a densidade.
+const LEAF_BATCH_SIZE = 256;
 function leafBatch(g, buckets, palette) {
   for(let tone=0;tone<palette.length;tone++){
     const entries=buckets[tone];
     if(!entries.length)continue;
-    g.fillStyle=palette[tone];g.beginPath();
-    for(let i=0;i<entries.length;i+=4)
-      traceLeaf(g,entries[i],entries[i+1],entries[i+2],entries[i+3]);
-    g.fill();
+    g.fillStyle=palette[tone];
+    const step=LEAF_BATCH_SIZE*4;
+    for(let begin=0;begin<entries.length;begin+=step){
+      const end=Math.min(entries.length,begin+step);
+      g.beginPath();
+      for(let i=begin;i<end;i+=4)
+        traceLeaf(g,entries[i],entries[i+1],entries[i+2],entries[i+3]);
+      g.fill();
+    }
   }
 }
 function woodyBranch(g, x0,y0,x1,y1,width) {
