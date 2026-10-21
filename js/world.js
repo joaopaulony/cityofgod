@@ -232,26 +232,29 @@ function bakeShadow(x, y, rx, ry, h) {
 
 // Sombra orgânica pré-pintada: contato no tronco + luz filtrada entre folhas.
 // Não cria gradientes pesados por quadro, apenas durante a geração do mapa.
-function bakeTreeShadow(x, y, sp) {
+function bakeTreeShadow(x,y,sp) {
   const g=world.groundCtx;
-  const projected=sp.trunkH+sp.r*.55, sx=x-SUN[0]*projected*.36, sy=y-SUN[1]*projected*.36;
+  const h=sp.trunkH+sp.r*.55,sx=x-SUN[0]*h*.32,sy=y-SUN[1]*h*.32;
+  const cx=sx*PPM,cy=sy*PPM,rx=sp.r*PPM*.98,ry=sp.r*PPM*.65;
   g.save();
-  const cx=sx*PPM, cy=sy*PPM, rx=sp.r*PPM*1.0, ry=sp.r*PPM*.68;
-  for(let i=0;i<34;i++){
-    const a=rng()*TAU, d=Math.sqrt(rng())*.95;
-    g.fillStyle=i%4===0?'rgba(19,30,12,0.075)':'rgba(16,28,12,0.12)';
-    g.beginPath();
-    g.ellipse(cx+Math.cos(a)*d*rx,cy+Math.sin(a)*d*ry,
-      R(.10,.27)*rx,R(.10,.31)*ry,R(-1,1),0,TAU);
-    g.fill();
+  // Faixa de penumbra mais natural, várias massas sobrepostas.
+  for(let layer=4;layer>=1;layer--){
+    const fade=[.07,.065,.04,.028][layer-1];
+    g.fillStyle='rgba(15,27,9,'+fade+')';
+    g.beginPath();g.ellipse(cx,cy,rx*(layer*.24),ry*(layer*.25),-.25,0,TAU);g.fill();
   }
-  // Difusão atmosférica no centro e contato real com o solo.
+  // Centenas de pequenos vazios de luz filtrada na sombra da copa.
+  for(let i=0;i<190;i++){
+    const a=rng()*TAU,d=Math.sqrt(rng()),px=cx+Math.cos(a)*rx*d,py=cy+Math.sin(a)*ry*d;
+    const sz=R(2,8);
+    g.fillStyle=i%4===0?'rgba(35,48,15,.13)':'rgba(14,24,9,.10)';
+    g.beginPath();g.ellipse(px,py,sz,sz*R(.35,.85),a,0,TAU);g.fill();
+  }
+  // Occlusão ambiente junto à raiz em vez de tronco flutuando.
   for(let i=3;i>=1;i--){
-    g.fillStyle='rgba(16,25,10,'+(i===3?.025:i===2?.035:.045)+')';
-    g.beginPath();g.ellipse(cx,cy,rx*i*.30,ry*i*.31,0,0,TAU);g.fill();
+    g.fillStyle='rgba(10,22,8,'+(i===1?.22:.10)+')';
+    g.beginPath();g.ellipse(x*PPM,y*PPM,PPM*(.12+i*.10),PPM*(.08+i*.058),0,0,TAU);g.fill();
   }
-  g.fillStyle='rgba(15,23,10,0.35)';
-  g.beginPath();g.ellipse(x*PPM,y*PPM,PPM*.25,PPM*.15,0,0,TAU);g.fill();
   g.restore();
 }
 
@@ -514,34 +517,41 @@ function makeTree(kind='oak') {
     leafCount,needleCount,leafColors};
 }
 function makeBush() {
-  // Arbustos também são folhas separadas — sem discos verdes preenchidos.
+  // Arbusto 10× mais folhado, com folhas individuais em pequenos ramos.
   const r=R(.45,.85),S=SPR,pad=13,
     c=makeCanvas(r*2.65*S+pad*2,r*1.88*S+pad*2),g=c.getContext('2d'),
     cx=c.width/2,by=c.height-pad,p=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
-  const shoots=[];
-  for(let i=0;i<15;i++){
-    const angle=R(-Math.PI,0),dist=R(.20,1.0),
-      x=cx+Math.cos(angle)*r*S*dist,y=by+Math.sin(angle)*r*S*.81*dist;
-    shoots.push({x,y,rad:R(6,14)});
+  const shoots=[],colors=[p.deep,p.shade,p.body,p.mid,p.sun,p.glint],
+    paths=Array.from({length:6},()=>[]);
+  for(let i=0;i<19;i++){
+    const angle=R(-Math.PI,0),dist=R(.12,.92),
+      x=cx+Math.cos(angle)*r*S*dist,y=by+Math.sin(angle)*r*S*.76*dist;
+    shoots.push({x,y,rad:R(7,15)});
   }
-  for(const n of shoots){
-    woodyBranch(g,cx,by,n.x,n.y,1.2);
-    for(let i=0;i<92;i++){
+  for(let k=0;k<shoots.length;k++){
+    const n=shoots[k];woodyBranch(g,cx,by,n.x,n.y,1.15);
+    for(let i=0;i<750;i++){
       const a=R(0,TAU),d=Math.sqrt(rng()),x=n.x+Math.cos(a)*n.rad*d,
-        y=n.y+Math.sin(a)*n.rad*.82*d;
-      paintLeaf(g,x,y,R(1.6,3.4),a,p[i%4===0?'shade':i%3===0?'sun':'body']);
+        y=n.y+Math.sin(a)*n.rad*.83*d;
+      const tone=i%11===0?0:i%6===0?1:i%4===0?4:i%3===0?3:2;
+      paths[tone].push(x,y,R(.72,1.6),a);
     }
   }
-  if(rng()<.40){
+  leafBatch(g,paths,colors);
+  for(let i=0;i<95;i++){
+    const n=shoots[(rng()*shoots.length)|0];
+    paintLeaf(g,n.x+R(-n.rad,n.rad),n.y+R(-n.rad*.67,n.rad*.67),
+      R(1.5,2.4),R(-1.4,1.4),rng()>.5?p.sun:p.mid);
+  }
+  if(rng()<.4){
     const flower=['#efe5cb','#d79597','#e9cd73'][(rng()*3)|0];
     for(let i=0;i<20;i++){
-      const n=shoots[(rng()*shoots.length)|0];
-      // Flores em pequenas cruzes, não círculos amarelos borrados.
-      const x=n.x+R(-n.rad,n.rad),y=n.y+R(-n.rad*.6,n.rad*.6);
+      const n=shoots[(rng()*shoots.length)|0],x=n.x+R(-n.rad,n.rad),
+        y=n.y+R(-n.rad*.6,n.rad*.6);
       g.fillStyle=flower;g.fillRect(x-1.2,y-2.5,2.4,5);g.fillRect(x-2.5,y-1.2,5,2.4);
     }
   }
-  return {img:c,ax:cx,ay:by,r};
+  return {img:c,ax:cx,ay:by,r,leafCount:19*750+95};
 }
 
 function makeRock() {
@@ -563,13 +573,31 @@ function makeRock() {
   return { img: c, ax: cx, ay: by, r };
 }
 
-function makeTuft(c1 = '#5f8a34', c2 = '#86ab4a', hmax = 17) {
-  const H = hmax + 3, c = makeCanvas(26, H), g = c.getContext('2d');
-  for (let i = 0; i < 7; i++) {
-    const x = 5 + rng() * 16, h = R(hmax * 0.5, hmax), lean = R(-5, 5);
-    poly(g, [[x - 2, H - 1], [x + lean, H - 1 - h], [x + 2, H - 1]], i % 2 ? c1 : c2, i % 3 ? null : '#2c3f18');
+function makeTuft(c1='#5f8a34',c2='#86ab4a',hmax=17) {
+  // Cada tufo agora possui dezenas de lâminas finas em profundidade,
+  // em vez de sete triângulos grandes e contornados.
+  const H=hmax+9,W=39,c=makeCanvas(W,H),g=c.getContext('2d'),
+    colors=[c1,c2,'#395a2d','#a5b96c','#829850','#9a904d'];
+  const blade=(x,h,lean,color,w)=>{
+    const base=H-2;
+    g.strokeStyle=color;g.lineCap='round';g.lineWidth=w;
+    g.beginPath();g.moveTo(x,base);
+    g.quadraticCurveTo(x+lean*.25,base-h*.48,x+lean,base-h);
+    g.stroke();
+  };
+  // Sombras finas na base para densidade, mas sem retângulos artificiais.
+  g.fillStyle='rgba(28,47,18,.18)';
+  g.beginPath();g.ellipse(W*.5,H-2,W*.33,2.2,0,0,TAU);g.fill();
+  for(let layer=0;layer<3;layer++){
+    for(let i=0;i<40;i++){
+      const x=R(6,W-6),h=R(hmax*.20,hmax*(layer===2?1.12:.82)),
+        lean=R(-8,8),col=colors[(rng()*colors.length)|0];
+      blade(x,h,lean,col,R(.55,1.35));
+    }
   }
-  return { img: c, ax: 13, ay: H - 1 };
+  for(let i=0;i<9;i++)blade(R(8,W-8),R(hmax*.65,hmax*1.07),
+    R(-5,5),rng()>.5?'#b9c67f':c2,.72);
+  return {img:c,ax:W/2,ay:H-2};
 }
 
 function makeTarget() {
@@ -691,11 +719,12 @@ function buildWorld() {
     const p = world.pond, a = R(0, TAU), x = p.x + Math.cos(a) * p.rx * R(1.2, 1.5), y = p.y + Math.sin(a) * p.ry * R(1.2, 1.5);
     if (freeSpot(x, y, 0.4)) { addRock(x, y); n++; }
   }
-  const tufts = [makeTuft(), makeTuft(), makeTuft()], reeds = [makeTuft('#3d6b3a', '#5a8a46', 24), makeTuft('#4a7a3c', '#6f9a4e', 28)];
-  for (let i = 0; i < MAP * MAP * 0.075; i++) {
+  const tufts = [makeTuft(), makeTuft(), makeTuft(), makeTuft('#456f30','#8daa50'), makeTuft('#526c37','#b4b46b')],
+    reeds = [makeTuft('#3d6b3a', '#5a8a46', 24), makeTuft('#4a7a3c', '#6f9a4e', 28)];
+  for (let i = 0; i < MAP * MAP * 0.115; i++) {
     const x = R(0.5, MAP - 0.5), y = R(0.5, MAP - 0.5);
     if (onRoad(x, y) || pondVal(x, y) < 1.05 || world.blocked(x, y, 0.2)) continue;
-    world.props.push({ type: 'tuft', x, y, sp: tufts[i % 3], phase: rng() * 6, flat: true });
+    world.props.push({ type: 'tuft', x, y, sp: tufts[i % tufts.length], phase: rng() * 6, flat: true });
   }
   if (world.pond) for (let i = 0; i < 900; i++) {   // juncos na beira d'água
     const p = world.pond, x = p.x + R(-p.rx - 2, p.rx + 2), y = p.y + R(-p.ry - 2, p.ry + 2), v = pondVal(x, y);
