@@ -230,6 +230,31 @@ function bakeShadow(x, y, rx, ry, h) {
   g.fill();
 }
 
+// Sombra orgânica pré-pintada: contato no tronco + luz filtrada entre folhas.
+// Não cria gradientes pesados por quadro, apenas durante a geração do mapa.
+function bakeTreeShadow(x, y, sp) {
+  const g=world.groundCtx;
+  const projected=sp.trunkH+sp.r*.55, sx=x-SUN[0]*projected*.36, sy=y-SUN[1]*projected*.36;
+  g.save();
+  const cx=sx*PPM, cy=sy*PPM, rx=sp.r*PPM*1.0, ry=sp.r*PPM*.68;
+  for(let i=0;i<34;i++){
+    const a=rng()*TAU, d=Math.sqrt(rng())*.95;
+    g.fillStyle=i%4===0?'rgba(19,30,12,0.075)':'rgba(16,28,12,0.12)';
+    g.beginPath();
+    g.ellipse(cx+Math.cos(a)*d*rx,cy+Math.sin(a)*d*ry,
+      R(.10,.27)*rx,R(.10,.31)*ry,R(-1,1),0,TAU);
+    g.fill();
+  }
+  // Difusão atmosférica no centro e contato real com o solo.
+  for(let i=3;i>=1;i--){
+    g.fillStyle='rgba(16,25,10,'+(i===3?.025:i===2?.035:.045)+')';
+    g.beginPath();g.ellipse(cx,cy,rx*i*.30,ry*i*.31,0,0,TAU);g.fill();
+  }
+  g.fillStyle='rgba(15,23,10,0.35)';
+  g.beginPath();g.ellipse(x*PPM,y*PPM,PPM*.25,PPM*.15,0,0,TAU);g.fill();
+  g.restore();
+}
+
 // ---------- sprites pintados uma vez ----------
 // ---- Vegetação orgânica: copas com ramificações, folhagem em camadas e folhas reais.
 // Tudo é pré-renderizado em sprites Canvas 2D, sem imagens externas.
@@ -580,7 +605,7 @@ function buildWorld() {
     const t = { type: 'tree', x, y, sp: sp2, hit: 0, phase: rng() * 6 };
     world.props.push(t);
     world.circles.push({ x, y, r: 0.28, kind: 'tree', ref: t, h: 6 });
-    bakeShadow(x, y, sp2.r * 0.95, sp2.r * 0.7, sp2.trunkH + sp2.r);
+    bakeTreeShadow(x, y, sp2);
   };
   for (let i = 0, n = 0; i < 6000 && n < 90; i++) {
     const x = R(1, MAP - 1), y = R(1, MAP - 1), f = forest(x, y);
