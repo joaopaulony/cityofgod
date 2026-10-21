@@ -14,6 +14,7 @@ const foliageSource = worldSource.slice(start,end);
 assert.ok(!/function blobCluster\(/.test(foliageSource),'the round blob renderer must not return');
 const leafCanopy = foliageSource.slice(foliageSource.indexOf('function leafCanopy('),foliageSource.indexOf('function spruceNeedles('));
 assert.ok(!/\.ellipse\(|\.arc\(/.test(leafCanopy),'crowns must be leaf-by-leaf, not filled green discs');
+assert.ok(foliageSource.includes('const LEAF_BATCH_SIZE = 256;'), 'large Canvas paths must be split into batches');
 let drawCalls = 0;
 const context2d = new Proxy({}, {
   get(_t, key) {
@@ -33,7 +34,7 @@ const poly=(_g,pts)=>assert.ok(Array.isArray(pts)&&pts.length>=3);
 const world={groundCtx:context2d};
 const sandbox=vm.createContext({Math,TAU:Math.PI*2,SPR:40,PPM:28,SUN:[-.55,-.75,.9],rng:rand,R,
   makeCanvas,poly,world});
-vm.runInContext(worldSource.slice(start,end)+'\nthis.testApi={makeTree,makeBush};',sandbox);
+vm.runInContext(worldSource.slice(start,end)+'\nthis.testApi={makeTree,makeBush,leafBatch};',sandbox);
 const sprites=['oak','oak','yard','street','pine','pine'].map(kind=>sandbox.testApi.makeTree(kind));
 for (const sp of sprites) {
   assert.ok(sp.trunk.width>0&&sp.trunk.height>0&&sp.crown.width>0&&sp.crown.height>0);
@@ -61,5 +62,16 @@ assert.ok(worldSource.includes('for (let i = 0; i < MAP * MAP * 10; i++)'),'grou
 assert.ok(worldSource.includes('for(let i=0;i<40;i++'),'grass tufts use several layers of blades');
 assert.ok(gameSource.includes("spawnAmbientLeaves(dt);"));
 assert.ok(gameSource.includes("active < 48"));
+// Regression: no fill may accumulate over 256 leaf outlines.
+let maxLeaves=0,leavesInPath=0,fills=0;
+const guard=new Proxy({},{get:(_t,k)=>{
+  if(k==='beginPath')return()=>{leavesInPath=0;};
+  if(k==='moveTo')return()=>{leavesInPath++;};
+  if(k==='fill')return()=>{maxLeaves=Math.max(maxLeaves,leavesInPath);fills++;};
+  return()=>{};
+},set:()=>true});
+sandbox.testApi.leafBatch(guard,[Array.from({length:4096*4},(_,i)=>i%4===2?1.5:.6)],['#2b6a37']);
+assert.ok(maxLeaves<=256,'Canvas path exceeds safe 256-leaf batch');
+assert.ok(fills>=16,'leaf batching should submit several safe fills');
 assert.ok(drawCalls>1000,'detailed pre-rendered foliage should produce many draw calls');
 console.log('OK: 6 trees (100k+ leaves / 60k+ needles), 8 dense shrubs, grass blades, shadows and matching shot leaves');
