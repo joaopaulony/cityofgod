@@ -80,7 +80,10 @@ function roofRnd(H, k) { return mulberry(H.seed * 31 + k * 7919); }
 function drawPitched(g, H) {
   const R = H.roofGeom, S = H.style;
   const fs = R.faces.map(f => ({ f, d: f.p.reduce((s, q) => s + depthOf(q[0], q[1]) + q[2] * 0.02, 0) / f.p.length }));
-  fs.sort((a, b) => a.d - b.d);
+  // A empena e parede, portanto deve ficar SEMPRE sob as aguas inclinadas;
+  // ordenar tudo pelo centro podia desenhar a parede em cima das telhas.
+  fs.sort((a, b) => a.f.gable !== b.f.gable
+    ? (a.f.gable ? -1 : 1) : a.d - b.d);
   for (const { f } of fs) {
     const pts = f.p.map(q => proj(...q));
     if (f.gable) {
