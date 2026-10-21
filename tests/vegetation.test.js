@@ -40,12 +40,13 @@ for (const sp of sprites) {
   assert.ok(sp.trunkH>1&&sp.r>0&&sp.leafColors.length>0);
   assert.ok(sp.cay>0&&sp.cay<=sp.crown.height);
   assert.ok(sp.trunkH<1.8,'tree trunks must remain short and natural');
-  if(sp.kind==='pine') assert.ok(sp.needleCount>=1800,'pine must have individual needles');
-  else assert.ok(sp.leafCount>=5000,'broadleaf trees must use individual leaves');
+  if(sp.kind==='pine') assert.ok(sp.needleCount>=60000,'pine must render 10x needles');
+  else assert.ok(sp.leafCount>=100000,'broadleaf trees must render 10x individual leaves');
 }
 for (let i=0;i<8;i++) {
   const bush=sandbox.testApi.makeBush();
   assert.ok(bush.img.width>0&&bush.img.height>0&&bush.r>.3);
+  assert.ok(bush.leafCount>=14000,'bushes need 10x individual leaves');
 }
 const shadowStart=worldSource.indexOf('function bakeTreeShadow(');
 const shadowEnd=worldSource.indexOf('// ---------- sprites pintados uma vez',shadowStart);
@@ -54,7 +55,11 @@ vm.runInContext(worldSource.slice(shadowStart,shadowEnd)+'\nthis.bakeTreeShadow=
 sandbox.bakeTreeShadow(10,12,sprites[0]);
 assert.ok(gameSource.includes("function spawnAmbientLeaves(dt)"));
 assert.ok(gameSource.includes("kind:'falling-leaf'"));
+assert.ok(gameSource.includes('function spawnTreeShotLeaves(hit)'),'shot foliage needs real leaves');
+assert.ok(gameSource.includes('paintLeaf(g,p.x,p.y,len,angle,q.col'),'shot and ambient leaves use canopy shape');
+assert.ok(worldSource.includes('for (let i = 0; i < MAP * MAP * 10; i++)'),'ground grass has microblades');
+assert.ok(worldSource.includes('for(let i=0;i<40;i++'),'grass tufts use several layers of blades');
 assert.ok(gameSource.includes("spawnAmbientLeaves(dt);"));
 assert.ok(gameSource.includes("active < 48"));
 assert.ok(drawCalls>1000,'detailed pre-rendered foliage should produce many draw calls');
-console.log('OK: 6 short-trunk trees (5k+ leaves / 1.8k+ needles), 8 shrubs, shadows and leaves');
+console.log('OK: 6 trees (100k+ leaves / 60k+ needles), 8 dense shrubs, grass blades, shadows and matching shot leaves');
