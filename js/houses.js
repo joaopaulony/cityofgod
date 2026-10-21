@@ -358,7 +358,8 @@ function drawWall(g, s) {
   if (s.door) {
     drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
     if (h > 2.12) drawWallSlice(g, s, 2.12, h, 0.1, 0.9);
-    drawDoorway(g, s, Math.min(h, 2.12));
+    // No corte interno, a folha não deve reaparecer como um bloco de 50 cm de altura.
+    if (!cut) drawDoorway(g, s, Math.min(h, 2.12));
   } else {
     drawWallSlice(g, s, 0, h, 0, 1);
     if (s.window && h > 1.6 && world.night) {
