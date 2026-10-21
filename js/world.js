@@ -273,16 +273,19 @@ function bakeTreeShadow(x,y,sp) {
 // ---- Vegetação orgânica: copas com ramificações, folhagem em camadas e folhas reais.
 // Tudo é pré-renderizado em sprites Canvas 2D, sem imagens externas.
 // Cada variante consome somente o RNG do gerador durante a criação do mundo.
+// Seis tons por espécie: sombra > meio-tom > borda iluminada.
+// Nunca use tons ciano/cinza nas coníferas; o contraste vem de verdes naturais.
 const LEAF_PALETTES = [
-  { deep:'#203923', shade:'#2e522c', body:'#45743a', mid:'#5d8e46', sun:'#91ae56', glint:'#b3c875' },
-  { deep:'#253b24', shade:'#345a2b', body:'#53763a', mid:'#769648', sun:'#a7b85d', glint:'#c6cf83' },
-  { deep:'#203c32', shade:'#2e5d3c', body:'#457f4d', mid:'#67a362', sun:'#9ac279', glint:'#c0d69b' },
-  { deep:'#354027', shade:'#516235', body:'#6a8541', mid:'#849b4b', sun:'#b3b862', glint:'#d3cf83' },
+  { deep:'#1b321c', shade:'#284b27', body:'#3e6c31', mid:'#598340', sun:'#809e50', glint:'#a2b76c' },
+  { deep:'#23341a', shade:'#39522a', body:'#56703a', mid:'#708b44', sun:'#96a65c', glint:'#adbb76' },
+  { deep:'#1c3726', shade:'#2a5535', body:'#3f7746', mid:'#579252', sun:'#80ae69', glint:'#a4c386' },
+  { deep:'#28351b', shade:'#425429', body:'#5d7635', mid:'#789044', sun:'#9eac55', glint:'#b7bd6a' },
 ];
 const NEEDLE_PALETTES = [
-  ['#132a23','#1f4334','#2c6043','#407757','#688b62'],
-  ['#172e27','#234937','#36664a','#48795a','#80a077'],
-  ['#1a3431','#244944','#34635a','#4d7b71','#86a299'],
+  ['#101f16','#183824','#245034','#356644','#527b4c'],
+  ['#15231a','#21402b','#30563a','#456b43','#627c4a'],
+  ['#15271b','#25462e','#35613b','#4d7446','#718957'],
+  ['#152c21','#204432','#2c5b3a','#3b714b','#5d8152']
 ];
 
 // Folha lanceolada, desenhada como forma e não como pixel aleatório.
@@ -402,6 +405,35 @@ function crownAnchors(cx,cy,r,family) {
   }
   return anchors.sort((a,b)=>a.y-b.y);
 }
+// Folhagem opaca de contorno orgânico, nunca um círculo: cada ramo forma
+// uma massa irregular que impede o topo de desaparecer a distância normal.
+// As milhares de folhas individuais são colocadas em cima desta estrutura.
+function branchFoliage(g,n,p,layer) {
+  const steps=22, pts=[],seed=n.phase;
+  const cx=n.x,cy=n.y,rx=n.rx*(layer===0?.99:.88),
+    ry=n.ry*(layer===0?1.03:.90);
+  for(let i=0;i<steps;i++) {
+    const a=i*TAU/steps;
+    const irregular=1+.15*Math.sin(a*3+seed)+.12*Math.sin(a*7-seed*1.3)
+      +R(-.085,.085);
+    const rr=irregular*(1+.07*Math.cos(a*2));
+    pts.push([cx+Math.cos(a)*rx*rr,cy+Math.sin(a)*ry*rr]);
+  }
+  // Base natural, com recortes e sombras variáveis. Sem outlines pretos.
+  g.fillStyle=layer===0?p.deep:(n.lit>.55?p.body:p.shade);
+  g.beginPath();g.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);
+  g.closePath();g.fill();
+  if(layer===0) {
+    // Variação de tom dentro do mesmo ramo, ligeiramente para a luz.
+    g.fillStyle=p.shade;g.beginPath();
+    g.moveTo(cx-rx*.64,cy-ry*.1);
+    g.quadraticCurveTo(cx-rx*.50,cy-ry*.76,cx-rx*.05,cy-ry*.72);
+    g.quadraticCurveTo(cx+rx*.23,cy-ry*.38,cx+rx*.32,cy-ry*.06);
+    g.quadraticCurveTo(cx-rx*.14,cy-ry*.30,cx-rx*.64,cy-ry*.1);
+    g.fill();
+  }
+}
 function leafTone(p,light,deepLayer) {
   const q=rng();
   if(deepLayer) return q<.25?p.deep:q<.68?p.shade:p.body;
@@ -420,6 +452,9 @@ function leafCanopy(g,cx,cy,r,family,p) {
     if(i%2===0) woodyBranch(g,(sx+n.x)*.5,(baseY+n.y)*.5,
       n.x+R(-8,8),n.y+R(-7,6),R(.55,.95));
   }
+  // Primeiro estrutura de sombra entrelaçada. Depois cada folha é desenhada.
+  // Essa base preenche as clareiras excessivas que faziam a copa sumir.
+  for(const n of anchors) branchFoliage(g,n,p,0);
   const colors=[p.deep,p.shade,p.body,p.mid,p.sun,p.glint];
   const buckets=()=>Array.from({length:6},()=>[]);
   const chooseTone=(n,layer)=>{
@@ -441,7 +476,9 @@ function leafCanopy(g,cx,cy,r,family,p) {
         // Pequenas clareiras microscópicas, mas não buracos enormes.
         const gap=Math.sin((xx+n.phase*8)*.18)*Math.cos((yy-n.phase*9)*.18);
         if(gap>.976&&layer!==2)continue;
-        const size=layer===0?R(.75,1.55):layer===1?R(.78,1.70):R(.68,1.48);
+        // Até em zoom normal cada folha precisa ocupar pixels reconhecíveis.
+        // As menores continuam visíveis porque a estrutura já é opaca.
+        const size=layer===0?R(1.9,3.2):layer===1?R(2.0,3.6):R(1.85,3.25);
         const a=theta*.35+R(-1.2,1.2)-.2;
         const tone=chooseTone(n,layer);
         paint[tone].push(xx-(layer===2?1:0),yy-(layer===2?1.6:0),size,a);
@@ -455,7 +492,7 @@ function leafCanopy(g,cx,cy,r,family,p) {
     const a=j*2.39996+R(-.14,.14),d=R(.79,1.22);
     const x=n.x+Math.cos(a)*n.rx*d,y=n.y+Math.sin(a)*n.ry*d;
     const tone=n.lit>.58&&rng()>.48?4:rng()>.5?3:2;
-    rim[tone].push(x,y,R(.85,1.8),a+R(-.9,.9));count++;
+    rim[tone].push(x,y,R(2.0,4.2),a+R(-.9,.9));count++;
   }
   leafBatch(g,rim,colors);
   // Realces esparsos são folhas de verdade, não ruído/pixels genéricos.
