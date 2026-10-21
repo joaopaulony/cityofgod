@@ -119,10 +119,21 @@ function paintGround() {
     if (dirt > 0.7) col = dirt > 0.74 ? '#8a7048' : '#7d7a3e';  // clareiras de terra batida
     g.fillStyle = col; g.fillRect(M(x) | 0, M(y) | 0, CP, CP);
   }
-  const gc = ['#58752f', '#80a046', '#91ad52', '#4f6a2a', '#738f3d'];
-  for (let i = 0; i < MAP * MAP * 5; i++) {
-    g.fillStyle = gc[(rng() * gc.length) | 0];
-    g.fillRect((rng() * MAP * PPM) | 0, (rng() * MAP * PPM) | 0, 2, rng() < 0.4 ? 3 : 2);
+  // Micrograma pintada lâmina por lâmina uma vez no solo do mapa,
+  // substituindo pontinhos retangulares repetitivos.
+  const gc = ['#58752f', '#80a046', '#91ad52', '#4f6a2a', '#738f3d', '#a7b65d'];
+  for (let i = 0; i < MAP * MAP * 10; i++) {
+    const bx = rng() * MAP * PPM, by = rng() * MAP * PPM,
+      length = R(1.6,4.7),lean=R(-2,2);
+    g.strokeStyle=gc[(rng()*gc.length)|0];g.lineWidth=R(.55,1.1);
+    g.beginPath();g.moveTo(bx,by);
+    g.quadraticCurveTo(bx+lean*.32,by-length*.58,bx+lean,by-length);
+    g.stroke();
+    if (i%7===0) {
+      g.beginPath();g.moveTo(bx+R(-1.7,1.7),by);
+      g.quadraticCurveTo(bx-lean*.15,by-length*.5,bx-lean*.62,by-length*.81);
+      g.stroke();
+    }
   }
   // lago: areia -> água rasa -> funda, em blocos, com brilhos
   if (world.pond) {
