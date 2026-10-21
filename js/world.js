@@ -231,82 +231,233 @@ function bakeShadow(x, y, rx, ry, h) {
 }
 
 // ---------- sprites pintados uma vez ----------
-function blobCluster(g, blobs, tones, specks) {
-  const [dark, mid, light] = tones;
-  g.fillStyle = INK;
-  for (const b of blobs) { g.beginPath(); g.arc(b.x, b.y, b.r + 1.6, 0, TAU); g.fill(); }
-  g.fillStyle = dark;
-  for (const b of blobs) { g.beginPath(); g.arc(b.x, b.y, b.r, 0, TAU); g.fill(); }
-  g.fillStyle = mid;
-  for (const b of blobs) { g.beginPath(); g.arc(b.x - b.r * 0.2, b.y - b.r * 0.25, b.r * 0.74, 0, TAU); g.fill(); }
-  g.fillStyle = light;
-  for (const b of blobs) if (b.lit) { g.beginPath(); g.arc(b.x - b.r * 0.35, b.y - b.r * 0.4, b.r * 0.38, 0, TAU); g.fill(); }
-  // textura de folhas em "pixels"
-  for (const b of blobs) for (let i = 0; i < b.r * specks; i++) {
-    const a = rng() * TAU, d = rng() * b.r * 0.85;
-    const px = b.x + Math.cos(a) * d, py = b.y + Math.sin(a) * d;
-    const top = (px - b.x) + (py - b.y) < 0;
-    g.fillStyle = top ? (rng() < 0.6 ? light : mid) : (rng() < 0.6 ? dark : INK + '88');
-    g.fillRect(px | 0, py | 0, 2, 2);
+// ---- Vegetação orgânica: copas com ramificações, folhagem em camadas e folhas reais.
+// Tudo é pré-renderizado em sprites Canvas 2D, sem imagens externas.
+// Cada variante consome somente o RNG do gerador durante a criação do mundo.
+const LEAF_PALETTES = [
+  { deep:'#203923', shade:'#2e522c', body:'#45743a', mid:'#5d8e46', sun:'#91ae56', glint:'#b3c875' },
+  { deep:'#253b24', shade:'#345a2b', body:'#53763a', mid:'#769648', sun:'#a7b85d', glint:'#c6cf83' },
+  { deep:'#203c32', shade:'#2e5d3c', body:'#457f4d', mid:'#67a362', sun:'#9ac279', glint:'#c0d69b' },
+  { deep:'#354027', shade:'#516235', body:'#6a8541', mid:'#849b4b', sun:'#b3b862', glint:'#d3cf83' },
+];
+const NEEDLE_PALETTES = [
+  ['#132a23','#1f4334','#2c6043','#407757','#688b62'],
+  ['#172e27','#234937','#36664a','#48795a','#80a077'],
+  ['#1a3431','#244944','#34635a','#4d7b71','#86a299'],
+];
+
+// Folha lanceolada, desenhada como forma e não como pixel aleatório.
+function paintLeaf(g, x, y, length, angle, color, vein = false) {
+  g.save();
+  g.translate(x, y); g.rotate(angle);
+  const w = length * 0.34;
+  g.fillStyle = color; g.beginPath();
+  g.moveTo(-length * 0.5, 0);
+  g.quadraticCurveTo(-length * 0.1, -w * 1.05, length * 0.52, 0);
+  g.quadraticCurveTo(-length * 0.05, w * 1.12, -length * 0.5, 0);
+  g.fill();
+  if (vein) {
+    g.strokeStyle = 'rgba(234,242,180,0.28)';
+    g.lineWidth = 0.65; g.beginPath();
+    g.moveTo(-length * 0.29, 0); g.lineTo(length * 0.34, 0); g.stroke();
+  }
+  g.restore();
+}
+function woodyBranch(g, a, b, width, darker = false) {
+  const midx = (a[0] + b[0]) * 0.5 + (b[0] - a[0]) * 0.08;
+  const midy = (a[1] + b[1]) * 0.5;
+  g.lineCap = 'round';
+  g.strokeStyle = darker ? '#332b20' : '#4b3729';
+  g.lineWidth = width + 1.2; g.beginPath(); g.moveTo(a[0], a[1]);
+  g.quadraticCurveTo(midx, midy, b[0], b[1]); g.stroke();
+  g.strokeStyle = darker ? '#5d4830' : '#816447';
+  g.lineWidth = Math.max(0.8, width * 0.55);
+  g.stroke();
+}
+function paintTrunk(g, bx, bottom, height, r, leafKind = false) {
+  const top = bottom - height;
+  const taper = r * 0.40, foot = r * 0.75;
+  g.fillStyle = '#33271e'; g.beginPath();
+  g.moveTo(bx - foot - 4, bottom);
+  g.quadraticCurveTo(bx - r * 0.55, bottom - height * 0.12, bx - taper, top);
+  g.lineTo(bx + taper * 0.72, top);
+  g.quadraticCurveTo(bx + r * 0.60, bottom - height * 0.24, bx + foot + 4, bottom);
+  g.closePath(); g.fill();
+  g.fillStyle = '#73553a'; g.beginPath();
+  g.moveTo(bx - foot * 0.55, bottom - 1);
+  g.quadraticCurveTo(bx - r * 0.35, bottom - height * 0.4, bx - taper * 0.6, top);
+  g.lineTo(bx + taper * 0.12, top);
+  g.quadraticCurveTo(bx + r * 0.08, bottom - height * 0.3, bx + foot * 0.02, bottom - 2);
+  g.fill();
+  g.strokeStyle = '#a18059'; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(bx - r * 0.29, bottom - 3);
+  g.quadraticCurveTo(bx - r * 0.16, bottom - height * 0.5, bx - r * 0.21, top + height * 0.1); g.stroke();
+  const marks = Math.max(12, Math.floor(height / 6));
+  for (let i = 0; i < marks; i++) {
+    const py = bottom - R(7, height - 4), xx = bx + R(-r * 0.45, r * 0.45);
+    g.strokeStyle = i % 3 ? 'rgba(34,26,21,0.32)' : 'rgba(215,176,122,0.25)';
+    g.lineWidth = R(0.7, 1.5);
+    g.beginPath(); g.moveTo(xx, py); g.lineTo(xx + R(-2,2), py + R(3,12)); g.stroke();
+  }
+  if (!leafKind) {
+    // Ramificação principal aparente acima do tronco; a copa cobre parte dela.
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI + i * Math.PI / 4.0 + R(-0.13,0.13);
+      const x = bx + Math.sin(a) * r * R(2.0,3.7);
+      const y = top + Math.cos(a) * r * R(1.5,2.7);
+      woodyBranch(g, [bx + R(-r*.2,r*.2), top + R(1,7)], [x,y], R(2.6,5.0));
+    }
   }
 }
-
-function makeTree(kind) {
-  const trunkH = R(1.5, 2.2), r = kind === 'pine' ? R(1.1, 1.5) : R(1.4, 2.0);
-  const S = SPR, pad = 6;
-  // tronco
-  const tw = 0.34 * S, th = trunkH * S;
-  const tc = makeCanvas(tw + pad * 2 + 10, th + pad), tg = tc.getContext('2d');
-  const bx = tc.width / 2;
-  poly(tg, [[bx - tw / 2 - 5, th + 2], [bx - tw / 2, th - 6], [bx - tw * 0.32, 2], [bx + tw * 0.32, 2], [bx + tw / 2, th - 6], [bx + tw / 2 + 5, th + 2]], '#4a3122', INK, 2);
-  tg.fillStyle = '#6b4a30'; tg.fillRect(bx - tw * 0.3, 3, tw * 0.3, th - 6);
-  tg.fillStyle = '#835c3b'; tg.fillRect(bx - tw * 0.25, 3, 2, th - 8);
-  for (let i = 0; i < 9; i++) { tg.fillStyle = '#3a261a'; tg.fillRect(bx + R(-tw / 3, tw / 3), R(4, th - 4), 2, R(2, 5)); }
-  // copa
-  const W = (r * 2 + 0.4) * S, H = (kind === 'pine' ? r * 3.6 : r * 2) * S + 0.4 * S;
-  const cc = makeCanvas(W + pad * 2, H + pad * 2), cg = cc.getContext('2d');
-  const cx = cc.width / 2, by = cc.height - pad - 0.2 * S;
-  if (kind === 'pine') {
-    const layers = 5, tones = ['#1f4a2c', '#2f6338', '#4a7d43'];
-    for (let L = 0; L < layers; L++) {
-      const w = r * S * (1 - L * 0.17), y0 = by - L * r * S * 0.62, y1 = y0 - r * S * 1.05;
-      const pts = [[cx, y1]];
-      for (let i = 0; i <= 8; i++) { const f = i / 8; pts.push([cx - w + f * w * 2, y0 + (i % 2 ? 4 : -2) + Math.sin(f * 3.14) * 6]); }
-      poly(cg, pts, tones[0], INK, 2);
-      poly(cg, [[cx, y1 + 3], [cx - w * 0.8, y0 - 3], [cx + w * 0.1, y0 - 4]], tones[1], null);
-      poly(cg, [[cx - 2, y1 + 6], [cx - w * 0.45, y0 - 8], [cx - w * 0.1, y0 - 9]], tones[2], null);
-    }
-  } else {
-    const leafy = [['#2e5a26', '#4a7d32', '#6e9d40'], ['#3a5e22', '#5c8530', '#86a845'], ['#4c5a20', '#738a2e', '#a0a947']][(rng() * 3) | 0];
-    const blobs = [];
-    const ccx = cx, ccy = by - r * S * 0.95;
-    for (let i = 0; i < 16; i++) {
-      const a = rng() * TAU, d = Math.sqrt(rng()) * r * S * 0.62;
-      const br = r * S * R(0.32, 0.5);
-      blobs.push({ x: ccx + Math.cos(a) * d, y: ccy + Math.sin(a) * d * 0.8, r: br });
-    }
-    blobs.sort((a, b) => a.y - b.y);
-    for (const b of blobs) b.lit = (b.x - ccx) + (b.y - ccy) < r * S * 0.2;
-    blobCluster(cg, blobs, leafy, 2.2);
+function organicCrown(g, cx, cy, radius, family, palette) {
+  const street = family === 'street', airy = family === 'yard' || street;
+  const nodes = [];
+  const count = street ? 24 : airy ? 29 : 36;
+  // Irregular branch clusters, not a circular ring of identical blobs.
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * TAU + R(-0.46,0.46);
+    const outward = Math.sqrt(rng()) * R(0.22,0.88);
+    const x = cx + Math.cos(angle) * radius * outward * (street ? 0.92 : 1.07);
+    const y = cy + Math.sin(angle) * radius * outward * (street ? 0.8 : 0.70);
+    const rx = radius * R(0.16,0.34), ry = rx * R(0.58,0.94);
+    nodes.push({x,y,rx,ry,i});
   }
-  return { trunk: tc, tax: bx, tay: th, crown: cc, cax: cx, cay: by, trunkH, r };
+  nodes.sort((a,b)=>a.y-b.y);
+  const rootY = cy + radius * 0.86;
+  // Branches glimpsed through real canopy gaps.
+  for (let i = 0; i < nodes.length; i += 2) {
+    const n = nodes[i];
+    woodyBranch(g,[cx + R(-6,6),rootY],[n.x,n.y],R(1.5,3.0),true);
+  }
+  // Lumpy irregular silhouetting with directional light and interior darkness.
+  for (const n of nodes) {
+    g.save(); g.translate(n.x,n.y); g.rotate(R(-0.45,0.45));
+    g.fillStyle = palette.deep;
+    g.beginPath();g.ellipse(2.5,4,n.rx+2,n.ry+2,0,0,TAU);g.fill();
+    g.fillStyle = n.y>cy + radius*0.2 ? palette.shade : palette.body;
+    g.beginPath();g.ellipse(0,0,n.rx,n.ry,0,0,TAU);g.fill();
+    g.fillStyle = n.x<cx && n.y<cy ? palette.mid : palette.shade;
+    g.beginPath();g.ellipse(-n.rx*.18,-n.ry*.22,n.rx*.67,n.ry*.64,0,0,TAU);g.fill();
+    g.restore();
+  }
+  // Leaflets are painterly, with highlights in sunlit upper-left clusters.
+  for (const n of nodes) {
+    const lit = Math.max(0,Math.min(1,0.54 + (cx-n.x)/radius*.25 + (cy-n.y)/radius*.32));
+    const count = Math.floor(n.rx*n.ry*(airy?0.26:0.30));
+    for(let j=0;j<count;j++){
+      const a=R(0,TAU),d=Math.sqrt(rng())*0.95;
+      const x=n.x+Math.cos(a)*n.rx*d, y=n.y+Math.sin(a)*n.ry*d;
+      const q=rng();
+      const col=q<0.10 ? palette.deep : q<0.32 ? palette.shade
+        : q<0.67 ? palette.body : q<0.90 ? palette.mid
+        : lit>0.52 ? palette.glint : palette.sun;
+      paintLeaf(g,x,y,R(2.1,5.0),a+R(-0.8,0.8),col,q>0.98&&lit>.55);
+    }
+    // Fringe twigs and leaves break the repetitive circular crown contour.
+    for(let j=0;j<10;j++){
+      const a=j/10*TAU+R(-0.4,0.4);
+      const x=n.x+Math.cos(a)*n.rx*R(0.84,1.10), y=n.y+Math.sin(a)*n.ry*R(0.84,1.12);
+      paintLeaf(g,x,y,R(3,6.4),a+R(-0.6,0.6),
+        (n.y<cy&&n.x<cx&&rng()>.4)?palette.sun:palette.body);
+    }
+  }
 }
-
+function evergreenCrown(g, cx, baseY, radius, palette) {
+  const height = radius * R(2.45,2.85);
+  const top = baseY - height;
+  // Thin trunk and long angled branches are visible between asymmetric whorls.
+  woodyBranch(g,[cx,baseY+6],[cx+R(-4,4),top+6],5,true);
+  const whorls=9;
+  for(let i=0;i<whorls;i++){
+    const t=i/(whorls-1), y=baseY-t*height*.90, x=cx+Math.sin(i*2.4)*3+R(-3,3);
+    const width=radius*(1-t*.91)*R(0.81,1.13);
+    for(const side of [-1,1]) woodyBranch(g,[cx,y-18],[x+side*width*.86,y+R(-1,7)],Math.max(1,3-t*1.6),true);
+    // Organic taper with serrated tips rather than rigid stacked triangles.
+    for (const layer of [0,1]) {
+      const w=width*(layer?0.77:1), ybase=y-(layer?8:0);
+      const pts=[[x+R(-3,3),ybase-w*R(.80,1.0)]];
+      for(let k=8;k>=0;k--){
+        const f=k/8;
+        pts.push([x + f*w + R(-3.6,3.6), ybase + Math.sin(f*4)*2 + R(-4,3)]);
+      }
+      for(let k=0;k<=8;k++){
+        const f=k/8;
+        pts.push([x-f*w+R(-3.6,3.6), ybase+Math.sin(f*4)*2+R(-4,3)]);
+      }
+      poly(g,pts, palette[layer?2:0],null);
+      // Directional branch faces, not uniformly flat.
+      const hl=[[x-w*.63,ybase-5],[x-3,ybase-w*.77],[x+w*.08,ybase-3],[x-w*.38,ybase-4]];
+      poly(g,hl,palette[layer?4:2],null);
+    }
+    // Needles individually define lighter twigs and the shadow side.
+    const needles = Math.round(95 + width*1.8);
+    for(let j=0;j<needles;j++){
+      const f=R(-1,1), x2=x+f*width, frac=Math.abs(f);
+      const y2=y - (1-frac)*width*R(.16,.80)+R(-4,3);
+      g.strokeStyle= rng()<.28 ? palette[1] : (f<0&&rng()<.5?palette[4]:palette[2]);
+      g.lineWidth=R(.65,1.45);
+      g.beginPath();g.moveTo(x2,y2);g.lineTo(x2+R(-3,3),y2-R(2.3,6));g.stroke();
+    }
+  }
+  // Fine tapered leading shoot softens the rigid apex.
+  for(let k=0;k<15;k++){
+    const x=cx+R(-8,8),y=top+R(-5,18);
+    g.strokeStyle=palette[k%3+2]; g.lineWidth=1;
+    g.beginPath();g.moveTo(x,y+6);g.lineTo(x+R(-2,2),y-4);g.stroke();
+  }
+}
+function makeTree(kind='oak') {
+  const pine = kind==='pine', street=kind==='street', yard=kind==='yard';
+  const trunkH=pine?R(1.8,2.55):street?R(2.55,3.15):yard?R(1.75,2.30):R(2.0,2.7);
+  const r=pine?R(1.15,1.65):street?R(1.30,1.72):yard?R(1.25,1.85):R(1.65,2.25);
+  const S=SPR, pad=20, tw=(pine?0.20:0.32)*S;
+  const th=trunkH*S;
+  const tc=makeCanvas(tw+pad*2+24,th+pad+12),tg=tc.getContext('2d'),bx=tc.width/2;
+  paintTrunk(tg,bx,tc.height-pad/2,th,tw*.47,pine);
+  const w=(r*2.65+0.55)*S,h=(pine?r*3.6:r*2.6)*S+pad*2;
+  const cc=makeCanvas(w,h),cg=cc.getContext('2d'),cx=cc.width/2,by=cc.height-pad;
+  if(pine){
+    const p=NEEDLE_PALETTES[(rng()*NEEDLE_PALETTES.length)|0];
+    evergreenCrown(cg,cx,by-r*S*.15,r*S,p);
+  }else{
+    const pal=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
+    // Clusters create irregular silhouette; visible branching adds depth.
+    organicCrown(cg,cx,by-r*S*.89,r*S,kind,pal);
+  }
+  return { trunk:tc, tax:bx, tay:tc.height-pad/2, crown:cc, cax:cx,
+    cay:by, trunkH, r, kind, leafColors:pine?
+      ['#436954','#63816b','#9caa77']:['#688e43','#93aa51','#b7b86a','#b6a071'] };
+}
 function makeBush() {
-  const r = R(0.45, 0.85), S = SPR, c = makeCanvas(r * 2.6 * S, r * 2 * S), g = c.getContext('2d');
-  const cx = c.width / 2, by = c.height - 4, blobs = [];
-  for (let i = 0; i < 8; i++) {
-    const a = R(Math.PI, TAU), d = rng() * r * S * 0.7;
-    blobs.push({ x: cx + Math.cos(a) * d * 1.2, y: by - r * S * 0.55 + Math.sin(a) * d * 0.6, r: r * S * R(0.35, 0.5) });
+  const r=R(.43,.83),S=SPR,pad=10;
+  const c=makeCanvas((r*2.7)*S+pad*2,(r*1.95)*S+pad*2),g=c.getContext('2d');
+  const cx=c.width/2,by=c.height-pad,p=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
+  const nodes=[];
+  for(let i=0;i<13;i++){
+    const x=cx+R(-r*.78,r*.78)*S, y=by-r*S*R(.25,1.1);
+    const rr=r*S*R(.17,.36);
+    nodes.push({x,y,rr});
   }
-  blobs.sort((a, b) => a.y - b.y);
-  for (const b of blobs) b.lit = b.x < cx + 4;
-  blobCluster(g, blobs, [['#2b5124', '#3f7330', '#5f9840'], ['#35562a', '#4f7a36', '#78a24a']][(rng() * 2) | 0], 1.6);
-  if (rng() < 0.45) {
-    const fc = ['#e8e2f0', '#e46a8c', '#f2c94c'][(rng() * 3) | 0];
-    for (let i = 0; i < 14; i++) { const b = blobs[(rng() * blobs.length) | 0]; g.fillStyle = fc; g.fillRect(b.x + R(-b.r, b.r) * 0.6 | 0, b.y + R(-b.r, b.r) * 0.6 | 0, 3, 3); }
+  nodes.sort((a,b)=>a.y-b.y);
+  g.strokeStyle='#413d27';g.lineWidth=1.7;
+  for(let i=0;i<6;i++){const n=nodes[i];g.beginPath();g.moveTo(cx,by);g.lineTo(n.x,n.y);g.stroke();}
+  for(const n of nodes){
+    g.fillStyle=p.deep;g.beginPath();g.ellipse(n.x+2,n.y+2,n.rr*1.08,n.rr*.75,0,0,TAU);g.fill();
+    g.fillStyle=n.y<by-r*S*.6?p.mid:p.body;
+    g.beginPath();g.ellipse(n.x-1.5,n.y-2,n.rr,n.rr*.67,R(-.4,.4),0,TAU);g.fill();
+    for(let j=0;j<Math.round(n.rr*3.6);j++){
+      const a=R(0,TAU),d=Math.sqrt(rng()),x=n.x+Math.cos(a)*n.rr*d,y=n.y+Math.sin(a)*n.rr*.7*d;
+      paintLeaf(g,x,y,R(2,4),a,rng()<.3?p.sun:rng()<.5?p.mid:p.shade);
+    }
   }
-  return { img: c, ax: cx, ay: by, r };
+  if(rng()<.48) {
+    const fc=['#eee2da','#d77f8a','#d5c37e'][(rng()*3)|0];
+    for(let i=0;i<22;i++){
+      const n=nodes[(rng()*nodes.length)|0],x=n.x+R(-n.rr,n.rr),y=n.y+R(-n.rr*.6,n.rr*.6);
+      g.fillStyle=fc;g.beginPath();g.arc(x,y,R(1,2),0,TAU);g.fill();
+    }
+  }
+  return {img:c,ax:cx,ay:by,r};
 }
 
 function makeRock() {
@@ -421,7 +572,9 @@ function buildWorld() {
 
   // vegetação: densidade vem do ruído "floresta"; pinheiros no miolo, carvalhos na borda
   const pool = (n, f) => Array.from({ length: n }, f);
-  const oaks = pool(8, () => makeTree('oak')), pines = pool(5, () => makeTree('pine'));
+  const oaks = [makeTree('oak'), makeTree('oak'), makeTree('oak'), makeTree('oak'),
+    makeTree('yard'), makeTree('yard'), makeTree('street'), makeTree('street')],
+    pines = pool(5, () => makeTree('pine'));
   const bushes = pool(8, makeBush), rocks = pool(6, makeRock);
   const addTree = (x, y, sp2) => {
     const t = { type: 'tree', x, y, sp: sp2, hit: 0, phase: rng() * 6 };
