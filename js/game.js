@@ -288,6 +288,8 @@ function drawNight(W, H) {
   const cars = boxes.filter(b => b.kind === 'car');
   const heads = cars.map(b => { const c = Math.cos(b.rot), s = Math.sin(b.rot); return proj(b.x + c * (b.w / 2 + 1.6), b.y + s * (b.w / 2 + 1.6), 0); });
   for (const p of heads) hole(p.x, p.y, 1.8 * Z, 0.6);
+  const wl = houses.filter(H => H.wallLamp && H.frontSide).map(H => { const sd = H.sides[H.frontSide]; return [sd.a[0] + sd.dir[0] * H.wallLamp[0] + sd.n[0] * 0.15, sd.a[1] + sd.dir[1] * H.wallLamp[0] + sd.n[1] * 0.15]; });
+  for (const [x, y] of wl) { const p = proj(x, y, 0); hole(p.x, p.y, 1.8 * Z, 0.8); }
   const pp = proj(player.x, player.y, 0); hole(pp.x, pp.y, 1.2 * Z, 0.3);
   if (player.flash > 0) { const m = proj(...player.J.rifle.muzzle); hole(m.x, m.y, 7 * Z, 1, 0.8); }
   g.drawImage(light, 0, 0);
@@ -297,6 +299,7 @@ function drawNight(W, H) {
   for (const l of world.lamps) { const p = proj(l.x + l.ax * 1.1, l.y + l.ay * 1.1, 3.9); glow(p.x, p.y, 0.9 * Z, '255,210,130', 0.7, 1); }
   for (const p of wins) glow(p.x, p.y, 1.2 * Z, '255,200,90', 0.16);
   for (const p of heads) glow(p.x, p.y, 1.6 * Z, '220,230,255', 0.14);
+  for (const [x, y] of wl) { const p = proj(x, y, 1.95); glow(p.x, p.y, 0.6 * Z, '255,214,150', 0.6, 1); const q = proj(x, y, 0); glow(q.x, q.y, 1.6 * Z, '255,190,110', 0.18); }
   const shop = houses.find(h => h.brick), sg = shop && shop.segs.find(s => s.sign); if (sg) { const p = proj(sg.x1 + sg.ny * 2 + sg.nx * 0.3, sg.y1 - sg.nx * 2 + sg.ny * 0.3, 2.6); glow(p.x, p.y, 2.4 * Z, '255,60,50', 0.35, 0.6); }
   g.globalCompositeOperation = 'source-over';
 }

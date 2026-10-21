@@ -47,6 +47,15 @@ const SCENES = {
   async night() { const H = houses.find(h => h.brick) || houses[0]; place(H.front[0] + H.doorN[0] * 2, H.front[1] + H.doorN[1] * 2, 3.5); zi = 2; cam.tzoom = cam.zoom = 34; st.night = world.night = true; st.clock = 21 * 60 + 5; await wait(600); freeze(); },
   async run() { place(world.spawn[0], world.spawn[1], 0); zi = 4; cam.tzoom = cam.zoom = 52; input.keys.add('d'); input.keys.add('shift'); await wait(900); freeze(); },
   async overview() { place(MAP / 2, MAP / 2); player.x = world.spawn[0]; player.y = world.spawn[1]; zi = 0; cam.tzoom = cam.zoom = 9; cam.x = cam.tx = MAP / 2; cam.y = cam.ty = MAP / 2; ZOOMS[0] = 9; await wait(400); freeze(); },
+  async facade() {   // close numa fachada: câmera de frente p/ a porta, jogador fora do caminho
+    const H = houses[Number(new URLSearchParams(location.search).get('h') || 1)] || houses[0];
+    const sd = H.sides[H.frontSide];
+    place(H.front[0] + sd.n[0] * 6, H.front[1] + sd.n[1] * 6);
+    const want = Math.atan2(-sd.n[0], sd.n[1]) + Math.PI / 4;   // gira p/ a fachada ficar de frente (3/4)
+    cam.ang = cam.tang = Math.round((want - Math.PI / 4) / (Math.PI / 2)) * Math.PI / 2 + Math.PI / 4;
+    zi = 5; cam.tzoom = cam.zoom = 64; await wait(300);
+    window.__timeScale = 0; cam.x = cam.tx = H.front[0] - sd.n[0] * 2; cam.y = cam.ty = H.front[1] - sd.n[1] * 2; cam.update(0); await wait(200); freeze();
+  },
   async pond() { const p = world.pond; if (!p) return freeze(); place(p.x + p.rx + 1.5, p.y + 0.5); zi = 2; cam.tzoom = cam.zoom = 34; await wait(500); freeze(); },
   async turn() { await turnaround(false); },
   async aimturn() { await turnaround(true); },

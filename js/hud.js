@@ -57,7 +57,7 @@ function drawHUD(h, W, H, st) {
   h.setTransform(c * k / PPM, s * k / PPM, -s * k / PPM, c * k / PPM, mx + ms / 2 - (c * p.x - s * p.y) * k, my + ms / 2 - (s * p.x + c * p.y) * k);
   h.drawImage(world.ground, 0, 0);
   h.setTransform(c * k, s * k, -s * k, c * k, mx + ms / 2 - (c * p.x - s * p.y) * k, my + ms / 2 - (s * p.x + c * p.y) * k);
-  for (const H of houses) { h.fillStyle = H.roofKind === 'flat' ? '#5c5b60' : H.roof; h.strokeStyle = '#000'; h.lineWidth = 0.2; h.fillRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); h.strokeRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); }
+  for (const H of houses) { h.fillStyle = H.style ? H.style.roofCol : H.roof; h.strokeStyle = '#000'; h.lineWidth = 0.2; h.fillRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); h.strokeRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); }
   for (const n of st.npcs) { h.fillStyle = '#f2c94c'; h.beginPath(); h.arc(n.x, n.y, 0.8, 0, TAU); h.fill(); }
   h.restore();
   // seta do jogador + norte

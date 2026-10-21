@@ -8,19 +8,28 @@ const boxes = [];      // móveis/carros: {x,y,z,w,d,h,rot,top,side,kind}
 
 function addHouse(def) {
   const H = Object.assign({ h: 2.7, segs: [], inside: false, roofKind: 'gable' }, def);
+  H.seed = (houses.length + 1) * 977 + (world.seed % 100003);
+  const wallTop = H.roofKind === 'flat' ? H.h + PARAPET : H.h;
+  const W = H.x1 - H.x0, D = H.y1 - H.y0, alongX = W >= D;
+  const gableEnds = H.roofKind === 'gable' ? (alongX ? ['W', 'E'] : ['N', 'S']) : [];
+  const rise = ((alongX ? D : W) / 2 + ROOF_O) * PITCH;
   const sides = {
-    S: { a: [H.x0, H.y1], dir: [1, 0], n: [0, 1], len: H.x1 - H.x0 },
-    N: { a: [H.x0, H.y0], dir: [1, 0], n: [0, -1], len: H.x1 - H.x0 },
-    W: { a: [H.x0, H.y0], dir: [0, 1], n: [-1, 0], len: H.y1 - H.y0 },
-    E: { a: [H.x1, H.y0], dir: [0, 1], n: [1, 0], len: H.y1 - H.y0 },
+    S: { a: [H.x0, H.y1], dir: [1, 0], n: [0, 1], len: W },
+    N: { a: [H.x0, H.y0], dir: [1, 0], n: [0, -1], len: W },
+    W: { a: [H.x0, H.y0], dir: [0, 1], n: [-1, 0], len: D },
+    E: { a: [H.x1, H.y0], dir: [0, 1], n: [1, 0], len: D },
   };
+  H.sides = sides;
   for (const k in sides) {
     const sd = sides[k], o = H.open[k] || {};
+    sd.Hc = gableEnds.includes(k) ? H.h + rise + 0.3 : wallTop;
+    sd.eave = H.roofKind === 'hip' || (H.roofKind === 'gable' && !gableEnds.includes(k));
+    if ((o.door || []).length) H.frontSide = k;
     for (let i = 0; i < sd.len; i++) {
       const s = {
         x1: sd.a[0] + sd.dir[0] * i, y1: sd.a[1] + sd.dir[1] * i,
         x2: sd.a[0] + sd.dir[0] * (i + 1), y2: sd.a[1] + sd.dir[1] * (i + 1),
-        nx: sd.n[0], ny: sd.n[1], h: H.h, house: H, ext: true,
+        nx: sd.n[0], ny: sd.n[1], h: wallTop, house: H, ext: true, side: k, idx: i,
         door: (o.door || []).includes(i), window: (o.win || []).includes(i),
         c0: i === 0, c1: i === sd.len - 1, sign: o.sign && o.sign.includes(i),
       };
@@ -36,8 +45,24 @@ function addHouse(def) {
       if (!s.door) world.segs.push(s);
     }
   }
+  H.style = houseStyle(H, mulberry(H.seed));
   houses.push(H);
   return H;
+}
+
+// texturas da casa, pintadas uma vez na primeira vez que aparecem
+function houseTex(H) {
+  if (H.tex) return H.tex;
+  const rnd = mulberry(H.seed + 5), S = H.style, T = { ext: {}, int: {} };
+  for (const k in H.sides) { T.ext[k] = paintFacade(H, k, true, rnd); T.int[k] = paintFacade(H, k, false, rnd); }
+  // divisória interna: 1 m com rodapé
+  const pc = makeCanvas(TEX, H.h * TEX), pg = pc.getContext('2d');
+  paintPlaster(pg, 0, 0, TEX, H.h * TEX, S.interior, rnd, 0.1);
+  pg.fillStyle = '#6b4a32'; pg.fillRect(0, (H.h - 0.12) * TEX, TEX, 0.12 * TEX);
+  T.part = pc;
+  T.door = paintDoor(S.door[0], S.door[1], rnd);
+  T.innerDoor = paintDoor('flush', '#a07850', rnd);
+  return (H.tex = T);
 }
 
 function addBox(b) {
@@ -123,7 +148,20 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   const H = addHouse(def);
   const du = T.def.open.S.door[0] + 0.5;
   H.doorPt = L(du, T.d); H.front = L(du, T.d + 2); H.doorN = rv([0, 1]);
-  for (const f of T.furn) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2 })); }
+  // entrada: varanda com pilares (algumas casas grandes) ou marquise + degrau de concreto
+  const rot = k * Math.PI / 2, er = mulberry(H.seed + 11);
+  if (T.yard && er() < 0.55) {
+    const dk = L(du, T.d + 0.95);
+    addBox({ x: dk[0], y: dk[1], w: 3.6, d: 1.9, h: 0.07, rot, top: '#8a6a4a', side: '#5e4632', kind: 'deck', solid: false });
+    for (const sx of [-1.65, 1.65]) { const pp = L(du + sx, T.d + 1.75); addBox({ x: pp[0], y: pp[1], w: 0.14, d: 0.14, h: 2.42, rot, top: '#ece6da', side: '#d9d2c4', kind: 'post' }); }
+    const rf = L(du, T.d + 0.95);
+    addBox({ x: rf[0], y: rf[1], w: 3.8, d: 2.0, h: 0.12, z: 2.42, rot, top: H.style.roofMat === 'metal' ? '#9aa0a4' : shadeHex(H.style.roofCol, 0.95), side: H.style.trim, kind: 'porchroof', solid: false });
+    const st = L(du, T.d + 2.1); addBox({ x: st[0], y: st[1], w: 1.3, d: 0.4, h: 0.12, rot, top: '#b9b4aa', side: '#958f84', kind: 'step', solid: false });
+  } else if (!H.brick) {
+    const st = L(du, T.d + 0.35); addBox({ x: st[0], y: st[1], w: 1.4, d: 0.6, h: 0.14, rot, top: '#bcb7ad', side: '#958f84', kind: 'step', solid: false });
+    if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false }); }
+  }
+  for (const f of T.furn) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
     const a = L(-2, -2.5), b = L(T.w + 2, T.d + 3);
     const r = [Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.round(Math.max(a[0], b[0])), Math.round(Math.max(a[1], b[1]))];
@@ -185,7 +223,8 @@ function buildHouses() {
     if (Math.hypot(x0 + W / 2 - J.x, y0 + D / 2 - J.y) < 8) return null;
     rects.push(box);
     const pal = SIDINGS[(rng() * SIDINGS.length) | 0];
-    return placeTemplate(T, x0, y0, k, key === 'SHOP' ? {} : { ext: pal[0], roof: pal[1] });
+    const rr = rng(), roofKind = key === 'SHOP' ? 'flat' : key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') : (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
+    return placeTemplate(T, x0, y0, k, key === 'SHOP' ? {} : { ext: pal[0], roof: pal[1], roofKind });
   };
   // mercado perto do cruzamento, depois as casas
   const nearJ = cands.filter(c => { const d = Math.hypot(c.p.x - J.x, c.p.y - J.y); return d > 9 && d < 26; });
@@ -268,61 +307,77 @@ function wallQuad(s, z0, z1, u0 = 0, u1 = 1) {
   return [proj(ax, ay, z0), proj(bx, by, z0), proj(bx, by, z1), proj(ax, ay, z1)];
 }
 
+// mapeamento de um pedaço de parede na textura do seu lado da casa
+function wallMap(s) {
+  const H = s.house;
+  if (s.ext) { const sd = H.sides[s.side]; return { a: sd.a, dir: sd.dir, Hc: sd.Hc, idx: s.idx }; }
+  const l = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+  return { a: [s.x1, s.y1], dir: [(s.x2 - s.x1) / l, (s.y2 - s.y1) / l], Hc: H.h, idx: 0 };
+}
+function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
+  if (z1 <= z0) return;
+  const H = s.house, T = houseTex(H), f = facingCam(s.nx, s.ny);
+  const outside = forceExt || (s.ext && f > 0);
+  const tex = s.ext ? (outside ? T.ext[s.side] : T.int[s.side]) : T.part;
+  const m = wallMap(s), O = proj(m.a[0], m.a[1], 0), A = proj(m.a[0] + m.dir[0], m.a[1] + m.dir[1], 0), Zp = proj(m.a[0], m.a[1], 1);
+  const zx = Zp.x - O.x, zy = Zp.y - O.y;
+  let sx = (m.idx + u0) * TEX - 0.7, sw = (u1 - u0) * TEX + 1.4;
+  if (sx < 0) { sw += sx; sx = 0; }
+  if (sx + sw > tex.width) sw = tex.width - sx;
+  const sy = (m.Hc - z1) * TEX, sh = (z1 - z0) * TEX;
+  g.save(); g.imageSmoothingEnabled = true;
+  g.setTransform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
+  g.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh);
+  g.restore();
+}
+
+// porta aberta: soleira, espessura do vão (reboco) e folha girada p/ dentro, em 3D
+function drawDoorway(g, s, zt) {
+  const H = s.house, T = houseTex(H), t = 0.15, l = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+  const dx = (s.x2 - s.x1) / l, dy = (s.y2 - s.y1) / l, ix = -s.nx, iy = -s.ny;
+  const pt = (u, d, z) => proj(s.x1 + dx * u + ix * d, s.y1 + dy * u + iy * d, z);
+  poly(g, [pt(0.1, -0.08, 0.02), pt(0.9, -0.08, 0.02), pt(0.9, t, 0.02), pt(0.1, t, 0.02)], '#b9b3a6', 'rgba(30,24,20,0.5)', 1);
+  for (const u of [0.1, 0.9]) poly(g, [pt(u, 0, 0), pt(u, t, 0), pt(u, t, zt), pt(u, 0, zt)], tone(H.style.plaster, -0.2), null);
+  if (zt > 0.2) {
+    const a = 1.25, ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
+    const hx = s.x1 + dx * 0.1 + ix * t, hy = s.y1 + dy * 0.1 + iy * t, zz = Math.min(2.05, zt);
+    const q = [proj(hx, hy, 0), proj(hx + ox * 0.82, hy + oy * 0.82, 0), proj(hx + ox * 0.82, hy + oy * 0.82, zz), proj(hx, hy, zz)];
+    texPlane(g, s.ext ? T.door : T.innerDoor, [hx, hy, 2.05], [ox, oy, 0], [0, 0, -1], TEX, q);
+    const nn = [-oy, ox, 0];
+    shadeOverlay(g, q, facingCam(nn[0], nn[1]) > 0 ? nn : V.mul(nn, -1), 0.8);
+    g.strokeStyle = 'rgba(25,18,14,0.7)'; g.lineWidth = 1;
+    g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.stroke();
+  }
+}
+
 function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
   const cut = H.inside && (f > 0 || !s.ext);
   const h = cut ? 0.5 : s.h;
-  const base = outside ? H.ext : H.int;
-  const lit = shadeOf(f > 0 ? s.nx : -s.nx, f > 0 ? s.ny : -s.ny);
-  const col = tone(base, lit), dk = mix(col, '#1d1830', 0.22);
-  const e = 0.012;
-  const ex = { x1: s.x1 - (s.x2 - s.x1) * e, y1: s.y1 - (s.y2 - s.y1) * e, x2: s.x2 + (s.x2 - s.x1) * e, y2: s.y2 + (s.y2 - s.y1) * e };
   if (s.door) {
-    if (!cut) {
-      poly(g, wallQuad(ex, 2.15, h), col, null);
-      const fr = wallQuad(s, 0, 2.15, 0.08, 0.92);
-      g.strokeStyle = INK; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(fr[0].x, fr[0].y); g.lineTo(fr[3].x, fr[3].y); g.lineTo(fr[2].x, fr[2].y); g.lineTo(fr[1].x, fr[1].y); g.stroke();
-      g.strokeStyle = H.trim; g.lineWidth = 1; g.stroke();
-    }
+    drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
+    if (h > 2.12) drawWallSlice(g, s, 2.12, h, 0.1, 0.9);
+    drawDoorway(g, s, Math.min(h, 2.12));
   } else {
-    poly(g, wallQuad(ex, 0, h), col, null);
-    if (outside) {
-      g.strokeStyle = dk; g.lineWidth = 1;
-      if (H.brick) {
-        for (let z = 0.15, r = 0; z < h; z += 0.15, r++) {
-          const q = wallQuad(s, z, z); g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke();
-          for (let u = (r % 2) * 0.17; u < 1; u += 0.34) { const v = wallQuad(s, z - 0.15, z, u, u); g.beginPath(); g.moveTo(v[0].x, v[0].y); g.lineTo(v[3].x, v[3].y); g.stroke(); }
-        }
-      } else for (let z = 0.3; z < h - 0.05; z += 0.28) {
-        const q = wallQuad(s, z, z); g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke();
-      }
-      poly(g, wallQuad(ex, 0, Math.min(h, 0.22)), mix(col, '#2a2420', 0.4), null);
-    }
-    if (s.window && h > 1.6) {
-      const big = H.brick && s.ext, z0 = big ? 0.5 : 0.95, z1 = big ? 2.3 : 2.05;
-      const fr = wallQuad(s, z0, z1, 0.14, 0.86), gl = wallQuad(s, z0 + 0.08, z1 - 0.08, 0.2, 0.8);
-      poly(g, fr, H.trim, INK, 1);
-      const glass = world.night ? (outside ? '#f3c96b' : '#20304a') : (outside ? '#5f86a6' : '#9cc0d8');
-      poly(g, gl, glass, null);
-      if (!world.night || !outside) poly(g, [gl[0], lerp2(gl[0], gl[1], 0.35), lerp2(gl[3], gl[2], 0.75), gl[3]], mix(glass, '#ffffff', 0.25), null);
-      const m0 = lerp2(gl[0], gl[1], 0.5), m1 = lerp2(gl[3], gl[2], 0.5);
-      g.strokeStyle = H.trim; g.lineWidth = Math.max(1, cam.zoom * 0.05); g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
+    drawWallSlice(g, s, 0, h, 0, 1);
+    if (s.window && h > 1.6 && world.night) {
+      const big = H.brick && s.ext && s.side === H.frontSide;
+      const q = wallQuad(s, big ? 0.66 : 1.04, big ? 2.24 : 1.97, big ? 0.13 : 0.23, big ? 0.87 : 0.77);
+      poly(g, q, outside ? 'rgba(255,196,110,0.82)' : 'rgba(14,20,42,0.6)', null);
     }
   }
-  // tampa superior grossa (parede vista de cima) + contornos
+  // espessura da parede vista de cima + arestas discretas
   const t = 0.14, a = proj(s.x1, s.y1, h), b = proj(s.x2, s.y2, h);
   const a2 = proj(s.x1 - s.nx * t, s.y1 - s.ny * t, h), b2 = proj(s.x2 - s.nx * t, s.y2 - s.ny * t, h);
-  if (!s.door || !cut) poly(g, [a, b, b2, a2], cut ? '#2b2421' : '#3a3230', null);
-  g.strokeStyle = INK; g.lineWidth = 1;
+  poly(g, [a, b, b2, a2], cut ? '#2f2a27' : '#45403b', null);
+  g.strokeStyle = 'rgba(22,16,12,0.75)'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
   const q = wallQuad(s, 0, h);
-  if (!s.door) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); }
-  g.lineWidth = 2;
+  if (!s.door) { g.strokeStyle = 'rgba(22,16,12,0.45)'; g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); }
+  g.strokeStyle = 'rgba(22,16,12,0.8)';
   if (s.c0) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[3].x, q[3].y); g.stroke(); }
   if (s.c1) { g.beginPath(); g.moveTo(q[1].x, q[1].y); g.lineTo(q[2].x, q[2].y); g.stroke(); }
-  // letreiro do mercado pintado no plano da parede
 }
 const lerp2 = (p, q, t) => ({ x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) });
 
@@ -341,10 +396,6 @@ function drawSign(g, segs) {
   g.restore();
 }
 
-function drawRoof(g, H) {
-  if (H.inside) return;
-  g.save(); g.globalAlpha = H.fade ? 0.35 : 1; drawRoofInner(g, H); g.restore();
-}
 function behindHouse(H, px, py) {
   const cs = [[H.x0, H.y0], [H.x1, H.y0], [H.x1, H.y1], [H.x0, H.y1]], pd = depthOf(px, py);
   if (pd > Math.max(...cs.map(c => depthOf(c[0], c[1])))) return false;
@@ -352,60 +403,6 @@ function behindHouse(H, px, py) {
   const xs = sp.map(q => q.x), ys = sp.map(q => q.y);
   return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
 }
-function drawRoofInner(g, H) {
-  const o = 0.45, z = H.h;
-  if (H.roofKind === 'flat') {
-    const q = [proj(H.x0, H.y0, z), proj(H.x1, H.y0, z), proj(H.x1, H.y1, z), proj(H.x0, H.y1, z)];
-    poly(g, q, '#4b4a50', INK, 2);
-    const i = 0.3, qi = [proj(H.x0 + i, H.y0 + i, z), proj(H.x1 - i, H.y0 + i, z), proj(H.x1 - i, H.y1 - i, z), proj(H.x0 + i, H.y1 - i, z)];
-    poly(g, qi, H.roof, null);
-    drawBox(g, { x: H.x0 + 2.5, y: H.y0 + 2.5, z, w: 1.4, d: 1, h: 0.7, rot: 0, top: '#b8b9bd', side: '#8d8e93' });
-    drawBox(g, { x: H.x1 - 2, y: H.y1 - 2.5, z, w: 1, d: 1, h: 0.5, rot: 0, top: '#b8b9bd', side: '#8d8e93' });
-    return;
-  }
-  const alongX = (H.x1 - H.x0) >= (H.y1 - H.y0), top = z + 1.7;
-  const X0 = H.x0 - o, X1 = H.x1 + o, Y0 = H.y0 - o, Y1 = H.y1 + o, zm = z - 0.15;
-  let faces;
-  if (alongX) {
-    const ym = (H.y0 + H.y1) / 2;
-    faces = [
-      { p: [[X0, Y0, zm], [X1, Y0, zm], [X1, ym, top], [X0, ym, top]], n: [0, -1, 1], roof: 1 },
-      { p: [[X0, Y1, zm], [X1, Y1, zm], [X1, ym, top], [X0, ym, top]], n: [0, 1, 1], roof: 1 },
-      { p: [[H.x0, H.y0, z], [H.x0, H.y1, z], [H.x0, ym, top - 0.1]], n: [-1, 0, 0] },
-      { p: [[H.x1, H.y0, z], [H.x1, H.y1, z], [H.x1, ym, top - 0.1]], n: [1, 0, 0] },
-    ];
-  } else {
-    const xm = (H.x0 + H.x1) / 2;
-    faces = [
-      { p: [[X0, Y0, zm], [X0, Y1, zm], [xm, Y1, top], [xm, Y0, top]], n: [-1, 0, 1], roof: 1 },
-      { p: [[X1, Y0, zm], [X1, Y1, zm], [xm, Y1, top], [xm, Y0, top]], n: [1, 0, 1], roof: 1 },
-      { p: [[H.x0, H.y0, z], [H.x1, H.y0, z], [xm, H.y0, top - 0.1]], n: [0, -1, 0] },
-      { p: [[H.x0, H.y1, z], [H.x1, H.y1, z], [xm, H.y1, top - 0.1]], n: [0, 1, 0] },
-    ];
-  }
-  for (const f of faces) f.d = f.p.reduce((s, p) => s + depthOf(p[0], p[1]) + p[2] * 0.01, 0) / f.p.length;
-  faces.sort((a, b) => a.d - b.d);
-  for (const f of faces) {
-    if (!f.roof && facingCam(f.n[0], f.n[1]) <= 0) continue;
-    const pts = f.p.map(p => proj(p[0], p[1], p[2]));
-    const col = tone(f.roof ? H.roof : H.ext, shadeOf(...f.n));
-    poly(g, pts, col, INK, 2);
-    if (f.roof) {   // fileiras de telhas
-      g.strokeStyle = mix(col, '#000000', 0.3); g.lineWidth = 1;
-      for (let k = 1; k < 7; k++) {
-        const a = lerp2(pts[0], pts[3], k / 7), b = lerp2(pts[1], pts[2], k / 7);
-        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
-        for (let j = (k % 2) * 0.5; j < 12; j++) { const m = lerp2(a, b, j / 12), m2 = lerp2(lerp2(pts[0], pts[3], (k - 1) / 7), lerp2(pts[1], pts[2], (k - 1) / 7), j / 12); g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(lerp(m.x, m2.x, 0.5), lerp(m.y, m2.y, 0.5)); g.stroke(); }
-      }
-      g.strokeStyle = mix(col, '#ffffff', 0.18);
-      g.beginPath(); g.moveTo(pts[0].x, pts[0].y - 1); g.lineTo(pts[1].x, pts[1].y - 1); g.stroke();
-    }
-  }
-  const r0 = faces.find(f => f.roof).p;
-  const ra = proj(r0[2][0], r0[2][1], r0[2][2]), rb = proj(r0[3][0], r0[3][1], r0[3][2]);
-  g.strokeStyle = INK; g.lineWidth = 3; g.beginPath(); g.moveTo(ra.x, ra.y); g.lineTo(rb.x, rb.y); g.stroke();
-}
-
 function drawBox(g, b) {
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
@@ -417,7 +414,7 @@ function drawBox(g, b) {
   }
   faces.sort((a, b) => a.d - b.d);
   for (const f of faces) {
-    poly(g, f.pts, tone(b.side, f.lit), INK, 1);
+    poly(g, f.pts, tone(b.side, f.lit), 'rgba(24,18,14,0.75)', 1);
     if (b.kind === 'car') {   // faróis e lanternas nas pontas
       const end = (f.i === 1 || f.i === 3);
       if (end) { const L = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.15), Rr = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.85); g.fillStyle = f.i === 1 ? '#f4eecb' : '#d33b2c'; for (const p of [L, Rr]) g.fillRect(p.x - 2, p.y - 1, 4, 3); }
@@ -437,7 +434,7 @@ function drawBox(g, b) {
       }
     }
   }
-  poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), INK, 1);
+  poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), 'rgba(24,18,14,0.75)', 1);
   if (b.kind === 'bed') { const q = { x: b.x, y: b.y - b.d * 0.36, z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: b.rot, top: '#fbf8f0', side: '#d9d3c6' }; drawBox(g, q); }
 }
 
@@ -457,7 +454,9 @@ function houseDrawables(list, px, py) {
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
     H.fade = !H.inside && behindHouse(H, px, py);
     let maxD = -1e9;
+    const showIn = H.inside || H.fade;
     for (const s of H.segs) {
+      if (!s.ext && !showIn) continue;   // divisória escondida pelas paredes externas
       const d = depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2);
       maxD = Math.max(maxD, d);
       list.push({ d: d + (s.ext ? 0 : -0.02), draw: g => drawWall(g, s) });
@@ -468,7 +467,8 @@ function houseDrawables(list, px, py) {
     list.push({ d: maxD + 0.5, draw: g => drawRoof(g, H), roof: H });
   }
   for (const b of boxes) {
-    const bias = b.kind === 'cabin' || b.kind === 'blanket' || b.kind === 'screen' || b.kind === 'mailbox' ? 0.01 : 0;
+    if (b.house && !(b.house.inside || b.house.fade)) continue;
+    const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
   }
   for (const s of fences) list.push({ d: depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2), draw: g => drawFence(g, s) });
