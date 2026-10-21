@@ -10,6 +10,10 @@ const gameSource = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8'
 const start = worldSource.indexOf('// ---- Vegetação orgânica:');
 const end = worldSource.indexOf('function makeRock() {', start);
 assert.ok(start >= 0 && end > start, 'foliage module boundary');
+const foliageSource = worldSource.slice(start,end);
+assert.ok(!/function blobCluster\(/.test(foliageSource),'the round blob renderer must not return');
+const leafCanopy = foliageSource.slice(foliageSource.indexOf('function leafCanopy('),foliageSource.indexOf('function spruceNeedles('));
+assert.ok(!/\.ellipse\(|\.arc\(/.test(leafCanopy),'crowns must be leaf-by-leaf, not filled green discs');
 let drawCalls = 0;
 const context2d = new Proxy({}, {
   get(_t, key) {
@@ -35,6 +39,9 @@ for (const sp of sprites) {
   assert.ok(sp.trunk.width>0&&sp.trunk.height>0&&sp.crown.width>0&&sp.crown.height>0);
   assert.ok(sp.trunkH>1&&sp.r>0&&sp.leafColors.length>0);
   assert.ok(sp.cay>0&&sp.cay<=sp.crown.height);
+  assert.ok(sp.trunkH<1.8,'tree trunks must remain short and natural');
+  if(sp.kind==='pine') assert.ok(sp.needleCount>=1800,'pine must have individual needles');
+  else assert.ok(sp.leafCount>=5000,'broadleaf trees must use individual leaves');
 }
 for (let i=0;i<8;i++) {
   const bush=sandbox.testApi.makeBush();
@@ -50,4 +57,4 @@ assert.ok(gameSource.includes("kind:'falling-leaf'"));
 assert.ok(gameSource.includes("spawnAmbientLeaves(dt);"));
 assert.ok(gameSource.includes("active < 48"));
 assert.ok(drawCalls>1000,'detailed pre-rendered foliage should produce many draw calls');
-console.log('OK: 6 trees, 8 shrubs, world shadows, bounded falling leaves');
+console.log('OK: 6 short-trunk trees (5k+ leaves / 1.8k+ needles), 8 shrubs, shadows and leaves');
