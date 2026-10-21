@@ -65,7 +65,7 @@ function texPlane(g, img, o, e1, e2, px, clipPts) {
   g.save();
   if (clipPts) { g.beginPath(); clipPts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.clip(); }
   g.imageSmoothingEnabled = true;
-  g.setTransform((A.x - O.x) / px, (A.y - O.y) / px, (B.x - O.x) / px, (B.y - O.y) / px, O.x, O.y);
+  g.transform((A.x - O.x) / px, (A.y - O.y) / px, (B.x - O.x) / px, (B.y - O.y) / px, O.x, O.y);
   g.drawImage(img, 0, 0);
   g.restore();
 }
@@ -179,15 +179,45 @@ function drawFlatRoof(g, H) {
   }
 }
 
-// telhado com fade quando o jogador está atrás: desenha num canvas auxiliar e compõe com alpha
+// Telhado translúcido: pré-composição numa região recortada para que as faces
+// sobrepostas não somem alphas e o jogo não redesenhe um canvas de tela inteira.
 const roofScratch = makeCanvas(1, 1), rsg = roofScratch.getContext('2d');
+function roofScreenBounds(H, W, Hh) {
+  const border = ROOF_O + 0.45, padding = Math.max(14, cam.zoom * 0.55);
+  const x0 = H.x0 - border, x1 = H.x1 + border;
+  const y0 = H.y0 - border, y1 = H.y1 + border;
+  const z0 = H.h - 0.5;
+  const z1 = H.roofKind === 'flat'
+    ? H.h + 1.85
+    : H.h + (Math.max(H.x1 - H.x0, H.y1 - H.y0) / 2 + border) * PITCH + 0.65;
+  let lx = Infinity, rx = -Infinity, ty = Infinity, by = -Infinity;
+  for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) {
+    const p = proj(x, y, z);
+    lx = Math.min(lx, p.x); rx = Math.max(rx, p.x);
+    ty = Math.min(ty, p.y); by = Math.max(by, p.y);
+  }
+  const left = Math.max(0, Math.floor(lx - padding));
+  const top = Math.max(0, Math.floor(ty - padding));
+  return { x: left, y: top,
+    w: Math.min(W, Math.ceil(rx + padding)) - left,
+    h: Math.min(Hh, Math.ceil(by + padding)) - top };
+}
 function drawRoof(g, H) {
   if (H.inside) return;
   if (!H.fade) { drawRoofInner(g, H); return; }
-  if (roofScratch.width !== g.canvas.width || roofScratch.height !== g.canvas.height) { roofScratch.width = g.canvas.width; roofScratch.height = g.canvas.height; }
-  rsg.setTransform(1, 0, 0, 1, 0, 0); rsg.clearRect(0, 0, roofScratch.width, roofScratch.height);
+  const b = roofScreenBounds(H, g.canvas.width, g.canvas.height);
+  if (b.w <= 0 || b.h <= 0) return;
+  if (roofScratch.width !== b.w || roofScratch.height !== b.h) {
+    roofScratch.width = b.w; roofScratch.height = b.h;
+  }
+  rsg.setTransform(1, 0, 0, 1, 0, 0);
+  rsg.clearRect(0, 0, b.w, b.h);
+  rsg.setTransform(1, 0, 0, 1, -b.x, -b.y);
   drawRoofInner(rsg, H);
-  g.save(); g.globalAlpha = 0.33; g.drawImage(roofScratch, 0, 0); g.restore();
+  g.save();
+  g.globalAlpha *= 0.33;
+  g.drawImage(roofScratch, b.x, b.y);
+  g.restore();
 }
 function drawRoofInner(g, H) {
   if (!H.roofGeom) H.roofGeom = buildRoofGeom(H);
