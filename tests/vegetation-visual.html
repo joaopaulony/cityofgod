@@ -38,11 +38,17 @@ async function run(){
     await new Promise(requestAnimationFrame); // deixa o navegador responder
     const kind=kinds[i],sp=makeTree(kind),cg=sp.crown.getContext('2d',{willReadFrequently:true});
     const data=cg.getImageData(0,0,sp.crown.width,sp.crown.height).data;
-    let visible=0,opaque=0;
-    for(let j=3;j<data.length;j+=4){if(data[j]>24)visible++;if(data[j]>200)opaque++;}
+    let visible=0,opaque=0,cyan=0;
+    for(let j=3;j<data.length;j+=4){
+      if(data[j]>24)visible++;
+      if(data[j]>200)opaque++;
+      // Padrão visual adulto: azul/ciano não pode dominar as agulhas.
+      if(data[j]>90 && data[j-1]>data[j-2]*.87 && data[j-1]>data[j-3]*1.08)cyan++;
+    }
     const total=sp.crown.width*sp.crown.height;
-    const fraction=visible/total,minimum=kind==='pine'?.035:.095;
-    const good=fraction>minimum;
+    const fraction=visible/total,minimum=kind==='pine'?.17:.125;
+    const cyanFraction=cyan/Math.max(1,visible);
+    const good=fraction>minimum && (kind!=='pine' || cyanFraction<.04);
     if(good)okCount++;
     const el=document.createElement('article'),preview=makeCanvas(300,315);
     const g=preview.getContext('2d'),ground=295,x=150,sc=.92;
@@ -52,7 +58,8 @@ async function run(){
     g.restore();
     el.innerHTML='<h2>'+kind+' · '+(sp.leafCount||sp.needleCount).toLocaleString('pt-BR')+' folhas/agulhas</h2>'+
       '<p class="'+(good?'good':'bad')+'">'+(good?'✓ Copa renderizada':'✗ Copa pouco visível')+
-      ' · pixels da copa: '+(fraction*100).toFixed(1)+'% · sólidos: '+(opaque/total*100).toFixed(1)+'%</p>';
+      ' · pixels da copa: '+(fraction*100).toFixed(1)+'% · sólidos: '+(opaque/total*100).toFixed(1)+
+      '% · ciano: '+(cyanFraction*100).toFixed(1)+'%</p>';
     preview.setAttribute('aria-label','Árvore '+kind);el.prepend(preview);host.append(el);
     state.textContent=(i+1)+'/'+kinds.length+' variantes verificadas…';
   }
