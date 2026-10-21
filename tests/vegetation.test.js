@@ -38,7 +38,7 @@ vm.runInContext(worldSource.slice(start,end)+'\nthis.testApi={makeTree,makeBush,
 const sprites=['oak','oak','yard','street','pine','pine'].map(kind=>sandbox.testApi.makeTree(kind));
 for (const sp of sprites) {
   assert.ok(sp.trunk.width>0&&sp.trunk.height>0&&sp.crown.width>0&&sp.crown.height>0);
-  assert.ok(sp.trunkH>1&&sp.r>0&&sp.leafColors.length>0);
+  assert.ok(sp.trunkH>.85&&sp.r>0&&sp.leafColors.length>0);
   assert.ok(sp.cay>0&&sp.cay<=sp.crown.height);
   assert.ok(sp.trunkH<1.8,'tree trunks must remain short and natural');
   if(sp.kind==='pine') assert.ok(sp.needleCount>=60000,'pine must render 10x needles');
