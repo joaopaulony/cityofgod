@@ -339,7 +339,66 @@ function woodyBranch(g, x0,y0,x1,y1,width) {
     g.beginPath();g.moveTo(x0-1,y0);g.quadraticCurveTo(mx-1,my,x1-1,y1);g.stroke();
   }
 }
+// Tronco das árvores largas: diâmetro quase constante (topo = 89% da base),
+// bordas levemente sinuosas e casca em veios contínuos. Pinheiros preservados.
+function paintBroadleafTrunk(g,cx,by,height,width) {
+  const base=width*.50, mid=base*.955, tip=base*.89, top=by-height;
+  // Curvatura contida para manter a aparência de tronco cilíndrico.
+  const lean=R(-width*.035,width*.035);
+  const outline=()=>{
+    g.beginPath();
+    g.moveTo(cx-base,by);
+    g.bezierCurveTo(cx-base-.15,by-height*.23,
+      cx-mid+lean*.38,by-height*.54,cx-tip+lean,top);
+    g.lineTo(cx+tip+lean,top);
+    g.bezierCurveTo(cx+mid+lean*.38,by-height*.54,
+      cx+base+.15,by-height*.23,cx+base,by);
+    g.closePath();
+  };
+  outline();g.fillStyle='#49382a';g.fill();
+  g.save();outline();g.clip();
+  const bark=g.createLinearGradient(cx-base,by,cx+base,by);
+  bark.addColorStop(0,'#4d392b');
+  bark.addColorStop(.18,'#76573c');
+  bark.addColorStop(.38,'#9c7955');
+  bark.addColorStop(.60,'#92714e');
+  bark.addColorStop(.79,'#654a33');
+  bark.addColorStop(1,'#3d2f27');
+  g.fillStyle=bark;g.fillRect(cx-base-1,top-2,2*base+2,height+4);
+  // Fissuras alinhadas com o sentido do crescimento; poucas, finas e longas.
+  const grainCount=Math.max(30,Math.round(height*.72));
+  for(let i=0;i<grainCount;i++){
+    const py=by-R(3,height-2),x=cx+R(-mid*.9,mid*.9),
+      len=R(4,16),curve=R(-1.0,1.0);
+    g.strokeStyle=i%5===0?'rgba(231,194,143,.26)'
+      :i%3===0?'rgba(46,31,24,.44)':'rgba(82,51,31,.37)';
+    g.lineWidth=R(.40,.95);
+    g.beginPath();g.moveTo(x,py);
+    g.quadraticCurveTo(x+curve,py-len*.5,x+curve*.3,py-len);g.stroke();
+  }
+  // Rachaduras raras, sem "rabiscos" ou nós grandes e escuros.
+  for(let i=0;i<6;i++){
+    const x=cx+R(-mid*.65,mid*.65),py=by-R(8,height*.86),
+      len=R(5,12);
+    g.strokeStyle='rgba(39,28,23,.48)';g.lineWidth=R(.65,.95);
+    g.beginPath();g.moveTo(x,py);g.lineTo(x+R(-.75,.75),py-len*.45);
+    g.lineTo(x+R(-1,1),py-len);g.stroke();
+  }
+  for(let i=0;i<3;i++){
+    const x=cx+R(-mid*.56,mid*.56),py=by-R(11,height*.78);
+    g.strokeStyle='rgba(58,37,27,.48)';g.lineWidth=.70;
+    g.beginPath();g.ellipse(x,py,R(.75,1.45),R(1.4,2.9),
+      R(-.23,.23),0,TAU);g.stroke();
+  }
+  g.restore();
+  // Contato leve no solo. Não ampliar a base com raízes triangulares.
+  g.strokeStyle='rgba(47,33,22,.46)';g.lineWidth=.7;
+  g.beginPath();g.moveTo(cx-base,by-1);g.lineTo(cx-base+.2,by-height*.27);
+  g.moveTo(cx+base,by-1);g.lineTo(cx+base-.2,by-height*.27);g.stroke();
+  return {baseWidth:base*2,midWidth:mid*2,topWidth:tip*2};
+}
 function paintTrunk(g,cx,by,height,width,pine=false) {
+  if(!pine) return paintBroadleafTrunk(g,cx,by,height,width);
   // Madeira com volume, raiz aberta, casca irregular e sombra na face oposta.
   const top=by-height,foot=width*.65,tip=width*.42;
   const outline=()=>{
@@ -448,16 +507,21 @@ function leafTone(p,light,deepLayer) {
 // verticais. Cada extremidade vira um ponto real de crescimento de folhas.
 function taperedBroadleafBranch(g,a,b,width) {
   const dx=b.x-a.x,dy=b.y-a.y;
-  const m={x:a.x+dx*.57+dy*.065,y:a.y+dy*.57-dx*.045};
+  // Suave curvatura e espessura contínua; sub-ramos nascem sem quinas duras.
+  const bend=Math.max(-2.5,Math.min(2.5,(dx+dy)*.04));
+  const mx=(a.x+b.x)*.50-dy*.045+bend*.18;
+  const my=(a.y+b.y)*.50+dx*.035-bend*.12;
   g.lineCap='round';g.lineJoin='round';
-  g.strokeStyle='#372a1e';g.lineWidth=width+1.1;
-  g.beginPath();g.moveTo(a.x,a.y);g.quadraticCurveTo(m.x,m.y,b.x,b.y);g.stroke();
-  g.strokeStyle='#72543a';g.lineWidth=Math.max(.75,width*.67);
-  g.beginPath();g.moveTo(a.x,a.y);g.quadraticCurveTo(m.x,m.y,b.x,b.y);g.stroke();
-  g.strokeStyle='rgba(194,151,102,.32)';
-  g.lineWidth=Math.max(.45,width*.18);
-  g.beginPath();g.moveTo(a.x-1,a.y-1);
-  g.quadraticCurveTo(m.x-1,m.y-1,b.x-.35,b.y-.5);g.stroke();
+  const draw=()=>{g.beginPath();g.moveTo(a.x,a.y);
+    g.quadraticCurveTo(mx,my,b.x,b.y);g.stroke();};
+  g.strokeStyle='#423126';g.lineWidth=width+.32;draw();
+  g.strokeStyle='#876448';g.lineWidth=Math.max(.52,width*.66);draw();
+  if(width>1.35){
+    g.strokeStyle='rgba(205,168,119,.24)';
+    g.lineWidth=Math.max(.38,width*.17);
+    g.beginPath();g.moveTo(a.x-.28,a.y-.32);
+    g.quadraticCurveTo(mx-.28,my-.32,b.x-.28,b.y-.32);g.stroke();
+  }
 }
 function makeBroadleafBranches(g,cx,cy,r) {
   const root={x:cx,y:cy+r*.64},tips=[],major=[];
@@ -472,8 +536,8 @@ function makeBroadleafBranches(g,cx,cy,r) {
     const end={x:start.x+Math.cos(theta)*length,
       y:start.y+Math.sin(theta)*length*.82};
     // O eixo central cresce antes da bifurcação; não explode em estrela.
-    taperedBroadleafBranch(g,start,fork,R(3.2,4.7));
-    taperedBroadleafBranch(g,fork,end,R(2.1,3.1));
+    taperedBroadleafBranch(g,start,fork,R(1.9,2.65));
+    taperedBroadleafBranch(g,fork,end,R(1.30,1.95));
     major.push({start,fork,end,angle:theta});
     tips.push(end);
     const forks=2+(rng()<.56?1:0);
@@ -484,7 +548,7 @@ function makeBroadleafBranches(g,cx,cy,r) {
       const fa=theta+side*R(.26,.63);
       const dist=r*R(.14,.29);
       const b={x:a.x+Math.cos(fa)*dist,y:a.y+Math.sin(fa)*dist*.8};
-      taperedBroadleafBranch(g,a,b,R(.85,1.55));
+      taperedBroadleafBranch(g,a,b,R(.55,1.0));
       tips.push(b);
     }
   }
@@ -680,10 +744,10 @@ function makeTree(kind='oak',decoration=null) {
   // Comparado com a geração V1: troncos encurtados em ~30%-45%.
   const trunkH=pine?R(.95,1.30):street?R(1.38,1.75):yard?R(.98,1.32):R(1.20,1.55);
   const r=pine?R(.99,1.37):street?R(1.24,1.62):yard?R(1.30,1.67):R(1.58,2.02);
-  const S=SPR,pad=18,width=(pine?.27:.38)*S,th=trunkH*S;
+  const S=SPR,pad=18,width=(pine?.27:.30)*S,th=trunkH*S;
   const tc=makeCanvas(width+pad*2+16,th+pad+12),tg=tc.getContext('2d');
   const tx=tc.width/2,ty=tc.height-pad/2;
-  paintTrunk(tg,tx,ty,th,width,pine);
+  const trunkProfile=paintTrunk(tg,tx,ty,th,width,pine);
   const w=(r*(pine?2.45:2.9)+.45)*S,h=(pine?r*2.55:r*2.15)*S+pad*2;
   const cc=makeCanvas(w,h),cg=cc.getContext('2d'),cx=cc.width/2,by=cc.height-pad;
   let leafCount=0,needleCount=0,branchCount=0,twigCount=0,flowers=0,fruits=0,branchAngles=[];
@@ -705,7 +769,7 @@ function makeTree(kind='oak',decoration=null) {
   }
   return {trunk:tc,tax:tx,tay:ty,crown:cc,cax:cx,cay:by,trunkH,r,kind,
     leafCount,needleCount,leafColors,decoration:appearance,
-    branchCount,twigCount,branchAngles,flowers,fruits};
+    branchCount,twigCount,branchAngles,flowers,fruits,trunkProfile};
 }
 function makeBush() {
   // Arbusto 10× mais folhado, com folhas individuais em pequenos ramos.
