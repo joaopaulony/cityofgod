@@ -166,9 +166,55 @@ function updateNPC(n, dt) {
   n.phase += n.speed * dt / 1.45;
 }
 
+// Folhas ambientais: poucas partículas por segundo, só de árvores perto da câmera.
+// Aproveita a ordenação de profundidade que já existe para todas as partículas.
+let ambientLeafBudget = 0;
+function spawnAmbientLeaves(dt) {
+  if (dt <= 0) return;
+  const near = [];
+  for (const p of world.props) {
+    if (p.type !== 'tree' || Math.abs(p.x-cam.x)>16 || Math.abs(p.y-cam.y)>16) continue;
+    near.push(p);
+  }
+  if (!near.length) { ambientLeafBudget = 0; return; }
+  // ~0.5-2.5 folhas/s na região, evitando florestas de partículas.
+  ambientLeafBudget = Math.min(3, ambientLeafBudget + dt * Math.min(2.5, near.length*0.14));
+  if (parts.length > 180) return;
+  let active = 0;
+  for (const p of parts) if (p.kind === 'falling-leaf') active++;
+  while (ambientLeafBudget >= 1 && active < 48) {
+    ambientLeafBudget--;
+    const p=near[(Math.random()*near.length)|0], sp=p.sp;
+    if(sp.kind==='pine' && Math.random()<0.88)continue;
+    const a=Math.random()*TAU, d=Math.sqrt(Math.random())*sp.r*.82;
+    const duration=rnd(3.0,6.2);
+    emit({kind:'falling-leaf',x:p.x+Math.cos(a)*d,y:p.y+Math.sin(a)*d,
+      z:sp.trunkH+rnd(.35,sp.kind==='pine'?sp.r*1.5:sp.r*2.0),
+      vx:rnd(-.12,.15),vy:rnd(-.10,.14),vz:0,g:0,
+      age:0,phase:rnd(0,TAU),spin:rnd(-2.4,2.4),fallSpeed:rnd(.40,.72),
+      life:duration,max:duration,size:rnd(.058,.095),
+      col:sp.leafColors[(Math.random()*sp.leafColors.length)|0]});
+    active++;
+  }
+}
+
 function updateParts(dt) {
   for (let i = parts.length - 1; i >= 0; i--) {
     const q = parts[i];
+    if (q.kind === 'falling-leaf') {
+      q.age += dt; q.life -= dt;
+      // Movimento pendular, giro e queda lenta guiada pelo vento local.
+      const breeze = wind(T, q.x, q.y);
+      if (q.z > 0.025) {
+        q.x += (q.vx + breeze * .13 + Math.sin(q.phase + q.age * 2.4)*.12)*dt;
+        q.y += (q.vy + breeze * .09 + Math.cos(q.phase + q.age * 1.8)*.10)*dt;
+        q.z = Math.max(.025, q.z - (q.fallSpeed + Math.cos(q.phase+q.age*3)*.08)*dt);
+      } else {
+        q.life = Math.min(q.life, 1.2);
+      }
+      if (q.life <= 0) parts.splice(i, 1);
+      continue;
+    }
     q.life -= dt;
     if (q.life <= 0) { parts.splice(i, 1); continue; }
     q.vz -= q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
@@ -184,7 +230,22 @@ function updateParts(dt) {
 
 function drawPart(q) {
   const p = proj(q.x, q.y, q.z), a = clamp(q.life / q.max * 2, 0, 1), s = Math.max(1, q.size * cam.zoom);
-  if (q.kind === 'puff') {
+  if (q.kind === 'falling-leaf') {
+    // Pequena folha em perspectiva, sem quadrado artificial.
+    g.save();
+    g.globalAlpha = Math.min(1, Math.max(0, q.life / 1.1)) * Math.min(1, q.age*3);
+    g.translate(p.x, p.y);
+    g.rotate(q.phase + q.age * q.spin);
+    const rx = Math.max(1.7, s*.9), ry = Math.max(1.1, s*.42);
+    g.fillStyle = q.col; g.beginPath();
+    g.moveTo(-rx, 0); g.quadraticCurveTo(-rx*.12,-ry,rx,0);
+    g.quadraticCurveTo(-rx*.15,ry*.9,-rx,0); g.fill();
+    if (rx > 3.2) {
+      g.strokeStyle = 'rgba(243,235,169,.42)'; g.lineWidth = .65;
+      g.beginPath(); g.moveTo(-rx*.7,0); g.lineTo(rx*.7,0); g.stroke();
+    }
+    g.restore();
+  } else if (q.kind === 'puff') {
     g.globalAlpha = a * 0.55; g.fillStyle = q.col; g.beginPath(); g.arc(p.x, p.y, s * (1.6 - q.life / q.max), 0, TAU); g.fill(); g.globalAlpha = 1;
   } else if (q.kind === 'casing') {
     g.fillStyle = INK; g.fillRect(p.x - 2, p.y - 1, 4, 3); g.fillStyle = q.col; g.fillRect(p.x - 1, p.y - 1, 2, 2);
@@ -323,6 +384,7 @@ function tick(dt) {
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);
+  spawnAmbientLeaves(dt);
   updateParts(dt);
   // câmera: segue o jogador e, ao mirar, avança na direção do mouse (como no Zomboid)
   let lx = 0, ly = 0;
