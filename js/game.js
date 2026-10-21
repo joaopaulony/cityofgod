@@ -187,11 +187,13 @@ function spawnAmbientLeaves(dt) {
     const p=near[(Math.random()*near.length)|0], sp=p.sp;
     if(sp.kind==='pine' && Math.random()<0.88)continue;
     const a=Math.random()*TAU, d=Math.sqrt(Math.random())*sp.r*.82;
-    const duration=rnd(3.0,6.2);
+    const z=sp.trunkH+rnd(.35,sp.kind==='pine'?sp.r*1.5:sp.r*2.0);
+    const fallSpeed=rnd(.55,.86);
+    // Vida depende da altura: a folha não desaparece no ar antes de cair.
+    const duration=Math.min(13,z/fallSpeed+1.25);
     emit({kind:'falling-leaf',x:p.x+Math.cos(a)*d,y:p.y+Math.sin(a)*d,
-      z:sp.trunkH+rnd(.35,sp.kind==='pine'?sp.r*1.5:sp.r*2.0),
-      vx:rnd(-.12,.15),vy:rnd(-.10,.14),vz:0,g:0,
-      age:0,phase:rnd(0,TAU),spin:rnd(-2.4,2.4),fallSpeed:rnd(.40,.72),
+      z, vx:rnd(-.12,.15),vy:rnd(-.10,.14),vz:0,g:0,
+      age:0,phase:rnd(0,TAU),spin:rnd(-2.4,2.4),fallSpeed,
       life:duration,max:duration,size:rnd(.058,.095),
       col:sp.leafColors[(Math.random()*sp.leafColors.length)|0]});
     active++;
