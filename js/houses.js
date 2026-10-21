@@ -12,7 +12,8 @@ function addHouse(def) {
   const wallTop = H.roofKind === 'flat' ? H.h + PARAPET : H.h;
   const W = H.x1 - H.x0, D = H.y1 - H.y0, alongX = W >= D;
   const gableEnds = H.roofKind === 'gable' ? (alongX ? ['W', 'E'] : ['N', 'S']) : [];
-  const rise = ((alongX ? D : W) / 2 + ROOF_O) * PITCH;
+  // Mesma altura de cumeeira usada em roofs.js: sem folgas acima da empena.
+  const rise = (alongX ? D : W) / 2 * PITCH;
   const sides = {
     S: { a: [H.x0, H.y1], dir: [1, 0], n: [0, 1], len: W },
     N: { a: [H.x0, H.y0], dir: [1, 0], n: [0, -1], len: W },
@@ -22,7 +23,7 @@ function addHouse(def) {
   H.sides = sides;
   for (const k in sides) {
     const sd = sides[k], o = H.open[k] || {};
-    sd.Hc = gableEnds.includes(k) ? H.h + rise + 0.3 : wallTop;
+    sd.Hc = gableEnds.includes(k) ? H.h + rise + 0.06 : wallTop;
     sd.eave = H.roofKind === 'hip' || (H.roofKind === 'gable' && !gableEnds.includes(k));
     if ((o.door || []).length) H.frontSide = k;
     for (let i = 0; i < sd.len; i++) {
@@ -32,6 +33,9 @@ function addHouse(def) {
         nx: sd.n[0], ny: sd.n[1], h: wallTop, house: H, ext: true, side: k, idx: i,
         door: (o.door || []).includes(i), window: (o.win || []).includes(i),
         c0: i === 0, c1: i === sd.len - 1, sign: o.sign && o.sign.includes(i),
+        doorAnim: (o.door || []).includes(i) ? { open: 0, target: 0 } : null,
+        windowAnim: (o.win || []).includes(i) ? { open: 0, target: 0, timer: 3 + ((H.seed + i * 13 + k.charCodeAt(0)) % 12),
+          rand: mulberry(H.seed * 23 + i * 97 + k.charCodeAt(0) * 293) } : null,
       };
       H.segs.push(s);
       if (!s.door) world.segs.push(s);
@@ -40,7 +44,8 @@ function addHouse(def) {
   for (const w of H.inner || []) {
     const len = Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1)), dx = (w.x2 - w.x1) / len, dy = (w.y2 - w.y1) / len;
     for (let i = 0; i < len; i++) {
-      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i };
+      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i,
+        doorAnim: w.door === i ? { open: 0, target: 0 } : null };
       H.segs.push(s);
       if (!s.door) world.segs.push(s);
     }
@@ -398,7 +403,9 @@ function drawDoorway(g, s, zt) {
   poly(g, [pt(0.1, -0.08, 0.02), pt(0.9, -0.08, 0.02), pt(0.9, t, 0.02), pt(0.1, t, 0.02)], '#b9b3a6', 'rgba(30,24,20,0.5)', 1);
   for (const u of [0.1, 0.9]) poly(g, [pt(u, 0, 0), pt(u, t, 0), pt(u, t, zt), pt(u, 0, zt)], tone(H.style.plaster, -0.2), null);
   if (zt > 0.2) {
-    const a = 1.25, ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
+    // A folha passa de fechada (0 rad) a aberta para dentro (~75 graus).
+    const a = 1.30 * (s.doorAnim ? s.doorAnim.open : 1);
+    const ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
     const hx = s.x1 + dx * 0.1 + ix * t, hy = s.y1 + dy * 0.1 + iy * t, zz = Math.min(2.05, zt);
     const q = [proj(hx, hy, 0), proj(hx + ox * 0.82, hy + oy * 0.82, 0), proj(hx + ox * 0.82, hy + oy * 0.82, zz), proj(hx, hy, zz)];
     texPlane(g, s.ext ? T.door : T.innerDoor, [hx, hy, 2.05], [ox, oy, 0], [0, 0, -1], TEX, q);
@@ -406,6 +413,63 @@ function drawDoorway(g, s, zt) {
     shadeOverlay(g, q, facingCam(nn[0], nn[1]) > 0 ? nn : V.mul(nn, -1), 0.8);
     g.strokeStyle = 'rgba(25,18,14,0.7)'; g.lineWidth = 1;
     g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.stroke();
+  }
+}
+
+// Venezianas de vidro: abertura de duas folhas em eixo 3D, sem sprites externos.
+// A moldura fechada permanece na textura cacheada; a abertura animada é
+// desenhada por cima somente nas janelas cujo angulo mudou.
+function drawWindowLeaves(g, s, exterior) {
+  const t = s.windowAnim ? s.windowAnim.open : 0;
+  if (t < 0.015) return;
+  const big = s.house.brick && s.ext && s.side === s.house.frontSide;
+  const u0 = big ? 0.06 : 0.15, u1 = big ? 0.94 : 0.85;
+  const z0 = big ? 0.55 : 0.95, z1 = big ? 2.35 : 2.05;
+  const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+  const nx = exterior ? s.nx : -s.nx, ny = exterior ? s.ny : -s.ny;
+  const point = (u, z, d = 0) => proj(s.x1 + dx * u + nx * d, s.y1 + dy * u + ny * d, z);
+  // Caixa escura no vão: evita que o vidro fechado cacheado continue aparente.
+  const left = u0 + 0.055, right = u1 - 0.055;
+  const low = z0 + 0.055, high = z1 - 0.055;
+  const hole = [point(left, low, 0.022), point(right, low, 0.022),
+    point(right, high, 0.022), point(left, high, 0.022)];
+  poly(g, hole, 'rgba(24,36,43,0.93)', null);
+  // Cada folha gira a partir do respectivo batente, sempre para fora.
+  const a = t * 1.15, half = (right - left) / 2, outward = half * Math.sin(a);
+  for (const side of [-1, 1]) {
+    const hinge = side < 0 ? left : right, dir = -side;
+    const end = hinge + dir * half * Math.cos(a);
+    const corners = [point(hinge, low, 0.045), point(end, low, 0.045 + outward),
+      point(end, high, 0.045 + outward), point(hinge, high, 0.045)];
+    poly(g, corners, 'rgba(121,165,187,0.80)', '#d8d2c4', Math.max(1.2, cam.zoom * 0.026));
+    const m0 = point(hinge + dir * half * 0.52 * Math.cos(a), low, 0.045 + outward * 0.52);
+    const m1 = point(hinge + dir * half * 0.52 * Math.cos(a), high, 0.045 + outward * 0.52);
+    g.strokeStyle = 'rgba(244,242,231,0.52)'; g.lineWidth = Math.max(1, cam.zoom * 0.012);
+    g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
+  }
+}
+
+// Porta abre ao aproximar-se o jogador ou um NPC; janelas mudam devagar,
+// de forma deterministica para cada casa, e fecham preferencialmente a noite.
+function updateHouseOpenings(dt, residents, night) {
+  for (const H of houses) for (const s of H.segs) {
+    if (s.doorAnim) {
+      const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
+      s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
+      if (Math.abs(s.doorAnim.target - s.doorAnim.open) < 0.005) s.doorAnim.open = s.doorAnim.target;
+    }
+    if (s.windowAnim) {
+      const w = s.windowAnim;
+      w.timer -= dt;
+      if (w.timer <= 0) {
+        w.timer = 18 + w.rand() * 35;
+        w.target = night ? 0 : (w.rand() < 0.36 ? 0.35 + w.rand() * 0.65 : 0);
+      }
+      if (night) w.target = 0;
+      w.open += (w.target - w.open) * (1 - Math.exp(-dt * 1.65));
+      if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
+    }
   }
 }
 
@@ -426,6 +490,7 @@ function drawWall(g, s) {
       const q = wallQuad(s, big ? 0.66 : 1.04, big ? 2.24 : 1.97, big ? 0.13 : 0.23, big ? 0.87 : 0.77);
       poly(g, q, outside ? 'rgba(255,196,110,0.82)' : 'rgba(14,20,42,0.6)', null);
     }
+    if (s.window) drawWindowLeaves(g, s, outside);
   }
   // espessura da parede vista de cima + arestas discretas
   const t = 0.14, a = proj(s.x1, s.y1, h), b = proj(s.x2, s.y2, h);
