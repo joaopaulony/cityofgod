@@ -326,7 +326,7 @@ function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
   if (sx + sw > tex.width) sw = tex.width - sx;
   const sy = (m.Hc - z1) * TEX, sh = (z1 - z0) * TEX;
   g.save(); g.imageSmoothingEnabled = true;
-  g.setTransform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
+  g.transform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
   g.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh);
   g.restore();
 }
