@@ -314,29 +314,48 @@ function woodyBranch(g, x0,y0,x1,y1,width) {
   }
 }
 function paintTrunk(g,cx,by,height,width,pine=false) {
-  // Tronco mais baixo, grosso na base e com afunilamento SUAVE (não um poste).
-  const top=by-height, f=width*.54, tip=width*.39;
-  g.fillStyle='#332b21';g.beginPath();
-  g.moveTo(cx-f-2,by);g.quadraticCurveTo(cx-f*.86,by-height*.23,cx-tip,top);
-  g.lineTo(cx+tip,top);
-  g.quadraticCurveTo(cx+f*.79,by-height*.38,cx+f+2,by);
-  g.closePath();g.fill();
-  g.fillStyle=pine?'#70513b':'#745238';
-  g.beginPath();g.moveTo(cx-f*.53,by-.5);
-  g.quadraticCurveTo(cx-f*.45,by-height*.35,cx-tip*.48,top+2);
-  g.lineTo(cx+tip*.05,top+1);
-  g.quadraticCurveTo(cx+f*.10,by-height*.32,cx+f*.08,by-1);
-  g.closePath();g.fill();
-  g.strokeStyle='rgba(217,179,117,.44)';g.lineWidth=1.15;
-  g.beginPath();g.moveTo(cx-f*.3,by-4);g.quadraticCurveTo(cx-f*.24,by-height*.46,cx-tip*.25,top+4);g.stroke();
-  for(let i=0;i<Math.floor(height*.17);i++){
-    const yy=by-R(5,height-4),xx=cx+R(-width*.35,width*.35);
-    g.strokeStyle=i%3?'rgba(42,31,22,.32)':'rgba(202,164,109,.22)';
-    g.lineWidth=R(.7,1.25);g.beginPath();g.moveTo(xx,yy);g.lineTo(xx+R(-1.3,1.3),yy+R(3,9));g.stroke();
+  // Madeira com volume, raiz aberta, casca irregular e sombra na face oposta.
+  const top=by-height,foot=width*.65,tip=width*.42;
+  const outline=()=>{
+    g.beginPath();g.moveTo(cx-foot-3,by);
+    g.bezierCurveTo(cx-foot*.75,by-height*.22,cx-tip*1.05,top+height*.16,cx-tip,top);
+    g.lineTo(cx+tip,top);
+    g.bezierCurveTo(cx+tip*.95,top+height*.28,cx+foot*.82,by-height*.15,cx+foot+3,by);
+    g.closePath();
+  };
+  outline();g.fillStyle='#35291f';g.fill();
+  g.save();outline();g.clip();
+  const bark=g.createLinearGradient(cx-foot,0,cx+foot,0);
+  bark.addColorStop(0,'#3a2b20');bark.addColorStop(.22,pine?'#64503a':'#654b34');
+  bark.addColorStop(.48,pine?'#95745b':'#96704a');
+  bark.addColorStop(.68,'#75543a');bark.addColorStop(1,'#2d241e');
+  g.fillStyle=bark;g.fillRect(cx-foot-4,top-2,foot*2+8,height+5);
+  // Veios longos de casca em tons alternados; curvas acompanham o tronco.
+  for(let i=0;i<95;i++){
+    const x=cx+R(-foot*.92,foot*.92),y=by-R(2,height-3),
+      len=R(3,19),bend=R(-2.6,2.6);
+    g.strokeStyle=i%4===0?'rgba(214,176,120,.31)':i%3===0?'rgba(28,21,19,.46)':'rgba(70,45,28,.35)';
+    g.lineWidth=R(.48,1.48);g.beginPath();g.moveTo(x,y);
+    g.quadraticCurveTo(x+bend,y-len*.53,x+bend*.5,y-len);g.stroke();
+  }
+  // Sulcos/bifurcações finas e nós na parte inferior.
+  for(let i=0;i<8;i++){
+    const x=cx+R(-foot*.65,foot*.65),y=by-R(8,height*.72);
+    g.strokeStyle='rgba(31,23,16,.68)';g.lineWidth=R(.8,1.35);
+    g.beginPath();g.ellipse(x,y,R(1.0,2.4),R(1.9,4.4),R(-.2,.2),0,TAU);g.stroke();
+    g.fillStyle='rgba(190,153,105,.23)';g.fillRect(x-1.5,y-3,1,3.5);
+  }
+  g.restore();
+  g.strokeStyle='rgba(24,19,16,.6)';g.lineWidth=1;
+  g.beginPath();g.moveTo(cx-foot-2,by);g.lineTo(cx-tip,top);g.stroke();
+  // Raízes discretas saindo do pé do tronco, integrando árvore ao solo.
+  for(const side of [-1,1]){
+    g.fillStyle=side<0?'#473324':'#5c422d';
+    g.beginPath();g.moveTo(cx+side*foot*.4,by-7);
+    g.quadraticCurveTo(cx+side*(foot+1),by-3,cx+side*(foot+R(4,8)),by);
+    g.lineTo(cx+side*foot*.22,by);g.fill();
   }
 }
-// Cada ramo termina num conjunto de raminhos folhados. Os pontos são âncoras
-// para posicionamento; não se desenha NENHUMA massa verde preenchida.
 function crownAnchors(cx,cy,r,family) {
   const street=family==='street',yard=family==='yard';
   const total=street?24:yard?27:33,anchors=[];
@@ -430,6 +449,7 @@ function spruceNeedles(g,cx,by,r,p) {
   const height=r*2.15, top=by-height;
   woodyBranch(g,cx,by+4,cx+R(-3,3),top,4.4);
   let needles=0;
+  const needleLines=Array.from({length:5},()=>[]);
   const tiers=17;
   for(let level=0;level<tiers;level++){
     const t=level/(tiers-1),y=by-8-t*height*.90,
@@ -445,13 +465,11 @@ function spruceNeedles(g,cx,by,r,p) {
           yy=y-8+(y1-y+8)*f;
         // Cada pequeno conjunto é um leque de agulhas individuais.
         const fan=R(6,11)*(1-f*.38);
-        for(let m=0;m<8;m++){
-          const angle=R(-2.6,-.55),len=R(2.0,fan*.77),
-            x2=xx+R(-1.7,1.7),y2=yy+R(-1.2,1.2);
-          g.strokeStyle=(m%4===0?p[0]:m%3===0?p[4]:m%2===0?p[2]:p[3]);
-          g.lineWidth=R(.62,1.25);
-          g.beginPath();g.moveTo(x2,y2);
-          g.lineTo(x2+Math.cos(angle)*len*side,y2+Math.sin(angle)*len);g.stroke();
+        for(let m=0;m<80;m++){
+          const angle=R(-2.6,-.55),len=R(1.0,fan*.48),
+            x2=xx+R(-2.1,2.1),y2=yy+R(-1.5,1.5);
+          const tone=m%7===0?0:m%4===0?4:m%3===0?2:3;
+          needleLines[tone].push(x2,y2,x2+Math.cos(angle)*len*side,y2+Math.sin(angle)*len);
           needles++;
         }
       }
@@ -460,8 +478,12 @@ function spruceNeedles(g,cx,by,r,p) {
   // Broto apical e ramos desconexos suavizam a forma de cone.
   for(let i=0;i<70;i++){
     const f=rng(),x=cx+R(-1,1)*(5+f*13),y=top+R(-4,20);
-    g.strokeStyle=p[i%4+1];g.lineWidth=R(.65,1);
-    g.beginPath();g.moveTo(x,y+R(2,5));g.lineTo(x+R(-3,3),y-R(3,6));g.stroke();needles++;
+    needleLines[i%4+1].push(x,y+R(2,5),x+R(-3,3),y-R(3,6));needles++;
+  }
+  for(let tone=0;tone<5;tone++){
+    const lines=needleLines[tone];g.strokeStyle=p[tone];g.lineWidth=.78;g.beginPath();
+    for(let i=0;i<lines.length;i+=4){g.moveTo(lines[i],lines[i+1]);g.lineTo(lines[i+2],lines[i+3]);}
+    g.stroke();
   }
   return needles;
 }
@@ -477,16 +499,19 @@ function makeTree(kind='oak') {
   const w=(r*(pine?2.45:2.9)+.45)*S,h=(pine?r*2.55:r*2.15)*S+pad*2;
   const cc=makeCanvas(w,h),cg=cc.getContext('2d'),cx=cc.width/2,by=cc.height-pad;
   let leafCount=0,needleCount=0;
+  let leafColors;
   if(pine){
     const p=NEEDLE_PALETTES[(rng()*NEEDLE_PALETTES.length)|0];
     needleCount=spruceNeedles(cg,cx,by,r*S,p);
+    leafColors=[p[1],p[2],p[3],p[4]];
   } else {
     const pal=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
-    leafCount=leafCanopy(cg,cx,by-r*S*.83,r*S,kind,pal);
+    // Copa mais perto do topo real do tronco.
+    leafCount=leafCanopy(cg,cx,by-r*S*.66,r*S,kind,pal);
+    leafColors=[pal.shade,pal.body,pal.mid,pal.sun,pal.glint];
   }
   return {trunk:tc,tax:tx,tay:ty,crown:cc,cax:cx,cay:by,trunkH,r,kind,
-    leafCount,needleCount,leafColors:pine?
-      ['#436954','#63816b','#9caa77']:['#688e43','#93aa51','#b7b86a','#b6a071']};
+    leafCount,needleCount,leafColors};
 }
 function makeBush() {
   // Arbustos também são folhas separadas — sem discos verdes preenchidos.
