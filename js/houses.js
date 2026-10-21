@@ -1,0 +1,475 @@
+// houses.js — casas, mercado, móveis, cercas e carros como geometria 3D chapada.
+// Paredes são fatiadas em pedaços de 1 m p/ ordenar por profundidade junto com o personagem.
+// Quando o jogador entra, as paredes viradas p/ a câmera são cortadas e o telhado some (como no Zomboid).
+'use strict';
+
+const houses = [];
+const boxes = [];      // móveis/carros: {x,y,z,w,d,h,rot,top,side,kind}
+
+function addHouse(def) {
+  const H = Object.assign({ h: 2.7, segs: [], inside: false, roofKind: 'gable' }, def);
+  const sides = {
+    S: { a: [H.x0, H.y1], dir: [1, 0], n: [0, 1], len: H.x1 - H.x0 },
+    N: { a: [H.x0, H.y0], dir: [1, 0], n: [0, -1], len: H.x1 - H.x0 },
+    W: { a: [H.x0, H.y0], dir: [0, 1], n: [-1, 0], len: H.y1 - H.y0 },
+    E: { a: [H.x1, H.y0], dir: [0, 1], n: [1, 0], len: H.y1 - H.y0 },
+  };
+  for (const k in sides) {
+    const sd = sides[k], o = H.open[k] || {};
+    for (let i = 0; i < sd.len; i++) {
+      const s = {
+        x1: sd.a[0] + sd.dir[0] * i, y1: sd.a[1] + sd.dir[1] * i,
+        x2: sd.a[0] + sd.dir[0] * (i + 1), y2: sd.a[1] + sd.dir[1] * (i + 1),
+        nx: sd.n[0], ny: sd.n[1], h: H.h, house: H, ext: true,
+        door: (o.door || []).includes(i), window: (o.win || []).includes(i),
+        c0: i === 0, c1: i === sd.len - 1, sign: o.sign && o.sign.includes(i),
+      };
+      H.segs.push(s);
+      if (!s.door) world.segs.push(s);
+    }
+  }
+  for (const w of H.inner || []) {
+    const len = Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1)), dx = (w.x2 - w.x1) / len, dy = (w.y2 - w.y1) / len;
+    for (let i = 0; i < len; i++) {
+      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i };
+      H.segs.push(s);
+      if (!s.door) world.segs.push(s);
+    }
+  }
+  houses.push(H);
+  return H;
+}
+
+function addBox(b) {
+  b = Object.assign({ z: 0, rot: 0, kind: 'box' }, b);
+  boxes.push(b);
+  if (b.solid !== false) {
+    const c = boxCorners(b), hh = b.z + b.h;
+    for (let i = 0; i < 4; i++) world.segs.push({ x1: c[i][0], y1: c[i][1], x2: c[(i + 1) % 4][0], y2: c[(i + 1) % 4][1], h: hh, kind: b.kind });
+  }
+  return b;
+}
+function boxCorners(b) {
+  const c = Math.cos(b.rot), s = Math.sin(b.rot), hw = b.w / 2, hd = b.d / 2;
+  return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([u, v]) => [b.x + u * c - v * s, b.y + u * s + v * c]);
+}
+
+// ---------- modelos de construção (coordenadas locais, porta no lado sul) ----------
+const TPL = {
+  A: {
+    w: 10, d: 8, setback: 3.6, yard: true,
+    def: { ext: '#d6c7a4', int: '#cbb894', roof: '#4d5366', trim: '#f1ece0',
+      open: { S: { door: [4], win: [1, 2, 7, 8] }, N: { win: [2, 3, 6, 7] }, W: { win: [3, 4] }, E: { win: [2, 5] } },
+      inner: [{ x1: 5, y1: 0, x2: 5, y2: 8, door: 3 }],
+      floors: [{ x0: 0, y0: 0, x1: 5, y1: 8, kind: 'wood' }, { x0: 5, y0: 0, x1: 10, y1: 8, kind: 'carpet', col: '#6d7f94' }] },
+    furn: [
+      { x: 1.6, y: 0.5, w: 3, d: 0.6, h: 0.9, top: '#cfc6b4', side: '#7e5a3a', kind: 'counter' },
+      { x: 3.6, y: 0.45, w: 0.8, d: 0.7, h: 1.85, top: '#e9e7e2', side: '#d8d6d0', kind: 'fridge' },
+      { x: 2, y: 3.4, w: 1.6, d: 1, h: 0.75, top: '#8b5a35', side: '#6a4127', kind: 'table' },
+      { x: 1.1, y: 6.7, w: 0.8, d: 2.2, h: 0.45, top: '#7d4a3a', side: '#5e3529', kind: 'sofa' },
+      { x: 0.75, y: 6.7, w: 0.3, d: 2.2, h: 0.9, top: '#8d5544', side: '#5e3529', kind: 'sofa', solid: false },
+      { x: 4.6, y: 6.2, w: 0.5, d: 1.4, h: 0.55, top: '#3b3433', side: '#2a2524', kind: 'tv' },
+      { x: 4.6, y: 6.2, w: 0.12, d: 1.2, h: 0.7, z: 0.55, top: '#222', side: '#15171c', kind: 'screen', solid: false },
+      { x: 8.4, y: 1.4, w: 2.2, d: 2.6, h: 0.5, top: '#e8e3d8', side: '#6b4a32', kind: 'bed' },
+      { x: 8.4, y: 2.1, w: 2.0, d: 1.6, h: 0.08, z: 0.5, top: '#4f6f9c', side: '#3b5378', kind: 'blanket', solid: false },
+      { x: 9.55, y: 5.5, w: 0.6, d: 1.6, h: 2.0, top: '#7a5434', side: '#5d3f26', kind: 'wardrobe' },
+      { x: 6.2, y: 7.4, w: 1.4, d: 0.6, h: 0.75, top: '#9a7048', side: '#6e4c2e', kind: 'desk' },
+    ],
+  },
+  B: {
+    w: 8, d: 8, setback: 3,
+    def: { ext: '#9fb4c2', int: '#d9cfbd', roof: '#7a3b2c', trim: '#f4f1ea',
+      open: { S: { door: [2], win: [5, 6] }, N: { win: [2, 5] }, E: { win: [3, 4] }, W: { win: [2, 5] } },
+      floors: [{ x0: 0, y0: 0, x1: 8, y1: 8, kind: 'wood', col: '#8a5a34' }] },
+    furn: [
+      { x: 4, y: 4, w: 1.4, d: 1.4, h: 0.75, top: '#a57a4c', side: '#6e4c2e', kind: 'table' },
+      { x: 1, y: 6.5, w: 0.8, d: 2.4, h: 0.45, top: '#4b6b5a', side: '#334a3e', kind: 'sofa' },
+      { x: 7.5, y: 1.5, w: 0.5, d: 2.5, h: 1.9, top: '#6b4a30', side: '#53391f', kind: 'shelf' },
+    ],
+  },
+  SHOP: {
+    w: 8, d: 8, setback: 0.8,
+    def: { h: 3.2, ext: '#9c4a3b', int: '#e1ddd2', roof: '#5c5b60', trim: '#e9e3d6', roofKind: 'flat', brick: true,
+      open: { S: { door: [3], win: [1, 2, 5, 6], sign: [2, 3, 4, 5] }, W: { win: [2, 3, 4, 5] } },
+      floors: [{ x0: 0, y0: 0, x1: 8, y1: 8, kind: 'tile', col: '#d8d4c8' }] },
+    furn: [
+      ...[0, 1, 2].map(i => ({ x: 4.6, y: 1.8 + i * 1.8, w: 4.4, d: 0.7, h: 1.5, top: ['#d0473b', '#e2b23c', '#3c7ac0'][i], side: '#7a7d84', kind: 'shelf' })),
+      { x: 1.5, y: 6.6, w: 1.8, d: 0.7, h: 1.0, top: '#c9c3b5', side: '#6f5136', kind: 'counter' },
+      { x: 7.3, y: 4, w: 0.8, d: 3, h: 1.0, top: '#cfe6ef', side: '#e4e4e0', kind: 'freezer' },
+    ],
+  },
+};
+// variações de cor p/ as casas não ficarem repetidas
+const SIDINGS = [['#d6c7a4', '#4d5366'], ['#9fb4c2', '#7a3b2c'], ['#c9b48a', '#5b4a42'], ['#b8c4a4', '#4a5a6a'], ['#e0d6c4', '#6b3a2e'], ['#a9b8c8', '#3f4550']];
+
+const LOCAL_SIDES = { S: { n: [0, 1], dir: [1, 0] }, N: { n: [0, -1], dir: [1, 0] }, W: { n: [-1, 0], dir: [0, 1] }, E: { n: [1, 0], dir: [0, 1] } };
+const sideOf = n => n[1] > 0.5 ? 'S' : n[1] < -0.5 ? 'N' : n[0] < -0.5 ? 'W' : 'E';
+
+// instancia um modelo girado k*90° com o canto superior-esquerdo em (x0,y0)
+function placeTemplate(T, x0, y0, k, extra = {}) {
+  const c = Math.round(Math.cos(k * Math.PI / 2)), s = Math.round(Math.sin(k * Math.PI / 2));
+  const W = k % 2 ? T.d : T.w, D = k % 2 ? T.w : T.d, cx = x0 + W / 2, cy = y0 + D / 2;
+  const L = (u, v) => [cx + c * (u - T.w / 2) - s * (v - T.d / 2), cy + s * (u - T.w / 2) + c * (v - T.d / 2)];
+  const rv = v => [c * v[0] - s * v[1], s * v[0] + c * v[1]];
+  const def = Object.assign({}, T.def, extra, { x0, y0, x1: x0 + W, y1: y0 + D, open: {} });
+  for (const key in T.def.open) {
+    const ls = LOCAL_SIDES[key], wn = rv(ls.n), wd = rv(ls.dir), rev = wd[0] + wd[1] < 0;
+    const len = key === 'S' || key === 'N' ? T.w : T.d, o = T.def.open[key], m = {};
+    for (const f in o) m[f] = o[f].map(i => rev ? len - 1 - i : i);
+    def.open[sideOf(wn)] = m;
+  }
+  def.inner = (T.def.inner || []).map(w => { const a = L(w.x1, w.y1), b = L(w.x2, w.y2); return { x1: a[0], y1: a[1], x2: b[0], y2: b[1], door: w.door }; });
+  def.floors = T.def.floors.map(f => { const a = L(f.x0, f.y0), b = L(f.x1, f.y1); return Object.assign({}, f, { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) }); });
+  const H = addHouse(def);
+  const du = T.def.open.S.door[0] + 0.5;
+  H.doorPt = L(du, T.d); H.front = L(du, T.d + 2); H.doorN = rv([0, 1]);
+  for (const f of T.furn) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2 })); }
+  if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
+    const a = L(-2, -2.5), b = L(T.w + 2, T.d + 3);
+    const r = [Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.round(Math.max(a[0], b[0])), Math.round(Math.max(a[1], b[1]))];
+    world.yards.push(r);
+    const gate = L(du, T.d + 3), back = L(T.w / 2, -2.5);
+    const gap = (x, y) => Math.hypot(x - gate[0], y - gate[1]) < 1.3 || Math.hypot(x - back[0], y - back[1]) < 1.6;
+    fenceLine(r[0], r[1], r[2], r[1], gap); fenceLine(r[0], r[3], r[2], r[3], gap);
+    fenceLine(r[0], r[1], r[0], r[3], gap); fenceLine(r[2], r[1], r[2], r[3], gap);
+    const mb = L(du - 1.6, T.d + 3.5), bin = L(du + 1.8, T.d + 2.4);
+    addBox({ x: mb[0], y: mb[1], w: 0.25, d: 0.25, h: 1.1, top: '#5a3c26', side: '#5a3c26', kind: 'post' });
+    addBox({ x: mb[0], y: mb[1], w: 0.5, d: 0.3, h: 0.3, z: 1.1, rot: k * Math.PI / 2, top: '#3a5b8c', side: '#2e4a73', kind: 'mailbox', solid: false });
+    addBox({ x: bin[0], y: bin[1], w: 0.6, d: 0.6, h: 1.0, top: '#2f5a37', side: '#244a2c', kind: 'bin' });
+  }
+  return H;
+}
+
+// carros
+function addCar(x, y, rot, col) {
+  addBox({ x, y, rot, w: 4.3, d: 1.85, h: 0.65, z: 0.3, top: col, side: col, kind: 'car' });
+  const c = Math.cos(rot), s = Math.sin(rot);
+  addBox({ x: x - c * 0.25, y: y - s * 0.25, rot, w: 2.1, d: 1.6, h: 0.5, z: 0.95, top: col, side: '#2b3a4a', kind: 'cabin', solid: false });
+  for (const [u, v] of [[-1.35, -0.85], [1.35, -0.85], [-1.35, 0.85], [1.35, 0.85]])
+    addBox({ x: x + u * c - v * s, y: y + u * s + v * c, rot, w: 0.7, d: 0.25, h: 0.62, top: '#1d1d20', side: '#1d1d20', kind: 'wheel', solid: false });
+}
+
+// cerca de madeira em pedaços de 1 m; gap(x,y) abre portões
+const fences = [];
+function fenceLine(x1, y1, x2, y2, gap = () => false) {
+  const len = Math.round(Math.hypot(x2 - x1, y2 - y1)), dx = (x2 - x1) / len, dy = (y2 - y1) / len;
+  for (let i = 0; i < len; i++) {
+    const s = { x1: x1 + dx * i, y1: y1 + dy * i, x2: x1 + dx * (i + 1), y2: y1 + dy * (i + 1), nx: -dy, ny: dx, h: 0.95, kind: 'fence' };
+    if (gap((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2) || onRoad((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)) continue;
+    fences.push(s); world.segs.push(s);
+  }
+}
+
+// ---------- loteamento: casas de frente p/ a rua, ao longo das curvas ----------
+function buildHouses() {
+  const J = world.junction, cands = [];
+  for (const r of world.roads) for (let i = 16; i < r.pts.length - 16; i += 5) for (const s of [1, -1]) cands.push({ p: r.pts[i], s, r: rng() });
+  cands.sort((a, b) => a.r - b.r);
+  const rects = [];
+  const tryPlace = (key, c) => {
+    const T = TPL[key], p = c.p, o = [p.nx * c.s, p.ny * c.s];
+    // porta virada p/ a rua: escolhe a rotação cujo "sul" aponta contra o vetor de afastamento
+    let k = 0, best = -9;
+    for (let q = 0; q < 4; q++) { const dn = [-Math.round(Math.sin(q * Math.PI / 2)), Math.round(Math.cos(q * Math.PI / 2))], d = -(dn[0] * o[0] + dn[1] * o[1]); if (d > best) { best = d; k = q; } }
+    const W = k % 2 ? T.d : T.w, D = k % 2 ? T.w : T.d, depth = k % 2 ? W : D;
+    const dist = ROAD_W + SIDE + T.setback + depth / 2;
+    const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - D / 2);
+    const m = T.yard ? 3.2 : 1;
+    const box = [x0 - m, y0 - m, x0 + W + m, y0 + D + m];
+    if (box[0] < 1 || box[1] < 1 || box[2] > MAP - 1 || box[3] > MAP - 1) return null;
+    for (let y = box[1]; y <= box[3]; y += 1) for (let x = box[0]; x <= box[2]; x += 1) {
+      const inHouse = x >= x0 - 0.5 && x <= x0 + W + 0.5 && y >= y0 - 0.5 && y <= y0 + D + 0.5;
+      if (roadDist(x, y) < ROAD_W + SIDE + (inHouse ? 0.6 : 0.1) || pondVal(x, y) < 1.4) return null;
+    }
+    if (rects.some(b => box[0] < b[2] + 2 && box[2] > b[0] - 2 && box[1] < b[3] + 2 && box[3] > b[1] - 2)) return null;
+    if (Math.hypot(x0 + W / 2 - J.x, y0 + D / 2 - J.y) < 8) return null;
+    rects.push(box);
+    const pal = SIDINGS[(rng() * SIDINGS.length) | 0];
+    return placeTemplate(T, x0, y0, k, key === 'SHOP' ? {} : { ext: pal[0], roof: pal[1] });
+  };
+  // mercado perto do cruzamento, depois as casas
+  const nearJ = cands.filter(c => { const d = Math.hypot(c.p.x - J.x, c.p.y - J.y); return d > 9 && d < 26; });
+  for (const c of nearJ) if (tryPlace('SHOP', c)) break;
+  if (!houses.length) for (const c of cands) if (tryPlace('SHOP', c)) break;
+  const want = ['A', 'B', 'A', 'B', 'B', 'A', 'B'];
+  for (const key of want) for (const c of cands) if (tryPlace(key, c)) break;
+  // caminhos de concreto da porta até a calçada
+  for (const H of houses) {
+    let t = 0.2; while (t < 12 && roadDist(H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t) > ROAD_W + SIDE - 0.2) t += 0.25;
+    H.walk = [H.doorPt, [H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t]];
+  }
+  // carros estacionados junto ao meio-fio
+  const cols = ['#b03a32', '#dedbd3', '#2f5d7c', '#3d3f45', '#c9a13a', '#4d6b3a'], cars = [];
+  for (let i = 0; i < 300 && cars.length < 4; i++) {
+    const r = world.roads[(rng() * world.roads.length) | 0], j = 8 + ((rng() * (r.pts.length - 16)) | 0), p = r.pts[j], s = rng() < 0.5 ? 1 : -1;
+    const x = p.x + p.nx * s * (ROAD_W - 1.3), y = p.y + p.ny * s * (ROAD_W - 1.3);
+    if (x < 3 || y < 3 || x > MAP - 3 || y > MAP - 3 || Math.hypot(x - J.x, y - J.y) < 12 || cars.some(c => Math.hypot(c[0] - x, c[1] - y) < 8)) continue;
+    cars.push([x, y]); addCar(x, y, Math.atan2(p.ty, p.tx) + (s > 0 ? 0 : Math.PI), cols[cars.length % cols.length]);
+  }
+}
+world.buildHouses = buildHouses;
+
+world.blocked = (x, y, r) => {
+  for (const H of houses) if (x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5) return true;
+  for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
+  for (const b of boxes) if (Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.6) return true;
+  return false;
+};
+
+// pisos + caminhos + sombras das casas, pintados uma vez no chão
+world.paintFloors = (g, M, rect) => {
+  g.lineCap = 'butt';
+  for (const H of houses) if (H.walk) {
+    g.strokeStyle = '#b6b0a2'; g.lineWidth = M(1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
+    g.strokeStyle = '#9d978a'; g.lineWidth = 1;
+    const n = Math.hypot(H.walk[1][0] - H.walk[0][0], H.walk[1][1] - H.walk[0][1]);
+    for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
+  }
+  for (const H of houses) {
+    // sombra projetada (na direção oposta ao sol)
+    const k = (H.h + (H.roofKind === 'gable' ? 1.2 : 0)) * 0.55, ox = -SUN[0] * k, oy = -SUN[1] * k;
+    g.fillStyle = 'rgba(20,26,12,0.34)';
+    g.beginPath(); g.moveTo(M(H.x0), M(H.y0)); g.lineTo(M(H.x1), M(H.y0)); g.lineTo(M(H.x1 + ox), M(H.y0 + oy));
+    g.lineTo(M(H.x1 + ox), M(H.y1 + oy)); g.lineTo(M(H.x0 + ox), M(H.y1 + oy)); g.lineTo(M(H.x0), M(H.y1)); g.fill();
+    for (const f of H.floors) {
+      if (f.kind === 'wood') {
+        const base = f.col || '#9b6a3d';
+        rect(f.x0, f.y0, f.x1 - f.x0, f.y1 - f.y0, base);
+        for (let y = f.y0; y < f.y1; y += 0.25) {
+          g.fillStyle = mix(base, '#000000', 0.25); g.fillRect(M(f.x0), M(y), M(f.x1 - f.x0), 1);
+          for (let x = f.x0 + ((y * 4) % 2) * 0.6; x < f.x1; x += 1.2) g.fillRect(M(x), M(y), 1, M(0.25));
+          g.fillStyle = mix(base, '#ffffff', 0.1); g.fillRect(M(f.x0), M(y) + 2, M(f.x1 - f.x0), 1);
+        }
+      } else if (f.kind === 'tile') {
+        rect(f.x0, f.y0, f.x1 - f.x0, f.y1 - f.y0, f.col);
+        for (let x = f.x0; x < f.x1; x += 0.5) for (let y = f.y0; y < f.y1; y += 0.5)
+          if (Math.round((x + y) * 2) % 2 === 0) rect(x, y, 0.5, 0.5, mix(f.col, '#7d8a96', 0.25));
+      } else {
+        rect(f.x0, f.y0, f.x1 - f.x0, f.y1 - f.y0, f.col);
+        for (let i = 0; i < 900; i++) { g.fillStyle = mix(f.col, i % 2 ? '#000000' : '#ffffff', 0.12); g.fillRect(M(R(f.x0, f.x1)), M(R(f.y0, f.y1)), 2, 2); }
+      }
+    }
+    g.fillStyle = 'rgba(0,0,0,.25)';
+    g.fillRect(M(H.x0), M(H.y0), M(H.x1 - H.x0), 4); g.fillRect(M(H.x0), M(H.y0), 4, M(H.y1 - H.y0));
+  }
+  for (const b of boxes) if (b.kind === 'car') {
+    g.save(); g.translate(M(b.x - SUN[0] * 0.5), M(b.y - SUN[1] * 0.5)); g.rotate(b.rot);
+    g.fillStyle = 'rgba(20,20,20,.35)'; g.beginPath(); g.ellipse(0, 0, M(b.w * 0.55), M(b.d * 0.6), 0, 0, TAU); g.fill(); g.restore();
+  }
+  for (const s of fences) {
+    g.fillStyle = 'rgba(20,26,12,0.25)';
+    g.fillRect(M(Math.min(s.x1, s.x2) - SUN[0] * 0.4) - 2, M(Math.min(s.y1, s.y2) - SUN[1] * 0.4) - 2, M(Math.abs(s.x2 - s.x1)) + 4, M(Math.abs(s.y2 - s.y1)) + 4);
+  }
+};
+
+// ---------- desenho ----------
+function wallQuad(s, z0, z1, u0 = 0, u1 = 1) {
+  const ax = lerp(s.x1, s.x2, u0), ay = lerp(s.y1, s.y2, u0), bx = lerp(s.x1, s.x2, u1), by = lerp(s.y1, s.y2, u1);
+  return [proj(ax, ay, z0), proj(bx, by, z0), proj(bx, by, z1), proj(ax, ay, z1)];
+}
+
+function drawWall(g, s) {
+  const H = s.house, f = facingCam(s.nx, s.ny);
+  const outside = s.ext && f > 0;
+  const cut = H.inside && (f > 0 || !s.ext);
+  const h = cut ? 0.5 : s.h;
+  const base = outside ? H.ext : H.int;
+  const lit = shadeOf(f > 0 ? s.nx : -s.nx, f > 0 ? s.ny : -s.ny);
+  const col = tone(base, lit), dk = mix(col, '#1d1830', 0.22);
+  const e = 0.012;
+  const ex = { x1: s.x1 - (s.x2 - s.x1) * e, y1: s.y1 - (s.y2 - s.y1) * e, x2: s.x2 + (s.x2 - s.x1) * e, y2: s.y2 + (s.y2 - s.y1) * e };
+  if (s.door) {
+    if (!cut) {
+      poly(g, wallQuad(ex, 2.15, h), col, null);
+      const fr = wallQuad(s, 0, 2.15, 0.08, 0.92);
+      g.strokeStyle = INK; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(fr[0].x, fr[0].y); g.lineTo(fr[3].x, fr[3].y); g.lineTo(fr[2].x, fr[2].y); g.lineTo(fr[1].x, fr[1].y); g.stroke();
+      g.strokeStyle = H.trim; g.lineWidth = 1; g.stroke();
+    }
+  } else {
+    poly(g, wallQuad(ex, 0, h), col, null);
+    if (outside) {
+      g.strokeStyle = dk; g.lineWidth = 1;
+      if (H.brick) {
+        for (let z = 0.15, r = 0; z < h; z += 0.15, r++) {
+          const q = wallQuad(s, z, z); g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke();
+          for (let u = (r % 2) * 0.17; u < 1; u += 0.34) { const v = wallQuad(s, z - 0.15, z, u, u); g.beginPath(); g.moveTo(v[0].x, v[0].y); g.lineTo(v[3].x, v[3].y); g.stroke(); }
+        }
+      } else for (let z = 0.3; z < h - 0.05; z += 0.28) {
+        const q = wallQuad(s, z, z); g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke();
+      }
+      poly(g, wallQuad(ex, 0, Math.min(h, 0.22)), mix(col, '#2a2420', 0.4), null);
+    }
+    if (s.window && h > 1.6) {
+      const big = H.brick && s.ext, z0 = big ? 0.5 : 0.95, z1 = big ? 2.3 : 2.05;
+      const fr = wallQuad(s, z0, z1, 0.14, 0.86), gl = wallQuad(s, z0 + 0.08, z1 - 0.08, 0.2, 0.8);
+      poly(g, fr, H.trim, INK, 1);
+      const glass = world.night ? (outside ? '#f3c96b' : '#20304a') : (outside ? '#5f86a6' : '#9cc0d8');
+      poly(g, gl, glass, null);
+      if (!world.night || !outside) poly(g, [gl[0], lerp2(gl[0], gl[1], 0.35), lerp2(gl[3], gl[2], 0.75), gl[3]], mix(glass, '#ffffff', 0.25), null);
+      const m0 = lerp2(gl[0], gl[1], 0.5), m1 = lerp2(gl[3], gl[2], 0.5);
+      g.strokeStyle = H.trim; g.lineWidth = Math.max(1, cam.zoom * 0.05); g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
+    }
+  }
+  // tampa superior grossa (parede vista de cima) + contornos
+  const t = 0.14, a = proj(s.x1, s.y1, h), b = proj(s.x2, s.y2, h);
+  const a2 = proj(s.x1 - s.nx * t, s.y1 - s.ny * t, h), b2 = proj(s.x2 - s.nx * t, s.y2 - s.ny * t, h);
+  if (!s.door || !cut) poly(g, [a, b, b2, a2], cut ? '#2b2421' : '#3a3230', null);
+  g.strokeStyle = INK; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+  const q = wallQuad(s, 0, h);
+  if (!s.door) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); }
+  g.lineWidth = 2;
+  if (s.c0) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[3].x, q[3].y); g.stroke(); }
+  if (s.c1) { g.beginPath(); g.moveTo(q[1].x, q[1].y); g.lineTo(q[2].x, q[2].y); g.stroke(); }
+  // letreiro do mercado pintado no plano da parede
+}
+const lerp2 = (p, q, t) => ({ x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) });
+
+function drawSign(g, segs) {
+  // texto sempre lido da esquerda p/ direita de quem olha a fachada
+  const s = segs[0], dx = s.ny, dy = -s.nx, along = (s.x2 - s.x1) * dx + (s.y2 - s.y1) * dy > 0;
+  const e = segs[segs.length - 1], sx = along ? s.x1 : e.x2, sy = along ? s.y1 : e.y2, len = segs.length;
+  const o = proj(sx, sy, 3.05), ux = proj(sx + dx, sy + dy, 3.05), vz = proj(sx, sy, 2.05);
+  g.save(); g.transform(ux.x - o.x, ux.y - o.y, vz.x - o.x, vz.y - o.y, o.x, o.y);
+  g.scale(0.01, 0.01);   // fontes < 1px não renderizam: desenha em centésimos de metro
+  g.fillStyle = INK; g.fillRect(-5, -5, len * 100 + 10, 75);
+  g.fillStyle = '#c23a2e'; g.fillRect(0, 0, len * 100, 65);
+  g.fillStyle = '#9a2a20'; g.fillRect(0, 50, len * 100, 15);
+  g.fillStyle = '#fff3d6'; g.font = 'bold 50px Impact, Arial Black, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('MERCADO', len * 50, 32);
+  g.restore();
+}
+
+function drawRoof(g, H) {
+  if (H.inside) return;
+  g.save(); g.globalAlpha = H.fade ? 0.35 : 1; drawRoofInner(g, H); g.restore();
+}
+function behindHouse(H, px, py) {
+  const cs = [[H.x0, H.y0], [H.x1, H.y0], [H.x1, H.y1], [H.x0, H.y1]], pd = depthOf(px, py);
+  if (pd > Math.max(...cs.map(c => depthOf(c[0], c[1])))) return false;
+  const pp = proj(px, py, 1), sp = cs.flatMap(c => [proj(c[0], c[1], 0), proj(c[0], c[1], H.h + 1.8)]);
+  const xs = sp.map(q => q.x), ys = sp.map(q => q.y);
+  return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
+}
+function drawRoofInner(g, H) {
+  const o = 0.45, z = H.h;
+  if (H.roofKind === 'flat') {
+    const q = [proj(H.x0, H.y0, z), proj(H.x1, H.y0, z), proj(H.x1, H.y1, z), proj(H.x0, H.y1, z)];
+    poly(g, q, '#4b4a50', INK, 2);
+    const i = 0.3, qi = [proj(H.x0 + i, H.y0 + i, z), proj(H.x1 - i, H.y0 + i, z), proj(H.x1 - i, H.y1 - i, z), proj(H.x0 + i, H.y1 - i, z)];
+    poly(g, qi, H.roof, null);
+    drawBox(g, { x: H.x0 + 2.5, y: H.y0 + 2.5, z, w: 1.4, d: 1, h: 0.7, rot: 0, top: '#b8b9bd', side: '#8d8e93' });
+    drawBox(g, { x: H.x1 - 2, y: H.y1 - 2.5, z, w: 1, d: 1, h: 0.5, rot: 0, top: '#b8b9bd', side: '#8d8e93' });
+    return;
+  }
+  const alongX = (H.x1 - H.x0) >= (H.y1 - H.y0), top = z + 1.7;
+  const X0 = H.x0 - o, X1 = H.x1 + o, Y0 = H.y0 - o, Y1 = H.y1 + o, zm = z - 0.15;
+  let faces;
+  if (alongX) {
+    const ym = (H.y0 + H.y1) / 2;
+    faces = [
+      { p: [[X0, Y0, zm], [X1, Y0, zm], [X1, ym, top], [X0, ym, top]], n: [0, -1, 1], roof: 1 },
+      { p: [[X0, Y1, zm], [X1, Y1, zm], [X1, ym, top], [X0, ym, top]], n: [0, 1, 1], roof: 1 },
+      { p: [[H.x0, H.y0, z], [H.x0, H.y1, z], [H.x0, ym, top - 0.1]], n: [-1, 0, 0] },
+      { p: [[H.x1, H.y0, z], [H.x1, H.y1, z], [H.x1, ym, top - 0.1]], n: [1, 0, 0] },
+    ];
+  } else {
+    const xm = (H.x0 + H.x1) / 2;
+    faces = [
+      { p: [[X0, Y0, zm], [X0, Y1, zm], [xm, Y1, top], [xm, Y0, top]], n: [-1, 0, 1], roof: 1 },
+      { p: [[X1, Y0, zm], [X1, Y1, zm], [xm, Y1, top], [xm, Y0, top]], n: [1, 0, 1], roof: 1 },
+      { p: [[H.x0, H.y0, z], [H.x1, H.y0, z], [xm, H.y0, top - 0.1]], n: [0, -1, 0] },
+      { p: [[H.x0, H.y1, z], [H.x1, H.y1, z], [xm, H.y1, top - 0.1]], n: [0, 1, 0] },
+    ];
+  }
+  for (const f of faces) f.d = f.p.reduce((s, p) => s + depthOf(p[0], p[1]) + p[2] * 0.01, 0) / f.p.length;
+  faces.sort((a, b) => a.d - b.d);
+  for (const f of faces) {
+    if (!f.roof && facingCam(f.n[0], f.n[1]) <= 0) continue;
+    const pts = f.p.map(p => proj(p[0], p[1], p[2]));
+    const col = tone(f.roof ? H.roof : H.ext, shadeOf(...f.n));
+    poly(g, pts, col, INK, 2);
+    if (f.roof) {   // fileiras de telhas
+      g.strokeStyle = mix(col, '#000000', 0.3); g.lineWidth = 1;
+      for (let k = 1; k < 7; k++) {
+        const a = lerp2(pts[0], pts[3], k / 7), b = lerp2(pts[1], pts[2], k / 7);
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+        for (let j = (k % 2) * 0.5; j < 12; j++) { const m = lerp2(a, b, j / 12), m2 = lerp2(lerp2(pts[0], pts[3], (k - 1) / 7), lerp2(pts[1], pts[2], (k - 1) / 7), j / 12); g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(lerp(m.x, m2.x, 0.5), lerp(m.y, m2.y, 0.5)); g.stroke(); }
+      }
+      g.strokeStyle = mix(col, '#ffffff', 0.18);
+      g.beginPath(); g.moveTo(pts[0].x, pts[0].y - 1); g.lineTo(pts[1].x, pts[1].y - 1); g.stroke();
+    }
+  }
+  const r0 = faces.find(f => f.roof).p;
+  const ra = proj(r0[2][0], r0[2][1], r0[2][2]), rb = proj(r0[3][0], r0[3][1], r0[3][2]);
+  g.strokeStyle = INK; g.lineWidth = 3; g.beginPath(); g.moveTo(ra.x, ra.y); g.lineTo(rb.x, rb.y); g.stroke();
+}
+
+function drawBox(g, b) {
+  const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
+  const faces = [];
+  for (let i = 0; i < 4; i++) {
+    const p = c[i], q = c[(i + 1) % 4];
+    const nx = q[1] - p[1], ny = -(q[0] - p[0]);
+    if (facingCam(nx, ny) <= 0) continue;
+    faces.push({ pts: [proj(p[0], p[1], z0), proj(q[0], q[1], z0), proj(q[0], q[1], z1), proj(p[0], p[1], z1)], lit: shadeOf(nx, ny), d: depthOf((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), i });
+  }
+  faces.sort((a, b) => a.d - b.d);
+  for (const f of faces) {
+    poly(g, f.pts, tone(b.side, f.lit), INK, 1);
+    if (b.kind === 'car') {   // faróis e lanternas nas pontas
+      const end = (f.i === 1 || f.i === 3);
+      if (end) { const L = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.15), Rr = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.85); g.fillStyle = f.i === 1 ? '#f4eecb' : '#d33b2c'; for (const p of [L, Rr]) g.fillRect(p.x - 2, p.y - 1, 4, 3); }
+    }
+    if (b.kind === 'fridge') {   // portas e puxador
+      const m0 = lerp2(f.pts[0], f.pts[3], 0.62), m1 = lerp2(f.pts[1], f.pts[2], 0.62);
+      g.strokeStyle = INK; g.lineWidth = 1; g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
+      const h0 = lerp2(lerp2(f.pts[0], f.pts[3], 0.5), lerp2(f.pts[1], f.pts[2], 0.5), 0.85), h1 = lerp2(lerp2(f.pts[0], f.pts[3], 0.75), lerp2(f.pts[1], f.pts[2], 0.75), 0.85);
+      g.strokeStyle = '#8c8c94'; g.lineWidth = 2; g.beginPath(); g.moveTo(h0.x, h0.y); g.lineTo(h1.x, h1.y); g.stroke();
+    }
+    if (b.kind === 'screen') { g.fillStyle = 'rgba(140,170,210,.35)'; poly(g, [lerp2(f.pts[0], f.pts[3], 0.3), lerp2(f.pts[0], f.pts[3], 0.9), lerp2(f.pts[1], f.pts[2], 0.5)], 'rgba(140,170,210,.3)', null); }
+    if (b.kind === 'sofa' && b.h < 0.6) for (const u of [0.33, 0.66]) { const a = lerp2(f.pts[0], f.pts[1], u), c = lerp2(f.pts[3], f.pts[2], u); g.strokeStyle = mix(b.side, '#000000', 0.35); g.lineWidth = 1; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.stroke(); }
+    if (b.kind === 'shelf' && b.top !== '#6b4a30') {   // produtos na prateleira
+      for (let k = 0; k < 3; k++) for (let j = 0; j < 6; j++) {
+        const p = lerp2(lerp2(f.pts[0], f.pts[3], 0.2 + k * 0.28), lerp2(f.pts[1], f.pts[2], 0.2 + k * 0.28), 0.08 + j * 0.15);
+        g.fillStyle = ['#d0473b', '#f2c94c', '#4f8fd1', '#6cbf6a', '#f1ede2'][(j + k * 2) % 5]; g.fillRect(p.x, p.y - 3, 3, 4);
+      }
+    }
+  }
+  poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), INK, 1);
+  if (b.kind === 'bed') { const q = { x: b.x, y: b.y - b.d * 0.36, z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: b.rot, top: '#fbf8f0', side: '#d9d3c6' }; drawBox(g, q); }
+}
+
+function drawFence(g, s) {
+  const lit = shadeOf(facingCam(s.nx, s.ny) > 0 ? s.nx : -s.nx, facingCam(s.nx, s.ny) > 0 ? s.ny : -s.ny);
+  const col = tone('#e9e3d3', lit), w = Math.max(1.5, cam.zoom * 0.07);
+  for (const z of [0.3, 0.7]) { const q = wallQuad(s, z, z); g.strokeStyle = INK; g.lineWidth = w; g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); g.strokeStyle = mix(col, '#000000', 0.15); g.lineWidth = w - 1; g.stroke(); }
+  for (let k = 0; k < 4; k++) {
+    const u = (k + 0.5) / 4, a = proj(lerp(s.x1, s.x2, u), lerp(s.y1, s.y2, u), 0), b = proj(lerp(s.x1, s.x2, u), lerp(s.y1, s.y2, u), s.h);
+    poly(g, [[a.x - w, a.y], [a.x + w, a.y], [b.x + w, b.y + w], [b.x, b.y - w * 0.6], [b.x - w, b.y + w]], col, INK, 1);
+  }
+}
+
+// ---------- coleta de desenháveis p/ o quadro ----------
+function houseDrawables(list, px, py) {
+  for (const H of houses) {
+    H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
+    H.fade = !H.inside && behindHouse(H, px, py);
+    let maxD = -1e9;
+    for (const s of H.segs) {
+      const d = depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2);
+      maxD = Math.max(maxD, d);
+      list.push({ d: d + (s.ext ? 0 : -0.02), draw: g => drawWall(g, s) });
+    }
+    const sg = H.segs.filter(s => s.sign);
+    if (sg.length) list.push({ d: Math.max(...sg.map(s => depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2))) + 0.01,
+      draw: g => { if (!H.inside && facingCam(sg[0].nx, sg[0].ny) > 0) drawSign(g, sg); } });
+    list.push({ d: maxD + 0.5, draw: g => drawRoof(g, H), roof: H });
+  }
+  for (const b of boxes) {
+    const bias = b.kind === 'cabin' || b.kind === 'blanket' || b.kind === 'screen' || b.kind === 'mailbox' ? 0.01 : 0;
+    list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
+  }
+  for (const s of fences) list.push({ d: depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2), draw: g => drawFence(g, s) });
+}
