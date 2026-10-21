@@ -603,7 +603,8 @@ function leafCanopy(g,cx,cy,r,family,p,variant='common') {
   }
   const details=paintBroadleafDetails(g,scaffold.anchors,variant);
   return {leafCount:count+42,branchCount:scaffold.branchCount,
-    twigCount:scaffold.twigCount,flowers:details.flowers,fruits:details.fruits};
+    twigCount:scaffold.twigCount,branchAngles:scaffold.major.map(b=>b.angle),
+    flowers:details.flowers,fruits:details.fruits};
 }
 function spruceNeedles(g,cx,by,r,p) {
   // Pinheiro composto de ramos finos com milhares de agulhas, sem triângulos
@@ -685,7 +686,7 @@ function makeTree(kind='oak',decoration=null) {
   paintTrunk(tg,tx,ty,th,width,pine);
   const w=(r*(pine?2.45:2.9)+.45)*S,h=(pine?r*2.55:r*2.15)*S+pad*2;
   const cc=makeCanvas(w,h),cg=cc.getContext('2d'),cx=cc.width/2,by=cc.height-pad;
-  let leafCount=0,needleCount=0,branchCount=0,twigCount=0,flowers=0,fruits=0;
+  let leafCount=0,needleCount=0,branchCount=0,twigCount=0,flowers=0,fruits=0,branchAngles=[];
   const appearance=pine?'none':(decoration||(()=>{
     const v=rng();
     return v<.55?'common':v<.75?'flowering':v<.95?'fruiting':'mixed';
@@ -699,12 +700,12 @@ function makeTree(kind='oak',decoration=null) {
     const pal=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
     // Copa mais perto do topo real do tronco.
     const crown=leafCanopy(cg,cx,by-r*S*.66,r*S,kind,pal,appearance);
-    ({leafCount,branchCount,twigCount,flowers,fruits}=crown);
+    ({leafCount,branchCount,twigCount,branchAngles,flowers,fruits}=crown);
     leafColors=[pal.shade,pal.body,pal.mid,pal.sun,pal.glint];
   }
   return {trunk:tc,tax:tx,tay:ty,crown:cc,cax:cx,cay:by,trunkH,r,kind,
     leafCount,needleCount,leafColors,decoration:appearance,
-    branchCount,twigCount,flowers,fruits};
+    branchCount,twigCount,branchAngles,flowers,fruits};
 }
 function makeBush() {
   // Arbusto 10× mais folhado, com folhas individuais em pequenos ramos.
