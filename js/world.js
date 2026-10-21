@@ -518,6 +518,29 @@ function spruceNeedles(g,cx,by,r,p) {
       const originX=cx+R(-2,2);
       const x1=originX+side*reach*R(.58,.97),
         y1=y+R(-7,9)+(1-t)*7;
+      // Leque de ramos com sombra sólida natural. Os contornos serrilhados
+      // deixam o pinheiro legível sem transformá-lo em triângulos empilhados.
+      const branchY=y-8,tipX=x1,tipY=y1;
+      const needleFan=Math.max(5,reach*(.25+.18*(1-t)));
+      g.fillStyle=side<0?p[1]:p[0];
+      g.beginPath();g.moveTo(originX,branchY-needleFan*.58);
+      for(let k=1;k<=13;k++){
+        const f=k/13,px=originX+(tipX-originX)*f;
+        const edge=Math.sin(f*21+t*11)*2+R(-2.6,2.6);
+        g.lineTo(px,branchY+(tipY-branchY)*f-needleFan*(1-f)*.44+edge);
+      }
+      for(let k=13;k>=0;k--){
+        const f=k/13,px=originX+(tipX-originX)*f;
+        const edge=Math.sin(f*16+t*7)*2+R(-2.6,2.6);
+        g.lineTo(px,branchY+(tipY-branchY)*f+needleFan*(1-f)*.42+edge);
+      }
+      g.closePath();g.fill();
+      // Face verde-médio acompanha a orientação da luz com borda quebrada.
+      g.fillStyle=side<0?p[2]:p[1];
+      g.beginPath();g.moveTo(originX,branchY-needleFan*.30);
+      g.lineTo(originX+(tipX-originX)*.90,tipY-needleFan*.10);
+      g.lineTo(originX+(tipX-originX)*.55,branchY+(tipY-branchY)*.55);
+      g.closePath();g.fill();
       woodyBranch(g,originX,y-8,x1,y1,Math.max(.8,2.1-t*.8));
       const segments=Math.max(12,Math.ceil(Math.abs(x1-originX)/2.1));
       for(let k=0;k<segments;k++){
@@ -528,7 +551,9 @@ function spruceNeedles(g,cx,by,r,p) {
         for(let m=0;m<80;m++){
           const angle=R(-2.6,-.55),len=R(1.0,fan*.48),
             x2=xx+R(-2.1,2.1),y2=yy+R(-1.5,1.5);
-          const tone=m%7===0?0:m%4===0?4:m%3===0?2:3;
+          // Majoritariamente sombra e verde florestal; highlights < 3%,
+          // sem cobrir toda a árvore com o último tom (lavado/ciano).
+          const tone=m%53===0?4:m%13===0?3:m%5===0?0:m%3===0?1:2;
           needleLines[tone].push(x2,y2,x2+Math.cos(angle)*len*side,y2+Math.sin(angle)*len);
           needles++;
         }
@@ -541,7 +566,7 @@ function spruceNeedles(g,cx,by,r,p) {
     needleLines[i%4+1].push(x,y+R(2,5),x+R(-3,3),y-R(3,6));needles++;
   }
   for(let tone=0;tone<5;tone++){
-    const lines=needleLines[tone];g.strokeStyle=p[tone];g.lineWidth=.78;g.beginPath();
+    const lines=needleLines[tone];g.strokeStyle=p[tone];g.lineWidth=tone<=1?1.12:tone===2?.96:.72;g.beginPath();
     for(let i=0;i<lines.length;i+=4){g.moveTo(lines[i],lines[i+1]);g.lineTo(lines[i+2],lines[i+3]);}
     g.stroke();
   }
