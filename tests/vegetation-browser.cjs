@@ -37,12 +37,25 @@ const fs=require('node:fs');
         let n=0;for(let i=3;i<px.length;i+=4)if(px[i]>24)n++;
         if(n/(c.width*c.height)>.03)good++;
       }
-      return {trees:trees.length,visibleAmongFirstSeven:good,canvasWidth:document.querySelector('#view').width};
+      // Sem aproximar a câmera das árvores, a screenshot anterior fotografava
+      // a área de spawn praticamente vazia, apesar de passar no teste.
+      const choices=trees.filter(t=>t.x>7&&t.x<MAP-7&&t.y>7&&t.y<MAP-7);
+      const ranked=choices.map(t=>({t,n:trees.reduce((v,q)=>
+        v+(Math.hypot(q.x-t.x,q.y-t.y)<8?1:0),0)}));
+      ranked.sort((a,b)=>b.n-a.n);
+      const focus=(ranked[0]||{t:trees[0],n:1});
+      window.__manual=true;
+      player.x=focus.t.x+3.5;player.y=focus.t.y+1.5;
+      cam.x=cam.tx=focus.t.x;cam.y=cam.ty=focus.t.y;
+      render();
+      return {trees:trees.length,visibleAmongFirstSeven:good,
+        clusterCount:focus.n,focus:{x:focus.t.x,y:focus.t.y},
+        canvasWidth:document.querySelector('#view').width};
     });
     await game.screenshot({path:'artifacts/cityofgod-game-smoke.png',fullPage:true});
     console.log('Game smoke:',JSON.stringify(live));
     if(gameErrors.length)throw Error('Game JavaScript errors: '+gameErrors.join('; '));
-    if(live.trees<3||live.visibleAmongFirstSeven<Math.min(3,live.trees))
+    if(live.trees<3||live.visibleAmongFirstSeven<Math.min(3,live.trees)||live.clusterCount<3)
       throw Error('Trees remain invisible in real game runtime: '+JSON.stringify(live));
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});
