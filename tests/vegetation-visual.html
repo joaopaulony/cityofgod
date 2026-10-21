@@ -30,13 +30,18 @@ if(fill){g.fillStyle=fill;g.fill();}if(ink){g.strokeStyle=ink;g.lineWidth=lw;g.s
 </script>
 <script src="../js/world.js"></script>
 <script>
-const kinds=['oak','street','yard','pine','oak','pine'];
+const kinds=[
+  {kind:'oak',variant:'common'}, {kind:'oak',variant:'flowering'},
+  {kind:'yard',variant:'fruiting'}, {kind:'street',variant:'mixed'},
+  {kind:'pine',variant:null}, {kind:'pine',variant:null}
+];
 const host=document.getElementById('items'),state=document.getElementById('state');
 let okCount=0;
 async function run(){
   for(let i=0;i<kinds.length;i++){
     await new Promise(requestAnimationFrame); // deixa o navegador responder
-    const kind=kinds[i],sp=makeTree(kind),cg=sp.crown.getContext('2d',{willReadFrequently:true});
+    const {kind,variant}=kinds[i],
+      sp=makeTree(kind,variant),cg=sp.crown.getContext('2d',{willReadFrequently:true});
     const data=cg.getImageData(0,0,sp.crown.width,sp.crown.height).data;
     let visible=0,opaque=0,cyan=0;
     for(let j=3;j<data.length;j+=4){
@@ -56,7 +61,9 @@ async function run(){
     g.drawImage(sp.trunk,-sp.tax,-sp.tay);
     g.drawImage(sp.crown,-sp.cax,-sp.cay-sp.trunkH*40*.86);
     g.restore();
-    el.innerHTML='<h2>'+kind+' · '+(sp.leafCount||sp.needleCount).toLocaleString('pt-BR')+' folhas/agulhas</h2>'+
+    el.innerHTML='<h2>'+kind+' · '+(variant||'normal')+' · '+(sp.leafCount||sp.needleCount).toLocaleString('pt-BR')+' folhas/agulhas</h2>'+
+      '<p>Galhos: '+sp.branchCount+' · raminhos: '+sp.twigCount+
+      ' · flores: '+sp.flowers+' · frutos: '+sp.fruits+'</p>'+
       '<p class="'+(good?'good':'bad')+'">'+(good?'✓ Copa renderizada':'✗ Copa pouco visível')+
       ' · pixels da copa: '+(fraction*100).toFixed(1)+'% · sólidos: '+(opaque/total*100).toFixed(1)+
       '% · ciano: '+(cyanFraction*100).toFixed(1)+'%</p>';
