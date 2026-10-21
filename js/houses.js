@@ -217,13 +217,13 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   if (T.yard && er() < 0.55) {
     const dk = L(du, T.d + 0.95);
     addBox({ x: dk[0], y: dk[1], w: 3.6, d: 1.9, h: 0.07, rot, top: '#8a6a4a', side: '#5e4632', kind: 'deck', solid: false });
-    for (const sx of [-1.65, 1.65]) { const pp = L(du + sx, T.d + 1.75); addBox({ x: pp[0], y: pp[1], w: 0.14, d: 0.14, h: 2.42, rot, top: '#ece6da', side: '#d9d2c4', kind: 'post' }); }
+    for (const sx of [-1.65, 1.65]) { const pp = L(du + sx, T.d + 1.75); addBox({ x: pp[0], y: pp[1], w: 0.14, d: 0.14, h: 2.42, rot, top: '#ece6da', side: '#d9d2c4', kind: 'post', house: H, exteriorFixture: true }); }
     const rf = L(du, T.d + 0.95);
-    addBox({ x: rf[0], y: rf[1], w: 3.8, d: 2.0, h: 0.12, z: 2.42, rot, top: H.style.roofMat === 'metal' ? '#9aa0a4' : shadeHex(H.style.roofCol, 0.95), side: H.style.trim, kind: 'porchroof', solid: false });
+    addBox({ x: rf[0], y: rf[1], w: 3.8, d: 2.0, h: 0.12, z: 2.42, rot, top: H.style.roofMat === 'metal' ? '#9aa0a4' : shadeHex(H.style.roofCol, 0.95), side: H.style.trim, kind: 'porchroof', solid: false, house: H, exteriorFixture: true });
     const st = L(du, T.d + 2.1); addBox({ x: st[0], y: st[1], w: 1.3, d: 0.4, h: 0.12, rot, top: '#b9b4aa', side: '#958f84', kind: 'step', solid: false });
   } else if (!H.brick) {
     const st = L(du, T.d + 0.35); addBox({ x: st[0], y: st[1], w: 1.4, d: 0.6, h: 0.14, rot, top: '#bcb7ad', side: '#958f84', kind: 'step', solid: false });
-    if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false }); }
+    if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false, house: H, exteriorFixture: true }); }
   }
   for (const f of layoutFurniture(T)) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
@@ -605,7 +605,8 @@ function houseDrawables(list, px, py) {
     list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
   }
   for (const b of boxes) {
-    if (b.house && !(b.house.inside || b.house.fade)) continue;
+    if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
+    if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
   }
