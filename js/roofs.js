@@ -3,16 +3,19 @@
 // shingle, chapa metálica ou concreto) mapeada no plano inclinado com transformação afim.
 'use strict';
 
-const ROOF_O = 0.5;       // beiral (m)
-const PITCH = 0.5;        // subida por metro (~26°)
+const ROOF_O = 0.30;      // beiral das aguas (m)
+const ROOF_RAKE = 0.22;   // avancos das empenas (m)
+const PITCH = 0.37;       // inclinacao (~20 graus), constante no mundo
 const PARAPET = 0.45, PAR_T = 0.15;
 
 function buildRoofGeom(H) {
   if (H.roofKind === 'flat') return { flat: true };
-  const z = H.h, zm = z - 0.12, o = ROOF_O;
+  const z = H.h, o = ROOF_O, rake = ROOF_RAKE;
+  // A agua toca a parede exatamente em z=H.h, mesmo com o avancamento do beiral.
+  const zm = z - o * PITCH;
   const alongX = (H.x1 - H.x0) >= (H.y1 - H.y0);
   // quadro local: u = ao longo da cumeeira, v = atravessado
-  const u0 = (alongX ? H.x0 : H.y0) - o, u1 = (alongX ? H.x1 : H.y1) + o;
+  const u0 = (alongX ? H.x0 : H.y0) - rake, u1 = (alongX ? H.x1 : H.y1) + rake;
   const v0 = (alongX ? H.y0 : H.x0) - o, v1 = (alongX ? H.y1 : H.x1) + o, vm = (v0 + v1) / 2;
   const half = (v1 - v0) / 2, top = zm + half * PITCH;
   const P = (u, v, zz) => alongX ? [u, v, zz] : [v, u, zz];
@@ -29,9 +32,11 @@ function buildRoofGeom(H) {
     faces.push({ p: [P(u0, v0, zm), P(u1, v0, zm), P(u1, vm, top), P(u0, vm, top)], slope: 1 });
     faces.push({ p: [P(u1, v1, zm), P(u0, v1, zm), P(u0, vm, top), P(u1, vm, top)], slope: 1 });
     ridges.push([P(u0, vm, top), P(u1, vm, top)]);
-    // empenas (triângulo de parede sob o telhado) nas duas pontas
-    const w0 = alongX ? H.y0 : H.x0, w1 = alongX ? H.y1 : H.x1, zw = zm + o * PITCH, tw = top - 0.18;
-    for (const uu of [alongX ? H.x0 : H.y0, alongX ? H.x1 : H.y1]) faces.push({ p: [P(uu, w0, z), P(uu, w1, z), P(uu, w1, zw), P(uu, vm, tw), P(uu, w0, zw)], gable: 1 });
+    // Empenas triangulares sob a mesma geometria das aguas. A altura do
+    // encontro com a cumeeira nao pode ser reduzida (antes sobrava uma fresta).
+    const w0 = alongX ? H.y0 : H.x0, w1 = alongX ? H.y1 : H.x1;
+    for (const uu of [alongX ? H.x0 : H.y0, alongX ? H.x1 : H.y1])
+      faces.push({ p: [P(uu, w0, z - 0.015), P(uu, w1, z - 0.015), P(uu, vm, top - 0.025)], gable: 1 });
     for (const uu of [u0, u1]) { rakes.push([P(uu, v0, zm), P(uu, vm, top)]); rakes.push([P(uu, v1, zm), P(uu, vm, top)]); }
   }
   const cx = (H.x0 + H.x1) / 2, cy = (H.y0 + H.y1) / 2;
@@ -95,28 +100,28 @@ function drawPitched(g, H) {
   // testeiras de borda (rake) nas empenas
   for (const [a, b] of R.rakes) {
     const A = proj(...a), B = proj(...b);
-    g.lineCap = 'butt'; g.strokeStyle = 'rgba(25,18,14,0.85)'; g.lineWidth = Math.max(2, Z * 0.13) + 2; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke();
-    g.strokeStyle = S.trim; g.lineWidth = Math.max(1.5, Z * 0.13); g.stroke();
-    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(A.x, A.y + Z * 0.05); g.lineTo(B.x, B.y + Z * 0.05); g.stroke();
+    g.lineCap = 'butt'; g.strokeStyle = 'rgba(25,18,14,0.75)'; g.lineWidth = Math.max(2, Z * 0.055) + 1.5; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke();
+    g.strokeStyle = S.trim; g.lineWidth = Math.max(1.5, Z * 0.055); g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1; g.beginPath(); g.moveTo(A.x, A.y + Z * 0.018); g.lineTo(B.x, B.y + Z * 0.018); g.stroke();
   }
   // beiral com espessura + calha nas bordas viradas p/ a câmera
   for (const f of R.faces) {
     if (!f.slope || facingCam(f.hn[0], f.hn[1]) <= 0.02) continue;
-    const a = f.p[0], b = f.p[1], dz = 0.18, out = 0.06;
+    const a = f.p[0], b = f.p[1], dz = 0.095, out = 0.035;
     const fas = [proj(...a), proj(...b), proj(b[0], b[1], b[2] - dz), proj(a[0], a[1], a[2] - dz)];
     poly(g, fas, tone(S.trim, V.dot([f.hn[0], f.hn[1], 0], SUN)), 'rgba(25,18,14,0.8)', 1);
-    if (S.roofMat !== 'metal' || true) {
+    if (S.roofMat !== 'concrete') {
       const ga = proj(a[0] + f.hn[0] * out, a[1] + f.hn[1] * out, a[2] - 0.1), gb = proj(b[0] + f.hn[0] * out, b[1] + f.hn[1] * out, b[2] - 0.1);
       g.lineCap = 'round';
-      g.strokeStyle = 'rgba(25,20,18,0.85)'; g.lineWidth = Math.max(2, Z * 0.1) + 2; g.beginPath(); g.moveTo(ga.x, ga.y); g.lineTo(gb.x, gb.y); g.stroke();
-      g.strokeStyle = '#9aa0a4'; g.lineWidth = Math.max(1.5, Z * 0.1); g.stroke();
-      g.strokeStyle = '#d4d8da'; g.lineWidth = Math.max(1, Z * 0.03); g.beginPath(); g.moveTo(ga.x, ga.y - Z * 0.03); g.lineTo(gb.x, gb.y - Z * 0.03); g.stroke();
+      g.strokeStyle = 'rgba(25,20,18,0.75)'; g.lineWidth = Math.max(2, Z * 0.055) + 1.5; g.beginPath(); g.moveTo(ga.x, ga.y); g.lineTo(gb.x, gb.y); g.stroke();
+      g.strokeStyle = '#9aa0a4'; g.lineWidth = Math.max(1.5, Z * 0.055); g.stroke();
+      g.strokeStyle = '#d4d8da'; g.lineWidth = Math.max(1, Z * 0.016); g.beginPath(); g.moveTo(ga.x, ga.y - Z * 0.015); g.lineTo(gb.x, gb.y - Z * 0.015); g.stroke();
     }
   }
   // cumeeira / espigões com peças próprias
   const capCol = S.roofMat === 'ceramic' ? shadeHex(S.roofCol, 0.92) : S.roofMat === 'metal' ? '#b9bec2' : shadeHex(S.roofCol, 0.8);
   for (const [a, b] of R.ridges) {
-    const hip = Math.abs(a[2] - b[2]) > 0.1, A = proj(...a), B = proj(...b), w = Math.max(2, Z * (hip ? 0.15 : 0.2));
+    const hip = Math.abs(a[2] - b[2]) > 0.1, A = proj(...a), B = proj(...b), w = Math.max(2, Z * (hip ? 0.055 : 0.07));
     g.lineCap = 'butt';
     g.strokeStyle = 'rgba(25,14,10,0.85)'; g.lineWidth = w + 2; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B.x, B.y); g.stroke();
     g.strokeStyle = capCol; g.lineWidth = w; g.stroke();
@@ -183,7 +188,7 @@ function drawFlatRoof(g, H) {
 // sobrepostas não somem alphas e o jogo não redesenhe um canvas de tela inteira.
 const roofScratch = makeCanvas(1, 1), rsg = roofScratch.getContext('2d');
 function roofScreenBounds(H, W, Hh) {
-  const border = ROOF_O + 0.45, padding = Math.max(14, cam.zoom * 0.55);
+  const border = Math.max(ROOF_O, ROOF_RAKE) + 0.45, padding = Math.max(14, cam.zoom * 0.55);
   const x0 = H.x0 - border, x1 = H.x1 + border;
   const y0 = H.y0 - border, y1 = H.y1 + border;
   const z0 = H.h - 0.5;
