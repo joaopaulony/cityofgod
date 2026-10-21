@@ -852,7 +852,8 @@ function drawProp(g, p, t, player) {
     if (player) {
       const pp = proj(player.x, player.y, 1);
       const dx = (pp.x - top.x) / (sp.r * cam.zoom), dy = (pp.y - (top.y - sp.r * cam.zoom * 0.8)) / (sp.r * cam.zoom);
-      if (dx * dx + dy * dy < 1.3 && depthOf(player.x, player.y) < depthOf(p.x, p.y) + 0.4) a = 0.38;
+      if (dx * dx + dy * dy < 1.05 &&
+          depthOf(player.x,player.y)<depthOf(p.x,p.y)-0.25) a=0.68;
     }
     drawSway(g, sp.crown, sp.cax, sp.cay, { x: top.x + w * 8 * sc, y: top.y }, sc, w, a);
   } else if (p.type === 'bush') {
