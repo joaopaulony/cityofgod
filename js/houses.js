@@ -495,7 +495,14 @@ function drawBox(g, b) {
     }
   }
   poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), 'rgba(24,18,14,0.75)', 1);
-  if (b.kind === 'bed') { const q = { x: b.x, y: b.y - b.d * 0.36, z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: b.rot, top: '#fbf8f0', side: '#d9d3c6' }; drawBox(g, q); }
+  if (b.kind === 'bed') {
+    // Travesseiro deslocado no eixo LOCAL da cama (não no eixo Y global).
+    const dy = -b.d * 0.36, a = b.rot || 0;
+    const q = { x: b.x - Math.sin(a) * dy, y: b.y + Math.cos(a) * dy,
+      z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: a,
+      top: '#fbf8f0', side: '#d9d3c6' };
+    drawBox(g, q);
+  }
 }
 
 function drawFence(g, s) {
