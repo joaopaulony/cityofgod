@@ -1,7 +1,9 @@
 // core.js — matemática, câmera isométrica giratória, entrada e pincéis com contorno de tinta.
 'use strict';
 
-const RS = 2;            // escala de render: o mundo é pintado em meia resolução e ampliado (pixel)
+// ?quality=performance mantém a renderização antiga em meia resolução.
+const RS = new URLSearchParams(location.search).get('quality') === 'performance' ? 2 : 1;
+const RENDER_SCALE = 2 / RS; // mantém o tamanho visual dos objetos ao mudar a resolução
 const TILT = 0.5;        // achatamento do chão (câmera 3/4, ~30°)
 const HZ = 0.86;         // quanto 1 m de altura sobe na tela
 const INK = '#1b1310';   // contorno de tinta

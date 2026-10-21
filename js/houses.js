@@ -12,7 +12,8 @@ function addHouse(def) {
   const wallTop = H.roofKind === 'flat' ? H.h + PARAPET : H.h;
   const W = H.x1 - H.x0, D = H.y1 - H.y0, alongX = W >= D;
   const gableEnds = H.roofKind === 'gable' ? (alongX ? ['W', 'E'] : ['N', 'S']) : [];
-  const rise = ((alongX ? D : W) / 2 + ROOF_O) * PITCH;
+  // Mesma altura de cumeeira usada em roofs.js: sem folgas acima da empena.
+  const rise = (alongX ? D : W) / 2 * PITCH;
   const sides = {
     S: { a: [H.x0, H.y1], dir: [1, 0], n: [0, 1], len: W },
     N: { a: [H.x0, H.y0], dir: [1, 0], n: [0, -1], len: W },
@@ -22,7 +23,7 @@ function addHouse(def) {
   H.sides = sides;
   for (const k in sides) {
     const sd = sides[k], o = H.open[k] || {};
-    sd.Hc = gableEnds.includes(k) ? H.h + rise + 0.3 : wallTop;
+    sd.Hc = gableEnds.includes(k) ? H.h + rise + 0.06 : wallTop;
     sd.eave = H.roofKind === 'hip' || (H.roofKind === 'gable' && !gableEnds.includes(k));
     if ((o.door || []).length) H.frontSide = k;
     for (let i = 0; i < sd.len; i++) {
@@ -32,6 +33,9 @@ function addHouse(def) {
         nx: sd.n[0], ny: sd.n[1], h: wallTop, house: H, ext: true, side: k, idx: i,
         door: (o.door || []).includes(i), window: (o.win || []).includes(i),
         c0: i === 0, c1: i === sd.len - 1, sign: o.sign && o.sign.includes(i),
+        doorAnim: (o.door || []).includes(i) ? { open: 0, target: 0 } : null,
+        windowAnim: (o.win || []).includes(i) ? { open: 0, target: 0, timer: 3 + ((H.seed + i * 13 + k.charCodeAt(0)) % 12),
+          rand: mulberry(H.seed * 23 + i * 97 + k.charCodeAt(0) * 293) } : null,
       };
       H.segs.push(s);
       if (!s.door) world.segs.push(s);
@@ -40,7 +44,8 @@ function addHouse(def) {
   for (const w of H.inner || []) {
     const len = Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1)), dx = (w.x2 - w.x1) / len, dy = (w.y2 - w.y1) / len;
     for (let i = 0; i < len; i++) {
-      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i };
+      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i,
+        doorAnim: w.door === i ? { open: 0, target: 0 } : null };
       H.segs.push(s);
       if (!s.door) world.segs.push(s);
     }
@@ -130,6 +135,65 @@ const SIDINGS = [['#d6c7a4', '#4d5366'], ['#9fb4c2', '#7a3b2c'], ['#c9b48a', '#5
 const LOCAL_SIDES = { S: { n: [0, 1], dir: [1, 0] }, N: { n: [0, -1], dir: [1, 0] }, W: { n: [-1, 0], dir: [0, 1] }, E: { n: [1, 0], dir: [0, 1] } };
 const sideOf = n => n[1] > 0.5 ? 'S' : n[1] < -0.5 ? 'N' : n[0] < -0.5 ? 'W' : 'E';
 
+// Mantém os móveis dentro da área habitável, respeitando o centro, a rotação
+// e a espessura tanto das paredes externas quanto das divisórias internas.
+// Aplicado nas coordenadas locais ANTES da rotação da casa.
+const FURNITURE_WALL_GAP = 0.30;
+function furnitureBounds(items) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const f of items) {
+    const a = f.rot || 0, cs = Math.cos(a), sn = Math.sin(a);
+    const rx = (Math.abs(cs) * f.w + Math.abs(sn) * f.d) / 2;
+    const ry = (Math.abs(sn) * f.w + Math.abs(cs) * f.d) / 2;
+    x0 = Math.min(x0, f.x - rx); x1 = Math.max(x1, f.x + rx);
+    y0 = Math.min(y0, f.y - ry); y1 = Math.max(y1, f.y + ry);
+  }
+  return { x0, y0, x1, y1 };
+}
+function furnitureRoomRect(T, items) {
+  const gap = FURNITURE_WALL_GAP, r = {
+    x0: gap, y0: gap, x1: T.w - gap, y1: T.d - gap,
+  };
+  const b = furnitureBounds(items), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+  for (const wall of T.def.inner || []) {
+    // Só particiona salas com parede inteira de ponta a ponta; aberturas
+    // continuam disponíveis para o jogador e seus móveis não atravessam o vão.
+    if (Math.abs(wall.x1 - wall.x2) < 0.01 && Math.abs(wall.y1 - wall.y2) >= T.d - 0.1) {
+      if (cx < wall.x1) r.x1 = Math.min(r.x1, wall.x1 - gap);
+      else r.x0 = Math.max(r.x0, wall.x1 + gap);
+    } else if (Math.abs(wall.y1 - wall.y2) < 0.01 && Math.abs(wall.x1 - wall.x2) >= T.w - 0.1) {
+      if (cy < wall.y1) r.y1 = Math.min(r.y1, wall.y1 - gap);
+      else r.y0 = Math.max(r.y0, wall.y1 + gap);
+    }
+  }
+  return r;
+}
+function layoutFurniture(T) {
+  const groups = new Map();
+  for (const f of T.furn) {
+    // Cama+cobertor, televisão+tela e assento+encosto movem juntos:
+    // não separam quando o móvel principal é afastado da parede.
+    const key = ['bed', 'blanket'].includes(f.kind) ? 'bed'
+      : ['tv', 'screen'].includes(f.kind) ? 'tv'
+      : f.kind === 'sofa' ? 'sofa'
+      : Symbol(f.kind);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(Object.assign({}, f));
+  }
+  const out = [];
+  for (const items of groups.values()) {
+    const b = furnitureBounds(items), r = furnitureRoomRect(T, items);
+    // Grupos maiores que uma sala são preservados e sinalizados para revisão;
+    // não os comprime nem altera as dimensões reais dos objetos.
+    const dx = b.x1 - b.x0 <= r.x1 - r.x0
+      ? Math.max(r.x0 - b.x0, Math.min(0, r.x1 - b.x1)) : 0;
+    const dy = b.y1 - b.y0 <= r.y1 - r.y0
+      ? Math.max(r.y0 - b.y0, Math.min(0, r.y1 - b.y1)) : 0;
+    for (const item of items) { item.x += dx; item.y += dy; out.push(item); }
+  }
+  return out;
+}
+
 // instancia um modelo girado k*90° com o canto superior-esquerdo em (x0,y0)
 function placeTemplate(T, x0, y0, k, extra = {}) {
   const c = Math.round(Math.cos(k * Math.PI / 2)), s = Math.round(Math.sin(k * Math.PI / 2));
@@ -153,15 +217,15 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   if (T.yard && er() < 0.55) {
     const dk = L(du, T.d + 0.95);
     addBox({ x: dk[0], y: dk[1], w: 3.6, d: 1.9, h: 0.07, rot, top: '#8a6a4a', side: '#5e4632', kind: 'deck', solid: false });
-    for (const sx of [-1.65, 1.65]) { const pp = L(du + sx, T.d + 1.75); addBox({ x: pp[0], y: pp[1], w: 0.14, d: 0.14, h: 2.42, rot, top: '#ece6da', side: '#d9d2c4', kind: 'post' }); }
+    for (const sx of [-1.65, 1.65]) { const pp = L(du + sx, T.d + 1.75); addBox({ x: pp[0], y: pp[1], w: 0.14, d: 0.14, h: 2.42, rot, top: '#ece6da', side: '#d9d2c4', kind: 'post', house: H, exteriorFixture: true }); }
     const rf = L(du, T.d + 0.95);
-    addBox({ x: rf[0], y: rf[1], w: 3.8, d: 2.0, h: 0.12, z: 2.42, rot, top: H.style.roofMat === 'metal' ? '#9aa0a4' : shadeHex(H.style.roofCol, 0.95), side: H.style.trim, kind: 'porchroof', solid: false });
+    addBox({ x: rf[0], y: rf[1], w: 3.8, d: 2.0, h: 0.12, z: 2.42, rot, top: H.style.roofMat === 'metal' ? '#9aa0a4' : shadeHex(H.style.roofCol, 0.95), side: H.style.trim, kind: 'porchroof', solid: false, house: H, exteriorFixture: true });
     const st = L(du, T.d + 2.1); addBox({ x: st[0], y: st[1], w: 1.3, d: 0.4, h: 0.12, rot, top: '#b9b4aa', side: '#958f84', kind: 'step', solid: false });
   } else if (!H.brick) {
     const st = L(du, T.d + 0.35); addBox({ x: st[0], y: st[1], w: 1.4, d: 0.6, h: 0.14, rot, top: '#bcb7ad', side: '#958f84', kind: 'step', solid: false });
-    if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false }); }
+    if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false, house: H, exteriorFixture: true }); }
   }
-  for (const f of T.furn) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
+  for (const f of layoutFurniture(T)) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
     const a = L(-2, -2.5), b = L(T.w + 2, T.d + 3);
     const r = [Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.round(Math.max(a[0], b[0])), Math.round(Math.max(a[1], b[1]))];
@@ -326,7 +390,7 @@ function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
   if (sx + sw > tex.width) sw = tex.width - sx;
   const sy = (m.Hc - z1) * TEX, sh = (z1 - z0) * TEX;
   g.save(); g.imageSmoothingEnabled = true;
-  g.setTransform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
+  g.transform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
   g.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh);
   g.restore();
 }
@@ -339,7 +403,9 @@ function drawDoorway(g, s, zt) {
   poly(g, [pt(0.1, -0.08, 0.02), pt(0.9, -0.08, 0.02), pt(0.9, t, 0.02), pt(0.1, t, 0.02)], '#b9b3a6', 'rgba(30,24,20,0.5)', 1);
   for (const u of [0.1, 0.9]) poly(g, [pt(u, 0, 0), pt(u, t, 0), pt(u, t, zt), pt(u, 0, zt)], tone(H.style.plaster, -0.2), null);
   if (zt > 0.2) {
-    const a = 1.25, ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
+    // A folha passa de fechada (0 rad) a aberta para dentro (~75 graus).
+    const a = 1.30 * (s.doorAnim ? s.doorAnim.open : 1);
+    const ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
     const hx = s.x1 + dx * 0.1 + ix * t, hy = s.y1 + dy * 0.1 + iy * t, zz = Math.min(2.05, zt);
     const q = [proj(hx, hy, 0), proj(hx + ox * 0.82, hy + oy * 0.82, 0), proj(hx + ox * 0.82, hy + oy * 0.82, zz), proj(hx, hy, zz)];
     texPlane(g, s.ext ? T.door : T.innerDoor, [hx, hy, 2.05], [ox, oy, 0], [0, 0, -1], TEX, q);
@@ -350,15 +416,73 @@ function drawDoorway(g, s, zt) {
   }
 }
 
+// Venezianas de vidro: abertura de duas folhas em eixo 3D, sem sprites externos.
+// A moldura fechada permanece na textura cacheada; a abertura animada é
+// desenhada por cima somente nas janelas cujo angulo mudou.
+function drawWindowLeaves(g, s, exterior) {
+  const t = s.windowAnim ? s.windowAnim.open : 0;
+  if (t < 0.015) return;
+  const big = s.house.brick && s.ext && s.side === s.house.frontSide;
+  const u0 = big ? 0.06 : 0.15, u1 = big ? 0.94 : 0.85;
+  const z0 = big ? 0.55 : 0.95, z1 = big ? 2.35 : 2.05;
+  const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+  const nx = exterior ? s.nx : -s.nx, ny = exterior ? s.ny : -s.ny;
+  const point = (u, z, d = 0) => proj(s.x1 + dx * u + nx * d, s.y1 + dy * u + ny * d, z);
+  // Caixa escura no vão: evita que o vidro fechado cacheado continue aparente.
+  const left = u0 + 0.055, right = u1 - 0.055;
+  const low = z0 + 0.055, high = z1 - 0.055;
+  const hole = [point(left, low, 0.022), point(right, low, 0.022),
+    point(right, high, 0.022), point(left, high, 0.022)];
+  poly(g, hole, 'rgba(24,36,43,0.93)', null);
+  // Cada folha gira a partir do respectivo batente, sempre para fora.
+  const a = t * 1.15, half = (right - left) / 2, outward = half * Math.sin(a);
+  for (const side of [-1, 1]) {
+    const hinge = side < 0 ? left : right, dir = -side;
+    const end = hinge + dir * half * Math.cos(a);
+    const corners = [point(hinge, low, 0.045), point(end, low, 0.045 + outward),
+      point(end, high, 0.045 + outward), point(hinge, high, 0.045)];
+    poly(g, corners, 'rgba(121,165,187,0.80)', '#d8d2c4', Math.max(1.2, cam.zoom * 0.026));
+    const m0 = point(hinge + dir * half * 0.52 * Math.cos(a), low, 0.045 + outward * 0.52);
+    const m1 = point(hinge + dir * half * 0.52 * Math.cos(a), high, 0.045 + outward * 0.52);
+    g.strokeStyle = 'rgba(244,242,231,0.52)'; g.lineWidth = Math.max(1, cam.zoom * 0.012);
+    g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
+  }
+}
+
+// Porta abre ao aproximar-se o jogador ou um NPC; janelas mudam devagar,
+// de forma deterministica para cada casa, e fecham preferencialmente a noite.
+function updateHouseOpenings(dt, residents, night) {
+  for (const H of houses) for (const s of H.segs) {
+    if (s.doorAnim) {
+      const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
+      s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
+      if (Math.abs(s.doorAnim.target - s.doorAnim.open) < 0.005) s.doorAnim.open = s.doorAnim.target;
+    }
+    if (s.windowAnim) {
+      const w = s.windowAnim;
+      w.timer -= dt;
+      if (w.timer <= 0) {
+        w.timer = 18 + w.rand() * 35;
+        w.target = night ? 0 : (w.rand() < 0.36 ? 0.35 + w.rand() * 0.65 : 0);
+      }
+      if (night) w.target = 0;
+      w.open += (w.target - w.open) * (1 - Math.exp(-dt * 1.65));
+      if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
+    }
+  }
+}
+
 function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
-  const cut = H.inside && (f > 0 || !s.ext);
+  const cut = (H.inside || H.fade) && (f > 0 || !s.ext);
   const h = cut ? 0.5 : s.h;
   if (s.door) {
     drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
     if (h > 2.12) drawWallSlice(g, s, 2.12, h, 0.1, 0.9);
-    drawDoorway(g, s, Math.min(h, 2.12));
+    // No corte interno, a folha não deve reaparecer como um bloco de 50 cm de altura.
+    if (!cut) drawDoorway(g, s, Math.min(h, 2.12));
   } else {
     drawWallSlice(g, s, 0, h, 0, 1);
     if (s.window && h > 1.6 && world.night) {
@@ -366,6 +490,7 @@ function drawWall(g, s) {
       const q = wallQuad(s, big ? 0.66 : 1.04, big ? 2.24 : 1.97, big ? 0.13 : 0.23, big ? 0.87 : 0.77);
       poly(g, q, outside ? 'rgba(255,196,110,0.82)' : 'rgba(14,20,42,0.6)', null);
     }
+    if (s.window) drawWindowLeaves(g, s, outside);
   }
   // espessura da parede vista de cima + arestas discretas
   const t = 0.14, a = proj(s.x1, s.y1, h), b = proj(s.x2, s.y2, h);
@@ -435,7 +560,14 @@ function drawBox(g, b) {
     }
   }
   poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), 'rgba(24,18,14,0.75)', 1);
-  if (b.kind === 'bed') { const q = { x: b.x, y: b.y - b.d * 0.36, z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: b.rot, top: '#fbf8f0', side: '#d9d3c6' }; drawBox(g, q); }
+  if (b.kind === 'bed') {
+    // Travesseiro deslocado no eixo LOCAL da cama (não no eixo Y global).
+    const dy = -b.d * 0.36, a = b.rot || 0;
+    const q = { x: b.x - Math.sin(a) * dy, y: b.y + Math.cos(a) * dy,
+      z: z1, w: b.w * 0.75, d: b.d * 0.16, h: 0.1, rot: a,
+      top: '#fbf8f0', side: '#d9d3c6' };
+    drawBox(g, q);
+  }
 }
 
 function drawFence(g, s) {
@@ -464,10 +596,17 @@ function houseDrawables(list, px, py) {
     const sg = H.segs.filter(s => s.sign);
     if (sg.length) list.push({ d: Math.max(...sg.map(s => depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2))) + 0.01,
       draw: g => { if (!H.inside && facingCam(sg[0].nx, sg[0].ny) > 0) drawSign(g, sg); } });
-    list.push({ d: maxD + 0.5, draw: g => drawRoof(g, H), roof: H });
+    // Cobertura em fade entra DEPOIS dos móveis e divisórias da casa,
+    // inclusive os próximos às quinas, sem promover o telhado de outras casas.
+    const roofDepth = H.fade
+      ? Math.max(...[[H.x0, H.y0], [H.x1, H.y0], [H.x0, H.y1], [H.x1, H.y1]]
+        .map(p => depthOf(p[0], p[1]))) + 0.75
+      : maxD + 0.5;
+    list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
   }
   for (const b of boxes) {
-    if (b.house && !(b.house.inside || b.house.fade)) continue;
+    if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
+    if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
   }

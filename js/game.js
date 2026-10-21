@@ -19,7 +19,7 @@ const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
 let fireCD = 0, last = performance.now(), T = 0, dragX = null;
-const ZOOMS = [22, 28, 34, 42, 52, 64];
+const ZOOMS = [22, 28, 34, 42, 52, 64].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 
@@ -319,6 +319,7 @@ function tick(dt) {
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
   updatePlayer(dt);
   for (const n of npcs) updateNPC(n, dt);
+  updateHouseOpenings(dt, actors, st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);

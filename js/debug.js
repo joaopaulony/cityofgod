@@ -21,7 +21,7 @@ const freeze = () => { window.__timeScale = 0; document.title = 'READY'; };
 // renderiza poses de forma síncrona (headless não garante quadros entre timeouts)
 function step(dt) { for (const a of actors) { a.clock = (a.clock || 0) + dt; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); } render(); }
 async function turnaround(aim, mode) {
-  window.__timeScale = 0; place(world.spawn[0], world.spawn[1]); zi = 5; cam.tzoom = cam.zoom = cam.zoom = 64; cam.update(1);
+  window.__timeScale = 0; place(world.spawn[0], world.spawn[1]); zi = 5; cam.tzoom = cam.zoom = 64 * RENDER_SCALE; cam.update(1);
   for (let i = 0; i < 8; i++) {
     player.face = i * Math.PI / 4; player.moveA = player.face;
     if (aim) { player.aiming = true; player.aimV = 1; }
@@ -33,30 +33,30 @@ async function turnaround(aim, mode) {
 }
 const SCENES = {
   async shoot() {
-    const [x, y] = world.spawn, [tx, ty] = world.targets[1]; place(x, y); zi = 3; cam.tzoom = cam.zoom = 42;
+    const [x, y] = world.spawn, [tx, ty] = world.targets[1]; place(x, y); zi = 3; cam.tzoom = cam.zoom = 42 * RENDER_SCALE;
     for (let i = 0; i < 40; i++) { aimAt(tx, ty); input.rmb = true; await wait(25); }
     fire(player.J); await wait(30); fire(player.J); window.__timeScale = 0.15; await wait(120); freeze();
   },
-  async houses() { const H = houses[1] || houses[0]; place(H.front[0], H.front[1], 2.2); zi = 2; cam.tzoom = cam.zoom = 34; await wait(500); freeze(); },
-  async rotated() { const H = houses[1] || houses[0]; place(H.front[0], H.front[1], 2.2); zi = 2; cam.tzoom = cam.zoom = 34; cam.ang = cam.tang = Math.PI / 4 + Math.PI; await wait(500); freeze(); },
-  async inside() { const H = houses.find(h => h.inner && h.inner.length) || houses[0]; place((H.x0 + H.x1) / 2 - 1.5, (H.y0 + H.y1) / 2 + 0.5, 0.6); zi = 3; cam.tzoom = cam.zoom = 42; await wait(500); freeze(); },
+  async houses() { const H = houses[1] || houses[0]; place(H.front[0], H.front[1], 2.2); zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE; await wait(500); freeze(); },
+  async rotated() { const H = houses[1] || houses[0]; place(H.front[0], H.front[1], 2.2); zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE; cam.ang = cam.tang = Math.PI / 4 + Math.PI; await wait(500); freeze(); },
+  async inside() { const H = houses.find(h => h.inner && h.inner.length) || houses[0]; place((H.x0 + H.x1) / 2 - 1.5, (H.y0 + H.y1) / 2 + 0.5, 0.6); zi = 3; cam.tzoom = cam.zoom = 42 * RENDER_SCALE; await wait(500); freeze(); },
   async reload() {
-    place(world.spawn[0], world.spawn[1], 0.9); zi = 5; cam.tzoom = cam.zoom = 64; player.ammo = 3; await wait(300);
+    place(world.spawn[0], world.spawn[1], 0.9); zi = 5; cam.tzoom = cam.zoom = 64 * RENDER_SCALE; player.ammo = 3; await wait(300);
     player.reloadT = 0; await wait(Number(new URLSearchParams(location.search).get('t') || 650)); freeze();
   },
-  async night() { const H = houses.find(h => h.brick) || houses[0]; place(H.front[0] + H.doorN[0] * 2, H.front[1] + H.doorN[1] * 2, 3.5); zi = 2; cam.tzoom = cam.zoom = 34; st.night = world.night = true; st.clock = 21 * 60 + 5; await wait(600); freeze(); },
-  async run() { place(world.spawn[0], world.spawn[1], 0); zi = 4; cam.tzoom = cam.zoom = 52; input.keys.add('d'); input.keys.add('shift'); await wait(900); freeze(); },
-  async overview() { place(MAP / 2, MAP / 2); player.x = world.spawn[0]; player.y = world.spawn[1]; zi = 0; cam.tzoom = cam.zoom = 9; cam.x = cam.tx = MAP / 2; cam.y = cam.ty = MAP / 2; ZOOMS[0] = 9; await wait(400); freeze(); },
+  async night() { const H = houses.find(h => h.brick) || houses[0]; place(H.front[0] + H.doorN[0] * 2, H.front[1] + H.doorN[1] * 2, 3.5); zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE; st.night = world.night = true; st.clock = 21 * 60 + 5; await wait(600); freeze(); },
+  async run() { place(world.spawn[0], world.spawn[1], 0); zi = 4; cam.tzoom = cam.zoom = 52 * RENDER_SCALE; input.keys.add('d'); input.keys.add('shift'); await wait(900); freeze(); },
+  async overview() { place(MAP / 2, MAP / 2); player.x = world.spawn[0]; player.y = world.spawn[1]; zi = 0; cam.tzoom = cam.zoom = 9 * RENDER_SCALE; cam.x = cam.tx = MAP / 2; cam.y = cam.ty = MAP / 2; ZOOMS[0] = 9 * RENDER_SCALE; await wait(400); freeze(); },
   async facade() {   // close numa fachada: câmera de frente p/ a porta, jogador fora do caminho
     const H = houses[Number(new URLSearchParams(location.search).get('h') || 1)] || houses[0];
     const sd = H.sides[H.frontSide];
     place(H.front[0] + sd.n[0] * 6, H.front[1] + sd.n[1] * 6);
     const want = Math.atan2(-sd.n[0], sd.n[1]) + Math.PI / 4;   // gira p/ a fachada ficar de frente (3/4)
     cam.ang = cam.tang = Math.round((want - Math.PI / 4) / (Math.PI / 2)) * Math.PI / 2 + Math.PI / 4;
-    zi = 5; cam.tzoom = cam.zoom = 64; await wait(300);
+    zi = 5; cam.tzoom = cam.zoom = 64 * RENDER_SCALE; await wait(300);
     window.__timeScale = 0; cam.x = cam.tx = H.front[0] - sd.n[0] * 2; cam.y = cam.ty = H.front[1] - sd.n[1] * 2; cam.update(0); await wait(200); freeze();
   },
-  async pond() { const p = world.pond; if (!p) return freeze(); place(p.x + p.rx + 1.5, p.y + 0.5); zi = 2; cam.tzoom = cam.zoom = 34; await wait(500); freeze(); },
+  async pond() { const p = world.pond; if (!p) return freeze(); place(p.x + p.rx + 1.5, p.y + 0.5); zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE; await wait(500); freeze(); },
   async turn() { await turnaround(false); },
   async aimturn() { await turnaround(true); },
   async walk() { await turnaround(false, 'walk'); },
@@ -108,7 +108,7 @@ window.demoStep = () => {
   return demoT;
 };
 SCENES.demo = async () => {
-  window.__manual = true; zi = 2; cam.tzoom = cam.zoom = 34;
+  window.__manual = true; zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE;
   player.face = world.aimDir; cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
   document.title = 'READY';
 };
