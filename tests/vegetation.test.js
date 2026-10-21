@@ -44,6 +44,26 @@ for (const sp of sprites) {
   if(sp.kind==='pine') assert.ok(sp.needleCount>=60000,'pine must render 10x needles');
   else assert.ok(sp.leafCount>=100000,'broadleaf trees must render 10x individual leaves');
 }
+// Broadleaf decoration variants are generated from actual branch tips.
+const variants=['common','flowering','fruiting','mixed'];
+for (const variant of variants) {
+  const tree=sandbox.testApi.makeTree('oak',variant);
+  assert.equal(tree.decoration,variant,'explicit appearance must be stable');
+  assert.equal(tree.branchCount,6,'six main branches');
+  assert.ok(tree.twigCount>=12,'at least twelve secondary twigs');
+  assert.ok(tree.branchAngles.some(a=>Math.abs(Math.cos(a))>.94),
+    'some branches must grow almost horizontally');
+  assert.ok(tree.branchAngles.some(a=>Math.abs(Math.sin(a))>.93),
+    'some branches must rise nearly vertically');
+  assert.ok(tree.leafCount>=100000,'organic scaffold must retain dense canopy');
+  if(variant==='common')assert.equal(tree.flowers+tree.fruits,0);
+  if(variant==='flowering')assert.ok(tree.flowers>=30&&tree.fruits===0);
+  if(variant==='fruiting')assert.ok(tree.fruits>=20&&tree.flowers===0);
+  if(variant==='mixed')assert.ok(tree.flowers>=10&&tree.fruits>=10);
+}
+assert.ok(!worldSource.includes("makeTree('pine','flowering')"),
+  'pine trees must remain unchanged by broadleaf decoration');
+
 for (let i=0;i<8;i++) {
   const bush=sandbox.testApi.makeBush();
   assert.ok(bush.img.width>0&&bush.img.height>0&&bush.r>.3);
@@ -74,4 +94,4 @@ sandbox.testApi.leafBatch(guard,[Array.from({length:4096*4},(_,i)=>i%4===2?1.5:.
 assert.ok(maxLeaves<=256,'Canvas path exceeds safe 256-leaf batch');
 assert.ok(fills>=16,'leaf batching should submit several safe fills');
 assert.ok(drawCalls>1000,'detailed pre-rendered foliage should produce many draw calls');
-console.log('OK: 6 trees (100k+ leaves / 60k+ needles), 8 dense shrubs, grass blades, shadows and matching shot leaves');
+console.log('OK: organic branches (horizontal/vertical), flowering/fruiting/mixed broadleaf variants, 6 trees, 8 shrubs and leaf batch safety');
