@@ -29,6 +29,46 @@ const {judge}=require('./visual-quality-judge.cjs');
       world.props.some(p=>p.type==='tree') && document.querySelector('#view')?.width>0,
       {timeout:120000});
     await game.waitForTimeout(1400);
+    // Smoke real no navegador: cache raster de 16 vistas e composicao Canvas.
+    // Estes frames sao PROCEDURAIS usados como prova da infraestrutura;
+    // nao substituem um modelo real de Blender.
+    const hybridDemo=await game.evaluate(()=>{
+      const model='skyline',b=vehicleSystem.cars.find(x=>x.model===model);
+      if(!b)return {ok:false,reason:'skyline missing'};
+      const previous=vehicleHybrid.atlases.get(model),
+        previousStatus=vehicleHybrid.states.get(model);
+      const built=vehicleHybridBuildDemo(model),
+        atlas=vehicleHybrid.atlases.get(model);
+      const scene=makeCanvas(720,640),ctx=scene.getContext('2d');
+      const saved={x:cam.x,y:cam.y,W:cam.W,H:cam.H,
+        zoom:cam.zoom,ang:cam.ang,cos:cam.cos,sin:cam.sin};
+      let composited=false,angleChanged=false;
+      try{
+        cam.x=b.x;cam.y=b.y;cam.W=720;cam.H=640;
+        cam.zoom=76;cam.ang=Math.PI/4;
+        cam.sin=Math.sin(cam.ang);cam.cos=Math.cos(cam.ang);
+        const a=vehicleHybridFrameIndex(b.rot,cam.ang,16);
+        composited=vehicleHybridDraw(ctx,b,0);
+        angleChanged=a!==vehicleHybridFrameIndex(
+          b.rot,cam.ang+Math.PI/2,16);
+      }finally{
+        Object.assign(cam,saved);
+        if(previous)vehicleHybrid.atlases.set(model,previous);
+        else vehicleHybrid.atlases.delete(model);
+        if(previousStatus)vehicleHybrid.states.set(model,previousStatus);
+        else vehicleHybrid.states.delete(model);
+      }
+      return {ok:built&&composited&&angleChanged,
+        width:atlas?.images.body.width,height:atlas?.images.body.height,
+        png:atlas?.images.body.toDataURL('image/png').split(',')[1]};
+    });
+    if(!hybridDemo.ok||hybridDemo.width!==1536||
+       hybridDemo.height!==1536||!hybridDemo.png)
+      throw Error('Hybrid vehicle raster browser demo failed: '+
+        JSON.stringify({...hybridDemo,png:hybridDemo.png?.length}));
+    fs.writeFileSync('artifacts/cityofgod-skyline-16-direction-procedural-demo.png',
+      Buffer.from(hybridDemo.png,'base64'));
+    console.log('Hybrid vehicle demo: 16 directional frames, camera and pivot OK');
     const live=await game.evaluate(()=>{
       const trees=world.props.filter(p=>p.type==='tree');
       let good=0;

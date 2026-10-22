@@ -633,7 +633,10 @@ function behindHouse(H, px, py) {
   return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
 }
 function drawBox(g,b) {
-  if(b.kind==='car')return carDraw(g,b,T,world.night);
+  if(b.kind==='car'){
+    if(vehicleHybridDraw(g,b,T))return;
+    return carDraw(g,b,T,world.night);
+  }
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
   for (let i = 0; i < 4; i++) {

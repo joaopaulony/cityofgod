@@ -15,6 +15,9 @@ on:
       - js/urban-life.js
       - js/vehicle-art.js
       - js/vehicle-drive.js
+      - js/vehicle-hybrid.js
+      - assets/vehicles/skyline-1992/**
+      - tests/vehicle-hybrid.test.cjs
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
@@ -38,6 +41,9 @@ on:
       - js/urban-life.js
       - js/vehicle-art.js
       - js/vehicle-drive.js
+      - js/vehicle-hybrid.js
+      - assets/vehicles/skyline-1992/**
+      - tests/vehicle-hybrid.test.cjs
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
@@ -67,6 +73,8 @@ jobs:
         run: node tests/procedural-cars.test.cjs
       - name: Verify steering direction for six camera orientations
         run: node tests/car-steering.test.cjs
+      - name: Verify hybrid spritesheet loading and fallback
+        run: node tests/vehicle-hybrid.test.cjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
