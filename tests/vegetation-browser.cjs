@@ -700,7 +700,8 @@ const {judge}=require('./visual-quality-judge.cjs');
       for(const m of models){
         const car=carList.find(b=>b.model===m.id);
         const prev=car.rot;car.rot=0;cam.x=car.x;cam.y=car.y;
-        const u=m.front,v=m.w*.48,C={paint:car.top||m.paint};
+        const u=m.front,v=carWheelMount(m,m.front,1),
+          C={paint:car.top||m.paint};
         const geom=carWheelGeometry(car,u,v,m);
         const pBack=geom.centerBack,pFront=geom.centerFront;
         const separation=Math.hypot(pFront.x-pBack.x,pFront.y-pBack.y);
@@ -737,6 +738,8 @@ const {judge}=require('./visual-quality-judge.cjs');
              Math.abs(before[k+2]-after[k+2])>55))changed++;
          }
         samples.push({model:m.id,width:geom.width,separation,
+          groundClearance:geom.centerZ-m.wheel,
+          frontMount:v,rearMount:carWheelMount(m,m.rear,1),
           faceWidth,centerZ:geom.centerZ,
           dark,light,wheelPixels,archMasked:changed});
         car.rot=prev;
@@ -747,12 +750,19 @@ const {judge}=require('./visual-quality-judge.cjs');
       return {wheelTypeCount:samples.length,
         wheelFrontBackMin:Math.min(...samples.map(s=>s.separation)),
         wheelWidthMin:Math.min(...samples.map(s=>s.width)),
+        wheelMaxGroundClearance:Math.max(...samples.map(s=>s.groundClearance)),
+        wheelTrackMounted:samples.every(s=>{
+          const m=models.find(m=>m.id===s.model);
+          return Math.abs(s.frontMount)<m.w*.51&&
+            Math.abs(s.rearMount)<m.w*.51;
+        }),
         wheelRimPixelsMin:Math.min(...samples.map(s=>s.light)),
         wheelTreadPixelsMin:Math.min(...samples.map(s=>s.dark)),
         wheelArchMaskedMin:Math.min(...samples.map(s=>s.archMasked)),
         wheelGeometriesOK:samples.every(s=>s.centerZ>s.width*.5&&
           s.faceWidth>8&&s.wheelPixels>380&&s.light>45&&
-          s.dark>125&&s.separation>3&&s.archMasked>8),
+          s.dark>125&&s.separation>3&&s.archMasked>8&&
+          s.groundClearance<.028),
         aeroLowCab:day.roof<1.65&&day.cabF<.36,
         aeroTaperedNose:day.noseW>.66&&day.noseW<.75,
         aeroLongWheelbase:day.front-day.rear>3.62,
