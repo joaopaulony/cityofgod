@@ -3,15 +3,15 @@
 // Nao confundir a nota automatica com avaliacao estetica humana.
 'use strict';
 const RULES=[
-  ['Cercas com volume e sombra',9,m=>m.fencePainted>=440&&m.fenceColors>=9],
+  ['Cercas com volume e sombra',8,m=>m.fencePainted>=440&&m.fenceColors>=9],
   ['Cerca apoiada no solo',7,m=>m.buriedPosts],
-  ['Luz bloqueada por parede',10,m=>m.wallBlocksLight&&m.partitionBlocksLight&&
+  ['Luz bloqueada por parede',9,m=>m.wallBlocksLight&&m.partitionBlocksLight&&
     m.facadeCovered&&m.roofCovered&&m.maskLocal&&m.coneExteriorOnly&&
     m.noBlackStripes],
   ['Luz de poste e feixe visiveis',8,m=>m.lampBeamPixels>=900&&m.lampCount>1&&m.unaffectedByPlayerRay],
-  ['Interior nao exposto pelas paredes',10,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked&&m.featheredFocus],
+  ['Interior nao exposto pelas paredes',9,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked&&m.featheredFocus],
   ['Interior acessivel ao entrar',7,m=>m.interiorVisibleWhenInside],
-  ['Fazendas distantes de estradas',7,m=>m.ruralCount>=4&&m.ruralKinds>=2&&m.ruralFarFromRoad],
+  ['Fazendas distantes de estradas',6,m=>m.ruralCount>=4&&m.ruralKinds>=2&&m.ruralFarFromRoad],
   ['Variedade de construcoes no mapa',3,m=>m.houseCount>=21&&m.urbanCount>=15],
   ['Cozinhas e banheiros detalhados',5,m=>m.fixtureKinds>=6&&m.roomsWithLights>=3],
   ['Portas e mobiliario interativos',4,m=>m.manualDoorWorks&&
@@ -28,12 +28,19 @@ const RULES=[
     m.smokePixels>=650&&m.mortarDetail>=45&&m.chimneysEmbedded&&
     m.flatRoofCount>=1&&m.flatRoofsWithoutChimneys&&
     m.slopedChimneysOnly&&m.flatRenderHidden],
-  ['Parabólicas e antenas de TV fixadas ao telhado',5,m=>
+  ['Parabólicas e antenas de TV fixadas ao telhado',4,m=>
     m.dishCount>=2&&m.yagiCount>=2&&
     m.fixturesOnRoof&&m.fixturePixels>55],
-  ['Carros detalhados, direcao e cameras',7,m=>
-    m.carModels===7&&m.cars>=7&&m.carAngles>=224&&
-    m.minCarPixels>700&&m.colorVariety>=5&&
+  ['Modelos de carros com proporções e detalhes próprios',9,m=>
+    m.carModels===9&&m.cars>=9&&m.carAngles>=288&&
+    m.minCarPixels>900&&m.colorVariety>=12&&
+    m.visibleSpecificBodies===9&&m.referenceProfiles===9&&
+    m.uniquePaints===9&&m.uniqueCues===9&&
+    m.referenceParts&&m.dimensionsVerified&&
+    m.shapeComparisonPairs===36&&
+    m.distinguishableSilhouettePairs>=16&&
+    m.meanSilhouetteDifference>.085],
+  ['Direção, colisões, luzes e entradas verificadas',3,m=>
     m.buildingBlocked&&m.entered&&m.moved&&m.wheelsRotate&&
     m.lightsWork&&m.beams&&m.exited&&m.distinctBodies],
   ['Render 2D sem erros',1,m=>m.renderOK]
