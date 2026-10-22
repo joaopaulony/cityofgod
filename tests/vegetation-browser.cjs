@@ -50,11 +50,13 @@ const fs=require('node:fs');
       render();
       // O novo mapa deve ter QUATRO vezes a área, sem exceder dimensões
       // problemáticas (>4096px) de Canvas 2D em muitos dispositivos móveis.
+      // O chão detalhado é pintado em blocos (terrain.js); world.ground é a
+      // visão geral do mapa inteiro em world.groundPPM px/m.
       const ground=world.ground;
       const worldState={
         map:MAP,area:MAP*MAP,expectedArea:80*80*4,
         groundPixels:[ground.width,ground.height],
-        groundScale:PPM,houses:houses.length,cars:boxes.filter(b=>b.kind==='car').length,
+        groundScale:world.groundPPM,chunkPixels:CSZ,chunksPerSide:MAP/CH,shadowPixels:world.groundCtx.canvas.width,houses:houses.length,cars:boxes.filter(b=>b.kind==='car').length,
         roads:world.roads.length,roadFields:world.roadD.length
       };
       // A nova borda precisa ser alcançável e o clamp de colisão deve
@@ -82,12 +84,13 @@ const fs=require('node:fs');
       const data=g.getImageData(Math.floor(c.width*.49),Math.floor(c.height*.49),8,8).data;
       let painted=0;
       for(let i=3;i<data.length;i+=4)if(data[i]>0)painted++;
-      return {map:MAP,width:c.width,height:c.height,ppm:PPM,painted};
+      return {map:MAP,width:c.width,height:c.height,ppm:world.groundPPM,shadowPpm:PPM,shadowWidth:world.groundCtx.canvas.width,chunkPixels:CSZ,painted};
     });
     console.log('Normal quality:',JSON.stringify(normalStats));
     await normal.screenshot({path:'artifacts/cityofgod-map-normal.png',fullPage:true});
-    if(normalErrors.length || normalStats.map!==160 || normalStats.ppm!==24 ||
-       normalStats.width!==3840 || normalStats.height!==3840 ||
+    if(normalErrors.length || normalStats.map!==160 || normalStats.shadowPpm!==24 ||
+       normalStats.shadowWidth!==3840 || normalStats.width!==160*normalStats.ppm ||
+       normalStats.height!==160*normalStats.ppm || normalStats.chunkPixels>4096 ||
        normalStats.painted<32)
       throw Error('Normal quality large-map failed: '+JSON.stringify({normalErrors,normalStats}));
     console.log('Game smoke:',JSON.stringify(live));
@@ -96,6 +99,7 @@ const fs=require('node:fs');
       throw Error('Trees remain invisible in real game runtime: '+JSON.stringify(live));
     if(live.map!==160 || live.area!==live.expectedArea || live.groundPixels[0]!==160*live.groundScale ||
        live.groundPixels[0]>4096 || live.groundPixels[1]>4096 ||
+       live.chunkPixels>4096 || !Number.isInteger(live.chunksPerSide) || live.shadowPixels>4096 ||
        live.houses<12 || live.cars<6 || live.roads<2 || live.roadFields!==160*160*4 ||
        live.clamped.some(v=>v>159.5))
       throw Error('Expanded map geometry or content invalid: '+JSON.stringify(live));
