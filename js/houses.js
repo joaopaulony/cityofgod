@@ -517,7 +517,8 @@ function drawWindowLeaves(g, s, exterior) {
 // Porta abre ao aproximar-se o jogador ou um NPC; janelas mudam devagar,
 // de forma deterministica para cada casa, e fecham preferencialmente a noite.
 function updateHouseOpenings(dt, residents, night) {
-  for (const H of houses) for (const s of H.segs) {
+  for (const H of houses) {
+    for (const s of H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
       if(s.ext)s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
@@ -535,6 +536,7 @@ function updateHouseOpenings(dt, residents, night) {
       if (night) w.target = 0;
       w.open += (w.target - w.open) * (1 - Math.exp(-dt * 1.65));
       if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
+    }
     }
     if(H.upper)for(const s of H.upper.walls)if(s.doorAnim){
       const a=s.doorAnim;
@@ -654,6 +656,87 @@ function drawBox(g, b) {
     }
   }
   poly(g, [proj(c[0][0], c[0][1], z1), proj(c[1][0], c[1][1], z1), proj(c[2][0], c[2][1], z1), proj(c[3][0], c[3][1], z1)], tone(b.top, 0.6), 'rgba(24,18,14,0.75)', 1);
+  // Detalhes artesanais em pequena escala e sombra no proprio plano superior.
+  // A geometria segue a rotacao do lote e acompanha a altura do piso.
+  const detail=(u,v,z=z1+.015)=>{
+    const ang=b.rot||0,c=Math.cos(ang),s=Math.sin(ang);
+    return proj(b.x+c*u-s*v,b.y+s*u+c*v,z);
+  };
+  const fillDisk=(u,v,r,col)=>{
+    const a=detail(u,v),rx=Math.max(1,cam.zoom*r);
+    g.fillStyle=col;g.beginPath();
+    g.ellipse(a.x,a.y,rx,Math.max(.75,rx*.48),0,0,TAU);g.fill();
+  };
+  if(b.kind==='stove'){
+    for(const u of [-b.w*.24,b.w*.24])
+      for(const v of [-b.d*.22,b.d*.22]){
+        fillDisk(u,v,.095,'#303336');
+        fillDisk(u,v,.053,'#6f7475');
+        fillDisk(u,v,.025,'#252525');
+      }
+    const knob=detail(-b.w*.33,b.d*.32);
+    g.fillStyle='#383537';g.fillRect(knob.x-2,knob.y-1,4,2);
+  }else if(b.kind==='sink'){
+    fillDisk(0,0,Math.min(b.w,b.d)*.30,'#827f79');
+    fillDisk(0,0,Math.min(b.w,b.d)*.245,'#a7b5b8');
+    fillDisk(0,0,.035,'#424d4c');
+    const a=detail(0,-b.d*.28,z1+.015),
+      k=detail(0,-b.d*.18,z1+.14);
+    g.strokeStyle='#d4d0c9';g.lineWidth=Math.max(1.1,cam.zoom*.028);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(k.x,k.y);g.stroke();
+  }else if(b.kind==='toilet'){
+    fillDisk(0,0,.23,'#dedbd3');
+    fillDisk(0,0,.145,'#8c9999');
+    fillDisk(0,0,.10,'#c0d2d3');
+    const back=detail(0,-b.d*.28);
+    g.fillStyle='#edece6';g.fillRect(back.x-cam.zoom*.18,
+      back.y-cam.zoom*.05,cam.zoom*.36,cam.zoom*.10);
+  }else if(b.kind==='shower'){
+    const a=detail(-b.w*.45,-b.d*.40,z0+.09),
+      top=detail(-b.w*.45,-b.d*.40,z0+b.h);
+    const q=[a,detail(b.w*.42,-b.d*.40,z0+.09),
+      detail(b.w*.42,-b.d*.40,z0+b.h),top];
+    poly(g,q,'rgba(163,191,198,.17)','rgba(185,207,208,.65)',
+      Math.max(.9,cam.zoom*.025));
+    const spray=detail(0,-b.d*.40,z0+b.h*.89);
+    g.strokeStyle='#b8bbc0';g.lineWidth=Math.max(1,cam.zoom*.025);
+    g.beginPath();g.moveTo(top.x,top.y);g.lineTo(spray.x,spray.y);g.stroke();
+    fillDisk(0,0,.16,'rgba(153,183,187,.60)');
+  }else if(b.kind==='cabinet'||b.kind==='wardrobe'){
+    const hinge=detail(-b.w*.26,b.d*.5,z0+b.h*.35),
+      handle=detail(b.w*.22,b.d*.5,z0+b.h*.55);
+    const faceCol=b.open?'rgba(20,17,13,.62)':'rgba(74,48,29,.23)';
+    const q=[detail(-b.w*.42,b.d*.5,z0+.08),
+      detail(b.w*.42,b.d*.5,z0+.08),
+      detail(b.w*.42,b.d*.5,z0+b.h*.94),
+      detail(-b.w*.42,b.d*.5,z0+b.h*.94)];
+    poly(g,q,faceCol,'rgba(24,18,12,.42)',.85);
+    g.strokeStyle='#d6c2a2';g.lineWidth=Math.max(1,cam.zoom*.025);
+    g.beginPath();g.moveTo(handle.x-1,handle.y-2);
+    g.lineTo(handle.x+1,handle.y+2);g.stroke();
+  }else if(b.kind==='mirror'){
+    const frame=[detail(-b.w*.47,0,z0+b.h*.2),
+      detail(b.w*.47,0,z0+b.h*.2),
+      detail(b.w*.47,0,z0+b.h*.94),
+      detail(-b.w*.47,0,z0+b.h*.94)];
+    poly(g,frame,'rgba(145,180,195,.72)','#594d3f',2);
+    const a=detail(-b.w*.23,0,z0+b.h*.65),
+      q=detail(b.w*.12,0,z0+b.h*.85);
+    g.strokeStyle='rgba(242,245,246,.58)';g.lineWidth=Math.max(1,cam.zoom*.025);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(q.x,q.y);g.stroke();
+  }else if(b.kind==='rug'){
+    for(let i=0;i<7;i++){
+      const u=-b.w*.40+i*b.w*.13,a=detail(u,-b.d*.39),
+        z=detail(u,b.d*.39);
+      g.strokeStyle=i%2?'rgba(227,199,158,.31)':'rgba(45,36,29,.22)';
+      g.lineWidth=Math.max(.6,cam.zoom*.015);
+      g.beginPath();g.moveTo(a.x,a.y);g.lineTo(z.x,z.y);g.stroke();
+    }
+  }else if(b.kind==='screen'&&b.house?.tvOn){
+    const a=detail(0,0);
+    g.fillStyle='rgba(115,198,231,.65)';
+    g.beginPath();g.arc(a.x,a.y,Math.max(1.8,cam.zoom*.14),0,TAU);g.fill();
+  }
   if (b.kind === 'bed') {
     // Travesseiro deslocado no eixo LOCAL da cama (não no eixo Y global).
     const dy = -b.d * 0.36, a = b.rot || 0;
