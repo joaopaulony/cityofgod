@@ -652,9 +652,6 @@ function tick(dt) {
     hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
     hud.msgT=1.8;
   }
-  const accessoryMessage=vehicleAccessoryInteraction(player);
-  if(accessoryMessage){hud.msg=accessoryMessage;hud.msgT=2.5;}
-  vehicleVisualUpdate(dt);
   if(vehicleSystem.driver)vehicleUpdate(dt,player);
   updatePlayer(dt);
   ecosystemTick(dt,player,T);

@@ -14,9 +14,6 @@ on:
       - js/vision-light.js
       - js/urban-life.js
       - js/vehicle-art.js
-      - js/vehicle-sprites.js
-      - assets/vehicles/**
-      - tests/diablo-pilot.test.cjs
       - js/vehicle-drive.js
       - js/interiors.js
       - js/terrain.js
@@ -24,6 +21,7 @@ on:
       - index.html
       - tests/vegetation*
       - tests/architecture.test.js
+      - tests/procedural-cars.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
   pull_request:
@@ -38,9 +36,6 @@ on:
       - js/vision-light.js
       - js/urban-life.js
       - js/vehicle-art.js
-      - js/vehicle-sprites.js
-      - assets/vehicles/**
-      - tests/diablo-pilot.test.cjs
       - js/vehicle-drive.js
       - js/interiors.js
       - js/terrain.js
@@ -48,6 +43,7 @@ on:
       - index.html
       - tests/vegetation*
       - tests/architecture.test.js
+      - tests/procedural-cars.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
 permissions:
@@ -65,13 +61,8 @@ jobs:
         run: node tests/architecture.test.js
       - name: Check foliage generation
         run: node tests/vegetation.test.js
-      - name: Check Diablo sprite integration and controls
-        run: node tests/diablo-pilot.test.cjs
-      - name: Validate generated Diablo angle silhouettes (free)
-        working-directory: tools/gemini
-        run: npm install --no-audit --no-fund
-      - name: Fail on repeated Gemini direction silhouettes
-        run: node tools/gemini/validate-diablo.mjs
+      - name: Ensure only original Canvas 2D vehicles are active
+        run: node tests/procedural-cars.test.cjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
