@@ -558,6 +558,44 @@ const {judge}=require('./visual-quality-judge.cjs');
       render();return {type:b.model,x:b.x,y:b.y};
     });
     await game.screenshot({path:'artifacts/cityofgod-seven-car-models-driving.png',fullPage:true});
+    // Gallery of all silhouettes and four camera orientations for review.
+    const galleryPng=await game.evaluate(()=>{
+      const tileW=288,tileH=215,cols=4,rows=7;
+      const sheet=makeCanvas(tileW*cols,tileH*rows),
+        sg=sheet.getContext('2d');
+      const previous={x:cam.x,y:cam.y,W:cam.W,H:cam.H,
+        zoom:cam.zoom,ang:cam.ang,cos:cam.cos,sin:cam.sin};
+      for(let row=0;row<rows;row++){
+        const b=vehicleSystem.cars.find(c=>c.model===CAR_MODELS[row].id);
+        for(let col=0;col<cols;col++){
+          const tile=makeCanvas(tileW,tileH),
+            ctx=tile.getContext('2d'),ang=Math.PI/4+col*Math.PI/2;
+          cam.x=b.x;cam.y=b.y;cam.W=tileW;cam.H=tileH;
+          cam.zoom=42;cam.ang=ang;cam.cos=Math.cos(ang);cam.sin=Math.sin(ang);
+          ctx.fillStyle='#727774';ctx.fillRect(0,0,tileW,tileH);
+          for(let i=0;i<36;i++){
+            ctx.fillStyle='rgba(17,20,21,.030)';
+            ctx.fillRect((i*77+row*41)%tileW,(i*37+col*17)%tileH,
+              1+(i%3),1+(i%3));
+          }
+          carDraw(ctx,b,0,false);
+          sg.drawImage(tile,col*tileW,row*tileH);
+          sg.fillStyle='rgba(13,16,18,.80)';
+          sg.fillRect(col*tileW,row*tileH,tileW,27);
+          sg.fillStyle='#faf4e7';sg.font='600 14px sans-serif';
+          sg.textAlign='left';
+          sg.fillText(CAR_MODELS[row].name+' · cam '+(col+1),
+            col*tileW+10,row*tileH+18);
+        }
+      }
+      cam.x=previous.x;cam.y=previous.y;cam.W=previous.W;cam.H=previous.H;
+      cam.zoom=previous.zoom;cam.ang=previous.ang;
+      cam.cos=previous.cos;cam.sin=previous.sin;
+      return sheet.toDataURL('image/png').split(',')[1];
+    });
+    fs.writeFileSync('artifacts/cityofgod-car-gallery-7x4.png',
+      Buffer.from(galleryPng,'base64'));
+
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
