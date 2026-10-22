@@ -149,7 +149,7 @@ function protectBuildingSurfaces(ctx,ambientColor){
 // Feixe de atmosfera: tres laminas translúcidas sobrepostas com queda suave.
 // Desenhado ANTES da geometria das casas para ser escondido por ela.
 function drawLampBeam(g,l,t){
-  const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,radius=4.4;
+  const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,radius=5.1;
   const foot=proj(x,y,0),head=proj(x,y,4.03);
   const pad=cam.zoom*radius;
   if(foot.x<-pad||foot.x>cam.W+pad||
