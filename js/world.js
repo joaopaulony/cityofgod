@@ -656,31 +656,59 @@ function makeTree(kind='oak',decoration=null) {
     branchCount,twigCount,branchAngles,flowers,fruits,trunkProfile};
 }
 function makeBush() {
-  // Arbusto 10× mais folhado, com folhas individuais em pequenos ramos.
+  // Arbustos folhosos mesmo com a camera afastada: o antigo sprite usava
+  // apenas folhas de 0.72–1.6px, que desapareciam ao reduzir a escala.
+  // Massa vegetal opaca e irregular sob as folhas individuais, como nas arvores.
   const r=R(.45,.85),S=SPR,pad=13,
-    c=makeCanvas(r*2.65*S+pad*2,r*1.88*S+pad*2),g=c.getContext('2d'),
+    c=makeCanvas(r*2.65*S+pad*2,r*2.05*S+pad*2),g=c.getContext('2d'),
     cx=c.width/2,by=c.height-pad,p=LEAF_PALETTES[(rng()*LEAF_PALETTES.length)|0];
   const shoots=[],colors=[p.deep,p.shade,p.body,p.mid,p.sun,p.glint],
     paths=Array.from({length:6},()=>[]);
   for(let i=0;i<19;i++){
     const angle=R(-Math.PI,0),dist=R(.12,.92),
-      x=cx+Math.cos(angle)*r*S*dist,y=by+Math.sin(angle)*r*S*.76*dist;
-    shoots.push({x,y,rad:R(7,15)});
+      x=cx+Math.cos(angle)*r*S*dist,
+      y=by+Math.sin(angle)*r*S*.76*dist;
+    shoots.push({x,y,rad:R(8,14),phase:R(0,TAU),
+      lit:clamp(.54+(cx-x)/(r*S)*.23+(by-y)/(r*S)*.11,.14,.94)});
   }
-  for(let k=0;k<shoots.length;k++){
-    const n=shoots[k];woodyBranch(g,cx,by,n.x,n.y,1.15);
+  // Os galhos continuam existindo, mas agora sustentam uma moita cheia.
+  for(const n of shoots)woodyBranch(g,cx,by,n.x,n.y,1.1);
+  branchFoliage(g,{x:cx,y:by-r*S*.36,rx:r*S*.60,ry:r*S*.39,
+    phase:R(0,TAU),lit:.34},p,0);
+  for(const n of shoots){
+    const lobe={x:n.x,y:n.y,rx:n.rad*R(.89,1.12),
+      ry:n.rad*R(.75,.96),phase:n.phase,lit:n.lit};
+    branchFoliage(g,lobe,p,0);
+    branchFoliage(g,lobe,p,1);
+  }
+  // Folhas pequenas para textura, maiores para ficarem visiveis em zoom normal.
+  // Paths quebrados em blocos pelo leafBatch: sem caminhos gigantes no Canvas.
+  for(const n of shoots){
     for(let i=0;i<750;i++){
-      const a=R(0,TAU),d=Math.sqrt(rng()),x=n.x+Math.cos(a)*n.rad*d,
+      const a=R(0,TAU),d=Math.sqrt(rng()),
+        x=n.x+Math.cos(a)*n.rad*d,
         y=n.y+Math.sin(a)*n.rad*.83*d;
-      const tone=i%11===0?0:i%6===0?1:i%4===0?4:i%3===0?3:2;
-      paths[tone].push(x,y,R(.72,1.6),a);
+      const q=rng();
+      const tone=i<200?(q<.30?1:2):
+        q<.075?0:q<.23?1:q<.48?2:q<.78?3:
+        (n.lit>.45?(q<.96?4:5):3);
+      paths[tone].push(x,y,R(1.8,3.3),a*.35+R(-1.05,1.05));
     }
   }
   leafBatch(g,paths,colors);
+  // Borda recortada com folhas mais claras: evita uma bolha lisa/chapada.
+  const rim=Array.from({length:6},()=>[]);
+  for(const n of shoots)for(let j=0;j<46;j++){
+    const a=j*2.39996+R(-.22,.22),d=R(.76,1.12);
+    const tone=n.lit>.50&&rng()>.38?4:rng()>.42?3:2;
+    rim[tone].push(n.x+Math.cos(a)*n.rad*d,
+      n.y+Math.sin(a)*n.rad*.84*d,R(2.4,4.0),a+R(-.8,.8));
+  }
+  leafBatch(g,rim,colors);
   for(let i=0;i<95;i++){
     const n=shoots[(rng()*shoots.length)|0];
     paintLeaf(g,n.x+R(-n.rad,n.rad),n.y+R(-n.rad*.67,n.rad*.67),
-      R(1.5,2.4),R(-1.4,1.4),rng()>.5?p.sun:p.mid);
+      R(2.2,3.7),R(-1.4,1.4),rng()>.5?p.sun:p.mid);
   }
   if(rng()<.4){
     const flower=['#efe5cb','#d79597','#e9cd73'][(rng()*3)|0];
@@ -690,7 +718,8 @@ function makeBush() {
       g.fillStyle=flower;g.fillRect(x-1.2,y-2.5,2.4,5);g.fillRect(x-2.5,y-1.2,5,2.4);
     }
   }
-  return {img:c,ax:cx,ay:by,r,leafCount:19*750+95};
+  return {img:c,ax:cx,ay:by,r,leafCount:19*(750+46)+95,
+    foliageClusters:shoots.length+1};
 }
 
 // ---- Pedras: cada sprite é "renderizado" em 3D por código (raio por pixel contra uma superfície
