@@ -1,0 +1,74 @@
+name: Import licensed GLB cars and bundle the WebGL renderer
+
+on:
+  push:
+    branches: [feat/native-glb-cars-20261022]
+    paths:
+      - .github/workflows/import-native-glb.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download and verify five explicitly licensed CC BY car models
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/vehicles/native-glb
+          base='https://raw.githubusercontent.com/pedrosoandre/carros/2d18dfd9db96bbf0d9cffa949deaf7f571388cbf/assets'
+          while read -r file gitsha; do
+            [[ -n "$file" ]] || continue
+            dest="assets/vehicles/native-glb/$file"
+            curl --fail --location --retry 3 --connect-timeout 20 --max-time 100 \
+              --silent --show-error "$base/$file" -o "$dest"
+            actual="$(git hash-object "$dest")"
+            if [[ "$actual" != "$gitsha" ]]; then
+              echo "Hash mismatch for $file: $actual vs $gitsha" >&2
+              exit 1
+            fi
+            magic="$(head -c 4 "$dest")"
+            [[ "$magic" == 'glTF' ]] || { echo "Invalid GLB header: $file" >&2; exit 1; }
+            echo "Verified $file ($(wc -c < "$dest") bytes)"
+          done <<'ASSETS'
+          nissan-silvia-s13.glb 42a622041cdeff142ff7447852f3a146ca36ece8
+          chevrolet-opala.glb b0a113e76f5c198f3c483eb3860158bd006db82f
+          ford-mustang.glb a6b355899077b8a76d2ac9f907801ac1426e48e0
+          ford-ranger.glb 5679c2eb6f52b5da4b60d8a4a668fcf0f4dcb408
+          mercedes-gclass.glb 49ea728c15a15bf88b016c21d26d9661c53c5b58
+          ASSETS
+      - name: Compile Three.js and Meshopt decoder into local client bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock \
+            three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-glb-runtime.mjs \
+            --bundle --platform=browser --format=esm --target=es2020 \
+            --minify --outfile=js/vehicle-glb-bundle.js
+          node --check js/vehicle-glb-bundle.js
+          node tests/native-glb-catalog.test.cjs
+      - name: Commit assets and local renderer bundle to feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/vehicles/native-glb/*.glb js/vehicle-glb-bundle.js
+          if git diff --cached --quiet; then
+            echo 'Assets already imported'
+          else
+            git commit -m 'assets: import five CC BY GLB cars and bundle native viewer'
+            git push origin HEAD:feat/native-glb-cars-20261022
+          fi
