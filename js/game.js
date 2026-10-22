@@ -294,7 +294,7 @@ function render() {
   for (const p of world.props) {
     const b = proj(p.x, p.y, 0);
     if (b.x < -margin || b.x > W + margin || b.y < -margin * 0.3 || b.y > H + margin * 1.2) continue;
-    list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: ctx => drawProp(ctx,p,T,player) });
+    list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: ctx => drawProp(ctx,p,T,player),prop:p });
   }
   ecosystemAddDrawables(list, g, T, player);
   houseDrawables(list, player.x, player.y);
@@ -302,7 +302,7 @@ function render() {
     const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
     if(pos.x < -padding || pos.x > W+padding ||
        pos.y < -padding || pos.y > H+padding) continue;
-    list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night) });
+    list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night),lamp:l });
   }
   for (const a of actors) {
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
