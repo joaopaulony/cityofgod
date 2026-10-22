@@ -25,7 +25,9 @@ const RULES=[
     m.urbanBins>=5&&m.urbanPixelDetail>=45],
   ['Chaminés encaixadas, alvenaria e fumaça volumétrica',7,m=>
     m.chimneys>=3&&m.smokingChimneys>=1&&m.smokeDrawn&&
-    m.smokePixels>=650&&m.mortarDetail>=45&&m.chimneysEmbedded],
+    m.smokePixels>=650&&m.mortarDetail>=45&&m.chimneysEmbedded&&
+    m.flatRoofCount>=1&&m.flatRoofsWithoutChimneys&&
+    m.slopedChimneysOnly&&m.flatRenderHidden],
   ['Parabólicas e antenas de TV fixadas ao telhado',5,m=>
     m.dishCount>=2&&m.yagiCount>=2&&
     m.fixturesOnRoof&&m.fixturePixels>55],

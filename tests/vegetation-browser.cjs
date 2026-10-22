@@ -322,7 +322,24 @@ const {judge}=require('./visual-quality-judge.cjs');
     const city=await game.evaluate(()=>{
       const litter=urbanLife.litter,bins=urbanLife.bins;
       const chimneyHouses=houses.filter(H=>!!H.chimney),
-        smoky=chimneyHouses.filter(H=>H.chimney.smoke);
+        smoky=chimneyHouses.filter(H=>H.chimney.smoke),
+        flatRoofHouses=houses.filter(H=>H.roofKind==='flat');
+      const flatRoofsWithoutChimneys=flatRoofHouses.length>0&&
+        flatRoofHouses.every(H=>!H.chimney);
+      const slopedChimneysOnly=chimneyHouses.every(H=>H.roofKind!=='flat');
+      // Uma chaminé herdada de um mapa antigo tampouco pode ser desenhada.
+      const staleFlat={...flatRoofHouses[0],inside:false,chimney:{
+        x:flatRoofHouses[0]?.x0||0,y:flatRoofHouses[0]?.y0||0,
+        roofZ:flatRoofHouses[0]?.h||0,z:flatRoofHouses[0]?.h||0,
+        w:.72,d:.68,h:1.6,seed:123,stone:false,smoke:true
+      }};
+      const staleCanvas=makeCanvas(48,48);
+      urbanDrawChimney(staleCanvas.getContext('2d'),staleFlat,3.0);
+      const stalePixels=staleCanvas.getContext('2d').getImageData(0,0,48,48).data;
+      let flatRenderHidden=true;
+      for(let p=3;p<stalePixels.length;p+=4)if(stalePixels[p]!==0){
+        flatRenderHidden=false;break;
+      }
       const urbanCurbOnly=litter.every(d=>
         roadDist(d.x,d.y)>=ROAD_W-.60-1e-3&&
         roadDist(d.x,d.y)<=ROAD_W+SIDE+.13);
@@ -347,7 +364,11 @@ const {judge}=require('./visual-quality-judge.cjs');
           a.y-H.chimney.y)>.72));
       if(smoky.length){
         const H=smoky[0],c=H.chimney,remember=[cam.x,cam.y];
-        cam.x=cam.tx=c.x;cam.y=cam.ty=c.y;
+        // Centraliza na pluma, nao na base da casa: em telhados
+        // inclinados altos a fumaca ficava acima da borda do viewport.
+        const smokeZ=c.z+c.h+1.25,offset=smokeZ*HZ/TILT;
+        cam.x=cam.tx=c.x-cam.sin*offset;
+        cam.y=cam.ty=c.y-cam.cos*offset;
         const smoke=makeCanvas(cam.W,cam.H),ctx=smoke.getContext('2d');
         urbanDrawChimneySmoke(ctx,c,4.5,c.z+c.h);
         const raw=ctx.getImageData(0,0,smoke.width,smoke.height).data;
@@ -409,6 +430,8 @@ const {judge}=require('./visual-quality-judge.cjs');
         urbanDebris:litter.length,urbanStyles:new Set(litter.map(d=>d.kind)).size,
         urbanCurbOnly,urbanBins:bins.length,urbanPixelDetail,
         chimneys:chimneyHouses.length,smokingChimneys:smoky.length,
+        flatRoofCount:flatRoofHouses.length,flatRoofsWithoutChimneys,
+        slopedChimneysOnly,flatRenderHidden,
         smokeDrawn,smokePixels,mortarDetail,chimneysEmbedded,
         dishCount,yagiCount,fixturesOnRoof,fixturePixels,
         focusThreshold,focusOutlineRemoved:noFocusOutline,
