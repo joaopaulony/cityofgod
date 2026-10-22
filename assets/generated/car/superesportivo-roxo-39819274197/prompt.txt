@@ -1,0 +1,11 @@
+CITY OF GOD / ORIGINAL ISOMETRIC GAME ASSET / one image.
+Art direction: high-end 2D isometric urban survival game art, believable 1990s street-scale realism; precise crisp contour work; richly shaded panels and physically correct materials; stylized hand-painted texture (NOT voxel blocks, NOT wireframe, NOT cheap procedural cuboids).
+Camera: elevated approximately 35 degrees, orthographic/no perspective vanishing points. Orientation: three-quarter front-left perspective; front bumper and the left side clearly visible.
+Asset: superesportivo-roxo.
+Produce a complete, physically believable vehicle with a recognizable and individualized silhouette: front and rear overhangs, hood, windshield, passenger cabin, rear profile, mirrors, visible wheel depth and tread, tire shoulders, correct fender occlusion, 3D rim geometry, grille, lamps and panel gaps. No floating or flattened tires. Keep all four wheels aligned with the ground plane, only naturally visible wheels shown. Preserve every distinctive design cue in any attached reference. A single car only, stationary with no driver.
+Consistent scale and lighting: soft daylight coming from upper-left. Shadows must correspond to the geometry.
+Full silhouette visible, padding around whole subject. One single view, not a collage or sprite sheet.
+Background MUST be a perfectly uniform solid chroma key green #00FF00 (RGB 0,255,0), absolutely no shadows or green reflections on the background. The subject must NOT contain green materials. The green area must cover the four edges completely.
+No typography, watermarks, captions, labels, game menus, UI, people in background or extra objects.
+CUSTOM REQUIREMENTS: estilo project zomboid lamborghini roxa diablo
+Any supplied image is visual reference; maintain its unique outline, wheelbase, colors and styling rather than inventing a generic replacement.
