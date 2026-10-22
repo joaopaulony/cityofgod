@@ -650,7 +650,7 @@ const {judge}=require('./visual-quality-judge.cjs');
     await game.screenshot({path:'artifacts/cityofgod-bespoke-models-driving.png',fullPage:true});
     // Gallery of all silhouettes and four camera orientations for review.
     const galleryPng=await game.evaluate(()=>{
-      const tileW=336,tileH=230,cols=4,rows=CAR_MODELS.length;
+      const tileW=440,tileH=292,cols=4,rows=CAR_MODELS.length;
       const sheet=makeCanvas(tileW*cols,tileH*rows),
         sg=sheet.getContext('2d');
       const previous={x:cam.x,y:cam.y,W:cam.W,H:cam.H,
@@ -661,7 +661,7 @@ const {judge}=require('./visual-quality-judge.cjs');
           const tile=makeCanvas(tileW,tileH),
             ctx=tile.getContext('2d'),ang=Math.PI/4+col*Math.PI/2;
           cam.x=b.x;cam.y=b.y;cam.W=tileW;cam.H=tileH;
-          cam.zoom=52;cam.ang=ang;cam.cos=Math.cos(ang);cam.sin=Math.sin(ang);
+          cam.zoom=64;cam.ang=ang;cam.cos=Math.cos(ang);cam.sin=Math.sin(ang);
           ctx.fillStyle='#727774';ctx.fillRect(0,0,tileW,tileH);
           for(let i=0;i<36;i++){
             ctx.fillStyle='rgba(17,20,21,.030)';
