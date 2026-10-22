@@ -230,4 +230,5 @@ function drawRoof(g, H) {
 function drawRoofInner(g, H) {
   if (!H.roofGeom) H.roofGeom = buildRoofGeom(H);
   if (H.roofGeom.flat) drawFlatRoof(g, H); else drawPitched(g, H);
+  urbanDrawChimney(g,H,typeof T==='number'?T:0);
 }
