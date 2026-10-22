@@ -1,0 +1,8 @@
+# Nunca commitar segredos ou SDKs locais
+.env
+.env.*
+!.env.example
+**/node_modules/
+.DS_Store
+npm-debug.log*
+# assets/generated NAO ignorado: PRs podem conter imagens aprovaveis
