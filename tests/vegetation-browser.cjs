@@ -363,7 +363,12 @@ const {judge}=require('./visual-quality-judge.cjs');
       }
       if(roofAttachments.length){
         const {H,a}=roofAttachments[0],remember=[cam.x,cam.y];
-        cam.x=cam.tx=a.x;cam.y=cam.ty=a.y;
+        // Enquadramento segue a altura da antena, nao o solo.
+        // Em casas de dois andares os pixels projetados acima da
+        // camera do personagem ficam fora do canvas de teste.
+        const depth=(a.z+a.mast*.65)*HZ/TILT;
+        cam.x=cam.tx=a.x-cam.sin*depth;
+        cam.y=cam.ty=a.y-cam.cos*depth;
         const can=makeCanvas(cam.W,cam.H),ctx=can.getContext('2d');
         if(a.kind==='dish')urbanDish(ctx,H,a);else urbanYagi(ctx,H,a);
         const pixels=ctx.getImageData(0,0,can.width,can.height).data;
