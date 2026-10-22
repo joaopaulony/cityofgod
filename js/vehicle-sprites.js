@@ -91,7 +91,7 @@ function vehicleDrawSprite(g,b,time){
  if(!image)return false;
  const anchor=proj(b.x,b.y,0),m=carModel(b);
  // Standardized 768x512 sprites share a fixed physical scale across views.
- const scale=cam.zoom*(m.len/4.68)*.208;
+ const scale=cam.zoom*(m.len/4.68)*.0061;
  const width=768*scale,height=512*scale;
  // Center of tire contact zone aligned around actual world car origin.
  const x=anchor.x-width*.50,y=anchor.y-height*.73;
@@ -106,7 +106,7 @@ function vehicleDrawWheelMotion(g,b,m,dir,time){
  // thick realistic rubber/rims in the sprite are never replaced with discs.
  // For the pilot we only enhance the view from the trusted master sprite.
  if(dir!=='front-left')return;
- const anchor=proj(b.x,b.y,0),sc=cam.zoom*(m.len/4.68)*.208,
+ const anchor=proj(b.x,b.y,0),sc=cam.zoom*(m.len/4.68)*.0061,
    bx=anchor.x-768*sc*.5,by=anchor.y-512*sc*.73;
  const centers=[[358,378,21],[614,278,21]];
  const theta=(b.odometer/m.wheel)%TAU;
