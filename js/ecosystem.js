@@ -48,12 +48,15 @@ function ecoFree(x,y){
 // Seis quadros por pose; cauda, torax, patas e orelhas mudam entre quadros.
 // Pre-renderiza tudo UMA vez: nenhum fillRect de pixel ocorre durante os frames.
 const SQUIRREL_PALETTES=[
-  {edge:'#382820',fur:'#846049',shade:'#624432',sun:'#ac8260',belly:'#d2ae88',ear:'#c48b83',eye:'#171516'},
-  {edge:'#302821',fur:'#746654',shade:'#54483d',sun:'#a69a7e',belly:'#d5c6aa',ear:'#bba08e',eye:'#181618'},
-  {edge:'#482c1e',fur:'#a06d46',shade:'#785034',sun:'#c79562',belly:'#e2be8e',ear:'#d9a18c',eye:'#201917'}
+  {edge:'#2b1c17',fur:'#916348',shade:'#67432e',sun:'#b88b65',belly:'#e1bd97',ear:'#d4988e',eye:'#141110'},
+  {edge:'#29221c',fur:'#83715b',shade:'#5b4b3c',sun:'#b6a183',belly:'#e0cfad',ear:'#c8a693',eye:'#171310'},
+  {edge:'#332016',fur:'#a7734a',shade:'#7c5032',sun:'#d6a073',belly:'#e8cca5',ear:'#dda18f',eye:'#1d1512'}
 ];
 const SQUIRREL_PIXEL_SIZE=26;
-const SQUIRREL_SCALE_DIVISOR=280; // ~1/10 do antigo esquilo vetorial.
+// O divisor anterior (280) gerava menos de 8px de animal no zoom comum.
+// Com 155 ficam ~14px: perceptivel, mas 5.5x menor que a versao gigante.
+const SQUIRREL_SCALE_DIVISOR=155;
+const SQUIRREL_DEBUG=new URLSearchParams(location.search).get('wildlifeDebug')==='1';
 function ecoSquirrelPixelSprite(kind,pose,frame){
   const col=SQUIRREL_PALETTES[kind],c=makeCanvas(26,26),g=c.getContext('2d');
   g.imageSmoothingEnabled=false;
@@ -142,7 +145,7 @@ function ecoSquirrelEscape(s,player,rr){
   // Tronco seguro: o animal realmente sobe, nunca flutua direto ate a copa.
   if(treeDistance>6.5&&Math.hypot(s.x-tree.x,s.y-tree.y)<4&&rr()<.6){
     s.mode='toTree';s.goalX=tree.x;s.goalY=tree.y;
-    s.goalZ=Math.min(tree.sp.trunkH+tree.sp.r*.50,tree.sp.trunkH+1.15);
+    s.goalZ=tree.sp.trunkH+Math.min(tree.sp.r*.24,.62);
     s.panic=.8;s.timer=0;return;
   }
   for(const d of [9,7,5,3]){
@@ -161,7 +164,7 @@ function ecoSquirrelEscape(s,player,rr){
   }
   // Sem corredor livre, suba o proprio tronco em vez de atravessar obstaculos.
   s.mode='toTree';s.goalX=tree.x;s.goalY=tree.y;
-  s.goalZ=tree.sp.trunkH+tree.sp.r*.33;s.panic=.8;s.timer=.5;
+  s.goalZ=tree.sp.trunkH+Math.min(tree.sp.r*.22,.57);s.panic=.8;s.timer=.5;
 }
 function ecosystemInit(){
   const rr=ecosystem.rng=mulberry(world.seed^0x395f2b19);
@@ -183,20 +186,40 @@ function ecosystemInit(){
       z:.4+rr()*.5,phase:rr()*TAU,heading:rr()*TAU,kind:(rr()*5)|0,
       speed:.18+rr()*.2,flight:rr()*TAU});
   }
-  // Esquilos territoriais: cada um conhece seu tronco e pode se esconder
-  // na copa, descendo apenas quando a vizinhanca fica segura.
+  // Colocacao mais natural e visivel: animais preferem arvores, nao surgem
+  // sobre a grama por teleporte. Prioriza exemplares proximos ao spawn quando
+  // houver arvores la, depois distribui territorios pelo resto da floresta.
   ecosystem.squirrelSprites=ecoMakeSquirrelSprites();
   const trees=world.props.filter(p=>p.type==='tree'&&ecoFree(p.x,p.y));
-  for(let i=0;i<trees.length&&ecosystem.squirrels.length<46;i++){
-    const t=trees[(rr()*trees.length)|0];
-    if(rr()>.25)continue;
-    if(ecosystem.squirrels.some(s=>Math.hypot(s.homeX-t.x,s.homeY-t.y)<5.5))continue;
-    const a=rr()*TAU,d=.45+rr()*.9,x=t.x+Math.cos(a)*d,y=t.y+Math.sin(a)*d;
-    if(!ecoFree(x,y))continue;
+  const distSpawn=t=>Math.hypot(t.x-world.spawn[0],t.y-world.spawn[1]);
+  const near=trees.filter(t=>distSpawn(t)<24),far=trees.filter(t=>distSpawn(t)>=24);
+  // Embaralha com RNG proprio para distribuir no mesmo seed sem repeticoes.
+  const shuffle=a=>{
+    for(let i=a.length-1;i>0;i--){
+      const j=(rr()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  };
+  const candidates=[...shuffle(near),...shuffle(far)];
+  let closeSpawns=0;
+  for(const t of candidates){
+    if(ecosystem.squirrels.length>=105)break;
+    const isNear=distSpawn(t)<24;
+    if((!isNear||closeSpawns>=3)&&rr()>.64)continue;
+    if(ecosystem.squirrels.some(s=>
+      Math.hypot(s.homeX-t.x,s.homeY-t.y)<3.25))continue;
+    let x=0,y=0,found=false;
+    for(let trial=0;trial<4;trial++){
+      const a=rr()*TAU,d=.35+rr()*1.2;
+      x=t.x+Math.cos(a)*d;y=t.y+Math.sin(a)*d;
+      if(ecoFree(x,y)){found=true;break;}
+    }
+    if(!found)continue;
     ecosystem.squirrels.push({x,y,z:.035,tree:t,
       homeX:t.x,homeY:t.y,goalX:x,goalY:y,goalZ:.035,
       phase:rr()*TAU,anim:rr()*6,dir:rr()*TAU,
-      timer:.7+rr()*2,kind:(rr()*3)|0,move:0,panic:0,mode:'forage'});
+      timer:1+rr()*3,kind:(rr()*3)|0,move:0,panic:0,mode:'forage'});
+    if(isNear)closeSpawns++;
   }
   // Particulas leves de sementes/polen acompanham o vento perto da camera.
   for(let i=0;i<28;i++)ecosystem.pollen.push({x:0,y:0,z:.3+rr()*1.1,
@@ -236,7 +259,7 @@ function ecosystemTick(dt,player,t){
       if(Math.abs(s.z-destination)<.055){
         s.z=destination;
         if(s.mode==='climb'){
-          s.mode='perch';s.timer=1.2+rr()*3;
+          s.mode='perch';s.timer=1.2+rr()*2.0;
         }else{
           s.mode='forage';s.timer=.3+rr()*.9;
         }
@@ -252,20 +275,20 @@ function ecosystemTick(dt,player,t){
       continue;
     }
     if(s.mode==='forage'&&s.timer<=0){
-      if(rr()<.36){
+      if(rr()<.17){
         s.mode='toTree';s.goalX=s.tree.x;s.goalY=s.tree.y;
-        s.goalZ=s.tree.sp.trunkH+Math.min(s.tree.sp.r*.47,1.12);
+        s.goalZ=s.tree.sp.trunkH+Math.min(s.tree.sp.r*.28,.69);
       }else{
-        const a=rr()*TAU,d=.7+rr()*2.2;
+        const a=rr()*TAU,d=.7+rr()*2.65;
         s.goalX=s.homeX+Math.cos(a)*d;
         s.goalY=s.homeY+Math.sin(a)*d;
         s.goalZ=.035;
       }
-      s.timer=.7+rr()*1.7;
+      s.timer=1.15+rr()*2.5;
     }
     if(s.mode==='recover'&&s.timer<=0){
       s.mode='toTree';s.goalX=s.tree.x;s.goalY=s.tree.y;
-      s.goalZ=s.tree.sp.trunkH+Math.min(s.tree.sp.r*.42,1.0);
+      s.goalZ=s.tree.sp.trunkH+Math.min(s.tree.sp.r*.25,.64);
     }
     const dx=s.goalX-s.x,dy=s.goalY-s.y,d=Math.hypot(dx,dy);
     if(d>.07){
@@ -325,7 +348,7 @@ function ecoDrawButterfly(g,b,t){
 }
 function ecoDrawSquirrel(g,s,t){
   // O sprite antigo tinha ~37 unidades de largura e era ampliado por zoom/40.
-  // Este tem 26px por zoom/280: cerca de dez vezes menor na mesma camera.
+  // Este tem 26px em escala adaptada: continua pequeno, mas identificavel.
   const pose=s.mode==='climb'||s.mode==='descend'?'climb':
     s.move>.15?'run':'idle';
   const frames=ecosystem.squirrelSprites[s.kind][pose];
@@ -338,12 +361,19 @@ function ecoDrawSquirrel(g,s,t){
   g.imageSmoothingEnabled=false;
   // Sombra permanece no solo inclusive enquanto o esquilo sobe na arvore.
   const foot=proj(s.x,s.y,0);
-  g.fillStyle='rgba(18,22,12,.20)';g.beginPath();
-  g.ellipse(foot.x,foot.y+1,Math.max(.8,cam.zoom*.028),
-    Math.max(.4,cam.zoom*.012),0,0,TAU);g.fill();
+  g.fillStyle='rgba(17,20,10,.32)';g.beginPath();
+  g.ellipse(foot.x,foot.y+1.3,Math.max(1.5,cam.zoom*.037),
+    Math.max(.55,cam.zoom*.016),0,0,TAU);g.fill();
   g.translate(p.x,p.y);g.scale(sc*direction,sc);
   g.drawImage(sp.img,-sp.ax,-sp.ay);
   g.restore();
+  // Marcador de diagnostico somente quando ?wildlifeDebug=1.
+  // Nao altera a experiencia normal, mas permite localizar bichos na floresta.
+  if(SQUIRREL_DEBUG){
+    g.save();g.strokeStyle='#ffe275';g.lineWidth=1.3;
+    g.beginPath();g.arc(p.x,p.y-2,Math.max(7,cam.zoom*.11),0,TAU);g.stroke();
+    g.restore();
+  }
 }
 
 function ecosystemAddDrawables(list,g,t,player){
