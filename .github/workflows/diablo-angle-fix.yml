@@ -30,7 +30,9 @@ jobs:
           test -s assets/vehicles/diablo/directions/front-left.png || exit 1
           test -s assets/vehicles/diablo/directions/rear-left.png || exit 1
           test -s assets/vehicles/diablo/manifest.json || exit 1
-          grep -qv 'directionCorrection' assets/vehicles/diablo/manifest.json || { echo "::error::Already corrected"; exit 1; }
+          if grep -q 'directionCorrection' assets/vehicles/diablo/manifest.json; then
+            echo "::error::Already corrected"; exit 1;
+          fi
       - name: Install pinned Gemini SDK
         working-directory: tools/gemini
         run: npm install --no-audit --no-fund
