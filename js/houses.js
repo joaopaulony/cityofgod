@@ -580,7 +580,7 @@ function drawWall(g, s) {
     if (!cut) drawDoorway(g, s, Math.min(h, 2.12));
   } else {
     drawWallSlice(g, s, 0, h, 0, 1);
-    if (s.window && h > 1.6 && world.night) {
+    if (s.window && h > 1.6 && world.night && H.lightOn) {
       const big = H.brick && s.ext && s.side === H.frontSide;
       const q = wallQuad(s, big ? 0.66 : 1.04, big ? 2.24 : 1.97, big ? 0.13 : 0.23, big ? 0.87 : 0.77);
       poly(g, q, outside ? 'rgba(255,196,110,0.82)' : 'rgba(14,20,42,0.6)', null);
