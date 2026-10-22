@@ -67,6 +67,11 @@ jobs:
         run: node tests/vegetation.test.js
       - name: Check Diablo sprite integration and controls
         run: node tests/diablo-pilot.test.cjs
+      - name: Validate generated Diablo angle silhouettes (free)
+        working-directory: tools/gemini
+        run: npm install --no-audit --no-fund
+      - name: Fail on repeated Gemini direction silhouettes
+        run: node tools/gemini/validate-diablo.mjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
