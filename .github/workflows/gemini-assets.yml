@@ -87,6 +87,15 @@ jobs:
           ASSET_TYPE: car
           ASSET_NAME: carro-roxo-teste
         run: npm run generate
+      - name: Export Lamborghini Diablo prompt catalog (FREE, no API call)
+        run: node tools/gemini/export-diablo-production.mjs
+      - name: Attach downloadable Diablo production pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: diablo-production-prompts-v2
+          path: artifacts/diablo-production-prompts-v2/
+          if-no-files-found: error
+          retention-days: 30
 
   generate:
     name: Manual generation (one image maximum)
