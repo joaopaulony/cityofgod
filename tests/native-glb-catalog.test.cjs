@@ -13,10 +13,9 @@ test('five distinct source models have attribution and local paths',()=>{
   assert.ok(catalog.includes(file),file);
   assert.ok(credits.includes(file),file+' credit');
   const full=path.join(root,'assets/vehicles/native-glb',file);
-  if(fs.existsSync(full)){
-   const bytes=fs.readFileSync(full);
-   assert.equal(bytes.toString('ascii',0,4),'glTF');
-  }
+  assert.ok(fs.existsSync(full),'missing actual binary model '+file);
+  const bytes=fs.readFileSync(full);
+  assert.equal(bytes.toString('ascii',0,4),'glTF');
  }
  assert.ok(credits.includes('chevrolet-opala.glb'),'archived Opala credit');
  assert.equal((catalog.match(/frontAxis:/g)||[]).length,5);
