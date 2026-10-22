@@ -38,7 +38,7 @@ function addHouse(def) {
           rand: mulberry(H.seed * 23 + i * 97 + k.charCodeAt(0) * 293) } : null,
       };
       H.segs.push(s);
-      if (!s.door) world.segs.push(s);
+      world.segs.push(s); // portas internas tambem bloqueiam quando fechadas
     }
   }
   for (const w of H.inner || []) {
@@ -232,6 +232,7 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
     if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false, house: H, exteriorFixture: true }); }
   }
   for (const f of layoutFurniture(T)) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
+  decorateHouse(H,T,L,k);
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
     const a = L(-2, -2.5), b = L(T.w + 2, T.d + 3);
     const r = [Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.round(Math.max(a[0], b[0])), Math.round(Math.max(a[1], b[1]))];
@@ -519,7 +520,8 @@ function updateHouseOpenings(dt, residents, night) {
   for (const H of houses) for (const s of H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
-      s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      if(s.ext)s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      // As portas internas agora usam F; os moradores nao as abrem so ao passar.
       s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
       if (Math.abs(s.doorAnim.target - s.doorAnim.open) < 0.005) s.doorAnim.open = s.doorAnim.target;
     }
@@ -533,6 +535,11 @@ function updateHouseOpenings(dt, residents, night) {
       if (night) w.target = 0;
       w.open += (w.target - w.open) * (1 - Math.exp(-dt * 1.65));
       if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
+    }
+    if(H.upper)for(const s of H.upper.walls)if(s.doorAnim){
+      const a=s.doorAnim;
+      a.open+=(a.target-a.open)*(1-Math.exp(-dt*5));
+      if(Math.abs(a.target-a.open)<.005)a.open=a.target;
     }
   }
 }
