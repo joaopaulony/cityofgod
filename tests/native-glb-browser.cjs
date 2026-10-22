@@ -61,3 +61,5 @@ const fs=require('node:fs');
   }
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// The latest native build must be reviewed with this gallery before release.
