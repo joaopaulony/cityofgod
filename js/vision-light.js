@@ -15,8 +15,9 @@ function wallOccluders(x,y,radius){
   const ret=[];
   for(const H of houses){
     if(H.x1<x-radius||H.x0>x+radius||H.y1<y-radius||H.y0>y+radius)continue;
-    // Superficie externa opaca, inclusive paredes com janelas acima do piso.
-    for(const s of H.segs)if(s.ext)ret.push(s);
+    // Todas as paredes bloqueiam o halo, internas ou externas.
+    // Aberturas sao analisadas separadamente no sistema de visao.
+    for(const s of H.segs)ret.push(s);
   }
   return ret;
 }
