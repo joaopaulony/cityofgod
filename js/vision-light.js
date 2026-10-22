@@ -84,26 +84,97 @@ function lightVisibilityFor(source,x,y,radius){
   }
   return source._vis;
 }
-function drawLampBeam(g,l,t){
-  const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1;
-  const foot=proj(x,y,0),head=proj(x,y,3.9);
-  if(foot.x<-cam.zoom*5||foot.x>cam.W+cam.zoom*5||
-    foot.y<-cam.zoom*5||foot.y>cam.H+cam.zoom*5)return;
-  const radius=2.8,points=lightVisibilityFor(l,x,y,radius);
-  const gradient=g.createLinearGradient(head.x,head.y,foot.x,foot.y);
-  gradient.addColorStop(0,'rgba(255,222,157,.095)');
-  gradient.addColorStop(.5,'rgba(255,193,104,.035)');
-  gradient.addColorStop(1,'rgba(255,167,85,.008)');
-  g.save();
-  // O feixe e desenhado atras da arquitetura; casas depois o cobrem.
-  g.beginPath();
-  g.moveTo(head.x-cam.zoom*.12,head.y);
-  for(const a of [-.65,-.32,0,.32,.65]){
-    const ox=Math.cos(a)*radius,oy=Math.sin(a)*radius*.65,
-      p=proj(x+ox,y+oy,0);
-    g.lineTo(p.x,p.y);
+// Feixe angular sempre nasce do lado de fora da fachada: nada de halos de 360°
+ // graus desenhados na parede nem de luz que atravesse o interior.
+function exteriorLightCone(x,y,radius,nx,ny,spread=Math.PI*.36,floor=0){
+  const angle=Math.atan2(ny,nx),segments=30;
+  const obstacles=wallOccluders(x,y,radius,floor);
+  const points=[[x,y]];
+  for(let i=0;i<=segments;i++){
+    const a=angle-spread+i*(2*spread/segments);
+    const dx=Math.cos(a),dy=Math.sin(a);
+    let dist=radius;
+    for(const s of obstacles)
+      dist=Math.min(dist,raySegmentDistance(x,y,dx,dy,s,dist));
+    points.push([x+dx*dist,y+dy*dist]);
   }
-  g.lineTo(head.x+cam.zoom*.12,head.y);g.closePath();
-  g.fillStyle=gradient;g.fill();
+  return points;
+}
+// Desenha com cobertura em planta projetada: protege fachadas (quads verticais)
+// E todas as aguas do telhado (poligonos inclinados), mesmo nas quinas.
+function paintBuildingLightMask(ctx){
+  ctx.beginPath();
+  for(const H of houses){
+    const cx=(H.x0+H.x1)*.5,cy=(H.y0+H.y1)*.5;
+    const p=proj(cx,cy,0),margin=cam.zoom*(Math.hypot(H.x1-H.x0,H.y1-H.y0)+3);
+    if(p.x<-margin||p.x>cam.W+margin||p.y<-margin||p.y>cam.H+margin)continue;
+    const polygon=pts=>{
+      pts.forEach((q,i)=>{const v=proj(...q);
+        if(!i)ctx.moveTo(v.x,v.y);else ctx.lineTo(v.x,v.y);
+      });
+      ctx.closePath();
+    };
+    const z=H.inside?.51:H.h;
+    for(const side of Object.values(H.sides)){
+      const ex=side.a[0]+side.dir[0]*side.len;
+      const ey=side.a[1]+side.dir[1]*side.len;
+      polygon([[side.a[0],side.a[1],0],[ex,ey,0],
+        [ex,ey,z],[side.a[0],side.a[1],z]]);
+    }
+    if(!H.inside){
+      const roof=H.roofGeom||(H.roofGeom=buildRoofGeom(H));
+      if(roof.flat){
+        polygon([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
+          [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]]);
+      }else for(const face of roof.faces)polygon(face.p);
+    }
+  }
+}
+// A oclusao de fachada e telhado evita que o shader 2D do chao volte a
+// iluminar a parede quando a iluminacao final e composta sobre a cena.
+function protectBuildingSurfaces(ctx,ambientColor){
+  ctx.save();
+  ctx.globalCompositeOperation='destination-out';
+  ctx.fillStyle='#fff';
+  paintBuildingLightMask(ctx);
+  ctx.fill();
+  if(ambientColor){
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=ambientColor;
+    paintBuildingLightMask(ctx);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+// Feixe de atmosfera: tres laminas translúcidas sobrepostas com queda suave.
+// Desenhado ANTES da geometria das casas para ser escondido por ela.
+function drawLampBeam(g,l,t){
+  const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,radius=4.4;
+  const foot=proj(x,y,0),head=proj(x,y,4.03);
+  const pad=cam.zoom*radius;
+  if(foot.x<-pad||foot.x>cam.W+pad||
+    foot.y<-pad||foot.y>cam.H+pad)return;
+  const points=lightVisibilityFor(l,x,y,radius);
+  const profile=[
+    {scale:1,opacity:.060},
+    {scale:.68,opacity:.075},
+    {scale:.38,opacity:.085}
+  ];
+  g.save();
+  g.globalCompositeOperation='screen';
+  // Raios discretos convergem na luminaria, abrindo em faixas de luz no solo.
+  for(const pass of profile){
+    const bottom=points.map(([xx,yy])=>proj(x+(xx-x)*pass.scale,
+      y+(yy-y)*pass.scale,0));
+    const grad=g.createLinearGradient(head.x,head.y,foot.x,foot.y);
+    grad.addColorStop(0,'rgba(255,237,192,'+(pass.opacity*1.85)+')');
+    grad.addColorStop(.48,'rgba(255,216,150,'+pass.opacity+')');
+    grad.addColorStop(1,'rgba(255,202,127,0)');
+    for(let i=0;i<bottom.length;i++){
+      const a=bottom[i],b=bottom[(i+1)%bottom.length];
+      g.fillStyle=grad;g.beginPath();g.moveTo(head.x,head.y);
+      g.lineTo(a.x,a.y);g.lineTo(b.x,b.y);g.closePath();g.fill();
+    }
+  }
   g.restore();
 }
