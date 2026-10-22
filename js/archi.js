@@ -175,6 +175,13 @@ function paintFacade(H, side, exterior, rnd) {
       if (big) paintWindow(g, X(u + 0.06), X(u + 0.94), Y(2.35), Y(0.55), S, rnd, exterior, false);
       else paintWindow(g, X(u + 0.15), X(u + 0.85), Y(2.05), Y(0.95), S, rnd, exterior, false);
     }
+    // Janelas do andar superior: mesmo acabamento realista, mas alinhadas
+    // acima das vergas terreas. A porta permanece exclusivamente no piso 0.
+    if (H.storeys === 2 && s.idx % 3 !== 0) {
+      paintWindow(g,X(s.idx+.17),X(s.idx+.83),
+        Y(H.floorHeight+2.12),Y(H.floorHeight+.95),
+        S,rnd,exterior,false);
+    }
     if (s.door) {   // batente em volta do vão (o vão em si não é desenhado)
       const x0 = X(u + 0.1), x1 = X(u + 0.9), yt = Y(2.12), fw = 0.08 * TEX;
       g.fillStyle = 'rgba(30,22,15,0.25)'; g.fillRect(x0 - fw + 3, yt - fw + 3, x1 - x0 + fw * 2, Y(0) - yt);
