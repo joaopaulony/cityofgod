@@ -331,6 +331,60 @@ function carWing(g,b,m,kind){
     'rgba(219,226,221,.25)',.015);
  }
 }
+// 1990s coachwork: physical seams, rocker panels, bumper trim and wipers.
+// These details remain in the model's LOCAL space during steering and camera rotation.
+function carFinish(g,b,m,C){
+ const L=m.len/2,w=m.w/2,front=m.cabF,back=m.cabB,
+   frontV=w*m.noseW,rearV=w*m.tailW,H=m.hood,
+   p=(u,v,z)=>[u,v,z];
+ for(const side of [-1,1]){
+  const v=side*w*.992,frontAt=side*frontV*.97,
+    rearAt=side*rearV*.97;
+  carLine(g,b,[p(-L+.31,rearAt,.55),p(back+.16,v,.55),
+    p(front-.16,v,.55),p(L-.32,frontAt,.55)],
+    'rgba(14,20,26,.70)',.040);
+  carLine(g,b,[p(back+.18,v,.63),p(front-.20,v,.63)],
+    'rgba(235,229,215,.20)',.017);
+  const hinge=front-.22,rearDoor=back+.28;
+  for(const u of [hinge,rearDoor]){
+   carLine(g,b,[p(u,v,H-.06),p(u+.02,v,H-.30),
+      p(u+.03,v,.64)],'rgba(19,24,30,.64)',.019);
+  }
+  carLine(g,b,[p(hinge-.14,v,H-.25),
+    p(hinge-.34,v,H-.25)],'rgba(211,219,218,.68)',.022);
+ }
+ // Attached windshield wipers rather than detached screen-space marks.
+ for(const side of [-1,1]){
+  carLine(g,b,[p(front+.28,side*w*.53,H+.12),
+   p(front+.20,side*w*.14,H+.20),
+   p(front+.14,side*w*.05,H+.22)],'#242b2f',.020);
+ }
+ const nose=L-.058,tail=-L+.058;
+ carLine(g,b,[p(nose,-frontV*.82,.43),p(nose,frontV*.82,.43)],
+   'rgba(17,21,28,.82)',.044);
+ carLine(g,b,[p(nose,-frontV*.66,.78),p(nose,frontV*.66,.78)],
+   'rgba(237,229,209,.20)',.012);
+ carLine(g,b,[p(tail,-rearV*.83,.49),p(tail,rearV*.83,.49)],
+   'rgba(20,22,27,.79)',.040);
+ for(let j=-3;j<=3;j++){
+  const v=j*w*.118;
+  carLine(g,b,[p(nose+.036,v,.615),p(nose+.036,v,.673)],
+    'rgba(168,182,184,.62)',.009);
+ }
+ if(m.id!=='pickup'&&m.id!=='explorer'){
+  for(const side of [-1,1]){
+   const q=carProject(b,tail-.025,side*w*.43,.43);
+   g.save();
+   g.strokeStyle='#151b20';g.lineWidth=Math.max(.9,cam.zoom*.040);
+   g.beginPath();
+   g.ellipse(q.x,q.y,Math.max(1,cam.zoom*.083),
+     Math.max(.55,cam.zoom*.034),0,0,TAU);g.stroke();
+   g.strokeStyle='rgba(190,198,193,.73)';
+   g.lineWidth=Math.max(.7,cam.zoom*.015);g.stroke();
+   g.restore();
+  }
+ }
+}
 function carReferenceDecor(g,b,m,C){
  const key=m.id,L=m.len/2,w=m.w/2,H=m.hood,z=m.deck,
   p=(u,v,h)=>[u,v,h];
@@ -404,13 +458,9 @@ function carReferenceDecor(g,b,m,C){
      p(-L+.12,side*w*.995,.88)],'#d9b62e',null);
    carPanel(g,b,[p(-L+.05,side*w*1.003,.90),p(L-.20,side*w*1.003,.93),
      p(L-.64,side*w*1.010,1.14),p(-L+.05,side*w*1.01,1.13)],'#398546');
-   for(let i=0;i<9;i++){
-    const u=-L+.28+i*(m.len-.55)/9;
-    const h0=1.09+(.12*(i%3));
-    carPanel(g,b,[p(u,side*w*1.015,h0),
-      p(u+.20,side*w*1.017,h0-.14),
-      p(u+.15,side*w*1.015,h0+.06)],'#b72d2d',null);
-   }
+   // Faixa contínua: evita triângulos soltos atravessando o teto.
+   carLine(g,b,[p(-L+.24,side*w*1.018,1.11),
+      p(L-.57,side*w*1.018,1.11)],'#f1d476',.031);
    carLine(g,b,[p(-L+.18,side*w*1.02,.76),
       p(L-.28,side*w*1.02,.76)],'#baa640',.035);
   }
@@ -644,6 +694,7 @@ function carDraw(g,b,time=0,night=false){
     blink&&(b.hazards||b.indicator===side));
  }
  carReferenceDecor(g,b,m,C);
+ carFinish(g,b,m,C);
  // Pneus no primeiro plano sobrepoem o asfalto, mas os arcos de
  // carroceria os recobrem parcialmente: rodas realmente encaixadas.
  for(const u of [m.rear,m.front]){
