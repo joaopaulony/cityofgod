@@ -105,10 +105,10 @@ const view3d=(()=>{
       if(this.buffer)gl.deleteBuffer(this.buffer);
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
       gl.bufferData(gl.ARRAY_BUFFER,a,gl.STATIC_DRAW);
-      this.count=a.length/9;this.data=[];vertexCount+=this.count;
+      this.count=a.length/9;this.data=[];
     }
   }
-  const emit=m=>{m.upload();objects.push(m);};
+  const emit=m=>{m.upload();vertexCount+=m.count;objects.push(m);};
   function ground(){
     const m=new Mesh();
     // Malha dividida em celulas de 2m para preservar textura procedimental.
@@ -207,6 +207,7 @@ const view3d=(()=>{
         H.floorHeight-.08,H.x1-H.x0-.28,H.y1-H.y0-.28,.12,
         '#ad977b','#c3aa8a','#84765e');
       ex.upload();inside.upload();roof.upload();
+      vertexCount+=ex.count+inside.count+roof.count;
       houseWalls.push({H,ex,inside,roof});
     }
     // Moveis do mesmo mundo, incluindo cozinhas, camas e carros.
@@ -276,19 +277,33 @@ const view3d=(()=>{
   function programShader(){
     const vs=`attribute vec3 aPos;attribute vec3 aColor;attribute vec3 aNormal;
 uniform mat4 uMvp;uniform vec3 uEye;varying vec3 vColor;varying vec3 vNormal;
-varying float vDist;
+varying float vDist;varying vec3 vPos;
 void main(){
   gl_Position=uMvp*vec4(aPos,1.0);
   vColor=aColor;vNormal=aNormal;vDist=distance(aPos,uEye);
+  vPos=aPos;
 }`;
     const fs=`precision mediump float;
 varying vec3 vColor;varying vec3 vNormal;varying float vDist;
+varying vec3 vPos;
 uniform float uNight;uniform vec3 uFog;
+uniform vec3 uLamps[8];
+uniform int uLampCount;
 void main(){
   vec3 sun=normalize(vec3(-0.42,0.94,-0.38));
   float shade=max(0.0,dot(normalize(vNormal),sun));
   float light=mix(0.66+shade*0.36,0.22+shade*.15,uNight);
   vec3 finalColor=vColor*light;
+  // Luminarias reais acompanham os pontos do mapa e possuem queda com
+  // distancia. O shader ilumina superficie e chao, sem overlay 2D.
+  float glow=0.0;
+  for(int j=0;j<8;j++){
+    if(j>=uLampCount)break;
+    float d=length(vPos-uLamps[j]);
+    float falloff=max(0.0,1.0-d/8.5);
+    glow+=falloff*falloff;
+  }
+  finalColor+=vColor*vec3(1.0,.73,.43)*glow*.75*uNight;
   float fog=smoothstep(43.0,140.0,vDist);
   gl_FragColor=vec4(mix(finalColor,uFog,fog),1.0);
 }`;
@@ -314,7 +329,9 @@ void main(){
       mvp:gl.getUniformLocation(program,'uMvp'),
       eye:gl.getUniformLocation(program,'uEye'),
       night:gl.getUniformLocation(program,'uNight'),
-      fog:gl.getUniformLocation(program,'uFog')};
+      fog:gl.getUniformLocation(program,'uFog'),
+      lamps:gl.getUniformLocation(program,'uLamps[0]'),
+      lampCount:gl.getUniformLocation(program,'uLampCount')};
   }
   let attribs=null;
   function initialize(){
@@ -366,6 +383,11 @@ void main(){
     }
     if(a.armed!==false){
       box(.18,.26,1.29,.11,.70,.12,'#373d40','#646466');
+      if(a.flash>0){
+        const p=pos(.18,.65);
+        m.sphere(p[0],p[1],z+1.42,.23+(a.flash||0)*1.25,
+          '#fff2c6',2,6);
+      }
     }
   }
   function dynamics(actors,player,nightValue,time){
@@ -381,6 +403,16 @@ void main(){
         base=s.floor===1?H.floorHeight:0;
       m.prism(x,y,base,.86,.055,1.93,
         s.ext?'#866c50':'#a38460','#c8aa86','#75573d',angle);
+    }
+    // Tracers reais no espaco 3D (as mesmas balas calculadas no Canvas 2D).
+    if(typeof tracers!=='undefined')for(const t of tracers){
+      const a=t.a,b=t.b,k=Math.max(.025,t.t/.09),
+        dx=b[0]-a[0],dy=b[1]-a[1],dist=Math.hypot(dx,dy);
+      if(dist>.1){
+        m.prism((a[0]+b[0])/2,(a[1]+b[1])/2,
+          Math.min(a[2],b[2])+.02,dist,.025,.025,
+          '#ffe7b0','#ffebcc','#fff2d0',Math.atan2(dy,dx));
+      }
     }
     for(const H of houses)if(H.upper)for(const s of H.upper.walls)if(s.door){
       const open=s.doorAnim?.open||0;if(open>=.97)continue;
@@ -464,6 +496,15 @@ void main(){
     gl.uniform1f(attribs.night,night?1:0);
     gl.uniform3fv(attribs.fog,new Float32Array(night?
       [.045,.075,.13]:[.62,.73,.78]));
+    const near=world.lamps.map(l=>({l,
+      d:Math.hypot(l.x-player.x,l.y-player.y)}))
+      .sort((a,b)=>a.d-b.d).slice(0,8);
+    const lights=new Float32Array(24);
+    near.forEach(({l},i)=>{
+      lights.set([l.x+l.ax*1.1,3.9,l.y+l.ay*1.1],i*3);
+    });
+    gl.uniform3fv(attribs.lamps,lights);
+    gl.uniform1i(attribs.lampCount,near.length);
     for(const m of objects)draw(m);
     // A casa do jogador nao o oculta: teto e fachada removidos localmente.
     for(const x of houseWalls){
