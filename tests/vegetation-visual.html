@@ -33,41 +33,54 @@ if(fill){g.fillStyle=fill;g.fill();}if(ink){g.strokeStyle=ink;g.lineWidth=lw;g.s
 const kinds=[
   {kind:'oak',variant:'common'}, {kind:'oak',variant:'flowering'},
   {kind:'yard',variant:'fruiting'}, {kind:'street',variant:'mixed'},
-  {kind:'pine',variant:null}, {kind:'pine',variant:null}
+  {kind:'pine',variant:null}, {kind:'pine',variant:null},
+  {kind:'bush',variant:'amostra 1'}, {kind:'bush',variant:'amostra 2'},
+  {kind:'bush',variant:'amostra 3'}
 ];
 const host=document.getElementById('items'),state=document.getElementById('state');
 let okCount=0;
 async function run(){
   for(let i=0;i<kinds.length;i++){
-    await new Promise(requestAnimationFrame); // deixa o navegador responder
-    const {kind,variant}=kinds[i],
-      sp=makeTree(kind,variant),cg=sp.crown.getContext('2d',{willReadFrequently:true});
-    const data=cg.getImageData(0,0,sp.crown.width,sp.crown.height).data;
+    await new Promise(requestAnimationFrame);
+    const {kind,variant}=kinds[i],isBush=kind==='bush',
+      sp=isBush?makeBush():makeTree(kind,variant),
+      canopy=isBush?sp.img:sp.crown,
+      cg=canopy.getContext('2d',{willReadFrequently:true});
+    const data=cg.getImageData(0,0,canopy.width,canopy.height).data;
     let visible=0,opaque=0,cyan=0;
     for(let j=3;j<data.length;j+=4){
       if(data[j]>24)visible++;
       if(data[j]>200)opaque++;
-      // Padrão visual adulto: azul/ciano não pode dominar as agulhas.
       if(data[j]>90 && data[j-1]>data[j-2]*.87 && data[j-1]>data[j-3]*1.08)cyan++;
     }
-    const total=sp.crown.width*sp.crown.height;
-    const fraction=visible/total,minimum=kind==='pine'?.17:.125;
-    const cyanFraction=cyan/Math.max(1,visible);
-    const good=fraction>minimum && (kind!=='pine' || cyanFraction<.04);
+    const total=canopy.width*canopy.height,
+      fraction=visible/total,
+      opaqueFraction=opaque/total,
+      minimum=kind==='pine'?.17:isBush?.12:.125,
+      cyanFraction=cyan/Math.max(1,visible);
+    // O arbusto precisa ter massa opaca, nao somente hastes e folhas invisiveis.
+    const good=fraction>minimum && (!isBush || opaqueFraction>.09) &&
+      (kind!=='pine' || cyanFraction<.04);
     if(good)okCount++;
     const el=document.createElement('article'),preview=makeCanvas(300,315);
     const g=preview.getContext('2d'),ground=295,x=150,sc=.92;
     g.save();g.translate(x,ground);g.scale(sc,sc);
-    g.drawImage(sp.trunk,-sp.tax,-sp.tay);
-    g.drawImage(sp.crown,-sp.cax,-sp.cay-sp.trunkH*40*.86);
+    if(isBush)g.drawImage(sp.img,-sp.ax,-sp.ay);
+    else {
+      g.drawImage(sp.trunk,-sp.tax,-sp.tay);
+      g.drawImage(sp.crown,-sp.cax,-sp.cay-sp.trunkH*40*.86);
+    }
     g.restore();
+    const details=isBush?
+      'Ramos folhosos: '+sp.foliageClusters:
+      'Galhos: '+sp.branchCount+' · raminhos: '+sp.twigCount+
+      ' · flores: '+sp.flowers+' · frutos: '+sp.fruits;
     el.innerHTML='<h2>'+kind+' · '+(variant||'normal')+' · '+(sp.leafCount||sp.needleCount).toLocaleString('pt-BR')+' folhas/agulhas</h2>'+
-      '<p>Galhos: '+sp.branchCount+' · raminhos: '+sp.twigCount+
-      ' · flores: '+sp.flowers+' · frutos: '+sp.fruits+'</p>'+
-      '<p class="'+(good?'good':'bad')+'">'+(good?'✓ Copa renderizada':'✗ Copa pouco visível')+
-      ' · pixels da copa: '+(fraction*100).toFixed(1)+'% · sólidos: '+(opaque/total*100).toFixed(1)+
+      '<p>'+details+'</p>'+
+      '<p class="'+(good?'good':'bad')+'">'+(good?'✓ Folhagem renderizada':'✗ Folhagem pouco visível')+
+      ' · pixels: '+(fraction*100).toFixed(1)+'% · sólidos: '+(opaqueFraction*100).toFixed(1)+
       '% · ciano: '+(cyanFraction*100).toFixed(1)+'%</p>';
-    preview.setAttribute('aria-label','Árvore '+kind);el.prepend(preview);host.append(el);
+    preview.setAttribute('aria-label','Vegetação '+kind);el.prepend(preview);host.append(el);
     state.textContent=(i+1)+'/'+kinds.length+' variantes verificadas…';
   }
   state.textContent='Resultado: '+okCount+'/'+kinds.length+' copas com pixels visíveis';
