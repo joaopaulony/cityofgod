@@ -862,7 +862,7 @@ function houseDrawables(list, px, py) {
       if (!s.ext && !showIn) continue;   // divisória escondida pelas paredes externas
       const d = depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2);
       maxD = Math.max(maxD, d);
-      list.push({ d: d + (s.ext ? 0 : -0.02), draw: g => drawWall(g, s) });
+      list.push({d:d+(s.ext?0:-.02),draw:g=>drawWall(g,s),wall:s,house:H});
     }
     const sg = H.segs.filter(s => s.sign);
     if (sg.length) list.push({ d: Math.max(...sg.map(s => depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2))) + 0.01,
@@ -873,7 +873,7 @@ function houseDrawables(list, px, py) {
       ? Math.max(...[[H.x0, H.y0], [H.x1, H.y0], [H.x0, H.y1], [H.x1, H.y1]]
         .map(p => depthOf(p[0], p[1]))) + 0.75
       : maxD + 0.5;
-    list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
+    list.push({d:roofDepth,draw:g=>drawRoof(g,H),roof:H,house:H});
     if(H.upper&&H.inside&&!upstairs)list.push({
       d:roofDepth+.14,draw:g=>drawHouseStaircase(g,H)
     });
@@ -889,12 +889,12 @@ function houseDrawables(list, px, py) {
     if (b.floor===1)continue; // renders with the upper-floor layer only
     if (b.house && !b.exteriorFixture && !b.house.inside) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
-    list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
+    list.push({d:depthOf(b.x,b.y)+bias,draw:g=>drawBox(g,b),box:b,house:b.house});
   }
   for(const s of fences){
     const at=proj((s.x1+s.x2)/2,(s.y1+s.y2)/2,0),m=cam.zoom*2.5;
     if(at.x<-m||at.x>cam.W+m||at.y<-m||at.y>cam.H+m)continue;
     list.push({d:depthOf((s.x1+s.x2)/2,(s.y1+s.y2)/2),
-      draw:g=>drawFence(g,s)});
+      draw:g=>drawFence(g,s),fence:s});
   }
 }
