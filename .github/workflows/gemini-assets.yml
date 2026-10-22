@@ -116,6 +116,7 @@ jobs:
             exit 1
           fi
       - name: Create single image or free dry run
+        id: gemini_generation
         working-directory: tools/gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -138,7 +139,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Open optional review PR (never commit directly to main)
+        id: optional_review_pr
         if: inputs.confirm_spend && inputs.create_pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -153,3 +156,29 @@ jobs:
             Nao foi integrado automaticamente ao renderer do jogo.
             Aprovacao visual humana obrigatoria antes de usar no Canvas 2D.
             Imagem produzida em uma chamada API com cobranca do projeto Google.
+
+      - name: Where to download your generated PNG
+        if: always() && steps.gemini_generation.outcome == 'success'
+        shell: bash
+        env:
+          REVIEW_PR_OUTCOME: ${{ steps.optional_review_pr.outcome }}
+          IS_PAID: ${{ inputs.confirm_spend }}
+        run: |
+          {
+            echo "## Gemini - geracao concluida"
+            if [ "$IS_PAID" = "true" ]; then
+              echo "✅ Imagem criada. Baixe o arquivo **asset.png** no ZIP **gemini-${GITHUB_RUN_ID}-review** na secao **Artifacts** desta execucao."
+            else
+              echo "🧪 Dry-run gratuito: somente prompt.txt e manifest.json, sem PNG e sem custo de API."
+            fi
+            echo ""
+            echo "➡️ **[Abra os artifacts desta execucao](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})**"
+            if [ "$REVIEW_PR_OUTCOME" = "failure" ]; then
+              echo ""
+              echo "⚠️ **A imagem foi salva, mas o PR opcional foi bloqueado pela configuracao do GitHub Actions.** Isso NAO cancela nem apaga o PNG."
+              echo "➡️ [Abra um PR manual a partir da branch gerada](https://github.com/${GITHUB_REPOSITORY}/pull/new/assets/gemini-${GITHUB_RUN_ID})"
+              echo "Para corrigir em definitivo: Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests."
+            fi
+            echo ""
+            echo "O jogo nao e alterado ate voce revisar/aprovar o asset."
+          } >> "$GITHUB_STEP_SUMMARY"
