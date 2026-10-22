@@ -1,4 +1,4 @@
-name: Vegetation Canvas smoke tests
+name: Canvas quality judge and regression tests
 on:
   push:
     branches:
@@ -10,11 +10,14 @@ on:
       - js/roofs.js
       - js/archi.js
       - js/multistorey.js
+      - js/farmhouses.js
+      - js/vision-light.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
       - tests/architecture.test.js
+      - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
   pull_request:
     paths:
@@ -24,11 +27,14 @@ on:
       - js/roofs.js
       - js/archi.js
       - js/multistorey.js
+      - js/farmhouses.js
+      - js/vision-light.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
       - tests/architecture.test.js
+      - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
 permissions:
   contents: read
@@ -56,6 +62,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vegetation-visual-snapshot
-          path: artifacts/*.png
+          name: canvas-visual-quality-snapshots
+          path: |
+            artifacts/*.png
+            artifacts/quality-judge.json
           if-no-files-found: ignore
