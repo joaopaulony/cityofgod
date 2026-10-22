@@ -884,7 +884,12 @@ function makeTarget() {
 
 // ---------- vento ----------
 function wind(t, x, y) {
-  return Math.sin(t * 1.6 + x * 0.35 + y * 0.21) * 0.6 + Math.sin(t * 0.55 + x * 0.12) * 0.4 + Math.sin(t * 4.1 + y) * 0.08;
+  // Rajadas se deslocam pelo terreno: grama, arbustos, copas e polen
+  // respondem a mesma onda sem alterar a geometria ou criar draw calls.
+  const gust=.80+.25*Math.sin(t*.30-x*.09+y*.055);
+  return gust*(Math.sin(t*1.6+x*.35+y*.21)*.6+
+    Math.sin(t*.55+x*.12)*.4+Math.sin(t*4.1+y)*.08)+
+    Math.sin(t*.82-(x+y)*.14)*.16;
 }
 function drawSway(g, img, ax, ay, p, sc, shear, alpha = 1) {
   g.save();
