@@ -3,6 +3,7 @@
 // workflow path, NEVER on normal commits, PRs or gameplay. No access in browser.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {GoogleGenAI} from '@google/genai';
 import sharp from 'sharp';
 
@@ -20,7 +21,7 @@ const orientations={
  'rear-left':'rear bumper closest to camera at left side, see left side of car and wing',
  left:'left-side orthographic elevated profile, front of car on left side of image'
 };
-async function makeCutout(src,dst){
+export async function makeCutout(src,dst){
  const {data,info}=await sharp(src).ensureAlpha().raw().toBuffer({resolveWithObject:true});
  const w=info.width,h=info.height,C=info.channels;
  // Preserve original transparency and remove ONLY vivid artificial green,
@@ -169,7 +170,7 @@ async function main(){
  await fs.writeFile(path.join(out,'manifest.json'),JSON.stringify(manifest,null,2));
  console.log('Diablo pilot successfully generated: '+Object.keys(done).length+' directions.');
 }
-main().catch(e=>{
+if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(e=>{
  const k=process.env.GEMINI_API_KEY||'';
  console.error('Diablo generation stopped: '+String(e.message||e).replaceAll(k||'\0','[secret]'));
  process.exitCode=1;
