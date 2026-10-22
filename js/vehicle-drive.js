@@ -138,6 +138,9 @@ function vehicleInteraction(player){
  const audio=vehicleAudioInit();if(audio)audio.ctx.resume().catch(()=>{});
  return 'Entrou no '+carModel(b).name+' — W acelera, S freia, A/D viram';
 }
+function vehicleSteerTarget(left,right){
+ return (right?1:0)-(left?1:0);
+}
 function vehicleUpdate(dt,player){
  const sys=vehicleSystem,b=sys.driver;
  if(!b){vehicleSound();return;}
@@ -151,11 +154,14 @@ function vehicleUpdate(dt,player){
   grip=road?1:.62,acc=m.acc*(road?1:.50);
  if(input.hit('x'))b.engine=!b.engine;
  if(input.hit('l'))b.headlights=!b.headlights;
- if(input.hit('z')){b.indicator=b.indicator===1?0:1;b.hazards=false;}
- if(input.hit('c')){b.indicator=b.indicator===-1?0:-1;b.hazards=false;}
+ // v positivo esta a DIREITA do carro: Z indica esquerda; C direita.
+ if(input.hit('z')){b.indicator=b.indicator===-1?0:-1;b.hazards=false;}
+ if(input.hit('c')){b.indicator=b.indicator===1?0:1;b.hazards=false;}
  if(input.hit('b')){b.hazards=!b.hazards;b.indicator=0;}
  if(input.hit('h'))vehicleHorn();
- const steerTarget=(left?1:0)-(right?1:0);
+ // Em tela, +rot gira horario. A diminui o angulo; D aumenta.
+ // A marcha-a-re continua invertendo a trajetoria de forma fisica.
+ const steerTarget=vehicleSteerTarget(left,right);
  b.steer=lerp(b.steer,steerTarget,1-Math.exp(-dt*6));
  let accel=0;
  if(b.engine){
@@ -201,7 +207,7 @@ function vehicleDrivingHUD(ctx,W,H){
  ctx.fillText('FARÓIS '+(b.headlights?'ON':'OFF'),x+149,y+41);
  ctx.fillStyle=b.hazards?'#f8b65e':'#b8c0bf';
  ctx.fillText(b.hazards?'PISCA ALERTA':
-  b.indicator?'SETA '+(b.indicator===1?'ESQ':'DIR'):'SETAS OFF',x+149,y+61);
+  b.indicator?'SETA '+(b.indicator===-1?'ESQ':'DIR'):'SETAS OFF',x+149,y+61);
  ctx.fillStyle='#c5c3b8';ctx.font='10px system-ui';
  ctx.fillText('F sair · X motor · L faróis · Z/C setas · H buzina · B alerta',x+13,y+height-10);
  ctx.restore();
