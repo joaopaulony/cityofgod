@@ -21,10 +21,10 @@ const ctx = vm.createContext({
   mulberry:seed=>()=>{seed|=0;seed=(seed+0x6D2B79F5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);
     t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;},
 });
-for (const file of ['roofs.js','houses.js','multistorey.js']) {
+for (const file of ['roofs.js','houses.js','multistorey.js','interiors.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','js',file),'utf8'),ctx,{filename:file});
 }
-const A=vm.runInContext('({buildRoofGeom,ROOF_O,PITCH,TPL,layoutFurniture,furnitureBounds,furnitureRoomRect,updateHouseOpenings,houses,initUpperFloor,updateHouseStairs,STOREY_HEIGHT})',ctx);
+const A=vm.runInContext('({buildRoofGeom,ROOF_O,PITCH,TPL,layoutFurniture,furnitureBounds,furnitureRoomRect,updateHouseOpenings,houses,initUpperFloor,updateHouseStairs,STOREY_HEIGHT,decorateHouse,INTERIOR_FEATURES,UPPER_FEATURES,useHouseInteraction,findHouseInteraction})',ctx);
 let roofs=0, rotations=0;
 for (const [w,d] of [[10,8],[8,8],[7,12],[6,6]]) {
   for (const kind of ['gable','hip','flat']) {
@@ -84,7 +84,12 @@ for(const key of ['C','D']){
   };
   const points=(x,y)=>[x,y];
   A.initUpperFloor(h,t,points,0);
+  h.templateKey=key;h.seed=100;
+  A.decorateHouse(h,t,points,0);
   A.houses.push(h);
+  assert.ok(h.interactables.some(b=>b.kind==='stove'),'kitchen fixture');
+  assert.ok(h.interactables.some(b=>b.kind==='shower'&&b.floor===1),'upstairs bathroom');
+  assert.equal(h.indoorLights.length,4,'separate floor light sources');
   assert.equal(h.upper.z,2.75);
   assert.ok(h.upper.walls.length>10);
   assert.ok(h.upper.furniture.length>=5);
@@ -97,5 +102,12 @@ for(const key of ['C','D']){
   for(let i=0;i<40;i++)A.updateHouseStairs(pl,.05,false);
   assert.equal(pl.floor,0);assert.equal(pl.floorZ,0);
   A.houses.pop(); // modelos artificiais compartilham coordenadas no teste
+}
+// Integridade dos moveis domesticos nos seis arquetipos de casa.
+for(const key of Object.keys(A.INTERIOR_FEATURES)){
+  const fixtures=A.INTERIOR_FEATURES[key];
+  assert.ok(fixtures.some(x=>x[0]==='stove'),'stove for '+key);
+  assert.ok(fixtures.some(x=>x[0]==='sink'),'sink for '+key);
+  assert.ok(fixtures.some(x=>x[0]==='cabinet'),'cabinet for '+key);
 }
 console.log('PASS: '+roofs+' roofs, '+rotations+' furniture rotations, door/window opening and closing');
