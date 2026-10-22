@@ -12,6 +12,7 @@ on:
       - js/multistorey.js
       - js/farmhouses.js
       - js/vision-light.js
+      - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
@@ -29,6 +30,7 @@ on:
       - js/multistorey.js
       - js/farmhouses.js
       - js/vision-light.js
+      - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
