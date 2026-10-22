@@ -99,10 +99,37 @@ function normalizedCar(gltf,model){
  return {body,height:dims.y,longSide:Math.max(dims.x,dims.z)};
 }
 
+// Ferramenta opt-in de QA: o GLB Opala original contem CINCO variantes
+// sobrepostas. Comparamos todas usando a mesma luz/camera, sem IA.
+function opalaCandidateGallery(gltf,model){
+ if(model.id!=='sedan'||new URLSearchParams(location.search).get('nativeDebug')!=='1')
+  return;
+ const preview=document.createElement('canvas');
+ preview.width=SIZE*5;preview.height=SIZE;
+ const g=preview.getContext('2d');
+ for(let k=0;k<5;k++){
+  const first=34+k*3;
+  const variant={...model,variantMaterials:Array.from({length:3},(_,i)=>
+   'Material.'+String(first+i).padStart(3,'0'))};
+  const clone=gltf.scene.clone(true);
+  const candidate=normalizedCar({scene:clone},variant);
+  scene.add(candidate.body);
+  candidate.body.rotation.y=-Math.PI/4;
+  renderer.render(scene,camera);
+  g.drawImage(stage,k*SIZE,0);
+  scene.remove(candidate.body);
+  g.fillStyle='rgba(15,15,15,.8)';g.fillRect(k*SIZE,0,95,24);
+  g.fillStyle='#fff';g.font='bold 14px system-ui';
+  g.fillText('Opala '+(k+1),k*SIZE+8,17);
+ }
+ window.vehicleNative3D.opalaVariantGallery=preview;
+}
+
 async function bake(model){
  states.set(model.id,'loading');
  const url='assets/vehicles/native-glb/'+model.file;
  const gltf=await loader.loadAsync(url);
+ opalaCandidateGallery(gltf,model);
  const car=normalizedCar(gltf,model);
  scene.add(car.body);
  // Atlas with fixed frame dimensions and invariant world-ground pivot.
