@@ -27,6 +27,7 @@ test('native renderer uses 3D GLB source and bakes 16 angles into 2D',()=>{
  assert.match(runtime,/setMeshoptDecoder\(MeshoptDecoder\)/);
  assert.match(runtime,/for\(let frame=0;frame<DIRECTIONS;frame\+\+\)/);
  assert.match(runtime,/renderer.render\(scene,camera\)/);
+ assert.match(runtime,/car\.body\.rotation\.y=-frame\*2\*Math\.PI\/DIRECTIONS/);
  assert.match(runtime,/ctx.drawImage\(stage/);
  assert.match(runtime,/vehicleHybrid.atlases.set\(model.id/);
  assert.match(runtime,/catch\(err\)/);
