@@ -4,8 +4,9 @@
 const vehicleSystem={cars:[],driver:null,audio:null};
 function vehicleCreate(x,y,rot,col,index=0){
  const model=CAR_MODELS[index%CAR_MODELS.length];
- const b=addBox({kind:'car',x,y,rot,w:model.len,d:model.w,h:1.25,z:0,
-  top:col,side:col,solid:false,model:model.id,
+ const bodyPaint=model.id==='pickup'&&index%2===1?'#794454':model.paint;
+ const b=addBox({kind:'car',x,y,rot,w:model.len,d:model.w,h:model.roof,z:0,
+  top:bodyPaint,side:bodyPaint,solid:false,model:model.id,
   seed:(world.seed+index*1009)|0,speed:0,steer:0,
   engine:false,headlights:false,indicator:0,hazards:false,
   reverse:false,brake:false,odometer:0,rpm:0,occupied:false});
