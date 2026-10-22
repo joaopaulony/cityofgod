@@ -47,7 +47,7 @@ function addHouse(def) {
       const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.storeys ? H.floorHeight : H.h, house: H, ext: false, floor:0, door: w.door === i,
         doorAnim: w.door === i ? { open: 0, target: 0 } : null };
       H.segs.push(s);
-      if (!s.door) world.segs.push(s);
+      world.segs.push(s); // porta interna fechada e uma colisao real
     }
   }
   H.style = houseStyle(H, mulberry(H.seed));
