@@ -1028,6 +1028,7 @@ function buildWorld() {
     world.lamps.push({ x, y, ax: -p.nx * s, ay: -p.ny * s });
   }
   for (const l of world.lamps) world.circles.push({ x: l.x, y: l.y, r: 0.12, kind: 'lamp', h: 4 });
+  urbanGenerate();
 }
 
 // movimento com colisão + água (desliza nos eixos se bater na margem)
