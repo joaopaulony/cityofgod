@@ -45,7 +45,7 @@ const fs=require('node:fs');
     const atlas=vehicleHybrid.atlases.get(keys[i]);
     if(!atlas?.nativeGLB)continue;
     for(let j=0;j<4;j++){
-     const frame=j*4,x=(frame%4)*SIZE,y=Math.floor(frame/4)*SIZE;
+     const frame=j*4+2,x=(frame%4)*SIZE,y=Math.floor(frame/4)*SIZE;
      ctx.drawImage(atlas.images.body,x,y,SIZE,SIZE,j*SIZE,i*SIZE,SIZE,SIZE);
     }
    }
