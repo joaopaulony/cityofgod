@@ -180,6 +180,15 @@ function carTire(g,b,u,v,m){
   g.fillStyle='#d3d6d3';g.beginPath();
   g.arc(q.x,q.y,Math.max(.45,cam.zoom*.013),0,TAU);g.fill();
  }
+ // A lip of genuine bright metal on the OUTER rim face ensures depth
+ // without turning the entire hub into an opaque white disk.
+ const lip=[];
+ for(let i=0;i<=32;i++){
+  const a=TAU*i/32;
+  lip.push([u+Math.cos(a)*r*.637,
+    pV+geo.side*.078,z+Math.sin(a)*r*.637]);
+ }
+ carLine(g,b,lip,'rgba(218,225,226,.82)',.026);
  // Letras/textura na lateral, leves, nao poluem o aro em zoom pequeno.
  for(let i=0;i<12;i++){
   const a=TAU*i/12+spin*.10,rr=r*.85;
