@@ -39,6 +39,8 @@ function resize() {
   cam.W = view.width; cam.H = view.height;
 }
 addEventListener('resize', resize); resize();
+// Ativa sprites pre-renderizados quando houver assets; sem eles nao muda a frota.
+vehicleHybridInit();
 
 // ---------- entrada do mouse / câmera ----------
 view.addEventListener('mousemove', e => {
