@@ -9,7 +9,10 @@ function vehicleCreate(x,y,rot,col,index=0){
   top:bodyPaint,side:bodyPaint,solid:false,model:model.id,
   seed:(world.seed+index*1009)|0,speed:0,steer:0,
   engine:false,headlights:false,indicator:0,hazards:false,
-  reverse:false,brake:false,odometer:0,rpm:0,occupied:false});
+  reverse:false,brake:false,odometer:0,rpm:0,occupied:false,
+  paint:bodyPaint,paintIndex:0,
+  parts:{left:0,right:0,hood:0,rear:0},
+  partTargets:{left:0,right:0,hood:0,rear:0}});
  vehicleSystem.cars.push(b);return b;
 }
 function vehicleCanOccupy(b,x,y,ang){
@@ -128,15 +131,56 @@ function vehicleInteraction(player){
    return 'Porta bloqueada: manobre antes de sair';
   player.x=exit[0];player.y=exit[1];player.face=b.rot;
   b.occupied=false;b.engine=false;b.brake=true;b.speed=0;
+  if(b.partTargets)b.partTargets.left=1;
   sys.driver=null;vehicleSound();
   return 'Saiu do '+m.name;
  }
  const b=vehicleNear(player);if(!b)return null;
  sys.driver=b;b.occupied=true;b.engine=true;b.rpm=800;
+ if(b.partTargets)b.partTargets.left=0;
  player.aimHold=0;player.wantShot=false;b.speed=0;
  b.headlights=!!world.night;
  const audio=vehicleAudioInit();if(audio)audio.ctx.resume().catch(()=>{});
  return 'Entrou no '+carModel(b).name+' — W acelera, S freia, A/D viram';
+}
+// Interacting with Diablo pilot panels or changing paint while seated/nearby.
+function vehicleAccessoryInteraction(player){
+ const car=vehicleSystem.driver||vehicleNear(player);
+ if(!car||car.model!=='supercar')return null;
+ const parts={o:'left',u:'right',p:'hood',j:'rear'};
+ for(const [key,part] of Object.entries(parts)){
+  if(!input.hit(key))continue;
+  if(Math.abs(car.speed)>.15)return 'Pare o carro para abrir uma peça';
+  if(part==='hood'&&car.engine)return 'Desligue o motor (X) antes de abrir o capô';
+  const target=car.partTargets[part]>.5?0:1;
+  car.partTargets[part]=target;
+  const name={left:'Porta esquerda',right:'Porta direita',
+   hood:'Capô',rear:'Tampa do motor'}[part];
+  return name+(target?' abrindo...':' fechando...');
+ }
+ if(input.hit('[')||input.hit(']')){
+  if(Math.abs(car.speed)>.6)return 'Estacione para trocar a cor';
+  const colors=VEHICLE_PAINTS,
+   delta=input.hit(']')?1:-1,
+   index=((car.paintIndex||0)+delta+colors.length)%colors.length;
+  car.paintIndex=index;
+  car.paint=colors[index].hex;
+  car.top=car.side=car.paint; // fallback procedural uses same paint
+  return 'Pintura da Diablo: '+colors[index].name;
+ }
+ return null;
+}
+function vehicleVisualUpdate(dt){
+ for(const b of vehicleSystem.cars){
+  if(!b.parts||!b.partTargets)continue;
+  // Real time easing of doors, hood and engine lid; persistent save-friendly state.
+  for(const part of ['left','right','hood','rear']){
+   const speed=part==='left'||part==='right'?3.5:2.0,
+    gap=b.partTargets[part]-b.parts[part];
+   b.parts[part]=Math.abs(gap)<.002?b.partTargets[part]:
+     clamp(b.parts[part]+Math.sign(gap)*Math.min(Math.abs(gap),speed*dt),0,1);
+  }
+ }
 }
 function vehicleUpdate(dt,player){
  const sys=vehicleSystem,b=sys.driver;
@@ -187,7 +231,7 @@ function vehicleUpdate(dt,player){
 function vehicleDrivingHUD(ctx,W,H){
  const b=vehicleSystem.driver;if(!b)return;
  const m=carModel(b),speed=Math.round(Math.abs(b.speed)*3.6),
-   width=312,height=98,x=Math.max(24,(W-width)/2),y=Math.max(150,H-260);
+   width=332,height=b.model==='supercar'?122:98,x=Math.max(24,(W-width)/2),y=Math.max(150,H-260);
  ctx.save();ctx.fillStyle='rgba(13,17,19,.91)';
  ctx.strokeStyle='rgba(183,181,165,.54)';ctx.lineWidth=1;
  ctx.beginPath();ctx.roundRect(x,y,width,height,11);ctx.fill();ctx.stroke();
@@ -203,6 +247,10 @@ function vehicleDrivingHUD(ctx,W,H){
  ctx.fillText(b.hazards?'PISCA ALERTA':
   b.indicator?'SETA '+(b.indicator===1?'ESQ':'DIR'):'SETAS OFF',x+149,y+61);
  ctx.fillStyle='#c5c3b8';ctx.font='10px system-ui';
- ctx.fillText('F sair · X motor · L faróis · Z/C setas · H buzina · B alerta',x+13,y+height-10);
+ ctx.fillText('F sair · X motor · L faróis · Z/C setas · H buzina · B alerta',x+13,y+height-(b.model==='supercar'?27:10));
+ if(b.model==='supercar'){
+  ctx.fillStyle='#d4b6e3';
+  ctx.fillText('O/U portas · P capô · J tampa motor · [ ] cores',x+13,y+height-10);
+ }
  ctx.restore();
 }

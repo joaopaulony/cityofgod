@@ -4,8 +4,8 @@
 const CAR_MODELS=[
  // Parametros individuais obtidos da leitura das referencias, NAO um unico
  // gabarito de cupê pintado com cores diferentes.
- {id:'supercar',name:'Superesportivo roxo',len:4.68,w:2.07,roof:1.43,hood:.84,deck:.95,front:1.59,rear:-1.48,wheel:.37,acc:7.7,max:22,
-  cabF:.53,cabB:-1.18,roofF:-.04,roofB:-.93,roofW:.70,noseW:.67,tailW:.95,paint:'#4e2d7a',kind:'wedge',cue:'midEngineVents'},
+ {id:'supercar',name:'Lamborghini Diablo',len:4.68,w:2.07,roof:1.43,hood:.84,deck:.95,front:1.59,rear:-1.48,wheel:.37,acc:7.7,max:22,
+  cabF:.53,cabB:-1.18,roofF:-.04,roofB:-.93,roofW:.70,noseW:.67,tailW:.95,paint:'#704080',kind:'wedge',cue:'midEngineVents'},
  {id:'eclipse',name:'Cupê azul 1991',len:4.41,w:1.79,roof:1.68,hood:.91,deck:1.00,front:1.39,rear:-1.39,wheel:.36,acc:6.4,max:19,
   cabF:.51,cabB:-1.27,roofF:-.07,roofB:-.91,roofW:.76,noseW:.93,tailW:.95,paint:'#75a4ac',kind:'hatch',cue:'popUpLamps'},
  {id:'skyline',name:'Cupê japonês 1992',len:4.60,w:1.84,roof:1.67,hood:1.03,deck:1.06,front:1.48,rear:-1.43,wheel:.38,acc:6.8,max:20,
@@ -429,6 +429,7 @@ function carReferenceDecor(g,b,m,C){
  }
 }
 function carDraw(g,b,time=0,night=false){
+ if(typeof vehicleDrawSprite==='function'&&vehicleDrawSprite(g,b,time))return;
  const m=carModel(b),L=m.len/2,w=m.w/2,
  paint=b.top||m.paint,C={paint,hi:shadeHex(paint,1.12),
  side:shadeHex(paint,.80),dark:shadeHex(paint,.62),
