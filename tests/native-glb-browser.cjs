@@ -21,7 +21,7 @@ const fs=require('node:fs');
    const sys=window.vehicleNative3D;
    return sys&&sys.states.size===5&&
     Array.from(sys.states.values()).every(x=>x==='ready'||x==='fallback');
-  },{timeout:120000});
+  },null,{timeout:120000});
   const status=await page.evaluate(()=>{
    const sys=window.vehicleNative3D;
    return {
