@@ -45,12 +45,22 @@ test('correct A/D world yaw for ANY camera orientation',()=>{
  }
  inputState.clear();hits.clear();
 });
-test('reverse gear naturally reverses rotation sign (not key mapping)',()=>{
- inputState.clear();hits.clear();inputState.add('d');
- let {scene,car}=createScene(Math.PI/4,true);
- const prior=car.rot;scene.vehicleUpdate(.10,scene.player);
- assert.ok(car.rot<prior,'in reverse, steering right must pivot opposite');
- inputState.clear();
+test('A/D and arrows keep their screen yaw direction in reverse',()=>{
+ for(const camAngle of [0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.5]){
+  for(const [key,expected] of [['a',-1],['d',1],
+    ['arrowleft',-1],['arrowright',1]]){
+   for(const reverse of [false,true]){
+    inputState.clear();hits.clear();inputState.add(key);
+    const {scene,car}=createScene(camAngle,reverse);
+    const before=car.rot;
+    scene.vehicleUpdate(.10,scene.player);
+    assert.equal(Math.sign(car.rot-before),expected,
+      key+' yaw should keep its side when reverse='+reverse+
+      ' with camera='+camAngle);
+   }
+  }
+ }
+ inputState.clear();hits.clear();
 });
 test('Z lights physical LEFT, C lights physical RIGHT and HUD agrees',()=>{
  for(const [key,expected] of [['z',-1],['c',1]]){
@@ -71,4 +81,14 @@ test('nine procedural models use unique physical wheels and no Gemini sprites',(
    'function carFinish','function carWindow','function carLamp','function carTire'])
   assert.ok(art.includes(symbol),'missing '+symbol);
  assert.doesNotMatch(art,/vehicleDrawSprite/);
+});
+
+test('procedural vehicle details use model space and individual materials',()=>{
+ assert.match(art,/carFill\(g,b,glass,mix\(color,/);
+ assert.match(art,/g\.transform\(longitudinal\.x-ground\.x/);
+ assert.match(art,/const doorU=lerp\(back,front/);
+ assert.doesNotMatch(art,/g\.fillRect\(handle\.x/);
+ assert.match(art,/behind=carProject\(b,-L-/);
+ assert.match(drive,/Math\.abs\(b\.speed\)\/Math\.max/);
+ assert.match(drive,/const gear=b\.speed<-/);
 });

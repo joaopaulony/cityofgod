@@ -136,7 +136,7 @@ function vehicleInteraction(player){
  player.aimHold=0;player.wantShot=false;b.speed=0;
  b.headlights=!!world.night;
  const audio=vehicleAudioInit();if(audio)audio.ctx.resume().catch(()=>{});
- return 'Entrou no '+carModel(b).name+' — W acelera, S freia, A/D viram';
+ return 'Entrou no '+carModel(b).name+' — W acelera, S freia/re, A esquerda, D direita';
 }
 function vehicleSteerTarget(left,right){
  return (right?1:0)-(left?1:0);
@@ -159,8 +159,8 @@ function vehicleUpdate(dt,player){
  if(input.hit('c')){b.indicator=b.indicator===1?0:1;b.hazards=false;}
  if(input.hit('b')){b.hazards=!b.hazards;b.indicator=0;}
  if(input.hit('h'))vehicleHorn();
- // Em tela, +rot gira horario. A diminui o angulo; D aumenta.
- // A marcha-a-re continua invertendo a trajetoria de forma fisica.
+ // +rot gira horario na tela: A vira a esquerda e D a direita.
+ // Modo arcade: o volante mantem o mesmo sentido inclusive na marcha a re.
  const steerTarget=vehicleSteerTarget(left,right);
  b.steer=lerp(b.steer,steerTarget,1-Math.exp(-dt*6));
  let accel=0;
@@ -174,7 +174,7 @@ function vehicleUpdate(dt,player){
  b.speed=clamp(b.speed,-m.max*.38,m.max);
  if(!b.engine)b.speed*=Math.exp(-dt*2.3);
  if(Math.abs(b.speed)<.028&&!forward&&!reverse)b.speed=0;
- const steering=b.steer*(b.speed/Math.max(2.5,m.len*.73))*grip,
+ const steering=b.steer*(Math.abs(b.speed)/Math.max(2.5,m.len*.73))*grip,
   nextRot=b.rot+clamp(steering*dt,-.14,.14),
   nx=b.x+Math.cos(nextRot)*b.speed*dt,
   ny=b.y+Math.sin(nextRot)*b.speed*dt;
@@ -201,6 +201,9 @@ function vehicleDrivingHUD(ctx,W,H){
  ctx.fillStyle='#dfd4bc';ctx.font='600 13px system-ui';ctx.fillText(m.name,x+15,y+20);
  ctx.fillStyle='#f5f1e7';ctx.font='bold 30px system-ui';ctx.fillText(String(speed),x+14,y+52);
  ctx.font='12px system-ui';ctx.fillStyle='#a7b1af';ctx.fillText('km/h',x+69,y+53);
+ const gear=b.speed<-.12?'R':b.speed>.12?'D':'N';
+ ctx.font='bold 17px system-ui';ctx.fillStyle=gear==='R'?'#e9b77f':'#d8dfd1';
+ ctx.fillText(gear,x+118,y+53);
  ctx.font='600 11px system-ui';ctx.fillStyle=b.engine?'#b6d49a':'#df9a7d';
  ctx.fillText(b.engine?'MOTOR LIGADO':'MOTOR DESLIGADO',x+149,y+22);
  ctx.fillStyle=b.headlights?'#f4dea3':'#90999d';

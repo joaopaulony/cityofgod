@@ -285,7 +285,7 @@ function carWindow(g,b,vs,color='#87a4b0'){
   lerp(p[0],mid[0],.065),lerp(p[1],mid[1],.078),
   lerp(p[2],mid[2],.078)
  ]);
- carFill(g,b,glass,'#344e5d','rgba(14,23,31,.85)');
+ carFill(g,b,glass,mix(color,'#152532',.34),'rgba(14,23,31,.85)');
  const points=glass.map(q=>carProject(b,q[0],q[1],q[2]));
  const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
  const x0=Math.min(...xs),x1=Math.max(...xs),
@@ -379,6 +379,14 @@ function carFinish(g,b,m,C){
   const v=j*w*.118;
   carLine(g,b,[p(nose+.036,v,.615),p(nose+.036,v,.673)],
     'rgba(168,182,184,.62)',.009);
+ }
+ // Placas molduradas fazem parte da geometria dos parachoques.
+ for(const [end,face] of [[nose,1],[tail,-1]]){
+  const u=end+face*.017,z=.545,hw=w*.225;
+  carPanel(g,b,[p(u,-hw,z-.058),p(u,hw,z-.058),
+   p(u,hw,z+.060),p(u,-hw,z+.060)],'#d1d2cb','#1d252b');
+  carLine(g,b,[p(u+face*.01,-hw*.70,z),
+   p(u+face*.01,hw*.70,z)],'#536069',.018);
  }
  if(m.id!=='pickup'&&m.id!=='explorer'){
   for(const side of [-1,1]){
@@ -573,13 +581,19 @@ function carDraw(g,b,time=0,night=false){
  hood=m.hood,roof=m.roof,deck=m.deck,
  p=(u,v,z)=>[u,v,z],
  farSide=Math.sign(facingCam(-Math.sin(b.rot),Math.cos(b.rot)))||1;
- // Contact shadow sized to this exact body and wheelbase.
- const ground=carProject(b,0,0,.015);
- g.save();g.translate(ground.x+cam.zoom*.05,ground.y+cam.zoom*.08);g.scale(1,TILT);
- const shadow=g.createRadialGradient(0,0,cam.zoom*.32,0,0,cam.zoom*(L+.22));
- shadow.addColorStop(0,'rgba(9,12,15,.42)');
+ // Sombra agora acompanha o eixo e a largura reais do carro na camera 3/4.
+ const ground=carProject(b,0,0,.015),
+  longitudinal=carProject(b,L+.30,0,.015),
+  transverse=carProject(b,0,w+.28,.015);
+ g.save();
+ g.transform(longitudinal.x-ground.x,longitudinal.y-ground.y,
+  transverse.x-ground.x,transverse.y-ground.y,
+  ground.x+cam.zoom*.05,ground.y+cam.zoom*.08);
+ const shadow=g.createRadialGradient(0,0,.12,0,0,1);
+ shadow.addColorStop(0,'rgba(9,12,15,.40)');
+ shadow.addColorStop(.72,'rgba(9,12,15,.20)');
  shadow.addColorStop(1,'rgba(9,12,15,0)');
- g.fillStyle=shadow;g.beginPath();g.arc(0,0,cam.zoom*(L+.22),0,TAU);
+ g.fillStyle=shadow;g.beginPath();g.arc(0,0,1,0,TAU);
  g.fill();g.restore();
  // Em nariz bem afilado, a roda dianteira do lado oposto fica
  // inteiramente escondida pela frente da carroceria. Pintá-la antes do
@@ -658,12 +672,14 @@ function carDraw(g,b,time=0,night=false){
   }
   carLine(g,b,[p(front+.20,v,hood-.09),
      p(front+.20,v,.60)],'rgba(35,35,37,.42)',.018);
-  const handle=carProject(b,lerp(back,front,.40),
-     side*(w*.995),hood-.20);
-  g.fillStyle='#2c3135';
-  g.fillRect(handle.x-1.4,handle.y,Math.max(3,cam.zoom*.095),
-    Math.max(.8,cam.zoom*.019));
-  const mount=[front+.26,side*w*.89,hood+.145],
+  // Macanetas seguem a carroceria, independentemente da camera.
+   const doorU=lerp(back,front,.40),doorV=side*w*.996,doorZ=hood-.20;
+   carLine(g,b,[[doorU-.085,doorV,doorZ],
+     [doorU+.065,doorV,doorZ]],'#1a2228',.041);
+   carLine(g,b,[[doorU-.065,doorV+side*.008,doorZ+.013],
+     [doorU+.045,doorV+side*.008,doorZ+.013]],
+     'rgba(215,224,224,.66)',.014);
+   const mount=[front+.26,side*w*.89,hood+.145],
     mirrorWorld=[front+.34,side*(w+.045),hood+.20];
   // Stalk visibly anchors the mirror to the door (no detached dots).
   carLine(g,b,[mount,mirrorWorld],C.dark,.036);
@@ -714,8 +730,10 @@ function carDraw(g,b,time=0,night=false){
   const tailp=carProject(b,-L-.13,w*.46,.51);
   for(let i=0;i<3;i++){
    const t=((time*1.5+i*.35+b.seed*.001)%1+1)%1,
-     x=tailp.x+Math.cos(b.rot+Math.PI)*t*cam.zoom*.34,
-     y=tailp.y-t*cam.zoom*.28,r=Math.max(2,cam.zoom*(.05+t*.10));
+     behind=carProject(b,-L-.55,w*.46,.51),
+     x=tailp.x+(behind.x-tailp.x)*t*1.5,
+     y=tailp.y+(behind.y-tailp.y)*t*1.5-t*cam.zoom*.19,
+     r=Math.max(2,cam.zoom*(.05+t*.10));
    const grad=g.createRadialGradient(x,y,0,x,y,r);
    grad.addColorStop(0,'rgba(178,182,177,'+(.13*(1-t))+')');
    grad.addColorStop(1,'rgba(178,182,177,0)');
