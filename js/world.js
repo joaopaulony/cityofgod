@@ -1092,6 +1092,7 @@ function raycast(ox, oy, dx, dy, maxD) {
     if (t > 0.05 && t < best.t) best = { t, kind: c.kind, ref: c.ref, nx: (fx + dx * t) / c.r, ny: (fy + dy * t) / c.r };
   }
   for (const s of world.segs) {
+    if (s.door && s.doorAnim?.open >= .72) continue;
     if (s.h < 1.2) continue;
     const ex = s.x2 - s.x1, ey = s.y2 - s.y1, den = dx * ey - dy * ex;
     if (Math.abs(den) < 1e-9) continue;
@@ -1117,6 +1118,7 @@ function collide(x, y, r, floor=0) {
         .concat(world.upperSegs||[])
       : world.segs;
     for (const s of walls) {
+      if(s.door && s.doorAnim?.open>=.72)continue;
       const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
       const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);
       const px = s.x1 + ex * u, py = s.y1 + ey * u, dx = x - px, dy = y - py, d = Math.hypot(dx, dy), m = r + 0.08;
