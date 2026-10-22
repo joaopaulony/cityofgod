@@ -346,7 +346,9 @@ const {judge}=require('./visual-quality-judge.cjs');
       const previousCamera=[cam.x,cam.y];
       cam.x=cam.tx=player.x;cam.y=cam.ty=player.y;
       player.flash=.11;
-      player.J=player.J||solveSkeleton(player,animate(player,0));
+      // Varios testes teleportam player sem recalcular a pose do rifle.
+      // Recalcular o skeleton garante que muzzle e camera estao no mesmo local.
+      player.J=solveSkeleton(player,animate(player,0));
       drawMuzzleFlash(gc,player,true);
       const px=gc.getImageData(0,0,cam.W,cam.H).data;
       let muzzleLitPixels=0;
