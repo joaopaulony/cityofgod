@@ -294,7 +294,16 @@ function buildHouses() {
   const nearJ = cands.filter(c => { const d = Math.hypot(c.p.x - J.x, c.p.y - J.y); return d > 9 && d < 26; });
   for (const c of nearJ) if (tryPlace('SHOP', c)) break;
   if (!houses.length) for (const c of cands) if (tryPlace('SHOP', c)) break;
-  const want = ['A', 'B', 'A', 'B', 'B', 'A', 'B'];
+  // Em 160×160, distribuir pontos de comércio também longe do cruzamento.
+  // Não concentrar todos os mercados em uma região do mundo aumentado.
+  const commercial = [MAP*.24, MAP*.78];
+  for (const targetX of commercial) {
+    const sorted = cands.filter(c => Math.abs(c.p.x-targetX)<MAP*.18)
+      .sort((a,b)=>Math.abs(a.p.x-targetX)-Math.abs(b.p.x-targetX));
+    for(const c of sorted)if(tryPlace('SHOP',c))break;
+  }
+  // Expandir também os bairros: 21 casas + até 3 mercados (antes 7 + 1).
+  const want = Array.from({length:3},()=>['A','B','A','B','B','A','B']).flat();
   for (const key of want) for (const c of cands) if (tryPlace(key, c)) break;
   // caminhos de concreto da porta até a calçada
   for (const H of houses) {
@@ -303,7 +312,7 @@ function buildHouses() {
   }
   // carros estacionados junto ao meio-fio
   const cols = ['#b03a32', '#dedbd3', '#2f5d7c', '#3d3f45', '#c9a13a', '#4d6b3a'], cars = [];
-  for (let i = 0; i < 300 && cars.length < 4; i++) {
+  for (let i = 0; i < 900 && cars.length < 12; i++) {
     const r = world.roads[(rng() * world.roads.length) | 0], j = 8 + ((rng() * (r.pts.length - 16)) | 0), p = r.pts[j], s = rng() < 0.5 ? 1 : -1;
     const x = p.x + p.nx * s * (ROAD_W - 1.3), y = p.y + p.ny * s * (ROAD_W - 1.3);
     if (x < 3 || y < 3 || x > MAP - 3 || y > MAP - 3 || Math.hypot(x - J.x, y - J.y) < 12 || cars.some(c => Math.hypot(c[0] - x, c[1] - y) < 8)) continue;
@@ -582,7 +591,19 @@ function drawFence(g, s) {
 
 // ---------- coleta de desenháveis p/ o quadro ----------
 function houseDrawables(list, px, py) {
+  // Culling das casas fora da câmera: sem isso, triplicar as construções
+  // aumenta drasticamente os draw calls em todos os quadros.
+  const visibleHouse = H => {
+    const center = proj((H.x0+H.x1)*.5,(H.y0+H.y1)*.5,0);
+    const margin = (Math.hypot(H.x1-H.x0,H.y1-H.y0)*.85+4)*cam.zoom;
+    return center.x >= -margin && center.x <= cam.W+margin &&
+      center.y >= -margin && center.y <= cam.H+margin;
+  };
   for (const H of houses) {
+    if (!visibleHouse(H)) {
+      H.inside = false; H.fade = false;
+      continue;
+    }
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
     H.fade = !H.inside && behindHouse(H, px, py);
     let maxD = -1e9;
@@ -605,6 +626,9 @@ function houseDrawables(list, px, py) {
     list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
   }
   for (const b of boxes) {
+    const at=proj(b.x,b.y,0),extra=cam.zoom*(Math.max(b.w,b.d,b.h||0)+3);
+    if(at.x < -extra || at.x > cam.W+extra ||
+       at.y < -extra || at.y > cam.H+extra) continue;
     if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
     if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;

@@ -56,7 +56,7 @@ function chat(who, text) {
   logEl.append(d); while (logEl.children.length > 4) logEl.firstChild.remove();
 }
 for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.home[3] / 2; }
-chat('Sistema', `mapa gerado — semente ${world.seed}. G gera outro.`);
+chat('Sistema', `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (document.activeElement === say) {
@@ -289,7 +289,12 @@ function render() {
     list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: () => drawProp(g, p, T, player) });
   }
   houseDrawables(list, player.x, player.y);
-  for (const l of world.lamps) list.push({ d: depthOf(l.x, l.y), draw: () => drawLamp(g, l, st.night) });
+  for (const l of world.lamps) {
+    const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
+    if(pos.x < -padding || pos.x > W+padding ||
+       pos.y < -padding || pos.y > H+padding) continue;
+    list.push({ d: depthOf(l.x, l.y), draw: () => drawLamp(g, l, st.night) });
+  }
   for (const a of actors) list.push({ d: depthOf(a.x, a.y) + 0.05, draw: () => drawActor(g, a, a.J, a.pal), actor: a });
   for (const q of parts) list.push({ d: depthOf(q.x, q.y) + (q.z > 0.5 ? 0.3 : 0), draw: () => drawPart(q) });
   list.sort((a, b) => a.d - b.d);
