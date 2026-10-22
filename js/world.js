@@ -7,7 +7,7 @@
 const ORIGINAL_MAP = 80;
 const WORLD_AREA_MULTIPLIER = 4;
 const MAP = ORIGINAL_MAP * Math.sqrt(WORLD_AREA_MULTIPLIER);
-const PPM = RS === 2 ? 20 : 24; // 3200px leve / 3840px padrão por lado
+const PPM = (typeof RS !== 'undefined' && RS === 2) ? 20 : 24; // safe for standalone sprite lab
 const SPR = 40;      // pixels por metro dos sprites pré-pintados
 // semente: ?seed=123 na URL reproduz o mesmo mapa; sem ela, cada visita gera um mapa novo
 const SEED = Number(new URLSearchParams(location.search).get('seed')) || ((Math.random() * 1e6) | 0);
