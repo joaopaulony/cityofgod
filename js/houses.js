@@ -213,6 +213,7 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   def.inner = (T.def.inner || []).map(w => { const a = L(w.x1, w.y1), b = L(w.x2, w.y2); return { x1: a[0], y1: a[1], x2: b[0], y2: b[1], door: w.door }; });
   def.floors = T.def.floors.map(f => { const a = L(f.x0, f.y0), b = L(f.x1, f.y1); return Object.assign({}, f, { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) }); });
   const H = addHouse(def);
+  H.templateKey=Object.keys(TPL).find(key=>TPL[key]===T);
   if(T.upper)initUpperFloor(H,T,L,k);
   const du = T.def.open.S.door[0] + 0.5;
   H.doorPt = L(du, T.d); H.front = L(du, T.d + 2); H.doorN = rv([0, 1]);
