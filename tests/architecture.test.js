@@ -96,5 +96,6 @@ for(const key of ['C','D']){
   assert.equal(A.updateHouseStairs(pl,.01,true),true);
   for(let i=0;i<40;i++)A.updateHouseStairs(pl,.05,false);
   assert.equal(pl.floor,0);assert.equal(pl.floorZ,0);
+  A.houses.pop(); // modelos artificiais compartilham coordenadas no teste
 }
 console.log('PASS: '+roofs+' roofs, '+rotations+' furniture rotations, door/window opening and closing');
