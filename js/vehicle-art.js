@@ -2,14 +2,38 @@
 'use strict';
 // Procedural isometric vehicles: original 2.5D car surfaces, all camera angles.
 const CAR_MODELS=[
- {id:'supercar',name:'Superesportivo',len:4.52,w:1.93,roof:1.55,hood:1.00,front:1.49,rear:-1.47,wheel:.37,acc:7.7,max:22},
- {id:'coupe',name:'Cupê esportivo',len:4.42,w:1.85,roof:1.75,hood:1.06,front:1.42,rear:-1.42,wheel:.37,acc:6.4,max:19},
- {id:'tuner',name:'Cupê de corrida',len:4.56,w:1.91,roof:1.73,hood:1.04,front:1.50,rear:-1.48,wheel:.38,acc:6.8,max:20},
- {id:'muscle',name:'Muscle car',len:4.81,w:1.96,roof:1.74,hood:1.15,front:1.65,rear:-1.61,wheel:.40,acc:7.2,max:21},
- {id:'sedan',name:'Sedã',len:4.67,w:1.85,roof:1.82,hood:1.08,front:1.50,rear:-1.45,wheel:.38,acc:5.7,max:17},
- {id:'suv',name:'Utilitário 4×4',len:4.91,w:2.03,roof:2.17,hood:1.32,front:1.62,rear:-1.62,wheel:.46,acc:4.9,max:15},
- {id:'pickup',name:'Picape',len:5.18,w:2.01,roof:1.94,hood:1.24,front:1.79,rear:-1.76,wheel:.44,acc:4.8,max:16}
+ // Parametros individuais obtidos da leitura das referencias, NAO um unico
+ // gabarito de cupê pintado com cores diferentes.
+ {id:'supercar',name:'Superesportivo roxo',len:4.68,w:2.07,roof:1.43,hood:.84,deck:.95,front:1.59,rear:-1.48,wheel:.37,acc:7.7,max:22,
+  cabF:.53,cabB:-1.18,roofF:-.04,roofB:-.93,roofW:.70,noseW:.67,tailW:.95,paint:'#4e2d7a',kind:'wedge',cue:'midEngineVents'},
+ {id:'eclipse',name:'Cupê azul 1991',len:4.41,w:1.79,roof:1.68,hood:.91,deck:1.00,front:1.39,rear:-1.39,wheel:.36,acc:6.4,max:19,
+  cabF:.51,cabB:-1.27,roofF:-.07,roofB:-.91,roofW:.76,noseW:.93,tailW:.95,paint:'#75a4ac',kind:'hatch',cue:'popUpLamps'},
+ {id:'skyline',name:'Cupê japonês 1992',len:4.60,w:1.84,roof:1.67,hood:1.03,deck:1.06,front:1.48,rear:-1.43,wheel:.38,acc:6.8,max:20,
+  cabF:.35,cabB:-1.18,roofF:-.02,roofB:-.90,roofW:.72,noseW:.92,tailW:.95,paint:'#30333b',kind:'sport',cue:'rearWing'},
+ {id:'mustang',name:'Esportivo americano 1993',len:4.58,w:1.78,roof:1.76,hood:1.04,deck:1.00,front:1.42,rear:-1.44,wheel:.37,acc:7.2,max:21,
+  cabF:.32,cabB:-1.31,roofF:-.08,roofB:-.93,roofW:.77,noseW:.97,tailW:1.00,paint:'#b82323',kind:'fastback',cue:'foxbody'},
+ {id:'explorer',name:'Utilitário temático 1993',len:4.86,w:2.02,roof:2.13,hood:1.28,deck:1.32,front:1.54,rear:-1.53,wheel:.46,acc:4.9,max:15,
+  cabF:.68,cabB:-2.03,roofF:.19,roofB:-1.74,roofW:.83,noseW:.93,tailW:.95,paint:'#be3330',kind:'suv',cue:'jurassic'},
+ {id:'daytona',name:'Muscle Daytona 1969',len:5.38,w:1.95,roof:1.72,hood:.98,deck:1.08,front:1.80,rear:-1.75,wheel:.41,acc:7.4,max:21,
+  cabF:.40,cabB:-1.22,roofF:.03,roofB:-.96,roofW:.77,noseW:.61,tailW:.98,paint:'#512c6b',kind:'aero',cue:'towerWing'},
+ {id:'challenger',name:'Muscle de corrida 1970',len:4.88,w:1.98,roof:1.71,hood:1.12,deck:1.12,front:1.60,rear:-1.63,wheel:.41,acc:7.0,max:20,
+  cabF:.37,cabB:-1.33,roofF:-.05,roofB:-1.00,roofW:.82,noseW:.96,tailW:.99,paint:'#adc913',kind:'muscle',cue:'number77'},
+ {id:'pickup',name:'Picape clássica',len:5.33,w:2.03,roof:1.95,hood:1.29,deck:1.31,front:1.73,rear:-1.71,wheel:.44,acc:4.8,max:16,
+  cabF:.52,cabB:-.80,roofF:.14,roofB:-.55,roofW:.83,noseW:.98,tailW:1.00,paint:'#bb5c5e',kind:'pickup',cue:'openBed'},
+ {id:'sedan',name:'Sedã clássico',len:4.82,w:1.89,roof:1.79,hood:1.09,deck:1.05,front:1.51,rear:-1.50,wheel:.38,acc:5.7,max:17,
+  cabF:.50,cabB:-1.38,roofF:.07,roofB:-1.01,roofW:.83,noseW:.98,tailW:.99,paint:'#e1d4c5',kind:'sedan',cue:'sunroof'}
 ];
+const CAR_REFERENCE_CUES={
+ supercar:['wedge','panoramicWindshield','sideIntakes','engineVents'],
+ eclipse:['hatch','popUpLamps','blackRoof','continuousRearGlass'],
+ skyline:['longHood','sideCut','thinRearWing','angularHeadlamps'],
+ mustang:['foxbody','rectangularHeadlamps','fastback','hoodInsert'],
+ explorer:['suv','twoToneLivery','roofMarkers','bullBar'],
+ daytona:['aeroNose','tallWing','longHood','aeroRear'],
+ challenger:['muscle','hoodScoop','race77','sideStripes'],
+ pickup:['pickup','openBed','bedRibs','squareFascia'],
+ sedan:['sedan','longRearDeck','sunroof','fourDoors']
+};
 function carModel(b){return CAR_MODELS.find(m=>m.id===b.model)||CAR_MODELS[1];}
 function carPoint(b,u,v,z){
  const co=Math.cos(b.rot),si=Math.sin(b.rot);
