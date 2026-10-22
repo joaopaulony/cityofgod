@@ -269,7 +269,9 @@ function urbanChimneyTex(c,index){
   return can;
 }
 function urbanChimneyFor(H,T,L){
-  if(H.brick||H.templateKey==='SHOP')return;
+  // Lajes de concreto nao possuem agua inclinada para acoplar chaminés.
+  // Preserva caixas-d'agua, ventilacoes e antenas nas lajes.
+  if(H.roofKind==='flat'||H.brick||H.templateKey==='SHOP')return;
   const r=mulberry((H.seed*2101+41)>>>0);
   if(r()>(H.rural?.52:.36))return;
   const wide=(H.x1-H.x0)>=(H.y1-H.y0),W=H.x1-H.x0,D=H.y1-H.y0;
@@ -305,7 +307,8 @@ function urbanRooftopFor(H,T,L){
 }
 function urbanDrawChimney(g,H,t){
   const c=H.chimney;
-  if(!c||H.inside)return;
+  // Protecao adicional contra dados antigos / saves com chaminé na laje.
+  if(!c||H.inside||H.roofKind==='flat')return;
   const w=c.w/2,d=c.d/2,roof=c.roofZ,top=c.z+c.h;
   const face=(pts,col,idx)=>{
     const pp=pts.map(p=>proj(...p));
