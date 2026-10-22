@@ -122,24 +122,64 @@ function carTire(g,b,u,v,m){
  carFill(g,b,ring(pV,r*.685),'#b8bfc0','#69737a');
  carFill(g,b,ring(pV+geo.side*.008,r*.595),'#ecede8','#747d81');
  carFill(g,b,ring(pV+geo.side*.015,r*.53),'#424b50','#bbc1c4');
- // Raios giram de acordo com o deslocamento real, não o frame.
- for(let i=0;i<5;i++){
-  const a=spin+TAU*i/5,
-   q=(angle,k)=>[u+Math.cos(angle)*r*k,
-       pV+geo.side*.026,z+Math.sin(angle)*r*k];
-  carFill(g,b,[q(a-.19,.12),q(a-.13,.51),
-    q(a+.13,.51),q(a+.19,.12)],
-    i%2===0?'#d8dddd':'#bdc6c8');
-  // Entalhe escuro entre os raios.
-  carLine(g,b,[q(a+.18,.27),q(a+.19,.49)],
-    'rgba(35,44,48,.65)',.010);
+ // Aro específico por categoria: não repetir a mesma estrela prateada.
+ // Raios e furos giram com a distância real percorrida (odômetro).
+ const id=m.id,style=['supercar','eclipse','daytona'].includes(id)?'five-hole':
+   ['pickup','sedan'].includes(id)?'steel':
+   id==='explorer'?'offroad':'alloy';
+ const baseV=pV+geo.side*.025;
+ const point=(angle,k,depth=0)=>[
+  u+Math.cos(angle)*r*k,baseV+geo.side*depth,
+  z+Math.sin(angle)*r*k
+ ];
+ if(style==='five-hole'){
+  // Cinco recessos escuros com relevo de aro, estilo esportivo dos anos 90.
+  carFill(g,b,ring(baseV,r*.58),'#92999d','#3a454a');
+  for(let i=0;i<5;i++){
+   const a=spin+TAU*(i+.05)/5,uu=u+Math.cos(a)*r*.37,
+      zz=z+Math.sin(a)*r*.37;
+   const hole=[];
+   for(let j=0;j<13;j++){
+    const th=TAU*j/12;
+    hole.push([uu+Math.cos(th)*r*.115,baseV+geo.side*.026,
+      zz+Math.sin(th)*r*.115]);
+   }
+   carFill(g,b,hole,'#151c23','#5d676d');
+   carLine(g,b,[[uu-r*.055,baseV+geo.side*.03,zz+r*.052],
+       [uu+r*.035,baseV+geo.side*.03,zz+r*.065]],
+       'rgba(175,185,187,.30)',.009);
+  }
+ }else if(style==='steel'){
+  carFill(g,b,ring(baseV,r*.59),'#48515a','#a5acb0');
+  for(let i=0;i<8;i++){
+   const a=spin+TAU*i/8;
+   carFill(g,b,[point(a-.13,.17),point(a-.10,.48),
+    point(a+.10,.48),point(a+.13,.17)],
+      '#a5afb0','#333b43');
+  }
+ }else{
+  const n=style==='offroad'?6:7;
+  carFill(g,b,ring(baseV,r*.59),
+    style==='offroad'?'#4b555d':'#777f84','#d5d9d8');
+  for(let i=0;i<n;i++){
+   const a=spin+TAU*i/n;
+   carFill(g,b,[point(a-.14,.14),point(a-.095,.53,.012),
+    point(a+.095,.53,.012),point(a+.14,.14)],
+     style==='offroad'?'#9ba7a7':'#c1c9c9','#3d484e');
+   carLine(g,b,[point(a,.23),point(a,.49,.021)],
+       'rgba(245,246,237,.34)',.011);
+  }
  }
- carFill(g,b,ring(pV+geo.side*.033,r*.175),'#777f83');
- const hub=carProject(b,u,pV+geo.side*.047,z);
- g.fillStyle='#c6cccb';g.beginPath();
- g.arc(hub.x,hub.y,Math.max(1,cam.zoom*.053),0,TAU);g.fill();
- g.fillStyle='#60676d';g.beginPath();
- g.arc(hub.x,hub.y,Math.max(.55,cam.zoom*.022),0,TAU);g.fill();
+ // Miolo e parafusos continuam presos ao eixo.
+ carFill(g,b,ring(baseV+geo.side*.038,r*.175),
+   style==='five-hole'?'#adb5b6':'#707980','#313d45');
+ carFill(g,b,ring(baseV+geo.side*.051,r*.096),'#333b41','#a4acb1');
+ for(let i=0;i<5;i++){
+  const a=spin+TAU*i/5;
+  const q=carProject(b,...point(a,.143,.061));
+  g.fillStyle='#d3d6d3';g.beginPath();
+  g.arc(q.x,q.y,Math.max(.45,cam.zoom*.013),0,TAU);g.fill();
+ }
  // Letras/textura na lateral, leves, nao poluem o aro em zoom pequeno.
  for(let i=0;i<12;i++){
   const a=TAU*i/12+spin*.10,rr=r*.85;
