@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "model": "skyline",
+  "enabled": false,
+  "directions": 16,
+  "columns": 4,
+  "rows": 4,
+  "frameWidth": 384,
+  "frameHeight": 384,
+  "referenceZoom": 76,
+  "pivot": {
+    "x": 192,
+    "y": 192
+  },
+  "angleOffset": 0,
+  "images": {
+    "body": "body.png",
+    "shadow": "shadow.png",
+    "headlights": "headlights.png",
+    "brakes": "brakes.png",
+    "left": "left.png",
+    "right": "right.png"
+  }
+}
