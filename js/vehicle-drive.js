@@ -26,6 +26,19 @@ function vehicleCanOccupy(b,x,y,ang){
    if((p.type==='tree'||p.type==='rock')&&
        Math.hypot(px-p.x,py-p.y)<(p.type==='tree'?.47:.32))return false;
   }
+  // Cercas nao fazem parte dos volumes de caixas: testamos cada ripa
+  // contra o contorno do veiculo para evitar atravessar quintais.
+  for(const rail of fences){
+    const vx=rail.x2-rail.x1,vy=rail.y2-rail.y1,
+      denom=vx*vx+vy*vy||1,
+      t=clamp(((px-rail.x1)*vx+(py-rail.y1)*vy)/denom,0,1);
+    if(Math.hypot(px-(rail.x1+t*vx),py-(rail.y1+t*vy))<.21)
+      return false;
+  }
+  if(typeof actors!=='undefined')for(const a of actors){
+    if(a===player)continue;
+    if(Math.hypot(px-a.x,py-a.y)<.47)return false;
+  }
   for(const other of boxes){
    if(other===b||(other.house&&!other.exteriorFixture))continue;
    if(other.kind==='car'){
