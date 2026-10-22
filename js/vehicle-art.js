@@ -136,6 +136,14 @@ function carDraw(g,b,time=0,night=false){
  carFill(g,b,[p(cabF+.31,-w*.68,hood+.125),p(cabF+.31,w*.68,hood+.125),
    p(frontRoof+.10,rw*.91,roof-.07),p(frontRoof+.10,-rw*.91,roof-.07)],
    '#8baebe','rgba(33,42,49,.55)');
+ // Palhetas de limpador e reflexo angular no para-brisa.
+ carLine(g,b,[p(cabF+.27,-w*.56,hood+.15),
+   p(cabF+.11,-w*.08,hood+.29)],'#26353b',.023);
+ carLine(g,b,[p(cabF+.27,w*.55,hood+.15),
+   p(cabF+.10,w*.08,hood+.29)],'#26353b',.023);
+ carLine(g,b,[p(cabF+.20,-w*.48,hood+.21),
+   p(frontRoof+.19,-rw*.62,roof-.14)],
+   'rgba(223,238,236,.20)',.028);
  carFill(g,b,[p(backRoof,-rw,roof),p(backRoof,rw,roof),
    p(cabB-.24,w*.73,hood+.05),p(cabB-.24,-w*.73,hood+.05)],
    suv?'#587382':'#607d8c','#252b30');
