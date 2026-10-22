@@ -69,6 +69,36 @@ const fs=require('node:fs');
         canvasWidth:document.querySelector('#view').width,...worldState};
     });
     await game.screenshot({path:'artifacts/cityofgod-game-smoke.png',fullPage:true});
+    // Flora/fauna no jogo integrado, nao apenas num sprite isolado.
+    const ecology=await game.evaluate(()=>{
+      const blossoms=ecosystem.flowers,bugs=ecosystem.butterflies,
+        squirrels=ecosystem.squirrels;
+      const types=new Set(blossoms.map(f=>f.kind));
+      const patches=chunkItems((blossoms[0].x/CH)|0,(blossoms[0].y/CH)|0);
+      const patchesCount=patches.filter(it=>it.t==='wildflower').length;
+      const first=bugs[0],phase=first.phase;
+      ecosystemTick(.05,player,2);
+      const moved=first.phase>phase;
+      let opaque=0;
+      for(const sp of ecosystem.sprites){
+        const px=sp.img.getContext('2d').getImageData(0,0,sp.img.width,sp.img.height).data;
+        for(let j=3;j<px.length;j+=4)if(px[j]>160)opaque++;
+      }
+      // Prepara uma amostra visual num trecho com flores e fauna.
+      const focus=squirrels[0]||blossoms[0];
+      player.x=focus.x+2;player.y=focus.y+1;
+      cam.x=cam.tx=focus.x;cam.y=cam.ty=focus.y;
+      render();
+      return {blossoms:blossoms.length,types:types.size,
+        bugs:bugs.length,squirrels:squirrels.length,
+        patchesCount,moved,opaque};
+    });
+    await game.screenshot({path:'artifacts/cityofgod-living-meadow.png',fullPage:true});
+    console.log('Living ecosystem:',JSON.stringify(ecology));
+    if(ecology.blossoms<100||ecology.types<6||ecology.bugs<30||
+      ecology.squirrels<8||!ecology.moved||ecology.opaque<800)
+      throw Error('Wildlife, meadow or sprites missing: '+JSON.stringify(ecology));
+
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.
     const normal=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
