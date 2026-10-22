@@ -25,7 +25,8 @@ function createScene(camAngle,reverse=false){
  vm.runInContext(drive,sandbox);
  sandbox.vehicleCanOccupy=()=>true;
  sandbox.vehicleSound=()=>{};
- sandbox.vehicleSystem.driver=car;sandbox.vehicleSystem.cars=[car];
+ sandbox.__car=car;
+ vm.runInContext('vehicleSystem.driver=__car;vehicleSystem.cars=[__car];',sandbox);
  return {scene:sandbox,car,player};
 }
 test('correct A/D world yaw for ANY camera orientation',()=>{
