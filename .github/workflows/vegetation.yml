@@ -6,7 +6,6 @@ on:
     paths:
       - js/world.js
       - js/game.js
-      - js/view3d.js
       - js/houses.js
       - js/roofs.js
       - js/archi.js
@@ -26,7 +25,6 @@ on:
     paths:
       - js/world.js
       - js/game.js
-      - js/view3d.js
       - js/houses.js
       - js/roofs.js
       - js/archi.js
