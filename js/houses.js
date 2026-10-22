@@ -44,7 +44,7 @@ function addHouse(def) {
   for (const w of H.inner || []) {
     const len = Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1)), dx = (w.x2 - w.x1) / len, dy = (w.y2 - w.y1) / len;
     for (let i = 0; i < len; i++) {
-      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.h, house: H, ext: false, door: w.door === i,
+      const s = { x1: w.x1 + dx * i, y1: w.y1 + dy * i, x2: w.x1 + dx * (i + 1), y2: w.y1 + dy * (i + 1), nx: -dy, ny: dx, h: H.storeys ? H.floorHeight : H.h, house: H, ext: false, floor:0, door: w.door === i,
         doorAnim: w.door === i ? { open: 0, target: 0 } : null };
       H.segs.push(s);
       if (!s.door) world.segs.push(s);
@@ -61,9 +61,9 @@ function houseTex(H) {
   const rnd = mulberry(H.seed + 5), S = H.style, T = { ext: {}, int: {} };
   for (const k in H.sides) { T.ext[k] = paintFacade(H, k, true, rnd); T.int[k] = paintFacade(H, k, false, rnd); }
   // divisória interna: 1 m com rodapé
-  const pc = makeCanvas(TEX, H.h * TEX), pg = pc.getContext('2d');
-  paintPlaster(pg, 0, 0, TEX, H.h * TEX, S.interior, rnd, 0.1);
-  pg.fillStyle = '#6b4a32'; pg.fillRect(0, (H.h - 0.12) * TEX, TEX, 0.12 * TEX);
+  const pc = makeCanvas(TEX, (H.storeys ? H.floorHeight : H.h) * TEX), pg = pc.getContext('2d');
+  paintPlaster(pg, 0, 0, TEX, (H.storeys ? H.floorHeight : H.h) * TEX, S.interior, rnd, 0.1);
+  pg.fillStyle = '#6b4a32'; pg.fillRect(0, ((H.storeys ? H.floorHeight : H.h) - 0.12) * TEX, TEX, 0.12 * TEX);
   T.part = pc;
   T.door = paintDoor(S.door[0], S.door[1], rnd);
   T.innerDoor = paintDoor('flush', '#a07850', rnd);
@@ -75,7 +75,10 @@ function addBox(b) {
   boxes.push(b);
   if (b.solid !== false) {
     const c = boxCorners(b), hh = b.z + b.h;
-    for (let i = 0; i < 4; i++) world.segs.push({ x1: c[i][0], y1: c[i][1], x2: c[(i + 1) % 4][0], y2: c[(i + 1) % 4][1], h: hh, kind: b.kind });
+    for (let i = 0; i < 4; i++) (b.floor===1?(world.upperSegs=world.upperSegs||[]):world.segs).push({
+      x1:c[i][0],y1:c[i][1],x2:c[(i+1)%4][0],
+      y2:c[(i+1)%4][1],h:hh,kind:b.kind,house:b.house,floor:b.floor||0
+    });
   }
   return b;
 }
@@ -210,6 +213,8 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   def.inner = (T.def.inner || []).map(w => { const a = L(w.x1, w.y1), b = L(w.x2, w.y2); return { x1: a[0], y1: a[1], x2: b[0], y2: b[1], door: w.door }; });
   def.floors = T.def.floors.map(f => { const a = L(f.x0, f.y0), b = L(f.x1, f.y1); return Object.assign({}, f, { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) }); });
   const H = addHouse(def);
+  H.templateKey=Object.keys(TPL).find(key=>TPL[key]===T);
+  if(T.upper)initUpperFloor(H,T,L,k);
   const du = T.def.open.S.door[0] + 0.5;
   H.doorPt = L(du, T.d); H.front = L(du, T.d + 2); H.doorN = rv([0, 1]);
   // entrada: varanda com pilares (algumas casas grandes) ou marquise + degrau de concreto
@@ -287,7 +292,11 @@ function buildHouses() {
     if (Math.hypot(x0 + W / 2 - J.x, y0 + D / 2 - J.y) < 8) return null;
     rects.push(box);
     const pal = SIDINGS[(rng() * SIDINGS.length) | 0];
-    const rr = rng(), roofKind = key === 'SHOP' ? 'flat' : key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') : (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
+    const rr = rng(), roofKind = key === 'SHOP' ? 'flat' :
+      key === 'C' ? (rr<.55?'hip':'gable') :
+      key === 'D' ? (rr<.62?'gable':'flat') :
+      key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') :
+      (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
     return placeTemplate(T, x0, y0, k, key === 'SHOP' ? {} : { ext: pal[0], roof: pal[1], roofKind });
   };
   // mercado perto do cruzamento, depois as casas
@@ -303,7 +312,10 @@ function buildHouses() {
     for(const c of sorted)if(tryPlace('SHOP',c))break;
   }
   // Expandir também os bairros: 21 casas + até 3 mercados (antes 7 + 1).
-  const want = Array.from({length:3},()=>['A','B','A','B','B','A','B']).flat();
+  // Dois modelos de sobrado, intercalados aos terreiros existentes.
+  // Mantemos o total de 21 lotes e os mercados da versao anterior.
+  const want = Array.from({length:3},()=>
+    ['A','C','B','D','B','C','A']).flat();
   for (const key of want) for (const c of cands) if (tryPlace(key, c)) break;
   // caminhos de concreto da porta até a calçada
   for (const H of houses) {
@@ -385,7 +397,7 @@ function wallMap(s) {
   const H = s.house;
   if (s.ext) { const sd = H.sides[s.side]; return { a: sd.a, dir: sd.dir, Hc: sd.Hc, idx: s.idx }; }
   const l = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
-  return { a: [s.x1, s.y1], dir: [(s.x2 - s.x1) / l, (s.y2 - s.y1) / l], Hc: H.h, idx: 0 };
+  return { a: [s.x1, s.y1], dir: [(s.x2 - s.x1) / l, (s.y2 - s.y1) / l], Hc: H.storeys ? H.floorHeight : H.h, idx: 0 };
 }
 function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
   if (z1 <= z0) return;
@@ -608,6 +620,8 @@ function houseDrawables(list, px, py) {
     H.fade = !H.inside && behindHouse(H, px, py);
     let maxD = -1e9;
     const showIn = H.inside || H.fade;
+    const upstairs = H.upper && H.inside &&
+      typeof player!=='undefined' && (player.floor===1||player.stairTravel&&player.stairTravel.to===1);
     for (const s of H.segs) {
       if (!s.ext && !showIn) continue;   // divisória escondida pelas paredes externas
       const d = depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2);
@@ -624,12 +638,19 @@ function houseDrawables(list, px, py) {
         .map(p => depthOf(p[0], p[1]))) + 0.75
       : maxD + 0.5;
     list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
+    if(H.upper&&H.inside&&!upstairs)list.push({
+      d:roofDepth+.14,draw:g=>drawHouseStaircase(g,H)
+    });
+    if(upstairs)list.push({
+      d:roofDepth+.25,draw:g=>drawHouseUpper(g,H),upper:H
+    });
   }
   for (const b of boxes) {
     const at=proj(b.x,b.y,0),extra=cam.zoom*(Math.max(b.w,b.d,b.h||0)+3);
     if(at.x < -extra || at.x > cam.W+extra ||
        at.y < -extra || at.y > cam.H+extra) continue;
     if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
+    if (b.floor===1)continue; // renders with the upper-floor layer only
     if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });

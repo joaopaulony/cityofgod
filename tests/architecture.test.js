@@ -21,10 +21,10 @@ const ctx = vm.createContext({
   mulberry:seed=>()=>{seed|=0;seed=(seed+0x6D2B79F5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);
     t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;},
 });
-for (const file of ['roofs.js','houses.js']) {
+for (const file of ['roofs.js','houses.js','multistorey.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','js',file),'utf8'),ctx,{filename:file});
 }
-const A=vm.runInContext('({buildRoofGeom,ROOF_O,PITCH,TPL,layoutFurniture,furnitureBounds,furnitureRoomRect,updateHouseOpenings,houses})',ctx);
+const A=vm.runInContext('({buildRoofGeom,ROOF_O,PITCH,TPL,layoutFurniture,furnitureBounds,furnitureRoomRect,updateHouseOpenings,houses,initUpperFloor,updateHouseStairs,STOREY_HEIGHT})',ctx);
 let roofs=0, rotations=0;
 for (const [w,d] of [[10,8],[8,8],[7,12],[6,6]]) {
   for (const kind of ['gable','hip','flat']) {
@@ -74,4 +74,28 @@ for(let i=0;i<50;i++)A.updateHouseOpenings(.05,[{x:.5,y:0}],false);
 assert.ok(door.doorAnim.open>.95 && win.windowAnim.open>.2,'opening animation');
 for(let i=0;i<150;i++)A.updateHouseOpenings(.05,[{x:20,y:20}],true);
 assert.ok(door.doorAnim.open<.01 && win.windowAnim.open<.01,'closing animation');
+// Sobrado girado: colisao de divisorias/moveis do segundo andar,
+// tracos de escada, movimento progressivo e retorno ao terreo.
+for(const key of ['C','D']){
+  const t=A.TPL[key], h={
+    x0:0,y0:0,x1:t.w,y1:t.d,storeys:2,
+    floorHeight:A.STOREY_HEIGHT,sp:{},
+    segs:[],style:{plaster:'#fff'}
+  };
+  const points=(x,y)=>[x,y];
+  A.initUpperFloor(h,t,points,0);
+  A.houses.push(h);
+  assert.equal(h.upper.z,2.75);
+  assert.ok(h.upper.walls.length>10);
+  assert.ok(h.upper.furniture.length>=5);
+  assert.equal(h.upper.steps.length,10);
+  const pl={x:h.stair.x,y:h.stair.y,floor:0,floorZ:0,stairTravel:null};
+  assert.equal(A.updateHouseStairs(pl,.01,true),true);
+  for(let i=0;i<40;i++)A.updateHouseStairs(pl,.05,false);
+  assert.equal(pl.floor,1);assert.equal(pl.floorZ,2.75);
+  assert.equal(A.updateHouseStairs(pl,.01,true),true);
+  for(let i=0;i<40;i++)A.updateHouseStairs(pl,.05,false);
+  assert.equal(pl.floor,0);assert.equal(pl.floorZ,0);
+  A.houses.pop(); // modelos artificiais compartilham coordenadas no teste
+}
 console.log('PASS: '+roofs+' roofs, '+rotations+' furniture rotations, door/window opening and closing');

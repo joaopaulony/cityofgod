@@ -1031,9 +1031,9 @@ function buildWorld() {
 }
 
 // movimento com colisão + água (desliza nos eixos se bater na margem)
-function moveTo(ox, oy, nx, ny, r) {
+function moveTo(ox, oy, nx, ny, r, floor=0) {
   for (const [x, y] of [[nx, ny], [nx, oy], [ox, ny]]) {
-    const q = collide(x, y, r);
+    const q = collide(x, y, r, floor);
     if (pondVal(q[0], q[1]) > 1.02) return q;
   }
   return [ox, oy];
@@ -1106,13 +1106,17 @@ function raycast(ox, oy, dx, dy, maxD) {
   return best;
 }
 
-function collide(x, y, r) {
+function collide(x, y, r, floor=0) {
   for (let it = 0; it < 3; it++) {
-    for (const c of world.circles) {
+    for (const c of (floor===1?[]:world.circles)) {
       const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy), m = c.r + r * (c.soft ? 0.5 : 1);
       if (d < m && d > 1e-6) { x = c.x + dx / d * m; y = c.y + dy / d * m; }
     }
-    for (const s of world.segs) {
+    const walls=floor===1
+      ? world.segs.filter(s=>s.ext||(!s.house&&s.kind==='fence'))
+        .concat(world.upperSegs||[])
+      : world.segs;
+    for (const s of walls) {
       const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
       const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);
       const px = s.x1 + ex * u, py = s.y1 + ey * u, dx = x - px, dy = y - py, d = Math.hypot(dx, dy), m = r + 0.08;

@@ -71,12 +71,14 @@ const fs=require('node:fs');
     await game.screenshot({path:'artifacts/cityofgod-game-smoke.png',fullPage:true});
     // Flora/fauna no jogo integrado, nao apenas num sprite isolado.
     const ecology=await game.evaluate(()=>{
-      const blossoms=ecosystem.flowers,bugs=ecosystem.butterflies,
-        squirrels=ecosystem.squirrels;
+      const blossoms=ecosystem.flowers,bugs=ecosystem.butterflies;
       const types=new Set(blossoms.map(f=>f.kind));
       const patches=chunkItems((blossoms[0].x/CH)|0,(blossoms[0].y/CH)|0);
       const patchesCount=patches.filter(it=>it.t==='wildflower').length;
       const first=bugs[0],phase=first.phase;
+      // O motor so anima insetos proximos do jogador. Forcar camera/personagem
+      // perto do polinizador na simulacao, em vez de testar uma borboleta longe.
+      player.x=first.x;player.y=first.y;
       ecosystemTick(.05,player,2);
       const moved=first.phase>phase;
       let opaque=0;
@@ -85,134 +87,55 @@ const fs=require('node:fs');
         for(let j=3;j<px.length;j+=4)if(px[j]>160)opaque++;
       }
       // Prepara uma amostra visual num trecho com flores e fauna.
-      const focus=squirrels[0]||blossoms[0];
+      const focus=blossoms[0];
       player.x=focus.x+2;player.y=focus.y+1;
       cam.x=cam.tx=focus.x;cam.y=cam.ty=focus.y;
       render();
       return {blossoms:blossoms.length,types:types.size,
-        bugs:bugs.length,squirrels:squirrels.length,
+        bugs:bugs.length,
         patchesCount,moved,opaque};
     });
     await game.screenshot({path:'artifacts/cityofgod-living-meadow.png',fullPage:true});
     console.log('Living ecosystem:',JSON.stringify(ecology));
     if(ecology.blossoms<100||ecology.types<6||ecology.bugs<30||
-      ecology.squirrels<8||!ecology.moved||ecology.opaque<800)
+      ecology.blossoms!==516||!ecology.moved||ecology.opaque<800)
       throw Error('Wildlife, meadow or sprites missing: '+JSON.stringify(ecology));
 
-    // Regressao da fauna: escala +10%, orientacao em cameras giradas,
-    // menos 60% de velocidade e -80% de populacao, sumico gradual nas folhas.
-    const squirrelCheck=await game.evaluate(()=>{
-      const spriteSet=ecosystem.squirrelSprites;
-      const a=spriteSet[0].idle[1].img,b=spriteSet[0].idle[4].img;
-      const aa=a.getContext('2d').getImageData(0,0,a.width,a.height).data;
-      const bb=b.getContext('2d').getImageData(0,0,b.width,b.height).data;
-      let changed=0,solid=0;
-      for(let i=0;i<aa.length;i+=4){
-        if(aa[i]!==bb[i]||aa[i+1]!==bb[i+1]||
-          aa[i+2]!==bb[i+2]||aa[i+3]!==bb[i+3])changed++;
-        if(aa[i+3]>180)solid++;
-      }
-      const pxWidth=ecosystem.squirrelSprites[0].idle[0].img.width*
-        cam.zoom/SQUIRREL_SCALE_DIVISOR;
-      const oldWidth=37*cam.zoom/40;
-      const formerPixelWidth=26*cam.zoom/155;
-      const sizeIncrease=pxWidth/formerPixelWidth;
-      // Cada direcao desenhada deve apontar para o movimento projetado na
-      // tela, inclusive quando a camera gira (bug antigo: caminhava de re).
-      const saved={ang:cam.ang,cos:cam.cos,sin:cam.sin};
-      let backwards=0,orientations=0;
-      for(const viewAngle of [0,Math.PI/4,Math.PI/2,Math.PI]){
-        cam.ang=viewAngle;cam.cos=Math.cos(viewAngle);cam.sin=Math.sin(viewAngle);
-        for(const heading of [-Math.PI,-2.1,-Math.PI/2,-.4,0,.6,Math.PI/2,2.7]){
-          const start=proj(30,30,0),
-            end=proj(30+Math.cos(heading),30+Math.sin(heading),0);
-          const horizontal=end.x-start.x;
-          if(Math.abs(horizontal)<.01)continue;
-          orientations++;
-          if(ecoSquirrelFacing(heading)!==(horizontal>0?1:-1))backwards++;
-        }
-      }
-      cam.ang=saved.ang;cam.cos=saved.cos;cam.sin=saved.sin;
-      const nearTrees=world.props.filter(p=>p.type==='tree'&&
-        Math.hypot(p.x-world.spawn[0],p.y-world.spawn[1])<24).length;
-      const nearSpawn=ecosystem.squirrels.filter(s=>
-        Math.hypot(s.homeX-world.spawn[0],s.homeY-world.spawn[1])<24).length;
-      // Procura area livre de pelo menos 2m para corrida previsivel.
-      let running=null;
-      for(const s of ecosystem.squirrels){
-        for(const direction of [0,Math.PI/2,Math.PI,-Math.PI/2]){
-          const dx=Math.cos(direction),dy=Math.sin(direction);
-          if([.4,.8,1.2,1.8,2.4].every(d=>ecoFree(s.x+dx*d,s.y+dy*d))){
-            running={s,dx,dy};break;
-          }
-        }
-        if(running)break;
-      }
-      let sprint=0;
-      if(running){
-        const {s,dx,dy}=running,startX=s.x,startY=s.y;
-        s.mode='flee';s.timer=2;s.panic=2;s.move=1;s.z=.035;
-        s.goalX=s.x+dx*2.4;s.goalY=s.y+dy*2.4;
-        player.x=s.x-dx*10;player.y=s.y-dy*10;
-        ecosystemTick(.2,player,12);
-        sprint=Math.hypot(s.x-startX,s.y-startY);
-      }
-      const climbing=ecosystem.squirrels[1];
-      climbing.mode='climb';climbing.z=.03;
-      climbing.goalZ=climbing.tree.sp.trunkH+.55;
-      climbing.x=climbing.tree.x;climbing.y=climbing.tree.y;
-      const z0=climbing.z;
-      player.x=climbing.x+20;player.y=climbing.y+20;
-      ecosystemTick(.22,player,13);
-      const rise=climbing.z-z0;
-      const canopyLow=ecoSquirrelCanopyAlpha({...climbing,z:.035,mode:'climb'});
-      const canopyMid=ecoSquirrelCanopyAlpha({...climbing,
-        z:climbing.tree.sp.trunkH*.98,mode:'climb'});
-      const canopyHigh=ecoSquirrelCanopyAlpha({...climbing,
-        z:climbing.tree.sp.trunkH+
-          Math.min(climbing.tree.sp.r*.16,.29)+.06,mode:'perch'});
-      // Galeria automatizada: repouso, respiracao, corrida e escalada.
-      const gallery=document.createElement('canvas'),ctx=gallery.getContext('2d');
-      gallery.width=600;gallery.height=180;gallery.id='squirrel-pixel-gallery';
-      gallery.style.cssText='position:fixed;top:0;left:0;z-index:99999;background:#718059';
-      const poses=['idle','run','climb'];
-      for(let kind=0;kind<3;kind++)
-        for(let pose=0;pose<3;pose++){
-          const sp=spriteSet[kind][poses[pose]][pose===0?1:3];
-          ctx.imageSmoothingEnabled=false;
-          ctx.drawImage(sp.img,kind*200+pose*65+5,24,sp.img.width*3,sp.img.height*3);
-        }
-      document.body.append(gallery);
-      return {kinds:spriteSet.length,frames:spriteSet[0].idle.length,
-        changePixels:changed,opaque:solid,pxWidth,oldWidth,
-        sizeRatio:oldWidth/pxWidth,sizeIncrease,
-        movementFactor:SQUIRREL_MOVEMENT_FACTOR,
-        backwards,orientations,canopyLow,canopyMid,canopyHigh,
-        nearTrees,nearSpawn,totalSquirrels:ecosystem.squirrels.length,sprint,rise};
-    });
-    await game.screenshot({path:'artifacts/squirrel-pixel-gallery.png',fullPage:true});
-    console.log('Tiny animated squirrels:',JSON.stringify(squirrelCheck));
-    if(squirrelCheck.kinds!==3||squirrelCheck.frames!==6||
-       squirrelCheck.opaque<50||squirrelCheck.changePixels<12||
-       Math.abs(squirrelCheck.sizeIncrease-1.10)>.002||
-       squirrelCheck.movementFactor!==.40||
-       squirrelCheck.totalSquirrels!==21||
-       squirrelCheck.backwards!==0||squirrelCheck.orientations<20||
-       squirrelCheck.canopyLow!==1||squirrelCheck.canopyHigh!==0||
-       !(squirrelCheck.canopyMid>0&&squirrelCheck.canopyMid<1)||
-       (squirrelCheck.nearTrees>=3&&squirrelCheck.nearSpawn<1)||
-       Math.abs(squirrelCheck.sprint-.496)>.025||
-       Math.abs(squirrelCheck.rise-.2288)>.025)
-      throw Error('Small animated squirrel regression: '+JSON.stringify(squirrelCheck));
-    await game.evaluate(()=>{
-      document.querySelector('#squirrel-pixel-gallery')?.remove();
-      const s=ecosystem.squirrels[0];
-      window.__manual=true;
-      player.x=s.x+8;player.y=s.y+8;
-      cam.x=cam.tx=s.x;cam.y=cam.ty=s.y;
+    // Confirma que nao existe nenhum esquilo na simulacao nem no render.
+    const housing=await game.evaluate(()=>{
+      const removed=!('squirrels' in ecosystem) &&
+        !('squirrelSprites' in ecosystem);
+      const two=houses.filter(H=>H.storeys===2);
+      const variants=[...new Set(two.map(H=>H.templateKey))];
+      const H=two[0];
+      if(!H)return {removed,count:0,variants};
+      const original={x:player.x,y:player.y,floor:player.floor,
+        floorZ:player.floorZ,stairTravel:player.stairTravel};
+      player.x=H.stair.x;player.y=H.stair.y;
+      player.floor=0;player.floorZ=0;player.stairTravel=null;
+      const started=updateHouseStairs(player,.05,true);
+      for(let i=0;i<35;i++)updateHouseStairs(player,.05,false);
+      const up=player.floor===1&&
+        Math.abs(player.floorZ-STOREY_HEIGHT)<.001;
+      cam.x=cam.tx=H.stair.x;cam.y=cam.ty=H.stair.y;
       render();
+      const hall=H.upper.walls.length,items=H.upper.furniture.length,
+        blocking=(world.upperSegs||[]).filter(s=>s.house===H).length;
+      const descended=updateHouseStairs(player,.05,true);
+      for(let i=0;i<35;i++)updateHouseStairs(player,.05,false);
+      const down=player.floor===0&&player.floorZ===0;
+      Object.assign(player,original);
+      return {removed,count:two.length,variants,
+        started,up,descended,down,hall,items,blocking,
+        stairs:H.upper.steps.length};
     });
-    await game.screenshot({path:'artifacts/squirrel-visible-in-world.png',fullPage:true});
+    await game.screenshot({path:'artifacts/cityofgod-two-storey-house.png',fullPage:true});
+    console.log('Two-storey houses:',JSON.stringify(housing));
+    if(!housing.removed||housing.count<2||housing.variants.length<2||
+      !housing.started||!housing.up||!housing.descended||!housing.down||
+      housing.hall<10||housing.items<4||housing.blocking<10||
+      housing.stairs!==10)
+      throw Error('House stair/interior or wildlife removal failed: '+JSON.stringify(housing));
 
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.

@@ -6,19 +6,29 @@ on:
     paths:
       - js/world.js
       - js/game.js
+      - js/houses.js
+      - js/roofs.js
+      - js/archi.js
+      - js/multistorey.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
+      - tests/architecture.test.js
       - .github/workflows/vegetation.yml
   pull_request:
     paths:
       - js/world.js
       - js/game.js
+      - js/houses.js
+      - js/roofs.js
+      - js/archi.js
+      - js/multistorey.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
+      - tests/architecture.test.js
       - .github/workflows/vegetation.yml
 permissions:
   contents: read
@@ -31,6 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check house geometry and stairs
+        run: node tests/architecture.test.js
       - name: Check foliage generation
         run: node tests/vegetation.test.js
       - name: Install headless browser driver

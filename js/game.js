@@ -128,12 +128,12 @@ function updatePlayer(dt) {
   p.running = input.down('shift') && !p.aiming;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
-  if (mx || my) {
+  if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
     spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 3.7 : 1.75;
     if (p.reloadT >= 0) spd = Math.min(spd, 1.3);
-    const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28);
+    const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28, p.floor||0);
     const moved = Math.hypot(nx - p.x, ny - p.y);
     p.x = nx; p.y = ny; spd = dt > 0 ? moved / dt : p.speed;
   }
@@ -295,7 +295,18 @@ function render() {
        pos.y < -padding || pos.y > H+padding) continue;
     list.push({ d: depthOf(l.x, l.y), draw: () => drawLamp(g, l, st.night) });
   }
-  for (const a of actors) list.push({ d: depthOf(a.x, a.y) + 0.05, draw: () => drawActor(g, a, a.J, a.pal), actor: a });
+  for (const a of actors) {
+    const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
+      a.x>H.x0&&a.x<H.x1&&a.y>H.y0&&a.y<H.y1);
+    const above=upper?Math.max(...[[upper.x0,upper.y0],[upper.x1,upper.y1]]
+      .map(p=>depthOf(p[0],p[1])))+4:depthOf(a.x,a.y)+.05;
+    list.push({d:above,draw:()=>{
+      g.save();
+      if(a.floorZ)g.translate(0,-a.floorZ*cam.zoom*HZ);
+      drawActor(g,a,a.J,a.pal);
+      g.restore();
+    },actor:a});
+  }
   for (const q of parts) list.push({ d: depthOf(q.x, q.y) + (q.z > 0.5 ? 0.3 : 0), draw: () => drawPart(q) });
   list.sort((a, b) => a.d - b.d);
   for (const it of list) it.draw(g);
@@ -401,6 +412,13 @@ function tick(dt) {
   if (input.hit('e')) cam.tang -= Math.PI / 2;
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
+  // F junto ao patamar sobe/desce; jogador permanece no local durante a
+  // animacao de 1,55s e troca colisao apenas ao terminar a transicao.
+  const stairStarted=updateHouseStairs(player,dt,input.hit('f'));
+  if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
+    hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
+    hud.msgT=1.8;
+  }
   updatePlayer(dt);
   ecosystemTick(dt, player, T);
   for (const n of npcs) updateNPC(n, dt);
