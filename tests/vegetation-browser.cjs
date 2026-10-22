@@ -364,7 +364,11 @@ const {judge}=require('./visual-quality-judge.cjs');
           a.y-H.chimney.y)>.72));
       if(smoky.length){
         const H=smoky[0],c=H.chimney,remember=[cam.x,cam.y];
-        cam.x=cam.tx=c.x;cam.y=cam.ty=c.y;
+        // Centraliza na pluma, nao na base da casa: em telhados
+        // inclinados altos a fumaca ficava acima da borda do viewport.
+        const smokeZ=c.z+c.h+1.25,offset=smokeZ*HZ/TILT;
+        cam.x=cam.tx=c.x-cam.sin*offset;
+        cam.y=cam.ty=c.y-cam.cos*offset;
         const smoke=makeCanvas(cam.W,cam.H),ctx=smoke.getContext('2d');
         urbanDrawChimneySmoke(ctx,c,4.5,c.z+c.h);
         const raw=ctx.getImageData(0,0,smoke.width,smoke.height).data;
