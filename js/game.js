@@ -278,9 +278,7 @@ function render() {
   g.fillStyle = '#26301c'; g.fillRect(0, 0, W, H);
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
-  g.setTransform(s * c / PPM, s * TILT * sn / PPM, -s * sn / PPM, s * TILT * c / PPM, W / 2 - s * (c * cam.x - sn * cam.y), H / 2 - s * TILT * (sn * cam.x + c * cam.y));
-  g.imageSmoothingEnabled = true; g.drawImage(world.ground, 0, 0); g.imageSmoothingEnabled = false;
-  g.setTransform(1, 0, 0, 1, 0, 0);
+  drawGround(g, W, H);
 
   const list = [], margin = 6 * s;
   for (const p of world.props) {

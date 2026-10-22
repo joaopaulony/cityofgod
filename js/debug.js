@@ -15,6 +15,7 @@ window.unsnap = () => document.querySelectorAll('[id^=dbg]').forEach(c => c.remo
 window.wait = ms => new Promise(r => setTimeout(r, ms));
 
 const SCENE = new URLSearchParams(location.search).get('scene');
+world.terrainSync = true;
 const aimAt = (x, y, z = 1) => { const t = proj(x, y, z); input.mx = t.x * RS; input.my = t.y * RS; };
 const place = (x, y, face) => { player.x = x; player.y = y; if (face !== undefined) player.face = face; cam.x = cam.tx = x; cam.y = cam.ty = y; };
 const freeze = () => { window.__timeScale = 0; document.title = 'READY'; };

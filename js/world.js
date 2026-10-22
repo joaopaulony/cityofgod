@@ -101,135 +101,14 @@ function pondVal(x, y) {
 }
 const isWater = (x, y) => pondVal(x, y) < 1;
 
-// ---------- chão (uma vez) ----------
+// ---------- chão ----------
+// O chão detalhado é pintado por blocos em terrain.js. Aqui fica a camada de sombras assadas
+// (world.groundCtx, PPM px/m, transparente) e o minimapa (world.ground, world.groundPPM px/m).
 function paintGround() {
-  const c = makeCanvas(MAP * PPM, MAP * PPM), g = c.getContext('2d');
-  const M = v => v * PPM;
-  const rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
-  const cell = 0.25, CP = Math.ceil(M(cell));
-
-  // grama em blocos de "pixel" com tons dados pelo ruído (manchas orgânicas, bordas serrilhadas)
-  const GR = ['#4f6a2a', '#5f7d33', '#6c8a3a', '#7a9642', '#8aa64a'];
-  for (let y = 0; y < MAP; y += cell) for (let x = 0; x < MAP; x += cell) {
-    const n = fbm(x * 0.09, y * 0.09, 4) + (rng() - 0.5) * 0.06;
-    let k = clamp(Math.floor((n - 0.28) * 9.5), 0, 4);
-    if (forest(x, y) > 0.58) k = Math.max(0, k - 1);           // chão de floresta mais escuro
-    let col = GR[k];
-    const dirt = fbm(x * 0.13 + 50, y * 0.13 + 50, 3);
-    if (dirt > 0.7) col = dirt > 0.74 ? '#8a7048' : '#7d7a3e';  // clareiras de terra batida
-    g.fillStyle = col; g.fillRect(M(x) | 0, M(y) | 0, CP, CP);
-  }
-  // Micrograma pintada lâmina por lâmina uma vez no solo do mapa,
-  // substituindo pontinhos retangulares repetitivos.
-  const gc = ['#58752f', '#80a046', '#91ad52', '#4f6a2a', '#738f3d', '#a7b65d'];
-  for (let i = 0; i < MAP * MAP * 10; i++) {
-    const bx = rng() * MAP * PPM, by = rng() * MAP * PPM,
-      length = R(1.6,4.7),lean=R(-2,2);
-    g.strokeStyle=gc[(rng()*gc.length)|0];g.lineWidth=R(.55,1.1);
-    g.beginPath();g.moveTo(bx,by);
-    g.quadraticCurveTo(bx+lean*.32,by-length*.58,bx+lean,by-length);
-    g.stroke();
-    if (i%7===0) {
-      g.beginPath();g.moveTo(bx+R(-1.7,1.7),by);
-      g.quadraticCurveTo(bx-lean*.15,by-length*.5,bx-lean*.62,by-length*.81);
-      g.stroke();
-    }
-  }
-  // lago: areia -> água rasa -> funda, em blocos, com brilhos
-  if (world.pond) {
-    const p = world.pond;
-    for (let y = p.y - p.ry - 3; y < p.y + p.ry + 3; y += cell) for (let x = p.x - p.rx - 3; x < p.x + p.rx + 3; x += cell) {
-      const v = pondVal(x, y);
-      if (v > 1.22) continue;
-      g.fillStyle = v > 1.08 ? '#a99868' : v > 1 ? '#8a7f55' : v > 0.82 ? '#4a8098' : v > 0.5 ? '#3a6c86' : '#2f5d74';
-      g.fillRect(M(x) | 0, M(y) | 0, CP, CP);
-    }
-    for (let i = 0; i < 160; i++) {
-      const x = p.x + R(-p.rx, p.rx), y = p.y + R(-p.ry, p.ry);
-      if (pondVal(x, y) < 0.8) { g.fillStyle = rng() < 0.5 ? '#7fb2c6' : '#5b93ab'; g.fillRect(M(x), M(y), R(4, 10), 2); }
-    }
-  }
-  // trilhas de terra (geradas em buildWorld)
-  g.lineCap = 'round'; g.lineJoin = 'round';
-  for (const trail of world.trails) {
-    for (const [w, col] of [[2.0, '#6f5a37'], [1.5, '#8a7048'], [0.9, '#9b8055']]) {
-      g.strokeStyle = col; g.lineWidth = M(w); g.beginPath();
-      trail.forEach(([x, y], i) => i ? g.lineTo(M(x), M(y)) : g.moveTo(M(x), M(y))); g.stroke();
-    }
-    for (let i = 0; i < trail.length * 14; i++) {
-      const k = rng() * (trail.length - 1), a = trail[k | 0], b = trail[(k | 0) + 1], f = k % 1;
-      g.fillStyle = rng() < 0.5 ? '#6a5534' : '#ad9467';
-      g.fillRect(M(lerp(a[0], b[0], f) + R(-0.5, 0.5)), M(lerp(a[1], b[1], f) + R(-0.5, 0.5)), 2, 2);
-    }
-  }
-  // ruas: todas as calçadas, depois meio-fio, depois asfalto (assim os cruzamentos se fundem)
-  const stroke = (pts, w, col) => { g.strokeStyle = col; g.lineWidth = M(w); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(M(p.x), M(p.y)) : g.moveTo(M(p.x), M(p.y))); g.stroke(); };
-  for (const r of world.roads) stroke(r.pts, (ROAD_W + SIDE) * 2, '#a39e92');
-  g.strokeStyle = '#8c877c'; g.lineWidth = 1;   // juntas das placas, perpendiculares à rua
-  for (const r of world.roads) for (let i = 0; i < r.pts.length; i += 2) {
-    const p = r.pts[i];
-    for (const s of [1, -1]) {
-      const ax = p.x + p.nx * s * (ROAD_W + 0.2), ay = p.y + p.ny * s * (ROAD_W + 0.2);
-      if (roadDist(ax, ay) < ROAD_W - 0.1) continue;
-      g.beginPath(); g.moveTo(M(ax), M(ay)); g.lineTo(M(p.x + p.nx * s * (ROAD_W + SIDE)), M(p.y + p.ny * s * (ROAD_W + SIDE))); g.stroke();
-    }
-  }
-  for (let i = 0; i < MAP * MAP * 1.2; i++) {
-    const x = R(0, MAP), y = R(0, MAP), d = roadDist(x, y);
-    if (d > ROAD_W && d < ROAD_W + SIDE) { g.fillStyle = rng() < .5 ? '#b3aea2' : '#959084'; g.fillRect(M(x), M(y), 2, 2); }
-  }
-  for (const r of world.roads) stroke(r.pts, ROAD_W * 2 + 0.5, '#c9c4b8');
-  for (const r of world.roads) stroke(r.pts, ROAD_W * 2 + 0.25, '#4f4c46');
-  for (const r of world.roads) stroke(r.pts, ROAD_W * 2, '#45464c');
-  for (let i = 0; i < MAP * MAP * 6; i++) {
-    const x = R(0, MAP), y = R(0, MAP);
-    if (roadDist(x, y) < ROAD_W - 0.1) { g.fillStyle = ['#3b3c41', '#505157', '#404146'][(rng() * 3) | 0]; g.fillRect(M(x), M(y), 2, 2); }
-  }
-  // rachaduras e manchas de óleo
-  for (let i = 0; i < 160; i++) {
-    let x = R(0, MAP), y = R(0, MAP); if (roadDist(x, y) > ROAD_W - 0.4) continue;
-    let a = R(0, TAU); g.strokeStyle = '#323338'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(M(x), M(y));
-    for (let k = 0; k < 6; k++) { a += R(-0.6, 0.6); x += Math.cos(a) * 0.22; y += Math.sin(a) * 0.22; g.lineTo(M(x), M(y)); }
-    g.moveTo(M(x), M(y)); g.lineTo(M(x + Math.cos(a + 1.2) * 0.3), M(y + Math.sin(a + 1.2) * 0.3)); g.stroke();
-  }
-  for (let i = 0; i < 50; i++) {
-    const x = R(0, MAP), y = R(0, MAP); if (roadDist(x, y) > ROAD_W - 1) continue;
-    g.fillStyle = rng() < 0.5 ? 'rgba(20,20,26,.35)' : '#3f4045';
-    g.beginPath(); g.ellipse(M(x), M(y), M(R(0.4, 1.2)), M(R(0.3, 0.8)), R(0, 3), 0, TAU); g.fill();
-  }
-  // faixa dupla amarela (some no cruzamento) + bueiros junto ao meio-fio
-  const J = world.junction, nearJ = p => Math.hypot(p.x - J.x, p.y - J.y) < ROAD_W + 3;
-  g.strokeStyle = '#d9b23a'; g.lineWidth = 3; g.lineCap = 'butt';
-  for (const r of world.roads) for (const o of [-0.13, 0.13]) {
-    g.beginPath(); let on = false;
-    for (const p of r.pts) {
-      if (nearJ(p)) { on = false; continue; }
-      const qx = M(p.x + p.nx * o), qy = M(p.y + p.ny * o);
-      on ? g.lineTo(qx, qy) : g.moveTo(qx, qy); on = true;
-    }
-    g.stroke();
-  }
-  for (const r of world.roads) for (let i = 30; i < r.pts.length; i += 55) {
-    const p = r.pts[i], s = i % 2 ? 1 : -1;
-    if (nearJ(p)) continue;
-    g.save(); g.translate(M(p.x + p.nx * s * (ROAD_W - 0.45)), M(p.y + p.ny * s * (ROAD_W - 0.45))); g.rotate(Math.atan2(p.ty, p.tx));
-    g.fillStyle = '#26272b'; g.fillRect(-M(0.4), -M(0.25), M(0.8), M(0.5));
-    g.fillStyle = '#55565c'; for (let k = 0; k < 4; k++) g.fillRect(-M(0.35) + k * M(0.2), -M(0.2), 3, M(0.4));
-    g.restore();
-  }
-  // faixas de pedestre em cada braço do cruzamento
-  g.fillStyle = '#d8d6cf';
-  for (const r of world.roads) {
-    let ci = 0, cd = 1e9; r.pts.forEach((p, i) => { const d = Math.hypot(p.x - J.x, p.y - J.y); if (d < cd) { cd = d; ci = i; } });
-    for (const dir of [-1, 1]) {
-      const p = r.pts[ci + dir * Math.round((ROAD_W + 3.2) * 2)]; if (!p) continue;
-      g.save(); g.translate(M(p.x), M(p.y)); g.rotate(Math.atan2(p.ty, p.tx));
-      for (let k = -3; k < 3; k++) g.fillRect(-M(0.85), M(k * 1.12 + 0.28), M(1.7), M(0.6));
-      g.restore();
-    }
-  }
-  world.paintFloors && world.paintFloors(g, M, rect);   // pisos, caminhos e sombras das casas (houses.js)
-  world.ground = c; world.groundCtx = g;
+  const sc = makeCanvas(MAP * PPM, MAP * PPM);
+  world.groundCtx = sc.getContext('2d');
+  terrainInit();
+  world.ground = terrain.mini; world.groundPPM = MINI;
 }
 
 // sombras assadas no chão (giram junto com o mapa porque a luz é do mundo)
