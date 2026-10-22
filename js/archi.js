@@ -25,10 +25,12 @@ const ROOF_MATS = {
 function houseStyle(H, rnd) {
   const pick = a => a[(rnd() * a.length) | 0];
   const S = {
-    plaster: H.brick ? '#9c4a3b' : pick(PLASTERS), trim: pick(TRIMS), found: pick(['#7a756b', '#6e6a62', '#857f73']),
+    plaster: H.brick ? '#9c4a3b' :
+      H.rural?pick(['#9e8362','#a48e70','#99846c','#ac9470']):pick(PLASTERS), trim: pick(TRIMS), found: pick(['#7a756b', '#6e6a62', '#857f73']),
     door: H.brick ? ['glass', '#8d9399'] : pick(DOORS), curtains: rnd() < 0.6, curtain: pick(CURTAINS),
     aging: 0.25 + rnd() * 0.6, spout: rnd() < 0.5 ? 0 : 1, glassTint: pick(['#6f8ea6', '#5f7f96', '#7a93a3']),
-    roofMat: H.roofKind === 'flat' ? 'concrete' : pick(['ceramic', 'ceramic', 'shingle', 'metal']),
+    roofMat: H.roofKind === 'flat' ? 'concrete' :
+      H.rural?pick(['shingle','metal','ceramic']):pick(['ceramic','ceramic','shingle','metal']),
     interior: pick(['#d8d2c4', '#cfd6d0', '#e0d4c0', '#c9cdd6', '#d6c8b8']),
   };
   S.roofCol = S.roofMat === 'concrete' ? '#8f8c86' : pick(ROOF_MATS[S.roofMat]);
@@ -125,7 +127,28 @@ function paintFacade(H, side, exterior, rnd) {
   const Y = z => (Hc - z) * TEX, X = u => u * TEX;
   const segs = H.segs.filter(s => s.side === side).sort((a, b) => a.idx - b.idx);
   if (exterior) {
-    if (H.brick) paintBrick(g, 0, 0, W, Hp, S.plaster, rnd); else paintPlaster(g, 0, 0, W, Hp, S.plaster, rnd, S.aging);
+    if (H.brick) paintBrick(g, 0, 0, W, Hp, S.plaster, rnd);
+    else paintPlaster(g, 0, 0, W, Hp, S.plaster, rnd, S.aging);
+    if(H.rural){
+      // Tábuas envelhecidas com juntas, fibras, pregos e irregularidades.
+      for(let y=0;y<Hp;y+=.27*TEX){
+        g.fillStyle='rgba(33,24,17,.32)';
+        g.fillRect(0,y,W,Math.max(1,.020*TEX));
+        g.fillStyle='rgba(242,218,182,.12)';g.fillRect(0,y+1,W,1.2);
+        const shift=Math.round(rnd()*TEX*1.2);
+        for(let x=shift;x<W;x+=2.2*TEX){
+          g.fillStyle='rgba(38,28,20,.20)';g.fillRect(x,y+2,1,.27*TEX-3);
+          g.fillStyle='#5e5549';g.fillRect(x+3,y+3,1.5,1.5);
+        }
+        for(let j=0;j<Math.max(2,Math.floor(L));j++){
+          const x=rnd()*W;
+          g.fillStyle='rgba(58,40,24,.16)';
+          g.fillRect(x,y+3,.9,.08*TEX);
+        }
+      }
+      g.fillStyle='rgba(35,26,18,.24)';
+      g.fillRect(0,Hp-9,W,9);
+    }
     // quinas com acabamento (pilares) e sombra interna
     for (const ux of [0, L - 0.14]) {
       g.fillStyle = H.brick ? '#b4a99a' : shadeHex(S.plaster, 1.07); g.fillRect(X(ux), 0, 0.14 * TEX, Hp);
