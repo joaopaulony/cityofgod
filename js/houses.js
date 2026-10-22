@@ -396,7 +396,7 @@ function wallMap(s) {
   const H = s.house;
   if (s.ext) { const sd = H.sides[s.side]; return { a: sd.a, dir: sd.dir, Hc: sd.Hc, idx: s.idx }; }
   const l = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
-  return { a: [s.x1, s.y1], dir: [(s.x2 - s.x1) / l, (s.y2 - s.y1) / l], Hc: H.h, idx: 0 };
+  return { a: [s.x1, s.y1], dir: [(s.x2 - s.x1) / l, (s.y2 - s.y1) / l], Hc: H.storeys ? H.floorHeight : H.h, idx: 0 };
 }
 function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
   if (z1 <= z0) return;
@@ -637,6 +637,9 @@ function houseDrawables(list, px, py) {
         .map(p => depthOf(p[0], p[1]))) + 0.75
       : maxD + 0.5;
     list.push({ d: roofDepth, draw: g => drawRoof(g, H), roof: H });
+    if(H.upper&&H.inside&&!upstairs)list.push({
+      d:roofDepth+.14,draw:g=>drawHouseStaircase(g,H)
+    });
     if(upstairs)list.push({
       d:roofDepth+.25,draw:g=>drawHouseUpper(g,H),upper:H
     });
