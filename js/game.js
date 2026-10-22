@@ -401,18 +401,25 @@ function drawNight(W,H){
     porch.push({x,y,home,r:2.05,polygon:lightVisibilityFor(home,x,y,2.05)});
   }
   lg.globalCompositeOperation='destination-out';
-  const carve=(x,y,r,k,polygon)=>{
-    lg.save();if(polygon)clipLightPolygon(lg,polygon);
-    const p=proj(x,y,0);radial(lg,p.x,p.y,r*Z,k);
+  const carve=(x,y,r,k,polygon,z=0)=>{
+    lg.save();if(polygon)clipLightPolygon(lg,polygon,z);
+    const p=proj(x,y,z);radial(lg,p.x,p.y,r*Z,k);
     lg.restore();
   };
   for(const l of lamps)carve(l.x,l.y,l.r,.91,l.polygon);
   for(const w of windows)carve(w.x,w.y,w.r,.54,w.polygon);
   for(const w of porch)carve(w.x,w.y,w.r,.77,w.polygon);
-  for(const home of houses)if(home.inside){
-    const poly=lightVisibilityPolygon(player.x,player.y,3.8);
-    carve(player.x,player.y,3.8,.70,poly);
-  }
+  // Luminarias internas iluminam cada comodo sem atravessar divisorias.
+  // Interruptores F controlam a luz; o pavimento superior tem plano proprio.
+  const indoor=[];
+  for(const home of houses)if(home.inside&&home.lightOn)
+    for(const fixture of home.indoorLights||[]){
+      if(fixture.floor!==(player.floor||0))continue;
+      indoor.push({...fixture,polygon:lightVisibilityPolygon(
+        fixture.x,fixture.y,fixture.r,fixture.floor)});
+    }
+  for(const p of indoor)carve(p.x,p.y,p.r,.67,p.polygon,
+    p.floor?STOREY_HEIGHT:0);
   const cars=boxes.filter(b=>b.kind==='car');
   for(const b of cars){
     const a=b.rot,x=b.x+Math.cos(a)*(b.w/2+1.1),
@@ -425,9 +432,9 @@ function drawNight(W,H){
   lg.globalCompositeOperation='source-over';
   g.drawImage(light,0,0);
   g.globalCompositeOperation='lighter';
-  const tint=(x,y,r,a,color,polygon)=>{
-    g.save();if(polygon)clipLightPolygon(g,polygon);
-    const p=proj(x,y,0);radial(g,p.x,p.y,r*Z,a,TILT,color);
+  const tint=(x,y,r,a,color,polygon,z=0)=>{
+    g.save();if(polygon)clipLightPolygon(g,polygon,z);
+    const p=proj(x,y,z);radial(g,p.x,p.y,r*Z,a,TILT,color);
     g.restore();
   };
   for(const l of lamps){
@@ -440,6 +447,8 @@ function drawNight(W,H){
   }
   for(const w of windows)tint(w.x,w.y,w.r*.78,.10,'242,188,108',w.polygon);
   for(const w of porch)tint(w.x,w.y,w.r*.75,.16,'251,199,118',w.polygon);
+  for(const p of indoor)tint(p.x,p.y,p.r*.74,.18,'249,211,150',
+    p.polygon,p.floor?STOREY_HEIGHT:0);
   g.globalCompositeOperation='source-over';
 }
 
@@ -456,9 +465,12 @@ function tick(dt) {
   if (input.hit('e')) cam.tang -= Math.PI / 2;
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
-  // F junto ao patamar sobe/desce; jogador permanece no local durante a
-  // animacao de 1,55s e troca colisao apenas ao terminar a transicao.
-  const stairStarted=updateHouseStairs(player,dt,input.hit('f'));
+  // F prioriza o patamar; quando nao ha escada, usa portas, luzes e moveis.
+  const interactPressed=input.hit('f');
+  const stairStarted=updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!stairStarted&&useHouseInteraction(player,st,T)){
+    hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
+  }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
     hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
     hud.msgT=1.8;
@@ -485,7 +497,17 @@ function tick(dt) {
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
   render();
   cam.x = sx; cam.y = sy;
-  drawHUD(h, hudC.width, hudC.height, st);
+  drawHUD(h,hudC.width,hudC.height,st);
+  // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
+  const prompt=interactionPrompt(player);
+  if(prompt&&!player.stairTravel){
+    h.save();h.font='600 14px sans-serif';h.textAlign='center';
+    const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
+    h.fillStyle='rgba(20,19,16,.84)';h.fillRect(x,y,w,29);
+    h.strokeStyle='rgba(215,185,127,.54)';h.strokeRect(x+.5,y+.5,w-1,28);
+    h.fillStyle='#f3dfb6';h.fillText(prompt,hudC.width/2,y+20);
+    h.restore();
+  }
   input.endFrame();
 }
 requestAnimationFrame(frame);

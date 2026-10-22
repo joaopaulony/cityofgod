@@ -92,9 +92,10 @@ function initUpperFloor(H,T,L,k){
     for(let j=0;j<n;j++){
       const seg={x1:start[0]+dx*j,y1:start[1]+dy*j,
         x2:start[0]+dx*(j+1),y2:start[1]+dy*(j+1),
-        house:H,ext:false,floor:1,z,door:j===wall.door};
+        house:H,ext:false,floor:1,z,door:j===wall.door,
+        doorAnim:j===wall.door?{open:0,target:0}:null};
       H.upper.walls.push(seg);
-      if(!seg.door)world.upperSegs.push(seg);
+      world.upperSegs.push(seg);
     }
   }
   // Porta do primeiro andar nao pode funcionar como um buraco no piso superior.
@@ -190,7 +191,19 @@ function drawHouseUpper(g,H){
     g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();
   }
   for(const seg of H.upper.walls){
-    if(seg.door)continue;
+    if(seg.door){
+      // O arco e a folha da porta seguem os mesmos quadros da porta terrea.
+      const p=proj((seg.x1+seg.x2)/2,(seg.y1+seg.y2)/2,z);
+      const open=seg.doorAnim?seg.doorAnim.open:0;
+      const q=[proj(seg.x1,seg.y1,z),proj(seg.x2,seg.y2,z),
+        proj(seg.x2,seg.y2,z+1.9),proj(seg.x1,seg.y1,z+1.9)];
+      if(open<.98)poly(g,q,'rgba(127,92,60,'+(1-open*.90)+')','#523f2d',.8);
+      const top=proj((seg.x1+seg.x2)/2,(seg.y1+seg.y2)/2,z+2.1);
+      g.strokeStyle='#745b41';g.lineWidth=Math.max(1,cam.zoom*.045);
+      g.beginPath();g.moveTo(q[3].x,q[3].y);g.lineTo(top.x,top.y);
+      g.lineTo(q[2].x,q[2].y);g.stroke();
+      continue;
+    }
     const n=[seg.y1-seg.y2,seg.x2-seg.x1];
     const outward=facingCam(n[0],n[1])>0;
     const h=outward?.52:1.28;

@@ -11,18 +11,25 @@ function raySegmentDistance(x,y,dx,dy,s,maxDist){
     t=cross2(rx,ry,vx,vy)/det,u=cross2(rx,ry,dx,dy)/det;
   return t>1e-4&&t<maxDist&&u>=-1e-5&&u<=1+1e-5?t:maxDist;
 }
-function wallOccluders(x,y,radius){
+function wallOccluders(x,y,radius,floor=0){
   const ret=[];
   for(const H of houses){
     if(H.x1<x-radius||H.x0>x+radius||H.y1<y-radius||H.y0>y+radius)continue;
     // Todas as paredes bloqueiam o halo, internas ou externas.
     // Aberturas sao analisadas separadamente no sistema de visao.
-    for(const s of H.segs)ret.push(s);
+    if(floor===1&&H.upper){
+      for(const s of H.segs)if(s.ext)ret.push(s);
+      for(const s of H.upper.walls)
+        if(!s.door||!s.doorAnim||s.doorAnim.open<.72)ret.push(s);
+    }else for(const s of H.segs){
+      if(!s.ext&&s.door&&s.doorAnim?.open>=.72)continue;
+      ret.push(s);
+    }
   }
   return ret;
 }
-function lightVisibilityPolygon(x,y,radius){
-  const obstacles=wallOccluders(x,y,radius);
+function lightVisibilityPolygon(x,y,radius,floor=0){
+  const obstacles=wallOccluders(x,y,radius,floor);
   const result=[];
   for(let i=0;i<LIGHT_RAYS;i++){
     const a=i*TAU/LIGHT_RAYS,dx=Math.cos(a),dy=Math.sin(a);
@@ -58,10 +65,10 @@ function houseVisibleOpenings(H,x,y){
   }
   return result;
 }
-function clipLightPolygon(ctx,worldPoints){
+function clipLightPolygon(ctx,worldPoints,z=0){
   ctx.beginPath();
   worldPoints.forEach(([x,y],i)=>{
-    const p=proj(x,y,0);
+    const p=proj(x,y,z);
     if(!i)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
   });
   ctx.closePath();
