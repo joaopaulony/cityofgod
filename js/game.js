@@ -4,6 +4,7 @@
 const view = document.getElementById('view'), g = view.getContext('2d');
 const hudC = document.getElementById('hud'), h = hudC.getContext('2d');
 const light = makeCanvas(1, 1), lg = light.getContext('2d');
+const glows=makeCanvas(1,1),gg=glows.getContext('2d');
 
 buildWorld();
 
@@ -28,6 +29,7 @@ function resize() {
   view.width = Math.ceil(innerWidth / RS); view.height = Math.ceil(innerHeight / RS);
   hudC.width = innerWidth; hudC.height = innerHeight;
   light.width = view.width; light.height = view.height;
+  glows.width=view.width;glows.height=view.height;
   cam.W = view.width; cam.H = view.height;
 }
 addEventListener('resize', resize); resize();
@@ -379,26 +381,34 @@ function drawNight(W,H){
   };
   const lamps=[];
   for(const l of world.lamps){
-    const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,r=3.55;
+    const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,r=5.1;
     if(!visible(x,y,r))continue;
     lamps.push({l,x,y,r,polygon:lightVisibilityFor(l,x,y,r)});
   }
+  // Janela acesa emite apenas pelo lado EXTERNO de sua fachada.
+  // A luminaria interior so gera esse brilho se o interruptor estiver ligado.
   const windows=[];
-  for(const home of houses)for(const s of home.segs){
-    if(!s.ext||!s.window||!s.side)continue;
-    const x=(s.x1+s.x2)*.5+s.nx*.83,
-      y=(s.y1+s.y2)*.5+s.ny*.83;
-    if(!visible(x,y,1.55))continue;
-    windows.push({x,y,r:1.55,s,polygon:lightVisibilityFor(s,x,y,1.55)});
+  for(const home of houses){
+    if(!home.lightOn)continue;
+    for(const s of home.segs){
+      if(!s.ext||!s.window||!s.side)continue;
+      const x=(s.x1+s.x2)*.5+s.nx*.24,
+        y=(s.y1+s.y2)*.5+s.ny*.24,r=2.05;
+      if(!visible(x,y,r))continue;
+      windows.push({x,y,r,s,
+        polygon:exteriorLightCone(x,y,r,s.nx,s.ny,Math.PI*.30)});
+    }
   }
   const porch=[];
   for(const home of houses){
     if(!home.wallLamp||!home.frontSide)continue;
     const sd=home.sides[home.frontSide],
-      x=sd.a[0]+sd.dir[0]*home.wallLamp[0]+sd.n[0]*.45,
-      y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.45;
-    if(!visible(x,y,2.05))continue;
-    porch.push({x,y,home,r:2.05,polygon:lightVisibilityFor(home,x,y,2.05)});
+      x=sd.a[0]+sd.dir[0]*home.wallLamp[0]+sd.n[0]*.30,
+      y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.30,
+      r=3.4;
+    if(!visible(x,y,r))continue;
+    porch.push({x,y,home,r,
+      polygon:exteriorLightCone(x,y,r,sd.n[0],sd.n[1],Math.PI*.36)});
   }
   lg.globalCompositeOperation='destination-out';
   const carve=(x,y,r,k,polygon,z=0)=>{
@@ -406,9 +416,9 @@ function drawNight(W,H){
     const p=proj(x,y,z);radial(lg,p.x,p.y,r*Z,k);
     lg.restore();
   };
-  for(const l of lamps)carve(l.x,l.y,l.r,.91,l.polygon);
-  for(const w of windows)carve(w.x,w.y,w.r,.54,w.polygon);
-  for(const w of porch)carve(w.x,w.y,w.r,.77,w.polygon);
+  for(const l of lamps)carve(l.x,l.y,l.r,.985,l.polygon);
+  for(const w of windows)carve(w.x,w.y,w.r,.51,w.polygon);
+  for(const w of porch)carve(w.x,w.y,w.r,.80,w.polygon);
   // Luminarias internas iluminam cada comodo sem atravessar divisorias.
   // Interruptores F controlam a luz; o pavimento superior tem plano proprio.
   const indoor=[];
@@ -430,25 +440,44 @@ function drawNight(W,H){
   carve(player.x,player.y,1.05,.25,
     lightVisibilityPolygon(player.x,player.y,1.05));
   lg.globalCompositeOperation='source-over';
+  // Zera a luz projetada sobre fachada e telhado, reinstalando neles SOMENTE
+  // o sombreado ambiente. O brilho fisico permanece no solo adjacente.
+  protectBuildingSurfaces(lg,'rgba(10,16,31,.78)');
   g.drawImage(light,0,0);
-  g.globalCompositeOperation='lighter';
+  // Cor da luz: camada independente, tambem protegida pelas casas. Uma
+  // radial quente nao pode ser sobreposta a geometria depois do mascaramento.
+  gg.setTransform(1,0,0,1,0,0);
+  gg.globalCompositeOperation='source-over';
+  gg.clearRect(0,0,W,H);
+  gg.globalCompositeOperation='lighter';
   const tint=(x,y,r,a,color,polygon,z=0)=>{
-    g.save();if(polygon)clipLightPolygon(g,polygon,z);
-    const p=proj(x,y,z);radial(g,p.x,p.y,r*Z,a,TILT,color);
-    g.restore();
+    gg.save();if(polygon)clipLightPolygon(gg,polygon,z);
+    const p=proj(x,y,z);radial(gg,p.x,p.y,r*Z,a,TILT,color);
+    gg.restore();
   };
   for(const l of lamps){
-    tint(l.x,l.y,l.r*.88,.22,'245,162,83',l.polygon);
-    const bulb=proj(l.x,l.y,3.9);
-    if(lightIsVisible(player.x,player.y,l.x,l.y)||Math.hypot(
-      player.x-l.x,player.y-l.y)>11){
-      radial(g,bulb.x,bulb.y,.46*Z,.48,1,'255,221,162');
+    // Tres camadas controladas de iluminacao quente: piscina principal
+    // concentrada, rebatedor amplo e brilho suave na borda do pavimento.
+    tint(l.x,l.y,l.r*.95,.27,'250,200,114',l.polygon);
+    tint(l.x,l.y,l.r*.62,.18,'255,222,160',l.polygon);
+    tint(l.x,l.y,l.r*1.12,.062,'244,187,106',l.polygon);
+    const bulb=proj(l.x,l.y,4.03);
+    // Nunca mostrar halo de luminaria atras de uma parede no campo de visao.
+    if(lightIsVisible(player.x,player.y,l.x,l.y)){
+      radial(gg,bulb.x,bulb.y,.67*Z,.57,1,'255,231,173');
+      radial(gg,bulb.x,bulb.y,1.02*Z,.14,1,'248,195,116');
     }
   }
-  for(const w of windows)tint(w.x,w.y,w.r*.78,.10,'242,188,108',w.polygon);
-  for(const w of porch)tint(w.x,w.y,w.r*.75,.16,'251,199,118',w.polygon);
+  for(const w of windows)tint(w.x,w.y,w.r*.89,.13,'239,183,103',w.polygon);
+  for(const w of porch){
+    tint(w.x,w.y,w.r*.86,.20,'255,198,112',w.polygon);
+    tint(w.x,w.y,w.r*.45,.11,'254,224,155',w.polygon);
+  }
   for(const p of indoor)tint(p.x,p.y,p.r*.74,.18,'249,211,150',
     p.polygon,p.floor?STOREY_HEIGHT:0);
+  gg.globalCompositeOperation='source-over';
+  protectBuildingSurfaces(gg);
+  g.drawImage(glows,0,0);
   g.globalCompositeOperation='source-over';
 }
 
