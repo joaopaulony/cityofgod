@@ -89,3 +89,5 @@ jobs:
 # Rebuild Opala comparison with separate pristine scene clone.
 
 # Ensure BMW 3D catalog tests use active/archived models correctly.
+
+# Rebuild final BMW yaw alignment for the Canvas 2D atlas.
