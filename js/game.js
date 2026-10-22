@@ -130,6 +130,10 @@ function fire(J) {
 // ---------- atualização ----------
 function updatePlayer(dt) {
   const p = player;
+  if(vehicleSystem.driver){
+    p.speed=0;p.aiming=false;p.wantShot=false;p.running=false;
+    p.aimHold=0;return;
+  }
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
@@ -306,6 +310,7 @@ function render() {
     list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night),lamp:l });
   }
   for (const a of actors) {
+    if(a===player&&vehicleSystem.driver)continue;
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
       a.x>H.x0&&a.x<H.x1&&a.y>H.y0&&a.y<H.y1);
     const above=upper?Math.max(...[[upper.x0,upper.y0],[upper.x1,upper.y1]]
@@ -332,7 +337,10 @@ function render() {
   // O antigo X-ray de personagem nao respeitava a profundidade: parecia
   // flutuar em cima do telhado. A lente redesenha a cena sem a parede
   // que realmente bloqueia a camera, com mascara radial suavizada.
-  if (st.night) drawNight(W,H);
+  if (st.night) {
+    drawNight(W,H);
+    carNightLamps(g,T);
+  }
   const blocker=occluded();
   if(blocker)drawPlayerVision(list,blocker,W,H);
   drawMuzzleFlash(g,player,st.night);
@@ -556,12 +564,16 @@ function drawNight(W,H){
     }
   for(const p of indoor)carve(p.x,p.y,p.r,.67,p.polygon,
     p.floor?STOREY_HEIGHT:0);
-  const cars=boxes.filter(b=>b.kind==='car');
-  for(const b of cars){
-    const a=b.rot,x=b.x+Math.cos(a)*(b.w/2+1.1),
-      y=b.y+Math.sin(a)*(b.w/2+1.1);
-    if(!visible(x,y,1.5))continue;
-    carve(x,y,1.5,.32,lightVisibilityFor(b,x,y,1.5));
+  // Projetores dinamicos so em veiculos com farois ligados:
+  // o mesmo teste de oclusao protege fachadas e paredes.
+  for(const b of vehicleSystem.cars){
+    if(!b.headlights)continue;
+    for(const spot of carLightSpots(b)){
+      const r=4.5;
+      if(!visible(spot.x,spot.y,r))continue;
+      directional(lg,{...spot,r,polygon:exteriorLightCone(
+        spot.x,spot.y,r,spot.nx,spot.ny,Math.PI*.28)},.81);
+    }
   }
   carve(player.x,player.y,1.05,.25,
     lightVisibilityPolygon(player.x,player.y,1.05));
@@ -628,16 +640,21 @@ function tick(dt) {
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
   // F prioriza o patamar; quando nao ha escada, usa portas, luzes e moveis.
   const interactPressed=input.hit('f');
-  const stairStarted=updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const carMessage=interactPressed?vehicleInteraction(player):null;
+  if(carMessage){hud.msg=carMessage;hud.msgT=3;}
+  const stairStarted=(!carMessage&&!vehicleSystem.driver)&&
+    updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!carMessage&&!stairStarted&&!vehicleSystem.driver&&
+     useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
     hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
     hud.msgT=1.8;
   }
+  if(vehicleSystem.driver)vehicleUpdate(dt,player);
   updatePlayer(dt);
-  ecosystemTick(dt, player, T);
+  ecosystemTick(dt,player,T);
   for (const n of npcs) updateNPC(n, dt);
   updateHouseOpenings(dt, actors, st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
@@ -659,8 +676,11 @@ function tick(dt) {
   render();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
+  vehicleDrivingHUD(h,hudC.width,hudC.height);
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=interactionPrompt(player);
+  const nearby=vehicleSystem.driver?'F — sair do carro':
+    vehicleNear(player)?'F — entrar no '+carModel(vehicleNear(player)).name:null;
+  const prompt=nearby||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
