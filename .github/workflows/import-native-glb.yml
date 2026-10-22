@@ -59,6 +59,12 @@ jobs:
             --minify --outfile=js/vehicle-glb-bundle.js
           node --check js/vehicle-glb-bundle.js
           node tests/native-glb-catalog.test.cjs
+      - name: Export Opala source model for mesh variant inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: opala-original-glb-inspection
+          path: assets/vehicles/native-glb/chevrolet-opala.glb
+          if-no-files-found: error
       - name: Commit assets and local renderer bundle to feature branch
         shell: bash
         run: |
