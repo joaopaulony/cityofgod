@@ -58,7 +58,7 @@ function ecoSquirrelPixelSprite(kind,pose,frame){
   const col=SQUIRREL_PALETTES[kind],c=makeCanvas(26,26),g=c.getContext('2d');
   g.imageSmoothingEnabled=false;
   const isClimb=pose==='climb',isRun=pose==='run',a=frame*TAU/6,
-    sway=Math.sin(a)*1.6,breath=Math.sin(a)*.55;
+    sway=Math.sin(a)*1.6,breath=Math.sin(a)*.95;
   const px=(x,y,color)=>{g.fillStyle=color;g.fillRect(Math.round(x),Math.round(y),1,1);};
   const oval=(x,y,rx,ry,fill,outline)=>{
     for(let j=Math.floor(y-ry-1);j<=Math.ceil(y+ry+1);j++)
@@ -92,9 +92,9 @@ function ecoSquirrelPixelSprite(kind,pose,frame){
     oval(18+stride,21,3,2,col.shade,col.edge);
   }
   const bodyX=isClimb?14:14,bodyY=isClimb?16:18;
-  oval(bodyX,bodyY,isClimb?4.1:7.1,(isClimb?6:4.2)+breath*.32,col.fur,col.edge);
+  oval(bodyX,bodyY,isClimb?4.1:7.1,(isClimb?6:4.2)+breath*.68,col.fur,col.edge);
   oval(isClimb?16:17,isClimb?16:18,isClimb?1.8:3.0,
-    (isClimb?4.2:2.9)+breath*.38,col.belly,col.fur);
+    (isClimb?4.2:2.9)+breath*.55,col.belly,col.fur);
   // Pelagem no dorso e brilho nos ombros, apenas alguns pixels discretos.
   for(const [dx,dy] of [[-4,-1],[-3,-2],[-2,-3],[0,-3]])
     px(bodyX+dx,bodyY+dy,col.sun);
