@@ -92,12 +92,25 @@ function vehicleNear(player){
  }
  return target;
 }
+function vehicleExitClear(b,x,y){
+ if(x<1||y<1||x>MAP-1||y>MAP-1||pondVal(x,y)<1.06)return false;
+ for(const H of houses)if(x>H.x0-.35&&x<H.x1+.35&&
+   y>H.y0-.35&&y<H.y1+.35)return false;
+ for(const Y of world.yards)if(x>Y[0]-.2&&x<Y[2]+.2&&
+   y>Y[1]-.2&&y<Y[3]+.2)return false;
+ for(const other of boxes){
+  if(other===b||other.house&&!other.exteriorFixture)continue;
+  if(Math.hypot(other.x-x,other.y-y)<
+    Math.max(other.w,other.d)*.52+.26)return false;
+ }
+ return true;
+}
 function vehicleInteraction(player){
  const sys=vehicleSystem;
  if(sys.driver){
   const b=sys.driver,m=carModel(b),
    exit=carPoint(b,-.32,m.w*.5+1.05,0);
-  if(world.blocked(exit[0],exit[1],.23))
+  if(!vehicleExitClear(b,exit[0],exit[1]))
    return 'Porta bloqueada: manobre antes de sair';
   player.x=exit[0];player.y=exit[1];player.face=b.rot;
   b.occupied=false;b.engine=false;b.brake=true;b.speed=0;
