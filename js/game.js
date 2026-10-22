@@ -119,7 +119,7 @@ function fire(J) {
   const hz = Math.max(0.05, m[2] - hit.t * 0.012);
   tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
   impact(hit, hz);
-  player.ammo--; player.recoilT = 0; player.flash = 0.05; st.shake = 0.12;
+  player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12;
   // cápsula ejetada p/ a direita do fuzil
   const side = V.norm(V.cross([0, 0, 1], V.sub(R.muzzle, R.butt)));
   const e = R.recv1;
@@ -328,17 +328,13 @@ function render() {
     g.strokeStyle = `rgba(255,220,140,${0.35 * k})`; g.lineWidth = 4; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     g.strokeStyle = `rgba(255,250,220,${k})`; g.lineWidth = 1.5; g.beginPath(); g.moveTo(lerp(a.x, b.x, 1 - k), lerp(a.y, b.y, 1 - k)); g.lineTo(b.x, b.y); g.stroke();
   }
-  if (player.flash > 0 && player.J) {
-    const m = proj(...player.J.rifle.muzzle), dir = proj(...V.add(player.J.rifle.muzzle, V.mul(V.norm(V.sub(player.J.rifle.muzzle, player.J.rifle.hg1)), 0.35)));
-    poly(g, [[m.x, m.y - 3], [dir.x, dir.y], [m.x, m.y + 3]], '#fff2b0', null);
-    g.fillStyle = 'rgba(255,190,80,.8)'; g.beginPath(); g.arc(m.x, m.y, 0.12 * s, 0, TAU); g.fill();
-  }
   // O antigo X-ray de personagem nao respeitava a profundidade: parecia
   // flutuar em cima do telhado. A lente redesenha a cena sem a parede
   // que realmente bloqueia a camera, com mascara radial suavizada.
   if (st.night) drawNight(W,H);
   const blocker=occluded();
   if(blocker)drawPlayerVision(list,blocker,W,H);
+  drawMuzzleFlash(g,player,st.night);
   // balões de fala
   g.font = '7px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const b of bubbles) {
@@ -352,30 +348,90 @@ function render() {
 
 // Devuelve unicamente a construcao que cobre a projecao do corpo;
 // nunca ativa a lente se o jogador esta de fato dentro do edificio.
-function occluded() {
-  const p=player,pp=proj(p.x,p.y,1+(p.floorZ||0)),pd=depthOf(p.x,p.y);
+// Mede cobertura do CORPO (cabeca, ombros, torax e pernas), e nao
+// somente a posicao dos pes: minimo 80% dos 15 pontos deve estar atras
+// da superficie, reduzindo circulos disparados por beiradas de telhado.
+function houseBodyCoverage(H,actor){
+  if(H.inside||actor.x>H.x0-.15&&actor.x<H.x1+.15&&
+       actor.y>H.y0-.15&&actor.y<H.y1+.15)return 0;
+  const cx=actor.x,cy=actor.y;
+  const surfaces=[];
+  for(const side of Object.values(H.sides)){
+    const x=side.a[0]+side.dir[0]*side.len,
+      y=side.a[1]+side.dir[1]*side.len;
+    // Ignore fachadas orientadas para longe do observador.
+    const vertices=[[side.a[0],side.a[1],0],[x,y,0],
+      [x,y,H.h],[side.a[0],side.a[1],H.h]];
+    surfaces.push({poly:vertices.map(p=>proj(...p)),
+      depth:depthOf((side.a[0]+x)/2,(side.a[1]+y)/2)});
+  }
+  const roof=H.roofGeom||(H.roofGeom=buildRoofGeom(H));
+  if(roof.flat){
+    surfaces.push({poly:[[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
+      [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]].map(p=>proj(...p)),
+      depth:depthOf((H.x0+H.x1)/2,(H.y0+H.y1)/2)});
+  }else for(const face of roof.faces){
+    surfaces.push({poly:face.p.map(p=>proj(...p)),
+      depth:depthOf((H.x0+H.x1)/2,(H.y0+H.y1)/2)});
+  }
+  const depth=depthOf(cx,cy),z=actor.floorZ||0;
+  let hidden=0,total=0;
+  for(const h of [.16,.48,.82,1.15,1.48]){
+    for(const shift of [-.13,0,.13]){
+      const p=proj(cx+shift,cy,h+z);total++;
+      if(surfaces.some(face=>face.depth>depth-.25&&
+        insideScreenPoly(p.x,p.y,face.poly)))hidden++;
+    }
+  }
+  return hidden/total;
+}
+function occluded(){
+  let candidate=null,coverage=.80;
   for(const H of houses){
     if(H.inside)continue;
-    const corners=[[H.x0,H.y0],[H.x1,H.y0],[H.x1,H.y1],[H.x0,H.y1]];
-    const ds=corners.map(q=>depthOf(q[0],q[1]));
-    if(pd>Math.max(...ds)+.2)continue;
-    const screen=corners.flatMap(q=>[
-      proj(q[0],q[1],0),proj(q[0],q[1],H.h+1.7)]);
-    const xs=screen.map(q=>q.x),ys=screen.map(q=>q.y);
-    if(pp.x<Math.min(...xs)||pp.x>Math.max(...xs)||
-       pp.y<Math.min(...ys)||pp.y>Math.max(...ys))continue;
-    const insideFoot=p.x>H.x0-.45&&p.x<H.x1+.45&&
-      p.y>H.y0-.45&&p.y<H.y1+.45;
-    if(insideFoot||ds.some(d=>d>pd+.45))return H;
+    if(player.x<H.x0-10||player.x>H.x1+10||
+       player.y<H.y0-10||player.y>H.y1+10)continue;
+    const amount=houseBodyCoverage(H,player);
+    if(amount>=coverage){coverage=amount;candidate=H;}
   }
-  return null;
+  return candidate;
+}
+// Flash do cano DEPOIS do sombreamento noturno. Luz efemera quente e
+// pequenos raios acompanham exatamente a boca da arma em qualquer camera.
+function drawMuzzleFlash(ctx,actor,night=false){
+  if(!actor.J||!(actor.flash>0))return;
+  const m=proj(...actor.J.rifle.muzzle);
+  const tip=proj(...V.add(actor.J.rifle.muzzle,
+    V.mul(V.norm(V.sub(actor.J.rifle.muzzle,actor.J.rifle.hg1)),.36)));
+  const k=clamp(actor.flash/.11,0,1),size=cam.zoom;
+  ctx.save();ctx.globalCompositeOperation='screen';
+  const radius=size*(night?.74:.42);
+  const glow=ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,radius);
+  glow.addColorStop(0,'rgba(255,246,205,'+(.54*k)+')');
+  glow.addColorStop(.20,'rgba(255,216,131,'+(.32*k)+')');
+  glow.addColorStop(1,'rgba(255,153,65,0)');
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(m.x,m.y,radius,0,TAU);ctx.fill();
+  ctx.restore();
+  ctx.save();ctx.globalAlpha=k;
+  const vx=tip.x-m.x,vy=tip.y-m.y,vl=Math.hypot(vx,vy)||1,
+    nx=-vy/vl,ny=vx/vl,dx=vx/vl,dy=vy/vl;
+  const flame=[
+    [m.x+nx*size*.065,m.y+ny*size*.065],
+    [tip.x+dx*size*.22,tip.y+dy*size*.22],
+    [m.x-nx*size*.065,m.y-ny*size*.065],
+    [m.x+dx*size*.10,m.y+dy*size*.10]
+  ];
+  poly(ctx,flame,'#fff0ae',null);
+  ctx.fillStyle='#fff8e1';ctx.beginPath();
+  ctx.arc(m.x,m.y,Math.max(1,size*.045),0,TAU);ctx.fill();
+  ctx.restore();
 }
 // Abertura macia de visao apenas sobre a superficie realmente oclusora.
 // Replica a cena no pequeno circulo, sem desenhar paredes/telhado do
 // obstaculo e SEM revelar mobilia interna a um jogador que esteja fora.
 function drawPlayerVision(list,blocker,W,H){
   const point=proj(player.x,player.y,1.05+(player.floorZ||0));
-  const radius=Math.max(54,cam.zoom*1.85);
+  const radius=clamp(cam.zoom*1.33,42,83);
   const cx=point.x,cy=point.y+cam.zoom*.17;
   if(cx+radius<0||cy+radius<0||cx-radius>W||cy-radius>H)return;
   fg.setTransform(1,0,0,1,0,0);
@@ -397,20 +453,16 @@ function drawPlayerVision(list,blocker,W,H){
   }
   fg.restore();
   fg.globalCompositeOperation='destination-in';
-  const edge=fg.createRadialGradient(cx,cy,radius*.52,cx,cy,radius);
+  const edge=fg.createRadialGradient(cx,cy,radius*.38,cx,cy,radius);
   edge.addColorStop(0,'rgba(255,255,255,1)');
-  edge.addColorStop(.57,'rgba(255,255,255,.99)');
-  edge.addColorStop(.83,'rgba(255,255,255,.52)');
+  edge.addColorStop(.62,'rgba(255,255,255,.92)');
+  edge.addColorStop(.82,'rgba(255,255,255,.30)');
   edge.addColorStop(1,'rgba(255,255,255,0)');
   fg.fillStyle=edge;
   fg.beginPath();fg.arc(cx,cy,radius+.1,0,TAU);fg.fill();
   fg.globalCompositeOperation='source-over';
   g.drawImage(focusCanvas,0,0);
-  g.save();
-  g.lineWidth=Math.max(.65,cam.zoom*.012);
-  g.strokeStyle=st.night?'rgba(220,223,196,.17)':'rgba(52,59,42,.15)';
-  g.beginPath();g.arc(cx,cy,radius*.92,0,TAU);g.stroke();
-  g.restore();
+  // Nenhuma linha circular artificial: so a transicao suave.
 }
 
 function drawNight(W,H){
