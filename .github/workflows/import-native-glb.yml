@@ -86,3 +86,5 @@ jobs:
 # Rebuild after correcting positive Canvas yaw direction.
 
 # Rebuild after correcting GLB centering and camera elevation.
+
+# Rebuild after selecting one original Opala variant and lighting G-class.
