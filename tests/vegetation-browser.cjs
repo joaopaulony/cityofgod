@@ -457,6 +457,18 @@ const {judge}=require('./visual-quality-judge.cjs');
     });
     await game.screenshot({path:'artifacts/cityofgod-3d-third-person.png'});
     await game.evaluate(()=>view3d.setMode('2d'));
+    // Testa as interacoes reais do usuario alem das APIs internas.
+    await game.keyboard.press('v');
+    const keyboardOK=await game.evaluate(()=>view3d.mode==='iso');
+    await game.locator('#mode-switch').click();
+    const buttonOK=await game.evaluate(()=>view3d.mode==='third'&&
+      document.getElementById('mode-switch').textContent.includes('3D'));
+    await game.keyboard.press('v');
+    const returnOK=await game.evaluate(()=>view3d.mode==='2d'&&
+      document.getElementById('view').style.opacity==='1');
+    console.log('3D UI CONTROLS:',JSON.stringify({keyboardOK,buttonOK,returnOK}));
+    if(!keyboardOK||!buttonOK||!returnOK)
+      throw Error('3D UI input cycle failed');
 
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.
