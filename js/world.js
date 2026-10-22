@@ -1,8 +1,13 @@
 // world.js — mapa, chão pintado uma vez fora da tela, sprites de vegetação/pedras e colisão.
 'use strict';
 
-const MAP = 80;      // metros
-const PPM = 28;      // pixels por metro na textura do chão
+// Mapa 4× maior em ÁREA: 80×80 m -> 160×160 m (2× em cada eixo).
+// Limite a textura a <=3840px por lado; 4480px pode estourar o limite do
+// Canvas 2D em dispositivos móveis. Sprites mantêm SPR=40 independente do chão.
+const ORIGINAL_MAP = 80;
+const WORLD_AREA_MULTIPLIER = 4;
+const MAP = ORIGINAL_MAP * Math.sqrt(WORLD_AREA_MULTIPLIER);
+const PPM = (typeof RS !== 'undefined' && RS === 2) ? 20 : 24; // safe for standalone sprite lab
 const SPR = 40;      // pixels por metro dos sprites pré-pintados
 // semente: ?seed=123 na URL reproduz o mesmo mapa; sem ela, cada visita gera um mapa novo
 const SEED = Number(new URLSearchParams(location.search).get('seed')) || ((Math.random() * 1e6) | 0);
@@ -834,13 +839,13 @@ function buildWorld() {
     world.circles.push({ x, y, r: 0.28, kind: 'tree', ref: t, h: 6 });
     bakeTreeShadow(x, y, sp2);
   };
-  for (let i = 0, n = 0; i < 6000 && n < 90; i++) {
+  for (let i = 0, n = 0; i < 18000 && n < 270; i++) {
     const x = R(1, MAP - 1), y = R(1, MAP - 1), f = forest(x, y);
     if (rng() > smooth(clamp((f - 0.46) / 0.24, 0, 1)) * 0.85 + 0.012) continue;
     if (!freeSpot(x, y, 1.2)) continue;
     addTree(x, y, f > 0.64 && rng() < 0.65 ? pines[(rng() * pines.length) | 0] : oaks[(rng() * oaks.length) | 0]); n++;
   }
-  for (let i = 0, n = 0; i < 4000 && n < 70; i++) {
+  for (let i = 0, n = 0; i < 12000 && n < 210; i++) {
     const x = R(1, MAP - 1), y = R(1, MAP - 1), f = forest(x, y);
     const edge = 1 - Math.abs(f - 0.5) * 6, nearYard = world.yards.some(r => x > r[0] - 2 && x < r[2] + 2 && y > r[1] - 2 && y < r[3] + 2);
     if (rng() > Math.max(0.03, edge * 0.5, nearYard ? 0.3 : 0)) continue;
@@ -854,14 +859,14 @@ function buildWorld() {
     world.circles.push({ x, y, r: s.r * 0.9, kind: 'rock', h: s.r * 1.4 });
     bakeShadow(x, y, s.r, s.r * 0.7, 0.6);
   };
-  for (let i = 0, n = 0; i < 800 && n < 16; i++) { const x = R(1, MAP - 1), y = R(1, MAP - 1); if (freeSpot(x, y, 0.6)) { addRock(x, y); n++; } }
-  if (world.pond) for (let i = 0, n = 0; i < 300 && n < 7; i++) {   // pedras na margem do lago
+  for (let i = 0, n = 0; i < 2400 && n < 48; i++) { const x = R(1, MAP - 1), y = R(1, MAP - 1); if (freeSpot(x, y, 0.6)) { addRock(x, y); n++; } }
+  if (world.pond) for (let i = 0, n = 0; i < 600 && n < 14; i++) {   // pedras na margem do lago
     const p = world.pond, a = R(0, TAU), x = p.x + Math.cos(a) * p.rx * R(1.2, 1.5), y = p.y + Math.sin(a) * p.ry * R(1.2, 1.5);
     if (freeSpot(x, y, 0.4)) { addRock(x, y); n++; }
   }
   const tufts = [makeTuft(), makeTuft(), makeTuft(), makeTuft('#456f30','#8daa50'), makeTuft('#526c37','#b4b46b')],
     reeds = [makeTuft('#3d6b3a', '#5a8a46', 24), makeTuft('#4a7a3c', '#6f9a4e', 28)];
-  for (let i = 0; i < MAP * MAP * 0.115; i++) {
+  for (let i = 0; i < MAP * MAP * 0.095; i++) {
     const x = R(0.5, MAP - 0.5), y = R(0.5, MAP - 0.5);
     if (onRoad(x, y) || pondVal(x, y) < 1.05 || world.blocked(x, y, 0.2)) continue;
     world.props.push({ type: 'tuft', x, y, sp: tufts[i % tufts.length], phase: rng() * 6, flat: true });
