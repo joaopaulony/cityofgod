@@ -316,16 +316,54 @@ function buildHouses() {
       .sort((a,b)=>Math.abs(a.p.x-targetX)-Math.abs(b.p.x-targetX));
     for(const c of sorted)if(tryPlace('SHOP',c))break;
   }
-  // Expandir também os bairros: 21 casas + até 3 mercados (antes 7 + 1).
+  // Expandir bairros com modelos variados, sem repetir uma rua inteira.
+  // Os terrenos rurais tem uma rotina independente das ruas.
   // Dois modelos de sobrado, intercalados aos terreiros existentes.
   // Mantemos o total de 21 lotes e os mercados da versao anterior.
-  const want = Array.from({length:3},()=>
+  const want = Array.from({length:4},()=>
     ['A','C','B','D','B','C','A']).flat();
   for (const key of want) for (const c of cands) if (tryPlace(key, c)) break;
-  // caminhos de concreto da porta até a calçada
+  // Pequenas propriedades fora das ruas: mata, campo e clareiras habitaveis.
+  // Distancia da agua, estradas e outros lotes verificada antes de instanciar.
+  const farms=8;
+  let placed=0;
+  for(let i=0;i<3300&&placed<farms;i++){
+    const key=i%2?'COTTAGE':'FARM',T=TPL[key],
+      k=(rng()*4)|0,W=k%2?T.d:T.w,D=k%2?T.w:T.d,
+      x0=Math.floor(7+rng()*(MAP-W-14)),
+      y0=Math.floor(7+rng()*(MAP-D-14)),
+      m=3.2,box=[x0-m,y0-m,x0+W+m,y0+D+m];
+    if(rects.some(b=>box[0]<b[2]+3&&box[2]>b[0]-3&&
+      box[1]<b[3]+3&&box[3]>b[1]-3))continue;
+    const mx=x0+W/2,my=y0+D/2;
+    if(forest(mx,my)<.42||Math.hypot(mx-world.junction.x,
+      my-world.junction.y)<15)continue;
+    let clear=true;
+    for(let y=box[1];y<=box[3]&&clear;y+=2){
+      for(let x=box[0];x<=box[2];x+=2){
+        if(roadDist(x,y)<ROAD_W+SIDE+2||pondVal(x,y)<1.26){
+          clear=false;break;
+        }
+      }
+    }
+    if(!clear)continue;
+    const H=placeTemplate(T,x0,y0,k,{
+      roofKind:placed%3===0?'hip':'gable',
+      ext:'#a38c6d',roof:'#685a47'});
+    H.country=true;
+    rects.push(box);placed++;
+    // Peças rurais discretas com volumes 3D; não atrapalham entradas.
+    if(placed%2===0){
+      const q=[H.x1-.85,H.y0+1];
+      addBox({x:q[0],y:q[1],w:.7,d:.58,h:.65,
+        top:'#8f7955',side:'#67513a',kind:'trough',solid:false});
+    }
+  }
+  // Caminhos simples para casas urbanas; as rurais recebem caminho de terra.
   for (const H of houses) {
     let t = 0.2; while (t < 12 && roadDist(H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t) > ROAD_W + SIDE - 0.2) t += 0.25;
-    H.walk = [H.doorPt, [H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t]];
+    H.walk = [H.doorPt,[H.doorPt[0]+H.doorN[0]*t,
+      H.doorPt[1]+H.doorN[1]*t]];
   }
   // carros estacionados junto ao meio-fio
   const cols = ['#b03a32', '#dedbd3', '#2f5d7c', '#3d3f45', '#c9a13a', '#4d6b3a'], cars = [];
@@ -349,8 +387,8 @@ world.blocked = (x, y, r) => {
 world.paintFloors = (g, M, rect) => {
   g.lineCap = 'butt';
   for (const H of houses) if (H.walk) {
-    g.strokeStyle = '#b6b0a2'; g.lineWidth = M(1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
-    g.strokeStyle = '#9d978a'; g.lineWidth = 1;
+    g.strokeStyle = H.rural?'#806b4b':'#b6b0a2'; g.lineWidth = M(H.rural?.85:1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
+    g.strokeStyle = H.rural?'#6a573b':'#9d978a'; g.lineWidth = 1;
     const n = Math.hypot(H.walk[1][0] - H.walk[0][0], H.walk[1][1] - H.walk[0][1]);
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
   }
