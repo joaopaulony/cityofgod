@@ -11,3 +11,7 @@ Cada modelo a seguir declara **CC BY 4.0**. Os autores mantêm seus direitos; o 
 - **Mercedes-Benz G-class** — Lexyc16; [fonte](https://sketchfab.com/3d-models/1a2a52b16cad4e618af347461817895c); `mercedes-gclass.glb`; licença [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Atribuições também publicadas em /vehicle-credits.html. Verificar ainda normas para marcas e possíveis materiais de terceiros embutidos em modelos.
+
+- **BMW E30 1985** — ROH3D; [fonte](https://sketchfab.com/3d-models/9dea494b447e442fafbddfc7eccbf158); `bmw-e30.glb`; licença [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+**Qualidade:** Opala 80/90 (coptrum) inclui cinco variantes com carrocerias incompletas; GLB original fica armazenado mas inativo. O BMW E30 substitui o sedã no renderer nativo.
