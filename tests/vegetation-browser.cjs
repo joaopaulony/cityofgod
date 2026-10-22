@@ -641,6 +641,62 @@ const {judge}=require('./visual-quality-judge.cjs');
     Object.assign(metrics,referenceJudge);
     console.log('REFERENCE VISUAL JUDGE:',JSON.stringify(referenceJudge));
 
+    // Actual PNG-loaded game integration quality: rejects unloaded images,
+    // incorrect 5k-pixel car scale and inert body recolor/door controls.
+    await game.waitForFunction(()=>vehicleSpriteAtlas.ready&&
+      Object.keys(vehicleSpriteAtlas.images).length===8,
+      {timeout:14000});
+    const diabloSpriteQA=await game.evaluate(()=>{
+      const images=vehicleSpriteAtlas.images,
+        b=vehicleSystem.cars.find(c=>c.model==='supercar'),
+        old={x:cam.x,y:cam.y,W:cam.W,H:cam.H,
+          zoom:cam.zoom,ang:cam.ang,sin:cam.sin,cos:cam.cos,
+          paint:b.paint,left:b.parts.left,target:b.partTargets.left};
+      cam.W=640;cam.H=420;cam.zoom=34;
+      cam.x=b.x;cam.y=b.y;
+      cam.ang=Math.PI/4;cam.sin=Math.sin(cam.ang);cam.cos=Math.cos(cam.ang);
+      b.rot=b.rot||0;
+      const c=makeCanvas(640,420),g=c.getContext('2d');
+      carDraw(g,b,0,false);
+      const pixels=g.getImageData(0,0,640,420).data;
+      let x0=640,y0=420,x1=0,y1=0,painted=0;
+      for(let y=0;y<420;y++)for(let x=0;x<640;x++){
+        const i=(y*640+x)*4;
+        if(pixels[i+3]>170){painted++;x0=Math.min(x0,x);x1=Math.max(x1,x);
+         y0=Math.min(y0,y);y1=Math.max(y1,y);}
+      }
+      const master=images['front-left'],
+       recolored=vehicleTintImage(master,'#cb3030'),
+       baseline=vehicleTintImage(master,'#704080'),
+       ctx0=baseline.getContext('2d'),ctx1=recolored.getContext('2d'),
+       a=ctx0.getImageData(0,0,768,512).data,
+       d=ctx1.getImageData(0,0,768,512).data;
+      let recoloredPixels=0,unaffected=0;
+      for(let i=0;i<a.length;i+=4){
+        if(a[i+3]<180)continue;
+        if(Math.abs(a[i]-d[i])+Math.abs(a[i+1]-d[i+1])+
+          Math.abs(a[i+2]-d[i+2])>30)recoloredPixels++;
+        else unaffected++;
+      }
+      b.partTargets.left=1;vehicleVisualUpdate(.20);
+      const doorOpened=b.parts.left>.1;
+      b.partTargets.left=old.target;b.parts.left=old.left;b.paint=old.paint;
+      cam.x=old.x;cam.y=old.y;cam.W=old.W;cam.H=old.H;
+      cam.zoom=old.zoom;cam.ang=old.ang;cam.sin=old.sin;cam.cos=old.cos;
+      return {
+        spriteDirections:Object.keys(images).length,
+        normalizedViews:Object.values(images).every(i=>i.naturalWidth===768&&i.naturalHeight===512),
+        onScreenWidth:x1-x0,onScreenHeight:y1-y0,paintedPixels:painted,
+        paintChangedPixels:recoloredPixels,paintPreservedPixels:unaffected,
+        accessoryDoorAnimated:doorOpened,
+        actualSpriteLoaded:vehicleSpriteAtlas.ready,
+        visualScaleOK:x1-x0>48&&x1-x0<260&&
+          y1-y0>28&&y1-y0<200
+      };
+    });
+    Object.assign(metrics,diabloSpriteQA);
+    console.log('DIABLO ART IN-GAME JUDGE:',JSON.stringify(diabloSpriteQA));
+
     const drivingExample=await game.evaluate(()=>{
       const b=vehicleSystem.cars.find(v=>v.model==='supercar')||vehicleSystem.cars[0];
       cam.x=cam.tx=b.x;cam.y=cam.ty=b.y;cam.zoom=cam.tzoom=ZOOMS[5];
