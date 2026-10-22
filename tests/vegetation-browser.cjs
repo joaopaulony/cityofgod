@@ -200,8 +200,8 @@ const {judge}=require('./visual-quality-judge.cjs');
       mask.fillStyle='#fff';
       paintBuildingLightMask(mask);mask.fill();
       const side=building.segs.find(s=>s.ext),
-        wx=(side.x1+side.x2)*.5,wy=(side.y1+side.y2)*.5,
-        wallPoint=proj(wx,wy,Math.min(1.2,building.h*.45));
+        wallX=(side.x1+side.x2)*.5,wallY=(side.y1+side.y2)*.5,
+        wallPoint=proj(wallX,wallY,Math.min(1.2,building.h*.45));
       const roof=building.roofGeom.faces.find(f=>f.slope),
         centroid=roof.p.reduce((out,v)=>out.map((n,i)=>n+v[i]/roof.p.length),
           [0,0,0]),roofPoint=proj(...centroid);
