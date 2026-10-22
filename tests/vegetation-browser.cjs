@@ -330,14 +330,44 @@ const {judge}=require('./visual-quality-judge.cjs');
         bits=sprite.getContext('2d').getImageData(0,0,sprite.width,sprite.height).data;
       let urbanPixelDetail=0;
       for(let j=3;j<bits.length;j+=4)if(bits[j]>180)urbanPixelDetail++;
-      let smokeDrawn=false;
+      let smokeDrawn=false,smokePixels=0,mortarDetail=0,
+        fixturePixels=0,fixturesOnRoof=true;
+      const roofAttachments=houses.flatMap(H=>
+        (H.antennas||[]).map(a=>({H,a})));
+      const dishCount=roofAttachments.filter(v=>v.a.kind==='dish').length;
+      const yagiCount=roofAttachments.filter(v=>v.a.kind==='yagi').length;
+      const chimneysEmbedded=chimneyHouses.every(H=>{
+        const c=H.chimney,surface=urbanRoofSurface(H,c.x,c.y);
+        return Math.abs(surface-c.roofZ)<.001&&
+          c.z<surface-.10&&c.z+c.h>surface+.80;
+      });
+      fixturesOnRoof=roofAttachments.every(({H,a})=>
+        Math.abs(a.z-urbanRoofSurface(H,a.x,a.y))<.001&&
+        (!H.chimney||Math.hypot(a.x-H.chimney.x,
+          a.y-H.chimney.y)>.72));
       if(smoky.length){
         const H=smoky[0],c=H.chimney,remember=[cam.x,cam.y];
         cam.x=cam.tx=c.x;cam.y=cam.ty=c.y;
         const smoke=makeCanvas(cam.W,cam.H),ctx=smoke.getContext('2d');
-        urbanDrawChimney(ctx,H,4.5);
+        urbanDrawChimneySmoke(ctx,c,4.5,c.z+c.h);
         const raw=ctx.getImageData(0,0,smoke.width,smoke.height).data;
-        smokeDrawn=raw.some((v,i)=>i%4===3&&v>0);
+        for(let j=3;j<raw.length;j+=4)if(raw[j]>12)smokePixels++;
+        smokeDrawn=smokePixels>650;
+        const art=urbanChimneyTex(c,2),im=art.getContext('2d')
+          .getImageData(0,0,art.width,art.height).data;
+        const palette=new Set();
+        for(let j=0;j<im.length;j+=4*7)palette.add(
+          (im[j]>>3)+','+(im[j+1]>>3)+','+(im[j+2]>>3));
+        mortarDetail=palette.size;
+        cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
+      }
+      if(roofAttachments.length){
+        const {H,a}=roofAttachments[0],remember=[cam.x,cam.y];
+        cam.x=cam.tx=a.x;cam.y=cam.ty=a.y;
+        const can=makeCanvas(cam.W,cam.H),ctx=can.getContext('2d');
+        if(a.kind==='dish')urbanDish(ctx,H,a);else urbanYagi(ctx,H,a);
+        const pixels=ctx.getImageData(0,0,can.width,can.height).data;
+        for(let j=3;j<pixels.length;j+=4)if(pixels[j]>40)fixturePixels++;
         cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
       }
       const flash=makeCanvas(cam.W,cam.H),gc=flash.getContext('2d');
@@ -374,7 +404,9 @@ const {judge}=require('./visual-quality-judge.cjs');
         urbanDebris:litter.length,urbanStyles:new Set(litter.map(d=>d.kind)).size,
         urbanCurbOnly,urbanBins:bins.length,urbanPixelDetail,
         chimneys:chimneyHouses.length,smokingChimneys:smoky.length,
-        smokeDrawn,focusThreshold,focusOutlineRemoved:noFocusOutline,
+        smokeDrawn,smokePixels,mortarDetail,chimneysEmbedded,
+        dishCount,yagiCount,fixturesOnRoof,fixturePixels,
+        focusThreshold,focusOutlineRemoved:noFocusOutline,
         partialCoverageRejected};
     });
     Object.assign(metrics,city);
