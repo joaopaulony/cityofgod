@@ -118,9 +118,17 @@ function carDraw(g,b,time=0,night=false){
  carFill(g,b,[p(-L+.13,-w*.75,hood-.11),p(cabB-.21,-w*.79,hood),
    p(cabB-.21,w*.79,hood),p(-L+.13,w*.75,hood-.11)],
    C.roof,'rgba(26,29,30,.53)');
- for(const side of [-1,1])
+ for(const side of [-1,1]){
   carLine(g,b,[p(cabF+.65,side*w*.61,hood+.007),
    p(L-.30,side*w*.53,hood-.055)],'rgba(252,246,232,.25)',.015);
+  carLine(g,b,[p(cabF+.79,side*w*.40,hood+.014),
+   p(L-.43,side*w*.37,hood-.052)],'rgba(35,41,44,.11)',.010);
+ }
+ // Vincos do paralama e pequeno emblema cromado na dianteira.
+ const emblem=carProject(b,L-.35,0,hood-.085);
+ g.fillStyle='#989f9f';g.beginPath();
+ g.ellipse(emblem.x,emblem.y,Math.max(.8,cam.zoom*.035),
+   Math.max(.6,cam.zoom*.016),0,0,TAU);g.fill();
  // Slope of front/rear windshield, glass inset, roof.
  carFill(g,b,[p(cabF+.40,-w*.76,hood+.06),
    p(cabF+.40,w*.76,hood+.06),p(frontRoof,rw,roof),
@@ -149,6 +157,14 @@ function carDraw(g,b,time=0,night=false){
   carLine(g,b,[d[3],d[2]],'rgba(211,229,231,.49)',.019);
   if(!pick)carLine(g,b,[p(split-.05,v,hood+.08),
     p(split-.09,rv,roof-.12)],'#29343b',.05);
+  // Pintura metalica discreta e arestas de portas: microdetalhes
+  // permanecem legiveis quando a camera gira, sem depender de sprites.
+  carLine(g,b,[p(cabF+.20,v,hood-.04),
+    p(cabF+.20,v,.58)],'rgba(29,31,34,.38)',.012);
+  carLine(g,b,[p(cabB-.11,v,.57),p(cabF+.18,v,.57)],
+    'rgba(236,232,217,.16)',.014);
+  carLine(g,b,[p(cabB-.20,v,hood-.08),
+    p(cabB-.20,v,.71)],'rgba(29,31,34,.27)',.010);
   const handle=carProject(b,lerp(cabB,cabF,.36),side*(w+.025),hood-.20);
   g.fillStyle='#272f32';g.fillRect(handle.x-1.5,handle.y,
     Math.max(3,cam.zoom*.12),Math.max(.85,cam.zoom*.023));
@@ -178,14 +194,17 @@ function carDraw(g,b,time=0,night=false){
  }
  // Distinct silhouettes and features for the seven models.
  if(['supercar','tuner','muscle'].includes(key)){
-  const wing=supercar?.46:key==='tuner'?.27:.11;
+  const wing=supercar?.28:key==='tuner'?.23:.08;
   if(wing>.2){
    for(const side of [-1,1])carLine(g,b,[
-     p(-L+.38,side*w*.72,hood),p(-L+.38,side*w*.72,hood+wing)],
-     '#45484c',.058);
-   carFill(g,b,[p(-L+.76,-w*.84,hood+wing),p(-L+.30,-w*.84,hood+wing),
-     p(-L+.30,w*.84,hood+wing),p(-L+.76,w*.84,hood+wing)],
-     C.roof,'#252a2d');
+     p(-L+.38,side*w*.66,hood-.07),p(-L+.38,side*w*.66,hood+wing)],
+     '#434950',.055);
+   carFill(g,b,[p(-L+.53,-w*.73,hood+wing),p(-L+.30,-w*.73,hood+wing),
+     p(-L+.30,w*.73,hood+wing),p(-L+.53,w*.73,hood+wing)],
+     '#343940','#161c21');
+   carLine(g,b,[p(-L+.48,-w*.70,hood+wing+.006),
+     p(-L+.48,w*.70,hood+wing+.006)],
+     'rgba(211,216,214,.36)',.016);
   }
   carFill(g,b,[p(L-.47,-w*.20,hood+.009),p(L-.31,-w*.16,hood+.009),
     p(L-.31,w*.16,hood+.009),p(L-.47,w*.20,hood+.009)],
