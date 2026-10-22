@@ -41,8 +41,17 @@ for (const sp of sprites) {
   assert.ok(sp.trunkH>.85&&sp.r>0&&sp.leafColors.length>0);
   assert.ok(sp.cay>0&&sp.cay<=sp.crown.height);
   assert.ok(sp.trunkH<1.8,'tree trunks must remain short and natural');
-  if(sp.kind==='pine') assert.ok(sp.needleCount>=60000,'pine must render 10x needles');
-  else assert.ok(sp.leafCount>=100000,'broadleaf trees must render 10x individual leaves');
+  if(sp.kind==='pine') {
+    assert.ok(sp.needleCount>=60000,'pine must render 10x needles');
+    assert.equal(sp.trunkProfile,undefined,'pine trunk implementation must remain unchanged');
+  } else {
+    assert.ok(sp.leafCount>=100000,'broadleaf trees must render 10x individual leaves');
+    const profile=sp.trunkProfile;
+    assert.ok(profile && profile.baseWidth>0,'broadleaf trunk exposes real geometry');
+    assert.ok(profile.baseWidth<=12.1,'broadleaf trunk must be slender at base');
+    assert.ok(Math.abs(profile.midWidth/profile.baseWidth-.955)<1e-6,'mid trunk remains uniform');
+    assert.ok(Math.abs(profile.topWidth/profile.baseWidth-.89)<1e-6,'top width stays near base width');
+  }
 }
 // Broadleaf decoration variants are generated from actual branch tips.
 const variants=['common','flowering','fruiting','mixed'];
@@ -51,6 +60,7 @@ for (const variant of variants) {
   assert.equal(tree.decoration,variant,'explicit appearance must be stable');
   assert.equal(tree.branchCount,6,'six main branches');
   assert.ok(tree.twigCount>=12,'at least twelve secondary twigs');
+  assert.ok(tree.trunkProfile,'branch and trunk geometry available for diagnostics');
   assert.ok(tree.branchAngles.some(a=>Math.abs(Math.cos(a))>.94),
     'some branches must grow almost horizontally');
   assert.ok(tree.branchAngles.some(a=>Math.abs(Math.sin(a))>.93),
@@ -94,4 +104,4 @@ sandbox.testApi.leafBatch(guard,[Array.from({length:4096*4},(_,i)=>i%4===2?1.5:.
 assert.ok(maxLeaves<=256,'Canvas path exceeds safe 256-leaf batch');
 assert.ok(fills>=16,'leaf batching should submit several safe fills');
 assert.ok(drawCalls>1000,'detailed pre-rendered foliage should produce many draw calls');
-console.log('OK: organic branches (horizontal/vertical), flowering/fruiting/mixed broadleaf variants, 6 trees, 8 shrubs and leaf batch safety');
+console.log('OK: slender broadleaf trunks with uniform girth, thinner branches, pine preservation, flowering/fruiting variants and leaf batch safety');
