@@ -103,16 +103,19 @@ function exteriorLightCone(x,y,radius,nx,ny,spread=Math.PI*.36,floor=0){
 // Desenha com cobertura em planta projetada: protege fachadas (quads verticais)
 // E todas as aguas do telhado (poligonos inclinados), mesmo nas quinas.
 function paintBuildingLightMask(ctx){
-  ctx.beginPath();
   for(const H of houses){
     const cx=(H.x0+H.x1)*.5,cy=(H.y0+H.y1)*.5;
     const p=proj(cx,cy,0),margin=cam.zoom*(Math.hypot(H.x1-H.x0,H.y1-H.y0)+3);
     if(p.x<-margin||p.x>cam.W+margin||p.y<-margin||p.y>cam.H+margin)continue;
     const polygon=pts=>{
+      // Preenchimento independente. Um path global tinha faces com winding
+      // oposto, cuja area sobreposta podia se anular e expor o telhado.
+      ctx.beginPath();
       pts.forEach((q,i)=>{const v=proj(...q);
         if(!i)ctx.moveTo(v.x,v.y);else ctx.lineTo(v.x,v.y);
       });
       ctx.closePath();
+      ctx.fill();
     };
     const z=H.inside?.51:H.h;
     for(const side of Object.values(H.sides)){
@@ -137,7 +140,6 @@ function protectBuildingSurfaces(ctx,ambientColor){
   ctx.globalCompositeOperation='destination-out';
   ctx.fillStyle='#fff';
   paintBuildingLightMask(ctx);
-  ctx.fill();
   if(ambientColor){
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle=ambientColor;
