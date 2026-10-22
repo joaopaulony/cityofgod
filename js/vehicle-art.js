@@ -56,10 +56,26 @@ function carLine(g,b,vertices,color,w=.022){
 // no eixo lateral do carro, banda de rodagem envolvendo toda a largura,
 // ombro arredondado, aro independente, cinco raios e cavidade de paralama.
 // Todas as faces usam carProject (mudam corretamente ao girar camera).
+// A posicao da roda acompanha a largura LOCAL da carroceria.
+// Em superesportivos e no Daytona o nariz afunila bastante: um eixo
+// com largura constante deixava a roda oposta completamente solta.
+function carWheelMount(m,u,side){
+ const L=m.len/2,w=m.w/2;
+ let ratio=1;
+ if(u>m.cabF){
+  ratio=lerp(1,m.noseW,
+    clamp((u-m.cabF)/(L-m.cabF),0,1));
+ }else if(u<m.cabB){
+  ratio=lerp(1,m.tailW,
+    clamp((m.cabB-u)/(L+m.cabB),0,1));
+ }
+ // Centro do pneu levemente dentro do painel, com ombro para fora.
+ return side*w*(ratio-.065);
+}
 function carWheelGeometry(b,u,v,m){
  const r=m.wheel,side=Math.sign(v)||1,
    width=m.id==='pickup'||m.id==='explorer'?.37:m.id==='daytona'?.34:.31,
-   sideWall=Math.abs(v),centerZ=Math.max(r+.035,.45),
+   sideWall=Math.abs(v),centerZ=r+.012,
    back=side*(sideWall-width*.50),
    front=side*(sideWall+width*.50);
  return {r,width,side,back,front,u,centerZ,
@@ -135,19 +151,19 @@ function carTire(g,b,u,v,m){
  }
 }
 function carDrawFender(g,b,u,side,m,C){
- const r=m.wheel,v=side*m.w*.504,z=Math.max(r+.035,.45);
+ const r=m.wheel,v=carWheelMount(m,u,side)+side*.10,z=r+.012;
  const curve=(a,rr,y=v)=>[u+Math.cos(a)*rr,y,z+Math.sin(a)*rr];
  // A face do paralama passa na frente da parte superior do pneu.
  // Na montagem: carroceria -> roda externa -> aba pintada -> arco escuro.
  const outer=[],inner=[];
  for(let i=0;i<=19;i++){
   const a=.035*Math.PI+i*.93*Math.PI/19;
-  outer.push(curve(a,r*1.28,v+side*.020));
-  inner.push(curve(a,r*1.025,v+side*.095));
+  outer.push(curve(a,r*1.20,v+side*.015));
+  inner.push(curve(a,r*1.005,v+side*.045));
  }
  carFill(g,b,outer.concat(inner.reverse()),C.paint);
  carLine(g,b,inner.slice().reverse(),
-   'rgba(12,16,21,.90)',.045);
+   'rgba(12,16,21,.85)',.027);
  // Faixa de reflexo sobre a aba, arredondada como chapa estampada.
  carLine(g,b,outer.slice(3,17),
    'rgba(235,230,219,.26)',.022);
@@ -429,7 +445,7 @@ function carDraw(g,b,time=0,night=false){
  shadow.addColorStop(1,'rgba(9,12,15,0)');
  g.fillStyle=shadow;g.beginPath();g.arc(0,0,cam.zoom*(L+.22),0,TAU);
  g.fill();g.restore();
- for(const u of [m.rear,m.front])carTire(g,b,u,-farSide*w*.96,m);
+ for(const u of [m.rear,m.front])carTire(g,b,u,carWheelMount(m,u,-farSide),m);
  // Each shoulder follows actual model nose/tail taper and deck height.
  for(const side of [-1,1]){
   const v=side*w,frontWidth=v*m.noseW,rearWidth=v*m.tailW;
@@ -555,7 +571,7 @@ function carDraw(g,b,time=0,night=false){
  // Pneus no primeiro plano sobrepoem o asfalto, mas os arcos de
  // carroceria os recobrem parcialmente: rodas realmente encaixadas.
  for(const u of [m.rear,m.front]){
-  carTire(g,b,u,farSide*w*.96,m);
+  carTire(g,b,u,carWheelMount(m,u,farSide),m);
   carDrawFender(g,b,u,farSide,m,C);
  }
  if(b.engine&&Math.abs(b.speed)>.32){
