@@ -78,3 +78,5 @@ jobs:
 # Rebuild bundle after integrating model labels and browser QA.
 
 # Rebuild after correcting positive Canvas yaw direction.
+
+# Rebuild after correcting GLB centering and camera elevation.
