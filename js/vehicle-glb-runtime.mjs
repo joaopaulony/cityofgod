@@ -89,8 +89,9 @@ async function bake(model){
  camera.updateProjectionMatrix();
  try{
   for(let frame=0;frame<DIRECTIONS;frame++){
-   // Positive Canvas yaw = clockwise screen movement at fixed camera.
-   car.body.rotation.y=frame*2*Math.PI/DIRECTIONS;
+   // The Three.js Y rotation must be NEGATIVE so positive Canvas yaw
+   // moves the car nose clockwise/downwards, not counterclockwise.
+   car.body.rotation.y=-frame*2*Math.PI/DIRECTIONS;
    renderer.clear();
    renderer.render(scene,camera);
    ctx.drawImage(stage,(frame%4)*SIZE,Math.floor(frame/4)*SIZE);
