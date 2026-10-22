@@ -189,7 +189,41 @@ const {judge}=require('./visual-quality-judge.cjs');
       const pixels=bg.getImageData(0,0,beam.width,beam.height).data;
       let lampBeamPixels=0;
       for(let k=3;k<pixels.length;k+=4)if(pixels[k]>2)lampBeamPixels++;
-      player.x=l.x;player.y=l.y;cam.x=cam.tx=l.x;cam.y=cam.ty=l.y;
+      // O novo sistema deve bloquear o brilho da camada de composicao
+      // nas paredes e telhados (nao apenas na projecao no chao).
+      const building=houses.find(H=>H.roofKind!=='flat'&&
+        H.roofGeom?.faces?.some(f=>f.slope));
+      building.inside=false;
+      const rendered=makeCanvas(cam.W,cam.H),mask=rendered.getContext('2d');
+      cam.x=cam.tx=(building.x0+building.x1)/2;
+      cam.y=cam.ty=(building.y0+building.y1)/2;
+      mask.fillStyle='#fff';
+      paintBuildingLightMask(mask);mask.fill();
+      const side=building.segs.find(s=>s.ext),
+        wx=(side.x1+side.x2)*.5,wy=(side.y1+side.y2)*.5,
+        wallPoint=proj(wx,wy,Math.min(1.2,building.h*.45));
+      const roof=building.roofGeom.faces.find(f=>f.slope),
+        centroid=roof.p.reduce((out,v)=>out.map((n,i)=>n+v[i]/roof.p.length),
+          [0,0,0]),roofPoint=proj(...centroid);
+      const alphaAt=pt=>{
+        const xx=Math.max(0,Math.min(mask.canvas.width-1,Math.round(pt.x)));
+        const yy=Math.max(0,Math.min(mask.canvas.height-1,Math.round(pt.y)));
+        return mask.getImageData(xx,yy,1,1).data[3];
+      };
+      const facadeCovered=alphaAt(wallPoint)>200,
+        roofCovered=alphaAt(roofPoint)>200;
+      const all=mask.getImageData(0,0,mask.canvas.width,mask.canvas.height).data;
+      let coverage=0;
+      for(let k=3;k<all.length;k+=4)if(all[k]>100)coverage++;
+      const maskLocal=coverage>1000&&coverage<mask.canvas.width*mask.canvas.height*.75;
+      const outward=building.segs.find(s=>s.ext&&s.window),
+        ox=(outward.x1+outward.x2)*.5+outward.nx*.24,
+        oy=(outward.y1+outward.y2)*.5+outward.ny*.24,
+        cone=exteriorLightCone(ox,oy,2.05,outward.nx,outward.ny);
+      const coneExteriorOnly=cone.length>20&&cone.slice(1).every(p=>
+        (p[0]-ox)*outward.nx+(p[1]-oy)*outward.ny>=-1e-4);
+      cam.x=cam.tx=l.x;cam.y=cam.ty=l.y;
+      player.x=l.x;player.y=l.y;
       st.night=true;world.night=true;render();
       // Testa os interiores de verdade, incluindo uso de F e mudanca no
       // estado da porta/luz/recurso de jogo, sem depender de mock do Canvas.
@@ -223,6 +257,7 @@ const {judge}=require('./visual-quality-judge.cjs');
       return {fencePainted,fenceColors:colors.size,buriedPosts,
         wallBlocksLight,partitionBlocksLight,
         lampBeamPixels,lampCount:world.lamps.length,
+        facadeCovered,roofCovered,maskLocal,coneExteriorOnly,
         outsideRoofOpaque,sightThroughWindow,closedDoorBlocked,
         interiorVisibleWhenInside,ruralCount:rural.length,
         ruralKinds:ruralKinds.size,urbanCount:urban.length,
