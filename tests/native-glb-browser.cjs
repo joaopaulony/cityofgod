@@ -26,6 +26,7 @@ const fs=require('node:fs');
    const sys=window.vehicleNative3D;
    return {
     statuses:[...sys.states],
+    geometry:[...sys.geometryInfo],
     models:sys.loadedModels.slice(),
     proceduralCars:vehicleSystem.cars.length,
     nativeCars:vehicleSystem.cars.filter(x=>
