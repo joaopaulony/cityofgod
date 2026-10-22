@@ -514,12 +514,8 @@ function drawNight(W,H){
     tint(l.x,l.y,l.r*.95,.27,'250,200,114',l.polygon);
     tint(l.x,l.y,l.r*.62,.18,'255,222,160',l.polygon);
     tint(l.x,l.y,l.r*1.12,.062,'244,187,106',l.polygon);
-    const bulb=proj(l.x,l.y,4.03);
-    // Nunca mostrar halo de luminaria atras de uma parede no campo de visao.
-    if(lightIsVisible(player.x,player.y,l.x,l.y)){
-      radial(gg,bulb.x,bulb.y,.67*Z,.57,1,'255,231,173');
-      radial(gg,bulb.x,bulb.y,1.02*Z,.14,1,'248,195,116');
-    }
+    // A emissao do bulbo sera desenhada depois da mascara das casas.
+    // O raycast no CHAO desligava postes visiveis diante de edificios.
   }
   for(const w of windows)tint(w.x,w.y,w.r*.89,.13,'239,183,103',w.polygon);
   for(const w of porch){
@@ -531,6 +527,15 @@ function drawNight(W,H){
   gg.globalCompositeOperation='source-over';
   protectBuildingSurfaces(gg);
   g.drawImage(glows,0,0);
+  g.globalCompositeOperation='screen';
+  for(const l of lamps){
+    if(!lampHeadVisible(l.l))continue;
+    const bulb=proj(l.x,l.y,4.03);
+    // Emissivo no ponto real da luminaria, mesmo que o chao entre
+    // jogador e poste esteja atras de uma parede de outra casa.
+    radial(g,bulb.x,bulb.y,.46*Z,.35,1,'255,235,182');
+    radial(g,bulb.x,bulb.y,.82*Z,.12,1,'247,196,111');
+  }
   g.globalCompositeOperation='source-over';
 }
 
