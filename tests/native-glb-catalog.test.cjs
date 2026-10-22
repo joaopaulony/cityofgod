@@ -21,6 +21,7 @@ test('five distinct source models have attribution and local paths',()=>{
  assert.equal((catalog.match(/frontAxis:/g)||[]).length,5);
  assert.match(catalog,/variantMaterials:\['Material\.034','Material\.035','Material\.036'\]/);
  assert.match(runtime,/if\(model\.variantMaterials\)/);
+ assert.match(runtime,/gltf\.scene\.clone\(true\)/);
  assert.match(credits,/creativecommons.org\/licenses\/by\/4.0/);
 });
 
