@@ -168,23 +168,36 @@ function carDrawFender(g,b,u,side,m,C){
  carLine(g,b,outer.slice(3,17),
    'rgba(235,230,219,.26)',.022);
 }
+// Rectangular inset automotive lenses with an outline instead of
+// floating screen-space ellipses. The units remain attached while rotating.
 function carLamp(g,b,u,v,z,kind,on){
- const p=carProject(b,u,v,z),r=Math.max(1.4,cam.zoom*.085);
- const rgb=kind==='front'?'255,245,216':kind==='turn'?'255,175,48':'254,52,45';
- g.fillStyle=on?'rgba('+rgb+',.98)':kind==='front'?'#a8bdc6':
-  kind==='turn'?'#b68247':'#9f3c3d';
- g.beginPath();g.ellipse(p.x,p.y,r*1.15,r*.56,-.09,0,TAU);g.fill();
- g.strokeStyle='rgba(12,20,24,.78)';g.lineWidth=Math.max(.7,cam.zoom*.013);
- g.stroke();
+ const m=carModel(b),isTurn=kind==='turn',front=kind==='front',
+  width=isTurn?.135:(m.id==='explorer'||m.id==='pickup'?.30:.27),
+  height=isTurn?.083:.125,
+  lens=isTurn?'#b97a35':front?'#aec1c8':'#a53840',
+  lit=isTurn?'#ffb64b':front?'#fff1cc':'#ff403c',
+  face=u>=0?1:-1;
+ const quad=[
+  [u+face*.021,v-width*.50,z-height*.50],
+  [u+face*.021,v+width*.50,z-height*.50],
+  [u+face*.021,v+width*.50,z+height*.50],
+  [u+face*.021,v-width*.50,z+height*.50]];
+ carFill(g,b,quad,on?lit:lens,'#1b242c');
+ // Small internal vertical lamp division for glass depth.
+ carLine(g,b,[[u+face*.027,v-width*.21,z-height*.39],
+   [u+face*.027,v-width*.21,z+height*.37]],
+   on?'rgba(255,255,236,.54)':'rgba(252,247,234,.28)',.008);
  if(on){
-  const grad=g.createRadialGradient(p.x,p.y,0,p.x,p.y,r*5);
-  grad.addColorStop(0,'rgba('+rgb+',.61)');
-  grad.addColorStop(.19,'rgba('+rgb+',.22)');
+  const q=carProject(b,u+face*.05,v,z),
+   r=Math.max(2.1,cam.zoom*(isTurn?.065:.10)),
+   rgb=front?'255,247,214':isTurn?'255,171,48':'255,52,46';
+  const grad=g.createRadialGradient(q.x,q.y,0,q.x,q.y,r*6);
+  grad.addColorStop(0,'rgba('+rgb+',.53)');
+  grad.addColorStop(.24,'rgba('+rgb+',.18)');
   grad.addColorStop(1,'rgba('+rgb+',0)');
-  g.fillStyle=grad;g.beginPath();g.arc(p.x,p.y,r*5,0,TAU);g.fill();
+  g.fillStyle=grad;g.beginPath();g.arc(q.x,q.y,r*6,0,TAU);g.fill();
  }
 }
-
 // Individual surface grammar: segments intentionally depend on model data.
 // No one-size sedan chassis or generic cuboid cabins.
 function carPanel(g,b,vs,c,edge='rgba(16,23,28,.48)'){
@@ -213,16 +226,40 @@ function carBadge(g,b,u,v,z,r=.055,color='#bcc9c8'){
  g.fillStyle=color;g.beginPath();g.ellipse(q.x,q.y,
   Math.max(1,cam.zoom*r),Math.max(.7,cam.zoom*r*.37),0,0,TAU);g.fill();
 }
+// Inset automotive glass: dark gasket, muted tint and subtle highlights.
+// The previous completely opaque light-blue polygons looked like loose panels.
 function carWindow(g,b,vs,color='#87a4b0'){
- carFill(g,b,vs,'#26313a','#10191e');
- const n=vs.length,c=vs.map(p=>p.slice());
- // Windshield remains inset from rubber trim by panel geometry (4 vertices).
- if(n===4){
-  const mid=c.reduce((v,p)=>[v[0]+p[0]/4,v[1]+p[1]/4,v[2]+p[2]/4],[0,0,0]);
-  for(const p of c){p[0]=lerp(p[0],mid[0],.070);p[1]=lerp(p[1],mid[1],.075);p[2]=lerp(p[2],mid[2],.067);}
-  carFill(g,b,c,color,'rgba(33,47,54,.5)');
-  carLine(g,b,[c[0],c[3]],'rgba(226,238,238,.26)',.020);
- }
+ carFill(g,b,vs,'#131c25','#0d151d');
+ if(vs.length!==4)return;
+ const mid=vs.reduce((v,p)=>[v[0]+p[0]/4,v[1]+p[1]/4,v[2]+p[2]/4],[0,0,0]);
+ const glass=vs.map(p=>[
+  lerp(p[0],mid[0],.065),lerp(p[1],mid[1],.078),
+  lerp(p[2],mid[2],.078)
+ ]);
+ carFill(g,b,glass,'#344e5d','rgba(14,23,31,.85)');
+ const points=glass.map(q=>carProject(b,q[0],q[1],q[2]));
+ const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+ const x0=Math.min(...xs),x1=Math.max(...xs),
+  y0=Math.min(...ys),y1=Math.max(...ys);
+ if(x1-x0<1||y1-y0<1)return;
+ g.save();g.beginPath();
+ points.forEach((q,i)=>i?g.lineTo(q.x,q.y):g.moveTo(q.x,q.y));
+ g.closePath();g.clip();
+ const grad=g.createLinearGradient(x0,y0,x1,y1);
+ grad.addColorStop(0,'rgba(195,223,224,.43)');
+ grad.addColorStop(.28,'rgba(103,145,164,.28)');
+ grad.addColorStop(.49,'rgba(22,42,60,.10)');
+ grad.addColorStop(.72,'rgba(13,29,47,.36)');
+ grad.addColorStop(1,'rgba(6,15,30,.50)');
+ g.fillStyle=grad;g.fillRect(x0,y0,x1-x0,y1-y0);
+ // Narrow reflected strip suggests curved windshield glass, not a white wall.
+ g.beginPath();g.moveTo(x0+(x1-x0)*.12,y0-4);
+ g.lineTo(x0+(x1-x0)*.28,y0-4);
+ g.lineTo(x0+(x1-x0)*.68,y1+4);
+ g.lineTo(x0+(x1-x0)*.59,y1+4);
+ g.closePath();g.fillStyle='rgba(232,246,247,.055)';g.fill();
+ g.restore();
+ carLine(g,b,[glass[0],glass[3]],'rgba(219,234,233,.19)',.013);
 }
 function carWing(g,b,m,kind){
  const L=m.len/2,w=m.w/2;
