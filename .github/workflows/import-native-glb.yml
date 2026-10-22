@@ -87,3 +87,5 @@ jobs:
 # Build Opala variant inspection instrumentation.
 
 # Rebuild Opala comparison with separate pristine scene clone.
+
+# Ensure BMW 3D catalog tests use active/archived models correctly.
