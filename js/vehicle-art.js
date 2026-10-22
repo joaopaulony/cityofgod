@@ -119,8 +119,8 @@ function carTire(g,b,u,v,m){
   '#171e23','#3b4346');
  // Aro de metal espesso, aro de montagem e prato interno em camadas.
  const pV=front+geo.side*.020;
- carFill(g,b,ring(pV,r*.685),'#b8bfc0','#69737a');
- carFill(g,b,ring(pV+geo.side*.008,r*.595),'#ecede8','#747d81');
+ carFill(g,b,ring(pV,r*.685),'#66717a','#343e48');
+ carFill(g,b,ring(pV+geo.side*.008,r*.595),'#929b9f','#394651');
  carFill(g,b,ring(pV+geo.side*.015,r*.53),'#424b50','#bbc1c4');
  // Aro específico por categoria: não repetir a mesma estrela prateada.
  // Raios e furos giram com a distância real percorrida (odômetro).
@@ -134,7 +134,7 @@ function carTire(g,b,u,v,m){
  ];
  if(style==='five-hole'){
   // Cinco recessos escuros com relevo de aro, estilo esportivo dos anos 90.
-  carFill(g,b,ring(baseV,r*.58),'#92999d','#3a454a');
+  carFill(g,b,ring(baseV,r*.58),'#59636d','#313d46');
   for(let i=0;i<5;i++){
    const a=spin+TAU*(i+.05)/5,uu=u+Math.cos(a)*r*.37,
       zz=z+Math.sin(a)*r*.37;
@@ -155,7 +155,7 @@ function carTire(g,b,u,v,m){
    const a=spin+TAU*i/8;
    carFill(g,b,[point(a-.13,.17),point(a-.10,.48),
     point(a+.10,.48),point(a+.13,.17)],
-      '#a5afb0','#333b43');
+      '#839096','#313b43');
   }
  }else{
   const n=style==='offroad'?6:7;
@@ -165,7 +165,7 @@ function carTire(g,b,u,v,m){
    const a=spin+TAU*i/n;
    carFill(g,b,[point(a-.14,.14),point(a-.095,.53,.012),
     point(a+.095,.53,.012),point(a+.14,.14)],
-     style==='offroad'?'#9ba7a7':'#c1c9c9','#3d484e');
+     style==='offroad'?'#75858c':'#a1b0b6','#3d484e');
    carLine(g,b,[point(a,.23),point(a,.49,.021)],
        'rgba(245,246,237,.34)',.011);
   }
@@ -173,7 +173,7 @@ function carTire(g,b,u,v,m){
  // Miolo e parafusos continuam presos ao eixo.
  carFill(g,b,ring(baseV+geo.side*.038,r*.175),
    style==='five-hole'?'#adb5b6':'#707980','#313d45');
- carFill(g,b,ring(baseV+geo.side*.051,r*.096),'#333b41','#a4acb1');
+ carFill(g,b,ring(baseV+geo.side*.051,r*.096),'#333b41','#87929a');
  for(let i=0;i<5;i++){
   const a=spin+TAU*i/5;
   const q=carProject(b,...point(a,.143,.061));
