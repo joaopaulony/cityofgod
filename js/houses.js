@@ -379,7 +379,16 @@ world.buildHouses = buildHouses;
 world.blocked = (x, y, r) => {
   for (const H of houses) if (x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5) return true;
   for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
-  for (const b of boxes) if (Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.6) return true;
+  for (const b of boxes) {
+    if(b.kind==='car'){
+      // Veiculo com hitbox orientada: nao impede que o jogador chegue
+      // perto da porta, como acontecia com a antiga colisao circular.
+      const dx=x-b.x,dy=y-b.y,c=Math.cos(b.rot),s=Math.sin(b.rot),
+        u=dx*c+dy*s,v=-dx*s+dy*c;
+      if(Math.abs(u)<b.w*.5+r+.08&&Math.abs(v)<b.d*.5+r+.08)return true;
+    }else if(Math.hypot(b.x-x,b.y-y)<
+        Math.max(b.w,b.d)/2+r+.6)return true;
+  }
   return false;
 };
 
