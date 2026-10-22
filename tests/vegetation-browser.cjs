@@ -99,6 +99,75 @@ const fs=require('node:fs');
       ecology.squirrels<8||!ecology.moved||ecology.opaque<800)
       throw Error('Wildlife, meadow or sprites missing: '+JSON.stringify(ecology));
 
+    // Regressao dos esquilos: tamanho ~10x menor, animacoes em pixel art
+    // realmente diferentes, corrida de fuga e subida progressiva no tronco.
+    const squirrelCheck=await game.evaluate(()=>{
+      const spriteSet=ecosystem.squirrelSprites;
+      const a=spriteSet[0].idle[1].img,b=spriteSet[0].idle[4].img;
+      const aa=a.getContext('2d').getImageData(0,0,a.width,a.height).data;
+      const bb=b.getContext('2d').getImageData(0,0,b.width,b.height).data;
+      let changed=0,solid=0;
+      for(let i=0;i<aa.length;i+=4){
+        if(aa[i]!==bb[i]||aa[i+1]!==bb[i+1]||
+          aa[i+2]!==bb[i+2]||aa[i+3]!==bb[i+3])changed++;
+        if(aa[i+3]>180)solid++;
+      }
+      const pxWidth=ecosystem.squirrelSprites[0].idle[0].img.width*
+        cam.zoom/SQUIRREL_SCALE_DIVISOR;
+      const oldWidth=37*cam.zoom/40;
+      // Procura area livre de pelo menos 2m para corrida previsivel.
+      let running=null;
+      for(const s of ecosystem.squirrels){
+        for(const direction of [0,Math.PI/2,Math.PI,-Math.PI/2]){
+          const dx=Math.cos(direction),dy=Math.sin(direction);
+          if([.4,.8,1.2,1.8,2.4].every(d=>ecoFree(s.x+dx*d,s.y+dy*d))){
+            running={s,dx,dy};break;
+          }
+        }
+        if(running)break;
+      }
+      let sprint=0;
+      if(running){
+        const {s,dx,dy}=running,startX=s.x,startY=s.y;
+        s.mode='flee';s.timer=2;s.panic=2;s.move=1;s.z=.035;
+        s.goalX=s.x+dx*2.4;s.goalY=s.y+dy*2.4;
+        player.x=s.x-dx*10;player.y=s.y-dy*10;
+        ecosystemTick(.2,player,12);
+        sprint=Math.hypot(s.x-startX,s.y-startY);
+      }
+      const climbing=ecosystem.squirrels[1];
+      climbing.mode='climb';climbing.z=.03;
+      climbing.goalZ=climbing.tree.sp.trunkH+.55;
+      climbing.x=climbing.tree.x;climbing.y=climbing.tree.y;
+      const z0=climbing.z;
+      player.x=climbing.x+20;player.y=climbing.y+20;
+      ecosystemTick(.22,player,13);
+      const rise=climbing.z-z0;
+      // Galeria automatizada: repouso, respiracao, corrida e escalada.
+      const gallery=document.createElement('canvas'),ctx=gallery.getContext('2d');
+      gallery.width=600;gallery.height=180;gallery.id='squirrel-pixel-gallery';
+      gallery.style.cssText='position:fixed;top:0;left:0;z-index:99999;background:#718059';
+      const poses=['idle','run','climb'];
+      for(let kind=0;kind<3;kind++)
+        for(let pose=0;pose<3;pose++){
+          const sp=spriteSet[kind][poses[pose]][pose===0?1:3];
+          ctx.imageSmoothingEnabled=false;
+          ctx.drawImage(sp.img,kind*200+pose*65+5,24,sp.img.width*3,sp.img.height*3);
+        }
+      document.body.append(gallery);
+      return {kinds:spriteSet.length,frames:spriteSet[0].idle.length,
+        changePixels:changed,opaque:solid,pxWidth,oldWidth,
+        sizeRatio:oldWidth/pxWidth,sprint,rise};
+    });
+    await game.screenshot({path:'artifacts/squirrel-pixel-gallery.png',fullPage:true});
+    console.log('Tiny animated squirrels:',JSON.stringify(squirrelCheck));
+    if(squirrelCheck.kinds!==3||squirrelCheck.frames!==6||
+       squirrelCheck.opaque<50||squirrelCheck.changePixels<12||
+       squirrelCheck.sizeRatio<8.5||squirrelCheck.sprint<.75||
+       squirrelCheck.rise<.3)
+      throw Error('Small animated squirrel regression: '+JSON.stringify(squirrelCheck));
+    await game.evaluate(()=>document.querySelector('#squirrel-pixel-gallery')?.remove());
+
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.
     const normal=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
