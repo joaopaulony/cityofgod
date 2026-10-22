@@ -47,7 +47,8 @@ const RULES=[
     m.wheelTypeCount===9&&m.wheelWidthMin>=.28&&
     m.wheelFrontBackMin>3&&m.wheelRimPixelsMin>45&&
     m.wheelTreadPixelsMin>125&&m.wheelArchMaskedMin>8&&
-    m.wheelGeometriesOK],
+    m.wheelGeometriesOK&&m.wheelTrackMounted&&
+    m.wheelMaxGroundClearance<.028],
   ['Daytona roxo com proporções e aerofólio corrigidos',2,m=>
     m.aeroLowCab&&m.aeroTaperedNose&&m.aeroLongWheelbase&&
     m.aeroWingHeight],
