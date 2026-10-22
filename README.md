@@ -42,3 +42,16 @@ Abra `http://localhost:4321`. Use `?seed=1234` na URL para repetir um mapa.
 - `js/hud.js` — HUD (retrato, barras, minimapa, hotbar, mira)
 - `js/game.js` — laço principal, tiro, partículas e iluminação noturna
 - `js/debug.js` — cenas de teste (`?scene=...`), carregado só para inspeção
+
+
+## Gerador de assets por IA (Gemini Nano Banana)
+
+Existe agora um fluxo OPCIONAL, fora do jogo, para produzir imagens isometricas com o Google Gemini:
+
+- Guia completo: [tools/gemini/README.md](tools/gemini/README.md)
+- Geracao MANUAL em [GitHub Actions](../../actions/workflows/gemini-assets.yml)
+- Referencias de imagem em [assets/references](assets/references)
+- Sem chave no frontend, sem cobranca em push ou PR e sem publicacao automatica no jogo.
+- Para testar SEM gastar creditos, execute o workflow com confirm_spend desmarcado. Para gerar uma imagem, marque confirm_spend (1 geracao paga por execucao).
+
+Os carros atuais desenhados por codigo continuam funcionando sem Gemini. Imagens geradas precisam de revisao antes de serem integradas ao Canvas.
