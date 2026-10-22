@@ -84,6 +84,7 @@ for(const key of ['C','D']){
   };
   const points=(x,y)=>[x,y];
   A.initUpperFloor(h,t,points,0);
+  A.houses.push(h);
   assert.equal(h.upper.z,2.75);
   assert.ok(h.upper.walls.length>10);
   assert.ok(h.upper.furniture.length>=5);
