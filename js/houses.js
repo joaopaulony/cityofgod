@@ -537,10 +537,32 @@ function updateHouseOpenings(dt, residents, night) {
   }
 }
 
+// A fachada sempre bloqueia visao externa; so projetamos o que esta
+// diretamente atras do vidro ou vao de porta autorizado por LOS.
+function drawOpeningPortal(g,s){
+  const H=s.house;
+  if(!H.visionOpenings||!H.visionOpenings.includes(s))return;
+  const door=!!s.door;
+  const z0=door?.08:.97,z1=door?2.04:2.02;
+  const u0=door?.13:.22,u1=door?.87:.78;
+  const q=wallQuad(s,z0,z1,u0,u1);
+  g.save();g.beginPath();q.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));
+  g.closePath();g.clip();
+  // Interior escuro com luz indireta: nao substitui a estrutura exterior.
+  g.fillStyle=world.night?'#37332d':'#807d72';g.fill();
+  const pane=g.createLinearGradient(q[0].x,q[0].y,q[2].x,q[2].y);
+  pane.addColorStop(0,'rgba(239,222,180,.24)');
+  pane.addColorStop(1,'rgba(20,25,30,.44)');
+  g.fillStyle=pane;g.fill();
+  const furniture=boxes.filter(b=>b.house===H&&!b.exteriorFixture&&!b.floor);
+  for(const b of furniture)drawBox(g,b);
+  if(!door){g.fillStyle='rgba(92,136,157,.20)';g.fill();}
+  g.restore();
+}
 function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
-  const cut = (H.inside || H.fade) && (f > 0 || !s.ext);
+  const cut = H.inside && (f > 0 || !s.ext);
   const h = cut ? 0.5 : s.h;
   if (s.door) {
     drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
@@ -563,6 +585,7 @@ function drawWall(g, s) {
   g.strokeStyle = 'rgba(22,16,12,0.75)'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
   const q = wallQuad(s, 0, h);
+  if(s.ext&&(s.window||s.door))drawOpeningPortal(g,s);
   if (!s.door) { g.strokeStyle = 'rgba(22,16,12,0.45)'; g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); }
   g.strokeStyle = 'rgba(22,16,12,0.8)';
   if (s.c0) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[3].x, q[3].y); g.stroke(); }
@@ -733,13 +756,16 @@ function houseDrawables(list, px, py) {
   };
   for (const H of houses) {
     if (!visibleHouse(H)) {
-      H.inside = false; H.fade = false;
+      H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
-    H.fade = !H.inside && behindHouse(H, px, py);
+    // Nunca revelar os moveis atraves de telhado/paredes opacas quando
+    // o jogador esta atras da construcao: apenas portas/janelas validas.
+    H.fade=false;
+    H.visionOpenings=H.inside?[]:houseVisibleOpenings(H,px,py);
     let maxD = -1e9;
-    const showIn = H.inside || H.fade;
+    const showIn=H.inside;
     const upstairs = H.upper && H.inside &&
       typeof player!=='undefined' && (player.floor===1||player.stairTravel&&player.stairTravel.to===1);
     for (const s of H.segs) {
@@ -769,9 +795,9 @@ function houseDrawables(list, px, py) {
     const at=proj(b.x,b.y,0),extra=cam.zoom*(Math.max(b.w,b.d,b.h||0)+3);
     if(at.x < -extra || at.x > cam.W+extra ||
        at.y < -extra || at.y > cam.H+extra) continue;
-    if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
+    if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
-    if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
+    if (b.house && !b.exteriorFixture && !b.house.inside) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
   }
