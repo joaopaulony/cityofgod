@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Download and verify five explicitly licensed CC BY car models
+      - name: Download and verify six licensed CC BY GLB sources (five active)
         shell: bash
         run: |
           set -euo pipefail
@@ -43,6 +43,7 @@ jobs:
           done <<'ASSETS'
           nissan-silvia-s13.glb 42a622041cdeff142ff7447852f3a146ca36ece8
           chevrolet-opala.glb b0a113e76f5c198f3c483eb3860158bd006db82f
+          bmw-e30.glb 9a43cd879cab8a7f58e330e83d6f737b8fa0d515
           ford-mustang.glb a6b355899077b8a76d2ac9f907801ac1426e48e0
           ford-ranger.glb 5679c2eb6f52b5da4b60d8a4a668fcf0f4dcb408
           mercedes-gclass.glb 49ea728c15a15bf88b016c21d26d9661c53c5b58
@@ -59,12 +60,6 @@ jobs:
             --minify --outfile=js/vehicle-glb-bundle.js
           node --check js/vehicle-glb-bundle.js
           node tests/native-glb-catalog.test.cjs
-      - name: Export Opala source model for mesh variant inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: opala-original-glb-inspection
-          path: assets/vehicles/native-glb/chevrolet-opala.glb
-          if-no-files-found: error
       - name: Commit assets and local renderer bundle to feature branch
         shell: bash
         run: |
