@@ -254,12 +254,8 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
 }
 
 // carros
-function addCar(x, y, rot, col) {
-  addBox({ x, y, rot, w: 4.3, d: 1.85, h: 0.65, z: 0.3, top: col, side: col, kind: 'car' });
-  const c = Math.cos(rot), s = Math.sin(rot);
-  addBox({ x: x - c * 0.25, y: y - s * 0.25, rot, w: 2.1, d: 1.6, h: 0.5, z: 0.95, top: col, side: '#2b3a4a', kind: 'cabin', solid: false });
-  for (const [u, v] of [[-1.35, -0.85], [1.35, -0.85], [-1.35, 0.85], [1.35, 0.85]])
-    addBox({ x: x + u * c - v * s, y: y + u * s + v * c, rot, w: 0.7, d: 0.25, h: 0.62, top: '#1d1d20', side: '#1d1d20', kind: 'wheel', solid: false });
+function addCar(x,y,rot,col,index=0) {
+  return vehicleCreate(x,y,rot,col,index);
 }
 
 // cerca de madeira em pedaços de 1 m; gap(x,y) abre portões
@@ -374,7 +370,8 @@ function buildHouses() {
     const r = world.roads[(rng() * world.roads.length) | 0], j = 8 + ((rng() * (r.pts.length - 16)) | 0), p = r.pts[j], s = rng() < 0.5 ? 1 : -1;
     const x = p.x + p.nx * s * (ROAD_W - 1.3), y = p.y + p.ny * s * (ROAD_W - 1.3);
     if (x < 3 || y < 3 || x > MAP - 3 || y > MAP - 3 || Math.hypot(x - J.x, y - J.y) < 12 || cars.some(c => Math.hypot(c[0] - x, c[1] - y) < 8)) continue;
-    cars.push([x, y]); addCar(x, y, Math.atan2(p.ty, p.tx) + (s > 0 ? 0 : Math.PI), cols[cars.length % cols.length]);
+    cars.push([x,y]); addCar(x,y,Math.atan2(p.ty,p.tx)+(s>0?0:Math.PI),
+      cols[cars.length%cols.length],cars.length-1);
   }
 }
 world.buildHouses = buildHouses;
@@ -382,7 +379,16 @@ world.buildHouses = buildHouses;
 world.blocked = (x, y, r) => {
   for (const H of houses) if (x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5) return true;
   for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
-  for (const b of boxes) if (Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.6) return true;
+  for (const b of boxes) {
+    if(b.kind==='car'){
+      // Veiculo com hitbox orientada: nao impede que o jogador chegue
+      // perto da porta, como acontecia com a antiga colisao circular.
+      const dx=x-b.x,dy=y-b.y,c=Math.cos(b.rot),s=Math.sin(b.rot),
+        u=dx*c+dy*s,v=-dx*s+dy*c;
+      if(Math.abs(u)<b.w*.5+r+.08&&Math.abs(v)<b.d*.5+r+.08)return true;
+    }else if(Math.hypot(b.x-x,b.y-y)<
+        Math.max(b.w,b.d)/2+r+.6)return true;
+  }
   return false;
 };
 
@@ -626,7 +632,8 @@ function behindHouse(H, px, py) {
   const xs = sp.map(q => q.x), ys = sp.map(q => q.y);
   return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
 }
-function drawBox(g, b) {
+function drawBox(g,b) {
+  if(b.kind==='car')return carDraw(g,b,T,world.night);
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
   for (let i = 0; i < 4; i++) {

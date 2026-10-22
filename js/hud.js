@@ -82,9 +82,11 @@ function drawHUD(h, W, H, st) {
 
   // mira
   const cx = input.mx, cy = input.my;
-  h.strokeStyle = '#000'; h.lineWidth = 4; crosshair(h, cx, cy, p);
-  h.strokeStyle = p.ammo === 0 ? '#ff6b5a' : '#ffffff'; h.lineWidth = 2; crosshair(h, cx, cy, p);
-  if (p.reloadT >= 0) {
+  if(!vehicleSystem.driver){
+    h.strokeStyle = '#000'; h.lineWidth = 4; crosshair(h, cx, cy, p);
+    h.strokeStyle = p.ammo === 0 ? '#ff6b5a' : '#ffffff'; h.lineWidth = 2; crosshair(h, cx, cy, p);
+  }
+  if (p.reloadT >= 0&&!vehicleSystem.driver) {
     h.strokeStyle = '#f2c94c'; h.lineWidth = 3; h.beginPath(); h.arc(cx, cy, 20, -Math.PI / 2, -Math.PI / 2 + TAU * p.reloadT / RELOAD.dur); h.stroke();
   }
   // aviso central
