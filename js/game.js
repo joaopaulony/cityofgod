@@ -8,6 +8,7 @@ const light = makeCanvas(1, 1), lg = light.getContext('2d');
 buildWorld();
 
 const player = makeActor({ x: world.spawn[0], y: world.spawn[1], face: world.aimDir, pal: PAL.hero, ammo: 30, reserve: 90 });
+ecosystemInit();
 // NPCs passeiam na frente do mercado e de uma das casas
 const shopH = houses.find(h => h.brick) || houses[0], homeH = houses.find(h => h !== shopH) || shopH;
 const spotAt = (H, w) => H ? [H.front[0] + H.doorN[0] * 1.5 - w / 2, H.front[1] + H.doorN[1] * 1.5 - w / 2, w, w] : [world.spawn[0] + 4, world.spawn[1] + 4, 3, 3];
@@ -286,6 +287,7 @@ function render() {
     if (b.x < -margin || b.x > W + margin || b.y < -margin * 0.3 || b.y > H + margin * 1.2) continue;
     list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: () => drawProp(g, p, T, player) });
   }
+  ecosystemAddDrawables(list, g, T, player);
   houseDrawables(list, player.x, player.y);
   for (const l of world.lamps) {
     const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
@@ -297,6 +299,7 @@ function render() {
   for (const q of parts) list.push({ d: depthOf(q.x, q.y) + (q.z > 0.5 ? 0.3 : 0), draw: () => drawPart(q) });
   list.sort((a, b) => a.d - b.d);
   for (const it of list) it.draw(g);
+  ecosystemDrawPollen(g, T, st.night);
 
   // rastros das balas e clarão
   for (const t of tracers) {
@@ -399,6 +402,7 @@ function tick(dt) {
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
   updatePlayer(dt);
+  ecosystemTick(dt, player, T);
   for (const n of npcs) updateNPC(n, dt);
   updateHouseOpenings(dt, actors, st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }

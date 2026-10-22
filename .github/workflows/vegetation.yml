@@ -6,12 +6,18 @@ on:
     paths:
       - js/world.js
       - js/game.js
+      - js/terrain.js
+      - js/ecosystem.js
+      - index.html
       - tests/vegetation*
       - .github/workflows/vegetation.yml
   pull_request:
     paths:
       - js/world.js
       - js/game.js
+      - js/terrain.js
+      - js/ecosystem.js
+      - index.html
       - tests/vegetation*
       - .github/workflows/vegetation.yml
 permissions:

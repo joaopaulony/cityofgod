@@ -128,7 +128,7 @@ function chunkItems(ci, cj) {
     if (pick < w.grass * 0.82) {
       const dryk = sstep(0.45, 0.68, f.dry), pal = r() < dryk ? DRY : LUSH;
       items.push({ t: 'blade', x, y, l: 0.06 + r() * 0.1 * (1 - w.trail), a: r() * 0.9 - 0.45, c: pal[(r() * pal.length) | 0] });
-      if (r() < 0.012 * (1 - dryk)) items.push({ t: 'flower', x, y, c: ['#f2efe2', '#f4d34a', '#c9a2d8', '#f0a0b0'][(r() * 4) | 0], k: 3 + ((r() * 4) | 0) });
+      if (r() < 0.022 * (1 - dryk)) items.push({ t: 'flower', x, y, c: ['#f2efe2', '#f4d34a', '#c9a2d8', '#f0a0b0', '#d3a66f', '#a7b6d8', '#f0dca4'][(r() * 7) | 0], k: 3 + ((r() * 4) | 0) });
       else if (r() < 0.02) items.push({ t: 'clover', x, y, s: 0.03 + r() * 0.02 });
     } else if (pick < w.grass * 0.82 + w.forest * 0.5) {
       if (r() < 0.82) items.push({ t: 'leaf', x, y, s: 0.04 + r() * 0.04, a: r() * TAU, c: LITTER[(r() * LITTER.length) | 0] });
@@ -152,6 +152,20 @@ function chunkItems(ci, cj) {
     if (pick < 0.4) items.push({ t: 'acrack', x, y, s: 0.5 + r() * 1.2, a: along + (r() - 0.5) * 1.2, seed: (r() * 1e9) | 0 });
     else if (pick < 0.62 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along });
     else if (pick < 0.7) items.push({ t: 'patch', x, y, s: 0.7 + r() * 1.1, a: along, k: 0.4 + r() * 0.4 });
+  }
+  // Manchas silvestres em pequenos grupos, com cores que seguem o mesmo bioma.
+  // Detalhe assado no bloco: nenhum custo de animacao adicional por quadro.
+  const blooms=['#eee6ce','#ead064','#ccacd1','#db9ca9',
+    '#9eaad0','#e6a274','#ca7778','#ede0a8'];
+  for(let i=0;i<28;i++){
+    const x=x0+r()*CH,y=y0+r()*CH;
+    fieldsAt(x,y,f);
+    const w=weightsAt(f);
+    if(w.paved||w.water||w.grass<.30||w.forest>.67||
+       w.mud>.32||w.sand>.38||f.rd<ROAD_W+SIDE+1.0||
+       f.pv<1.20)continue;
+    items.push({t:'wildflower',x,y,c:blooms[(r()*blooms.length)|0],
+      k:5+((r()*6)|0),radius:.16+r()*.19,phase:r()*TAU});
   }
   terrain.items.set(key, items);
   return items;
@@ -337,7 +351,7 @@ function paintItems(ch, g) {
   }
   const buckets = new Map(), bucket = (k, f) => { if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(f); };
   for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
-  const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'foam', 'lily'];
+  const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
   const keys = [...buckets.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
   g.lineCap = 'round';
   for (const key of keys) {
@@ -376,6 +390,25 @@ function paintItems(ch, g) {
         const a = k * 2.4 + f.x * 13, d = 0.03 + (k % 3) * 0.02;
         g.fillStyle = col; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.018, 0, TAU); g.fill();
         g.fillStyle = 'rgba(60,40,10,0.6)'; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.006, 0, TAU); g.fill();
+      }
+    } else if (t === 'wildflower') {
+      // Cada miolo tem 5 petalas com leve variacao; folhas e caule por baixo.
+      // Todos os pontos estao em coordenadas do mundo, sem imagem importada.
+      for(const f of its){
+        for(let k=0;k<f.k;k++){
+          const a=f.phase+k*2.39996,
+            d=f.radius*Math.sqrt((k+.55)/f.k),
+            x=f.x+Math.cos(a)*d,y=f.y+Math.sin(a)*d;
+          g.strokeStyle='#52783b';g.lineWidth=.014;g.beginPath();
+          g.moveTo(x+.016,y+.035);g.lineTo(x,y);g.stroke();
+          g.fillStyle=col;
+          for(let j=0;j<5;j++){
+            const pet=j*TAU/5+a,r=.027+(k%3)*.002;
+            g.beginPath();g.ellipse(x+Math.cos(pet)*.028,
+              y+Math.sin(pet)*.028,r,.017,pet,0,TAU);g.fill();
+          }
+          g.fillStyle='#a68a44';g.beginPath();g.arc(x,y,.012,0,TAU);g.fill();
+        }
       }
     } else if (t === 'clover') {
       g.fillStyle = '#3d6a28'; g.beginPath();
