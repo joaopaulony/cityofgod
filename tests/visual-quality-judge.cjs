@@ -3,15 +3,15 @@
 // Nao confundir a nota automatica com avaliacao estetica humana.
 'use strict';
 const RULES=[
-  ['Cercas com volume e sombra',7,m=>m.fencePainted>=440&&m.fenceColors>=9],
-  ['Cerca apoiada no solo',7,m=>m.buriedPosts],
+  ['Cercas com volume e sombra',6,m=>m.fencePainted>=440&&m.fenceColors>=9],
+  ['Cerca apoiada no solo',6,m=>m.buriedPosts],
   ['Luz bloqueada por parede',8,m=>m.wallBlocksLight&&m.partitionBlocksLight&&
     m.facadeCovered&&m.roofCovered&&m.maskLocal&&m.coneExteriorOnly&&
     m.noBlackStripes],
-  ['Luz de poste e feixe visiveis',8,m=>m.lampBeamPixels>=900&&m.lampCount>1&&m.unaffectedByPlayerRay],
-  ['Interior nao exposto pelas paredes',8,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked&&m.featheredFocus],
+  ['Luz de poste e feixe visiveis',7,m=>m.lampBeamPixels>=900&&m.lampCount>1&&m.unaffectedByPlayerRay],
+  ['Interior nao exposto pelas paredes',7,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked&&m.featheredFocus],
   ['Interior acessivel ao entrar',7,m=>m.interiorVisibleWhenInside],
-  ['Fazendas distantes de estradas',6,m=>m.ruralCount>=4&&m.ruralKinds>=2&&m.ruralFarFromRoad],
+  ['Fazendas distantes de estradas',5,m=>m.ruralCount>=4&&m.ruralKinds>=2&&m.ruralFarFromRoad],
   ['Variedade de construcoes no mapa',3,m=>m.houseCount>=21&&m.urbanCount>=15],
   ['Cozinhas e banheiros detalhados',5,m=>m.fixtureKinds>=6&&m.roomsWithLights>=3],
   ['Portas e mobiliario interativos',4,m=>m.manualDoorWorks&&
@@ -52,6 +52,11 @@ const RULES=[
   ['Daytona roxo com proporções e aerofólio corrigidos',2,m=>
     m.aeroLowCab&&m.aeroTaperedNose&&m.aeroLongWheelbase&&
     m.aeroWingHeight],
+  ['Diablo: 8 sprites validos, escala, pintura e portas animadas',5,m=>
+    m.spriteDirections===8&&m.normalizedViews&&m.actualSpriteLoaded&&
+    m.visualScaleOK&&m.paintedPixels>1000&&
+    m.paintChangedPixels>500&&m.paintPreservedPixels>500&&
+    m.accessoryDoorAnimated],
   ['Render 2D sem erros',1,m=>m.renderOK]
 ];
 function judge(metrics){
