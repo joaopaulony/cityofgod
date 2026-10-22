@@ -76,6 +76,9 @@ const fs=require('node:fs');
       const patches=chunkItems((blossoms[0].x/CH)|0,(blossoms[0].y/CH)|0);
       const patchesCount=patches.filter(it=>it.t==='wildflower').length;
       const first=bugs[0],phase=first.phase;
+      // O motor so anima insetos proximos do jogador. Forcar camera/personagem
+      // perto do polinizador na simulacao, em vez de testar uma borboleta longe.
+      player.x=first.x;player.y=first.y;
       ecosystemTick(.05,player,2);
       const moved=first.phase>phase;
       let opaque=0;
