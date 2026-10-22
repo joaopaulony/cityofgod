@@ -105,6 +105,8 @@ async function bake(model){
   vehicleHybrid.states.set(model.id,'native-glb-ready');
   states.set(model.id,'ready');
   loadedModels.push(model.id);
+  const definition=CAR_MODELS.find(x=>x.id===model.id);
+  if(definition)definition.name=model.title;
   if(old&&old.images?.body&&old.images.body!==atlas)old.images.body=null;
  }finally{
   scene.remove(car.body);
