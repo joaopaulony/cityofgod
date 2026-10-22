@@ -203,7 +203,8 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   const W = k % 2 ? T.d : T.w, D = k % 2 ? T.w : T.d, cx = x0 + W / 2, cy = y0 + D / 2;
   const L = (u, v) => [cx + c * (u - T.w / 2) - s * (v - T.d / 2), cy + s * (u - T.w / 2) + c * (v - T.d / 2)];
   const rv = v => [c * v[0] - s * v[1], s * v[0] + c * v[1]];
-  const def = Object.assign({}, T.def, extra, { x0, y0, x1: x0 + W, y1: y0 + D, open: {} });
+  const def = Object.assign({}, T.def, extra, {x0,y0,x1:x0+W,y1:y0+D,
+    open:{},rural:!!T.rural});
   for (const key in T.def.open) {
     const ls = LOCAL_SIDES[key], wn = rv(ls.n), wd = rv(ls.dir), rev = wd[0] + wd[1] < 0;
     const len = key === 'S' || key === 'N' ? T.w : T.d, o = T.def.open[key], m = {};
@@ -237,8 +238,10 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
     world.yards.push(r);
     const gate = L(du, T.d + 3), back = L(T.w / 2, -2.5);
     const gap = (x, y) => Math.hypot(x - gate[0], y - gate[1]) < 1.3 || Math.hypot(x - back[0], y - back[1]) < 1.6;
-    fenceLine(r[0], r[1], r[2], r[1], gap); fenceLine(r[0], r[3], r[2], r[3], gap);
-    fenceLine(r[0], r[1], r[0], r[3], gap); fenceLine(r[2], r[1], r[2], r[3], gap);
+    fenceLine(r[0],r[1],r[2],r[1],gap,!!H.rural);
+    fenceLine(r[0],r[3],r[2],r[3],gap,!!H.rural);
+    fenceLine(r[0],r[1],r[0],r[3],gap,!!H.rural);
+    fenceLine(r[2],r[1],r[2],r[3],gap,!!H.rural);
     const mb = L(du - 1.6, T.d + 3.5), bin = L(du + 1.8, T.d + 2.4);
     addBox({ x: mb[0], y: mb[1], w: 0.25, d: 0.25, h: 1.1, top: '#5a3c26', side: '#5a3c26', kind: 'post' });
     addBox({ x: mb[0], y: mb[1], w: 0.5, d: 0.3, h: 0.3, z: 1.1, rot: k * Math.PI / 2, top: '#3a5b8c', side: '#2e4a73', kind: 'mailbox', solid: false });
@@ -258,10 +261,12 @@ function addCar(x, y, rot, col) {
 
 // cerca de madeira em pedaços de 1 m; gap(x,y) abre portões
 const fences = [];
-function fenceLine(x1, y1, x2, y2, gap = () => false) {
+function fenceLine(x1, y1, x2, y2, gap = () => false, rural = false) {
   const len = Math.round(Math.hypot(x2 - x1, y2 - y1)), dx = (x2 - x1) / len, dy = (y2 - y1) / len;
   for (let i = 0; i < len; i++) {
-    const s = { x1: x1 + dx * i, y1: y1 + dy * i, x2: x1 + dx * (i + 1), y2: y1 + dy * (i + 1), nx: -dy, ny: dx, h: 0.95, kind: 'fence' };
+    const s = {x1:x1+dx*i,y1:y1+dy*i,x2:x1+dx*(i+1),y2:y1+dy*(i+1),
+      nx:-dy,ny:dx,h:rural?1.12:1.28,kind:'fence',
+      rural,woodSeed:Math.abs((x1*77+y1*59+i*37)|0)};
     if (gap((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2) || onRoad((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2)) continue;
     fences.push(s); world.segs.push(s);
   }
@@ -311,16 +316,54 @@ function buildHouses() {
       .sort((a,b)=>Math.abs(a.p.x-targetX)-Math.abs(b.p.x-targetX));
     for(const c of sorted)if(tryPlace('SHOP',c))break;
   }
-  // Expandir também os bairros: 21 casas + até 3 mercados (antes 7 + 1).
+  // Expandir bairros com modelos variados, sem repetir uma rua inteira.
+  // Os terrenos rurais tem uma rotina independente das ruas.
   // Dois modelos de sobrado, intercalados aos terreiros existentes.
   // Mantemos o total de 21 lotes e os mercados da versao anterior.
-  const want = Array.from({length:3},()=>
+  const want = Array.from({length:4},()=>
     ['A','C','B','D','B','C','A']).flat();
   for (const key of want) for (const c of cands) if (tryPlace(key, c)) break;
-  // caminhos de concreto da porta até a calçada
+  // Pequenas propriedades fora das ruas: mata, campo e clareiras habitaveis.
+  // Distancia da agua, estradas e outros lotes verificada antes de instanciar.
+  const farms=8;
+  let placed=0;
+  for(let i=0;i<3300&&placed<farms;i++){
+    const key=i%2?'COTTAGE':'FARM',T=TPL[key],
+      k=(rng()*4)|0,W=k%2?T.d:T.w,D=k%2?T.w:T.d,
+      x0=Math.floor(7+rng()*(MAP-W-14)),
+      y0=Math.floor(7+rng()*(MAP-D-14)),
+      m=3.2,box=[x0-m,y0-m,x0+W+m,y0+D+m];
+    if(rects.some(b=>box[0]<b[2]+3&&box[2]>b[0]-3&&
+      box[1]<b[3]+3&&box[3]>b[1]-3))continue;
+    const mx=x0+W/2,my=y0+D/2;
+    if(forest(mx,my)<.42||Math.hypot(mx-world.junction.x,
+      my-world.junction.y)<15)continue;
+    let clear=true;
+    for(let y=box[1];y<=box[3]&&clear;y+=2){
+      for(let x=box[0];x<=box[2];x+=2){
+        if(roadDist(x,y)<ROAD_W+SIDE+2||pondVal(x,y)<1.26){
+          clear=false;break;
+        }
+      }
+    }
+    if(!clear)continue;
+    const H=placeTemplate(T,x0,y0,k,{
+      roofKind:placed%3===0?'hip':'gable',
+      ext:'#a38c6d',roof:'#685a47'});
+    H.country=true;
+    rects.push(box);placed++;
+    // Peças rurais discretas com volumes 3D; não atrapalham entradas.
+    if(placed%2===0){
+      const q=[H.x1-.85,H.y0+1];
+      addBox({x:q[0],y:q[1],w:.7,d:.58,h:.65,
+        top:'#8f7955',side:'#67513a',kind:'trough',solid:false});
+    }
+  }
+  // Caminhos simples para casas urbanas; as rurais recebem caminho de terra.
   for (const H of houses) {
     let t = 0.2; while (t < 12 && roadDist(H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t) > ROAD_W + SIDE - 0.2) t += 0.25;
-    H.walk = [H.doorPt, [H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t]];
+    H.walk = [H.doorPt,[H.doorPt[0]+H.doorN[0]*t,
+      H.doorPt[1]+H.doorN[1]*t]];
   }
   // carros estacionados junto ao meio-fio
   const cols = ['#b03a32', '#dedbd3', '#2f5d7c', '#3d3f45', '#c9a13a', '#4d6b3a'], cars = [];
@@ -344,8 +387,8 @@ world.blocked = (x, y, r) => {
 world.paintFloors = (g, M, rect) => {
   g.lineCap = 'butt';
   for (const H of houses) if (H.walk) {
-    g.strokeStyle = '#b6b0a2'; g.lineWidth = M(1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
-    g.strokeStyle = '#9d978a'; g.lineWidth = 1;
+    g.strokeStyle = H.rural?'#806b4b':'#b6b0a2'; g.lineWidth = M(H.rural?.85:1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
+    g.strokeStyle = H.rural?'#6a573b':'#9d978a'; g.lineWidth = 1;
     const n = Math.hypot(H.walk[1][0] - H.walk[0][0], H.walk[1][1] - H.walk[0][1]);
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
   }
@@ -494,10 +537,32 @@ function updateHouseOpenings(dt, residents, night) {
   }
 }
 
+// A fachada sempre bloqueia visao externa; so projetamos o que esta
+// diretamente atras do vidro ou vao de porta autorizado por LOS.
+function drawOpeningPortal(g,s){
+  const H=s.house;
+  if(!H.visionOpenings||!H.visionOpenings.includes(s))return;
+  const door=!!s.door;
+  const z0=door?.08:.97,z1=door?2.04:2.02;
+  const u0=door?.13:.22,u1=door?.87:.78;
+  const q=wallQuad(s,z0,z1,u0,u1);
+  g.save();g.beginPath();q.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));
+  g.closePath();g.clip();
+  // Interior escuro com luz indireta: nao substitui a estrutura exterior.
+  g.fillStyle=world.night?'#37332d':'#807d72';g.fill();
+  const pane=g.createLinearGradient(q[0].x,q[0].y,q[2].x,q[2].y);
+  pane.addColorStop(0,'rgba(239,222,180,.24)');
+  pane.addColorStop(1,'rgba(20,25,30,.44)');
+  g.fillStyle=pane;g.fill();
+  const furniture=boxes.filter(b=>b.house===H&&!b.exteriorFixture&&!b.floor);
+  for(const b of furniture)drawBox(g,b);
+  if(!door){g.fillStyle='rgba(92,136,157,.20)';g.fill();}
+  g.restore();
+}
 function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
-  const cut = (H.inside || H.fade) && (f > 0 || !s.ext);
+  const cut = H.inside && (f > 0 || !s.ext);
   const h = cut ? 0.5 : s.h;
   if (s.door) {
     drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
@@ -520,6 +585,7 @@ function drawWall(g, s) {
   g.strokeStyle = 'rgba(22,16,12,0.75)'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
   const q = wallQuad(s, 0, h);
+  if(s.ext&&(s.window||s.door))drawOpeningPortal(g,s);
   if (!s.door) { g.strokeStyle = 'rgba(22,16,12,0.45)'; g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); }
   g.strokeStyle = 'rgba(22,16,12,0.8)';
   if (s.c0) { g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[3].x, q[3].y); g.stroke(); }
@@ -591,13 +657,90 @@ function drawBox(g, b) {
   }
 }
 
-function drawFence(g, s) {
-  const lit = shadeOf(facingCam(s.nx, s.ny) > 0 ? s.nx : -s.nx, facingCam(s.nx, s.ny) > 0 ? s.ny : -s.ny);
-  const col = tone('#e9e3d3', lit), w = Math.max(1.5, cam.zoom * 0.07);
-  for (const z of [0.3, 0.7]) { const q = wallQuad(s, z, z); g.strokeStyle = INK; g.lineWidth = w; g.beginPath(); g.moveTo(q[0].x, q[0].y); g.lineTo(q[1].x, q[1].y); g.stroke(); g.strokeStyle = mix(col, '#000000', 0.15); g.lineWidth = w - 1; g.stroke(); }
-  for (let k = 0; k < 4; k++) {
-    const u = (k + 0.5) / 4, a = proj(lerp(s.x1, s.x2, u), lerp(s.y1, s.y2, u), 0), b = proj(lerp(s.x1, s.x2, u), lerp(s.y1, s.y2, u), s.h);
-    poly(g, [[a.x - w, a.y], [a.x + w, a.y], [b.x + w, b.y + w], [b.x, b.y - w * 0.6], [b.x - w, b.y + w]], col, INK, 1);
+// Estacas prismáticas no solo, madeira com bordas irregulares, sombra no
+// pé, fibras, cabeças chanfradas, parafusos e travessas volumétricas.
+function fencePoint(s,t,n=0,z=0){
+  return proj(lerp(s.x1,s.x2,t)+s.nx*n,
+    lerp(s.y1,s.y2,t)+s.ny*n,z);
+}
+function fenceFace(g,pts,col,stroke){
+  poly(g,pts,col,stroke||'rgba(34,24,16,.48)',Math.max(.55,cam.zoom*.014));
+}
+function fenceGrain(g,s,t0,t1,z,seed){
+  const grain=seed%7;
+  const p=fencePoint(s,t0,.052,z),q=fencePoint(s,t1,.052,z);
+  g.save();
+  for(let i=0;i<3;i++){
+    const h=(i+1)/4,offset=(grain+i*3)%9*.002;
+    const a=fencePoint(s,t0,.052,z+offset+h*.055),
+      b=fencePoint(s,t1,.052,z+offset+h*.055);
+    g.strokeStyle=i%2?'rgba(239,213,167,.18)':'rgba(43,29,18,.22)';
+    g.lineWidth=Math.max(.45,cam.zoom*.007);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();
+  }
+  g.restore();
+}
+function drawFence(g,s){
+  const old=s.woodSeed||0,grain=old%13;
+  const rural=!!s.rural;
+  const base=rural?'#98744c':'#b59b77';
+  const sunny=tone(base,shadeOf(s.nx,s.ny,0)*.36);
+  const dark=tone(base,-.43),edge=tone(base,-.22);
+  const ss=cam.zoom;
+  // Pequena sombra comprida na relva, projetada em direção oposta ao sol.
+  const shadowShift=.31;
+  for(let t=0;t<=1.01;t+=1){
+    const ax=lerp(s.x1,s.x2,t),ay=lerp(s.y1,s.y2,t);
+    const p=proj(ax,ay,0),q=proj(ax-SUN[0]*shadowShift,ay-SUN[1]*shadowShift,0);
+    g.fillStyle='rgba(18,24,10,.22)';
+    g.beginPath();g.ellipse((p.x+q.x)/2,(p.y+q.y)/2,
+      Math.max(1.5,ss*.12),Math.max(.75,ss*.042),-.32,0,TAU);g.fill();
+  }
+  // Duas travessas de seção retangular em perspectiva e com fibra real.
+  for(const z of rural?[.39,.89]:[.43,.94]){
+    const lower=z-.065,thickness=.075;
+    fenceFace(g,[fencePoint(s,0,-.055,lower),fencePoint(s,1,-.055,lower),
+      fencePoint(s,1,-.055,z),fencePoint(s,0,-.055,z)],dark);
+    fenceFace(g,[fencePoint(s,0,.055,lower),fencePoint(s,1,.055,lower),
+      fencePoint(s,1,.055,z),fencePoint(s,0,.055,z)],sunny);
+    fenceFace(g,[fencePoint(s,0,-.055,z),fencePoint(s,1,-.055,z),
+      fencePoint(s,1,.055,z),fencePoint(s,0,.055,z)],edge);
+    fenceGrain(g,s,.01,.99,z-.02,old);
+  }
+  // Cerca de quintal: ripas individuais chanfradas. Na zona rural:
+  // duas longarinas aparentes e pilares de madeira rústica.
+  if(!rural)for(let i=0;i<4;i++){
+    const t=(i+.5)/4,half=.095,zHi=s.h-.045+(grain+i)%3*.028;
+    const p0=fencePoint(s,t-half,-.065,.08),
+      p1=fencePoint(s,t+half,-.065,.08),
+      p2=fencePoint(s,t+half,-.065,zHi-.09),
+      p3=fencePoint(s,t,-.065,zHi),p4=fencePoint(s,t-half,-.065,zHi-.09);
+    fenceFace(g,[p0,p1,p2,p3,p4],i%3?sunny:edge);
+    g.strokeStyle='rgba(70,47,27,.21)';g.lineWidth=Math.max(.5,ss*.009);
+    const a=fencePoint(s,t-.02,-.067,.24),b=fencePoint(s,t-.015,-.067,zHi-.15);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();
+    const nail=fencePoint(s,t,-.072,.45);
+    g.fillStyle='#5d5549';g.beginPath();g.arc(nail.x,nail.y,Math.max(.52,ss*.013),0,TAU);g.fill();
+  }
+  // Pilares ligados ao solo, com sapata escura, corpo chanfrado e topo cortado.
+  for(const t of [0,1]){
+    const w=rural?.105:.075,top=s.h+(rural?.045:.025);
+    fenceFace(g,[fencePoint(s,t,-w,-.16),fencePoint(s,t+w*.7,-w,-.16),
+      fencePoint(s,t+w*.7,-w,top-.05),fencePoint(s,t,-w,top-.05)],dark);
+    fenceFace(g,[fencePoint(s,t,-w,-.16),fencePoint(s,t,w,-.16),
+      fencePoint(s,t,w,top-.05),fencePoint(s,t,-w,top-.05)],sunny);
+    fenceFace(g,[fencePoint(s,t,-w,top-.05),fencePoint(s,t,w,top-.05),
+      fencePoint(s,t,.02,top),fencePoint(s,t,-w,top-.05)],'#cab08a');
+    const knee=fencePoint(s,t,-w,.08);
+    g.strokeStyle='rgba(53,46,32,.55)';g.lineWidth=Math.max(1,ss*.045);
+    g.beginPath();g.moveTo(knee.x-ss*.03,knee.y);
+    g.lineTo(knee.x+ss*.04,knee.y);g.stroke();
+    for(let i=0;i<3;i++){
+      const u=fencePoint(s,t,-w,.32+i*.23);
+      g.strokeStyle=i%2?'rgba(65,40,24,.29)':'rgba(255,230,190,.22)';
+      g.lineWidth=Math.max(.5,ss*.008);
+      g.beginPath();g.moveTo(u.x-ss*.013,u.y);g.lineTo(u.x+ss*.018,u.y-ss*.08);g.stroke();
+    }
   }
 }
 
@@ -613,13 +756,16 @@ function houseDrawables(list, px, py) {
   };
   for (const H of houses) {
     if (!visibleHouse(H)) {
-      H.inside = false; H.fade = false;
+      H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
-    H.fade = !H.inside && behindHouse(H, px, py);
+    // Nunca revelar os moveis atraves de telhado/paredes opacas quando
+    // o jogador esta atras da construcao: apenas portas/janelas validas.
+    H.fade=false;
+    H.visionOpenings=H.inside?[]:houseVisibleOpenings(H,px,py);
     let maxD = -1e9;
-    const showIn = H.inside || H.fade;
+    const showIn=H.inside;
     const upstairs = H.upper && H.inside &&
       typeof player!=='undefined' && (player.floor===1||player.stairTravel&&player.stairTravel.to===1);
     for (const s of H.segs) {
@@ -649,11 +795,16 @@ function houseDrawables(list, px, py) {
     const at=proj(b.x,b.y,0),extra=cam.zoom*(Math.max(b.w,b.d,b.h||0)+3);
     if(at.x < -extra || at.x > cam.W+extra ||
        at.y < -extra || at.y > cam.H+extra) continue;
-    if (b.exteriorFixture && b.house && (b.house.inside || b.house.fade)) continue;
+    if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
-    if (b.house && !b.exteriorFixture && !(b.house.inside || b.house.fade)) continue;
+    if (b.house && !b.exteriorFixture && !b.house.inside) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
     list.push({ d: depthOf(b.x, b.y) + bias, draw: g => drawBox(g, b) });
   }
-  for (const s of fences) list.push({ d: depthOf((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2), draw: g => drawFence(g, s) });
+  for(const s of fences){
+    const at=proj((s.x1+s.x2)/2,(s.y1+s.y2)/2,0),m=cam.zoom*2.5;
+    if(at.x<-m||at.x>cam.W+m||at.y<-m||at.y>cam.H+m)continue;
+    list.push({d:depthOf((s.x1+s.x2)/2,(s.y1+s.y2)/2),
+      draw:g=>drawFence(g,s)});
+  }
 }

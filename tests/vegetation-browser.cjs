@@ -2,6 +2,7 @@
 // CI uses a local server so the diagnostics page loads the actual world.js.
 const {chromium}=require('playwright');
 const fs=require('node:fs');
+const {judge}=require('./visual-quality-judge.cjs');
 (async()=>{
   const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
   try {
@@ -136,6 +137,87 @@ const fs=require('node:fs');
       housing.hall<10||housing.items<4||housing.blocking<10||
       housing.stairs!==10)
       throw Error('House stair/interior or wildlife removal failed: '+JSON.stringify(housing));
+
+    const metrics=await game.evaluate(()=>{
+      const rural=houses.filter(H=>H.rural),urban=houses.filter(H=>!H.rural);
+      const ruralKinds=new Set(rural.map(H=>H.templateKey));
+      const x=world.lamps[0];
+      const home=houses.find(H=>H.segs.some(s=>s.ext&&s.window));
+      const win=home.segs.find(s=>s.ext&&s.window);
+      const wx=(win.x1+win.x2)/2,wy=(win.y1+win.y2)/2;
+      const outside=[wx+win.nx*1.35,wy+win.ny*1.35];
+      const inside=[wx-win.nx*1.35,wy-win.ny*1.35];
+      const sightThroughWindow=houseVisibleOpenings(home,...outside).includes(win);
+      const wallBlocksLight=!lightIsVisible(...outside,...inside);
+      const part=houses.flatMap(H=>H.segs).find(s=>!s.ext&&!s.door);
+      const px=(part.x1+part.x2)/2,py=(part.y1+part.y2)/2;
+      const partitionBlocksLight=!lightIsVisible(
+        px+part.nx*.50,py+part.ny*.50,
+        px-part.nx*.50,py-part.ny*.50);
+      const door=home.segs.find(s=>s.ext&&s.door);
+      let closedDoorBlocked=true;
+      if(door){
+        door.doorAnim.open=0;
+        const dx=(door.x1+door.x2)/2,dy=(door.y1+door.y2)/2;
+        closedDoorBlocked=!houseVisibleOpenings(home,
+          dx+door.nx*1.25,dy+door.ny*1.25).includes(door);
+      }
+      const snapshot={x:player.x,y:player.y};
+      player.x=outside[0];player.y=outside[1];
+      cam.x=cam.tx=wx;cam.y=cam.ty=wy;
+      render();
+      const outsideRoofOpaque=!home.inside&&!home.fade;
+      player.x=(home.x0+home.x1)/2;
+      player.y=(home.y0+home.y1)/2;
+      render();
+      const interiorVisibleWhenInside=home.inside;
+      const fence=fences[0],q=makeCanvas(cam.W,cam.H),fg=q.getContext('2d');
+      const mx=(fence.x1+fence.x2)/2,my=(fence.y1+fence.y2)/2;
+      cam.x=cam.tx=mx;cam.y=cam.ty=my;
+      drawFence(fg,fence);
+      const data=fg.getImageData(0,0,q.width,q.height).data;
+      let fencePainted=0;const colors=new Set();
+      for(let k=0;k<data.length;k+=4)if(data[k+3]>24){
+        fencePainted++;
+        colors.add((data[k]>>4)+','+(data[k+1]>>4)+','+(data[k+2]>>4));
+      }
+      const buriedPosts=fences.every(s=>s.h>=.9)&&fencePainted>300;
+      const l=world.lamps[0];
+      cam.x=cam.tx=l.x;cam.y=cam.ty=l.y;
+      const beam=makeCanvas(cam.W,cam.H),bg=beam.getContext('2d');
+      drawLampBeam(bg,l,0);
+      const pixels=bg.getImageData(0,0,beam.width,beam.height).data;
+      let lampBeamPixels=0;
+      for(let k=3;k<pixels.length;k+=4)if(pixels[k]>2)lampBeamPixels++;
+      player.x=l.x;player.y=l.y;cam.x=cam.tx=l.x;cam.y=cam.ty=l.y;
+      st.night=true;world.night=true;render();
+      return {fencePainted,fenceColors:colors.size,buriedPosts,
+        wallBlocksLight,partitionBlocksLight,
+        lampBeamPixels,lampCount:world.lamps.length,
+        outsideRoofOpaque,sightThroughWindow,closedDoorBlocked,
+        interiorVisibleWhenInside,ruralCount:rural.length,
+        ruralKinds:ruralKinds.size,urbanCount:urban.length,
+        ruralFarFromRoad:rural.every(H=>
+          roadDist((H.x0+H.x1)/2,(H.y0+H.y1)/2)>ROAD_W+SIDE+2),
+        houseCount:houses.length,renderOK:true};
+    });
+    await game.screenshot({path:'artifacts/cityofgod-night-light-judge.png',fullPage:true});
+    const verdict=judge(metrics);
+    console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
+    fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
+    if(!verdict.passed||verdict.score<90)
+      throw Error('Quality judge rejected visual features: '+
+        JSON.stringify(verdict.items.filter(r=>!r.pass)));
+    await game.evaluate(()=>{
+      st.night=false;world.night=false;player.x=world.spawn[0];
+      player.y=world.spawn[1];cam.x=cam.tx=player.x;cam.y=cam.ty=player.y;
+      const farm=houses.find(H=>H.rural);
+      if(farm){cam.x=cam.tx=farm.x0+(farm.x1-farm.x0)/2;
+        cam.y=cam.ty=farm.y0+(farm.y1-farm.y0)/2;
+        player.x=cam.x-3;player.y=cam.y+3;}
+      render();
+    });
+    await game.screenshot({path:'artifacts/cityofgod-rural-fences.png',fullPage:true});
 
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.

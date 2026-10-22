@@ -1,0 +1,40 @@
+// farmhouses.js — casas de sitio e chacara procedurais, longe das avenidas.
+'use strict';
+TPL.FARM={
+  w:9,d:8,setback:2.6,yard:true,rural:true,
+  def:{
+    h:2.85,roofKind:'gable',
+    open:{S:{door:[4],win:[1,7]},N:{win:[2,6]},
+      W:{win:[2,5]},E:{win:[2,5]}},
+    inner:[{x1:5,y1:0,x2:5,y2:8,door:3},
+      {x1:5,y1:4,x2:9,y2:4,door:2}],
+    floors:[{x0:0,y0:0,x1:5,y1:8,kind:'wood',col:'#94724b'},
+      {x0:5,y0:0,x1:9,y1:4,kind:'tile',col:'#c7bba7'},
+      {x0:5,y0:4,x1:9,y1:8,kind:'wood',col:'#846a4b'}]
+  },
+  furn:[
+    {x:1.2,y:2.4,w:.72,d:1.9,h:.55,top:'#b28d65',side:'#6d4a30',kind:'sofa'},
+    {x:3.1,y:1.8,w:1.2,d:1.4,h:.76,top:'#866548',side:'#60472c',kind:'table'},
+    {x:5.9,y:.6,w:1.55,d:.55,h:.82,top:'#c2b69f',side:'#816a4c',kind:'counter'},
+    {x:8.3,y:1.6,w:.6,d:.7,h:1.75,top:'#e2dfd2',side:'#a3a198',kind:'fridge'},
+    {x:7.2,y:5.7,w:1.85,d:2.05,h:.52,top:'#e1d4bd',side:'#795a3b',kind:'bed'},
+    {x:8.55,y:7.3,w:.6,d:.9,h:1.75,top:'#866b47',side:'#573d2b',kind:'wardrobe'}
+  ]
+};
+TPL.COTTAGE={
+  w:8,d:8,setback:2.8,yard:true,rural:true,
+  def:{
+    h:2.62,roofKind:'hip',
+    open:{S:{door:[3],win:[1,6]},N:{win:[2,5]},
+      W:{win:[2]},E:{win:[3]}},
+    inner:[{x1:4,y1:0,x2:4,y2:8,door:4}],
+    floors:[{x0:0,y0:0,x1:4,y1:8,kind:'wood',col:'#896743'},
+      {x0:4,y0:0,x1:8,y1:8,kind:'tile',col:'#cabda1'}]
+  },
+  furn:[
+    {x:1.2,y:2,w:.76,d:2,h:.51,top:'#7d6d55',side:'#574e3e',kind:'sofa'},
+    {x:1.7,y:5.2,w:1.3,d:1,h:.78,top:'#99724c',side:'#6b492e',kind:'table'},
+    {x:5.1,y:.65,w:1.5,d:.65,h:.9,top:'#d4c9b2',side:'#8c7657',kind:'counter'},
+    {x:6,y:5.5,w:1.8,d:2.15,h:.5,top:'#d7ccb6',side:'#795d43',kind:'bed'}
+  ]
+};
