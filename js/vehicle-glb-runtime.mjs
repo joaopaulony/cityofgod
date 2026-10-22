@@ -40,20 +40,6 @@ loader.setMeshoptDecoder(MeshoptDecoder);
 
 function normalizedCar(gltf,model){
  const root=gltf.scene;
- // Alguns autores publicam variantes inteiras num mesmo GLB. O Opala
- // tem cinco carros; escolhemos um conjunto COMPLETO de 3 materiais.
- // Os bytes originais em disco nao sao alterados.
- if(model.variantMaterials){
-  const allowed=new Set(model.variantMaterials),discard=[];
-  root.traverse(node=>{
-   if(!node.isMesh)return;
-   const materials=Array.isArray(node.material)?node.material:[node.material];
-   if(!materials.some(m=>allowed.has(m?.name)))discard.push(node);
-  });
-  for(const node of discard)node.parent?.remove(node);
-  if(!root.getObjectByProperty('isMesh',true))
-   throw Error('Required Opala variant is missing');
- }
  root.updateMatrixWorld(true);
  const measure=node=>{
   const b=new THREE.Box3().setFromObject(node),
@@ -99,40 +85,10 @@ function normalizedCar(gltf,model){
  return {body,height:dims.y,longSide:Math.max(dims.x,dims.z)};
 }
 
-// Ferramenta opt-in de QA: o GLB Opala original contem CINCO variantes
-// sobrepostas. Comparamos todas usando a mesma luz/camera, sem IA.
-function opalaCandidateGallery(gltf,model){
- if(model.id!=='sedan'||new URLSearchParams(location.search).get('nativeDebug')!=='1')
-  return;
- const preview=document.createElement('canvas');
- preview.width=SIZE*5;preview.height=SIZE;
- const g=preview.getContext('2d');
- for(let k=0;k<5;k++){
-  const first=34+k*3;
-  const variant={...model,variantMaterials:Array.from({length:3},(_,i)=>
-   'Material.'+String(first+i).padStart(3,'0'))};
-  const clone=gltf.scene.clone(true);
-  const candidate=normalizedCar({scene:clone},variant);
-  scene.add(candidate.body);
-  candidate.body.rotation.y=-Math.PI/4;
-  renderer.render(scene,camera);
-  g.drawImage(stage,k*SIZE,0);
-  scene.remove(candidate.body);
-  g.fillStyle='rgba(15,15,15,.8)';g.fillRect(k*SIZE,0,95,24);
-  g.fillStyle='#fff';g.font='bold 14px system-ui';
-  g.fillText('Opala '+(k+1),k*SIZE+8,17);
- }
- window.vehicleNative3D.opalaVariantGallery=preview;
-}
-
 async function bake(model){
  states.set(model.id,'loading');
  const url='assets/vehicles/native-glb/'+model.file;
  const gltf=await loader.loadAsync(url);
- // Keep an untouched in-memory scene for comparing every Opala version.
- const comparison=model.id==='sedan'&&
-   new URLSearchParams(location.search).get('nativeDebug')==='1'
-   ?gltf.scene.clone(true):null;
  const car=normalizedCar(gltf,model);
  scene.add(car.body);
  // Atlas with fixed frame dimensions and invariant world-ground pivot.
@@ -147,9 +103,6 @@ async function bake(model){
  camera.top=orthoSpan/2;
  camera.bottom=-orthoSpan/2;
  camera.updateProjectionMatrix();
- scene.remove(car.body);
- opalaCandidateGallery({scene:comparison||gltf.scene},model);
- scene.add(car.body);
  try{
   renderer.toneMappingExposure=model.id==='explorer'?2.35:1.25;
   for(let frame=0;frame<DIRECTIONS;frame++){
