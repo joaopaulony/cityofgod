@@ -67,7 +67,7 @@ for (const kind of ['A','B','SHOP']) {
     rotations++;
   }
 }
-const door={x1:0,y1:0,x2:1,y2:0,doorAnim:{open:0,target:0}};
+const door={x1:0,y1:0,x2:1,y2:0,ext:true,doorAnim:{open:0,target:0}};
 const win={x1:0,y1:0,x2:1,y2:0,windowAnim:{open:0,target:0,timer:.1,rand:()=>.1}};
 A.houses.push({segs:[door,win]});
 for(let i=0;i<50;i++)A.updateHouseOpenings(.05,[{x:.5,y:0}],false);
