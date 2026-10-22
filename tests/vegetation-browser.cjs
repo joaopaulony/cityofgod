@@ -418,6 +418,36 @@ const {judge}=require('./visual-quality-judge.cjs');
     console.log('Urban/night regression:',JSON.stringify(city));
     await game.screenshot({path:'artifacts/cityofgod-muzzle-urban-chimneys.png',fullPage:true});
     await game.screenshot({path:'artifacts/cityofgod-night-light-judge.png',fullPage:true});
+    // Registro visual com camera na altura correta: compara alvenaria,
+    // rufo, fumaca, antena parabolica e antena Yagi na imagem final.
+    async function roofCapture(kind,filename){
+      const ok=await game.evaluate(kind=>{
+        const H=houses.find(q=>kind==='chimney'?q.chimney?.smoke:
+          (q.antennas||[]).some(a=>a.kind===kind));
+        if(!H)return false;
+        const fixture=kind==='chimney'?H.chimney:
+          H.antennas.find(a=>a.kind===kind);
+        const height=kind==='chimney'?
+          fixture.z+fixture.h+.35:fixture.z+(kind==='yagi'?1.2:.8);
+        const offset=height*HZ/TILT;
+        cam.x=cam.tx=fixture.x-cam.sin*offset;
+        cam.y=cam.ty=fixture.y-cam.cos*offset;
+        cam.zoom=cam.tzoom=ZOOMS[5];
+        st.night=false;world.night=false;
+        render();
+        return true;
+      },kind);
+      if(!ok)throw Error('Missing rooftop fixture for screenshot: '+kind);
+      await game.screenshot({path:filename,fullPage:true});
+    }
+    await roofCapture('chimney','artifacts/roof-chimney-brick-flashing-smoke.png');
+    await roofCapture('dish','artifacts/roof-satellite-dish.png');
+    await roofCapture('yagi','artifacts/roof-tv-radio-antenna.png');
+    await game.evaluate(()=>{
+      cam.zoom=cam.tzoom=ZOOMS[zi];cam.x=cam.tx=player.x;
+      cam.y=cam.ty=player.y;
+    });
+
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
