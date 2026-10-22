@@ -234,6 +234,7 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   for (const f of layoutFurniture(T)) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
   decorateHouse(H,T,L,k);
   urbanChimneyFor(H,T,L);
+  urbanRooftopFor(H,T,L);
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
     const a = L(-2, -2.5), b = L(T.w + 2, T.d + 3);
     const r = [Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.round(Math.max(a[0], b[0])), Math.round(Math.max(a[1], b[1]))];
