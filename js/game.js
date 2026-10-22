@@ -297,7 +297,8 @@ function render() {
     list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: ctx => drawProp(ctx,p,T,player),prop:p });
   }
   ecosystemAddDrawables(list, g, T, player);
-  houseDrawables(list, player.x, player.y);
+  houseDrawables(list,player.x,player.y);
+  urbanDrawables(list,g);
   for (const l of world.lamps) {
     const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
     if(pos.x < -padding || pos.x > W+padding ||
@@ -443,7 +444,7 @@ function drawPlayerVision(list,blocker,W,H){
     if(it.roof===blocker||it.wall?.house===blocker&&it.wall.ext)continue;
     if(it.upper===blocker)continue;
     if(it.actor||it.roof||it.wall||it.house||it.fence||it.lamp||it.prop||
-       it.box)it.draw(fg);
+       it.box||it.urbanLitter||it.urbanBin)it.draw(fg);
   }
   // O personagem permanece nas coordenadas reais. Iluminacao reduzida
   // cria leitura sem expor um interior que o jogador nao deveria ver.
