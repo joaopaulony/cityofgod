@@ -115,6 +115,10 @@ const fs=require('node:fs');
       const pxWidth=ecosystem.squirrelSprites[0].idle[0].img.width*
         cam.zoom/SQUIRREL_SCALE_DIVISOR;
       const oldWidth=37*cam.zoom/40;
+      const nearTrees=world.props.filter(p=>p.type==='tree'&&
+        Math.hypot(p.x-world.spawn[0],p.y-world.spawn[1])<24).length;
+      const nearSpawn=ecosystem.squirrels.filter(s=>
+        Math.hypot(s.homeX-world.spawn[0],s.homeY-world.spawn[1])<24).length;
       // Procura area livre de pelo menos 2m para corrida previsivel.
       let running=null;
       for(const s of ecosystem.squirrels){
@@ -157,16 +161,28 @@ const fs=require('node:fs');
       document.body.append(gallery);
       return {kinds:spriteSet.length,frames:spriteSet[0].idle.length,
         changePixels:changed,opaque:solid,pxWidth,oldWidth,
-        sizeRatio:oldWidth/pxWidth,sprint,rise};
+        sizeRatio:oldWidth/pxWidth,nearTrees,nearSpawn,
+        totalSquirrels:ecosystem.squirrels.length,sprint,rise};
     });
     await game.screenshot({path:'artifacts/squirrel-pixel-gallery.png',fullPage:true});
     console.log('Tiny animated squirrels:',JSON.stringify(squirrelCheck));
     if(squirrelCheck.kinds!==3||squirrelCheck.frames!==6||
        squirrelCheck.opaque<50||squirrelCheck.changePixels<12||
-       squirrelCheck.sizeRatio<8.5||squirrelCheck.sprint<.75||
+       squirrelCheck.sizeRatio<4.5||squirrelCheck.sizeRatio>7.5||
+       squirrelCheck.totalSquirrels<50||
+       (squirrelCheck.nearTrees>=3&&squirrelCheck.nearSpawn<2)||
+       squirrelCheck.sprint<.75||
        squirrelCheck.rise<.3)
       throw Error('Small animated squirrel regression: '+JSON.stringify(squirrelCheck));
-    await game.evaluate(()=>document.querySelector('#squirrel-pixel-gallery')?.remove());
+    await game.evaluate(()=>{
+      document.querySelector('#squirrel-pixel-gallery')?.remove();
+      const s=ecosystem.squirrels[0];
+      window.__manual=true;
+      player.x=s.x+8;player.y=s.y+8;
+      cam.x=cam.tx=s.x;cam.y=cam.ty=s.y;
+      render();
+    });
+    await game.screenshot({path:'artifacts/squirrel-visible-in-world.png',fullPage:true});
 
     // Testa também o render padrão, além do modo performance. Canvas maior
     // deve continuar abaixo de 4096px e conter pixels realmente pintados.
