@@ -471,6 +471,93 @@ const {judge}=require('./visual-quality-judge.cjs');
       cam.y=cam.ty=player.y;
     });
 
+
+    // Quality gate: car geometry in ALL quadrants, camera views and modes.
+    const carJudge=await game.evaluate(()=>{
+      const all=vehicleSystem.cars,
+        models=new Set(all.map(c=>c.model)),angles=[0,Math.PI/4,Math.PI/2,
+          3*Math.PI/4,Math.PI,5*Math.PI/4,3*Math.PI/2,7*Math.PI/4],
+        cameraAngles=[0,Math.PI/4,Math.PI/2,3*Math.PI/4];
+      const old={x:cam.x,y:cam.y,ang:cam.ang,sin:cam.sin,cos:cam.cos,
+        zoom:cam.zoom,W:cam.W,H:cam.H},states=[];
+      cam.W=640;cam.H=420;cam.zoom=56;
+      let rendered=0,minCarPixels=Infinity,colorVariety=0;
+      const canvas=makeCanvas(640,420),cg=canvas.getContext('2d');
+      const car=all[0],original={x:car.x,y:car.y,rot:car.rot};
+      for(const b of all.slice(0,7)){
+        for(const a of angles){
+          for(const cameraAngle of cameraAngles){
+            cam.ang=cameraAngle;cam.sin=Math.sin(cameraAngle);
+            cam.cos=Math.cos(cameraAngle);cam.x=b.x;cam.y=b.y;
+            cg.setTransform(1,0,0,1,0,0);cg.clearRect(0,0,640,420);
+            const prev=b.rot;b.rot=a;
+            carDraw(cg,b,0,false);b.rot=prev;
+            const pixels=cg.getImageData(0,0,640,420).data;
+            let opaque=0;
+            const colors=new Set();
+            for(let k=3;k<pixels.length;k+=4){
+              if(pixels[k]>120)opaque++;
+              if(k%37===3&&pixels[k]>120)
+                colors.add((pixels[k-3]>>4)+':'+(pixels[k-2]>>4)+':'+(pixels[k-1]>>4));
+            }
+            minCarPixels=Math.min(minCarPixels,opaque);
+            colorVariety=Math.max(colorVariety,colors.size);
+            rendered++;
+          }
+        }
+      }
+      cam.x=old.x;cam.y=old.y;cam.ang=old.ang;cam.sin=old.sin;
+      cam.cos=old.cos;cam.zoom=old.zoom;cam.W=old.W;cam.H=old.H;
+      // Cars keep their own collision shapes, never pass through a house.
+      const H=houses[0],hx=(H.x0+H.x1)/2,hy=(H.y0+H.y1)/2;
+      const buildingBlocked=!vehicleCanOccupy(car,hx,hy,0);
+      // Interactive test on a parking spot with safe movement AND exit.
+      const usable=all.find(b=>{
+        const m=carModel(b),q=carPoint(b,-.32,m.w*.5+1.05,0);
+        return vehicleExitClear(b,q[0],q[1])&&
+          vehicleCanOccupy(b,b.x+Math.cos(b.rot)*.50,
+            b.y+Math.sin(b.rot)*.50,b.rot);
+      })||all[0];
+      const oldPlayer=[player.x,player.y],start=[usable.x,usable.y,usable.rot];
+      player.x=usable.x+.80;player.y=usable.y+.80;
+      const enter=vehicleInteraction(player);
+      const entered=vehicleSystem.driver===usable&&usable.occupied&&
+        enter.includes('Entrou');
+      input.keys.add('w');
+      for(let i=0;i<12;i++)vehicleUpdate(.05,player);
+      input.keys.delete('w');
+      const moved=Math.hypot(usable.x-start[0],usable.y-start[1])>.015;
+      const wheelsRotate=usable.odometer>.014;
+      input.pressed.add('l');input.pressed.add('z');input.pressed.add('b');
+      vehicleUpdate(.05,player);
+      input.pressed.clear();
+      const lightsWork=usable.headlights&&usable.hazards;
+      // Hazard blinks in the real 2D render; headlamps project two sources.
+      const coneSpots=carLightSpots(usable),
+        beams=coneSpots.length===2&&coneSpots.every(s=>Number.isFinite(s.x)&&
+          Number.isFinite(s.y));
+      const exit=vehicleInteraction(player);
+      const exited=!vehicleSystem.driver&&!usable.occupied&&
+        exit.includes('Saiu');
+      player.x=oldPlayer[0];player.y=oldPlayer[1];
+      usable.x=start[0];usable.y=start[1];usable.rot=start[2];
+      usable.speed=0;usable.engine=false;usable.headlights=false;
+      usable.indicator=0;usable.hazards=false;usable.odometer=0;
+      vehicleSound();
+      return {carModels:models.size,cars:all.length,
+        carAngles:rendered,minCarPixels,colorVariety,
+        buildingBlocked,entered,moved,wheelsRotate,lightsWork,
+        beams,exited,distinctBodies:models.size===7};
+    });
+    Object.assign(metrics,carJudge);
+    console.log('VEHICLE QUALITY:',JSON.stringify(carJudge));
+    const drivingExample=await game.evaluate(()=>{
+      const b=vehicleSystem.cars.find(v=>v.model==='supercar')||vehicleSystem.cars[0];
+      cam.x=cam.tx=b.x;cam.y=cam.ty=b.y;cam.zoom=cam.tzoom=ZOOMS[5];
+      st.night=false;world.night=false;
+      render();return {type:b.model,x:b.x,y:b.y};
+    });
+    await game.screenshot({path:'artifacts/cityofgod-seven-car-models-driving.png',fullPage:true});
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
