@@ -48,14 +48,33 @@ const fs=require('node:fs');
       player.x=focus.t.x+3.5;player.y=focus.t.y+1.5;
       cam.x=cam.tx=focus.t.x;cam.y=cam.ty=focus.t.y;
       render();
+      // O novo mapa deve ter QUATRO vezes a área, sem exceder dimensões
+      // problemáticas (>4096px) de Canvas 2D em muitos dispositivos móveis.
+      const ground=world.ground;
+      const worldState={
+        map:MAP,area:MAP*MAP,expectedArea:80*80*4,
+        groundPixels:[ground.width,ground.height],
+        groundScale:PPM,houses:houses.length,cars:world.circles.filter(c=>c.kind==='car').length,
+        roads:world.roads.length,roadFields:world.roadD.length
+      };
+      // A nova borda precisa ser alcançável e o clamp de colisão deve
+      // parar corretamente fora do mapa ampliado.
+      const edge=collide(MAP-0.65,MAP-0.65,0.25);
+      const beyond=collide(MAP+10,MAP+10,0.25);
+      worldState.edge=edge;worldState.clamped=beyond;
       return {trees:trees.length,visibleAmongFirstSeven:good,
         clusterCount:focus.n,focus:{x:focus.t.x,y:focus.t.y},
-        canvasWidth:document.querySelector('#view').width};
+        canvasWidth:document.querySelector('#view').width,...worldState};
     });
     await game.screenshot({path:'artifacts/cityofgod-game-smoke.png',fullPage:true});
     console.log('Game smoke:',JSON.stringify(live));
     if(gameErrors.length)throw Error('Game JavaScript errors: '+gameErrors.join('; '));
     if(live.trees<3||live.visibleAmongFirstSeven<Math.min(3,live.trees)||live.clusterCount<3)
       throw Error('Trees remain invisible in real game runtime: '+JSON.stringify(live));
+    if(live.map!==160 || live.area!==live.expectedArea || live.groundPixels[0]!==160*live.groundScale ||
+       live.groundPixels[0]>4096 || live.groundPixels[1]>4096 ||
+       live.houses<12 || live.roads<2 || live.roadFields!==160*160*4 ||
+       live.clamped.some(v=>v>159.5))
+      throw Error('Expanded map geometry or content invalid: '+JSON.stringify(live));
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});
