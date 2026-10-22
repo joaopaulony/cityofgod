@@ -6,7 +6,8 @@
   "description": "Manual Nano Banana asset generation pipeline for City of God (not loaded by the game).",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "generate": "node generate-assets.mjs"
+    "generate": "node generate-assets.mjs",
+    "prompts:diablo": "node export-diablo-production.mjs"
   },
   "dependencies": {
     "@google/genai": "2.30.0",

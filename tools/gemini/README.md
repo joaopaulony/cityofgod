@@ -81,3 +81,17 @@ As imagens geradas sao propostas de arte. A revisao e a integracao ao renderer C
 - Consulte precos oficiais em https://ai.google.dev/gemini-api/docs/pricing
 - Nunca compartilhe a chave, inclua em commits ou coloque a chave no JavaScript executado pelo navegador.
 - A chave continua guardada apenas como GitHub Actions Secret; o script nao grava nem exibe sua chave.
+
+## Lamborghini Diablo V2: prompts de producao antes de gastar
+
+O pacote de direcao de arte e inventario esta em [assets/vehicles/diablo/PRODUCTION-V2.md](../../assets/vehicles/diablo/PRODUCTION-V2.md). Sao **136 especificacoes** distribuidas em 8 vistas, 32 overlays de luzes, 64 keyframes de pecas e 32 mascaras locais. Nao sao 136 geracoes pagas.
+
+Para exportar gratuitamente o CSV, manifest e todos os prompts por direcao:
+
+```bash
+cd tools/gemini
+npm run prompts:diablo
+```
+
+O workflow de testes gratuitos publica tambem um ZIP chamado **diablo-production-prompts-v2** em Artifacts. O lote V1 nao deve ser considerado artisticamente aprovado: primeiro checar e corrigir direcoes frontal/traseira, cor roxa e partes transparentes dos pneus.
+
