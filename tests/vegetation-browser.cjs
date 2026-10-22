@@ -686,6 +686,126 @@ const {judge}=require('./visual-quality-judge.cjs');
     fs.writeFileSync('artifacts/cityofgod-car-gallery-9x4.png',
       Buffer.from(galleryPng,'base64'));
 
+    // RODA COM VOLUME: teste de raster independente do desenho completo.
+    // A antiga implementacao achatada falha aqui: as duas faces tinham a
+    // MESMA coordenada local v, sem banda de rodagem nem profundidade.
+    const wheelQA=await game.evaluate(()=>{
+      const models=CAR_MODELS,carList=vehicleSystem.cars,
+        old={x:cam.x,y:cam.y,W:cam.W,H:cam.H,zoom:cam.zoom,
+          angle:cam.ang,sin:cam.sin,cos:cam.cos};
+      cam.W=460;cam.H=340;cam.zoom=75;
+      cam.ang=Math.PI/4;cam.sin=Math.sin(cam.ang);cam.cos=Math.cos(cam.ang);
+      const cn=makeCanvas(460,340),ctx=cn.getContext('2d');
+      const samples=[];
+      for(const m of models){
+        const car=carList.find(b=>b.model===m.id);
+        const prev=car.rot;car.rot=0;cam.x=car.x;cam.y=car.y;
+        const u=m.front,v=carWheelMount(m,m.front,1),
+          C={paint:car.top||m.paint};
+        const geom=carWheelGeometry(car,u,v,m);
+        const pBack=geom.centerBack,pFront=geom.centerFront;
+        const separation=Math.hypot(pFront.x-pBack.x,pFront.y-pBack.y);
+        const faceWidth=Math.hypot(
+          carProject(car,u+m.wheel,geom.front,geom.centerZ).x-
+          carProject(car,u-m.wheel,geom.front,geom.centerZ).x,
+          carProject(car,u+m.wheel,geom.front,geom.centerZ).y-
+          carProject(car,u-m.wheel,geom.front,geom.centerZ).y);
+        ctx.clearRect(0,0,460,340);
+        carTire(ctx,car,u,v,m);
+        const before=ctx.getImageData(0,0,460,340).data;
+        let dark=0,light=0,wheelPixels=0;
+        for(let k=0;k<before.length;k+=4){
+          if(before[k+3]<120)continue;
+          wheelPixels++;
+          const red=before[k],gr=before[k+1],bl=before[k+2];
+          if(red<58&&gr<67&&bl<75)dark++;
+          if(red>155&&gr>155&&bl>155)light++;
+        }
+        carDrawFender(ctx,car,u,1,m,C);
+        const after=ctx.getImageData(0,0,460,340).data;
+        let changed=0;
+        const coords=[pFront,
+          carProject(car,u,geom.front,geom.centerZ+m.wheel*.83)];
+        const minX=Math.min(...coords.map(x=>x.x))-m.wheel*cam.zoom*1.5;
+        const maxX=Math.max(...coords.map(x=>x.x))+m.wheel*cam.zoom*1.5;
+        const minY=Math.min(...coords.map(x=>x.y))-m.wheel*cam.zoom*1.6;
+        const maxY=Math.max(...coords.map(x=>x.y))+m.wheel*cam.zoom*1.6;
+        for(let y=Math.max(0,Math.floor(minY));y<Math.min(340,Math.ceil(maxY));y++)
+         for(let x=Math.max(0,Math.floor(minX));x<Math.min(460,Math.ceil(maxX));x++){
+          const k=(y*460+x)*4;
+          if(before[k+3]>100&&
+            (Math.abs(before[k]-after[k])+Math.abs(before[k+1]-after[k+1])+
+             Math.abs(before[k+2]-after[k+2])>55))changed++;
+         }
+        samples.push({model:m.id,width:geom.width,separation,
+          groundClearance:geom.centerZ-m.wheel,
+          frontMount:v,rearMount:carWheelMount(m,m.rear,1),
+          faceWidth,centerZ:geom.centerZ,
+          dark,light,wheelPixels,archMasked:changed});
+        car.rot=prev;
+      }
+      cam.x=old.x;cam.y=old.y;cam.W=old.W;cam.H=old.H;
+      cam.zoom=old.zoom;cam.ang=old.angle;cam.sin=old.sin;cam.cos=old.cos;
+      const day=CAR_MODELS.find(x=>x.id==='daytona');
+      return {wheelTypeCount:samples.length,
+        wheelFrontBackMin:Math.min(...samples.map(s=>s.separation)),
+        wheelWidthMin:Math.min(...samples.map(s=>s.width)),
+        wheelMaxGroundClearance:Math.max(...samples.map(s=>s.groundClearance)),
+        wheelTrackMounted:samples.every(s=>{
+          const m=models.find(m=>m.id===s.model);
+          return Math.abs(s.frontMount)<m.w*.51&&
+            Math.abs(s.rearMount)<m.w*.51;
+        }),
+        wheelRimPixelsMin:Math.min(...samples.map(s=>s.light)),
+        wheelTreadPixelsMin:Math.min(...samples.map(s=>s.dark)),
+        wheelArchMaskedMin:Math.min(...samples.map(s=>s.archMasked)),
+        wheelGeometriesOK:samples.every(s=>s.centerZ>s.width*.5&&
+          s.faceWidth>8&&s.wheelPixels>380&&s.light>45&&
+          s.dark>125&&s.separation>3&&s.archMasked>8&&
+          s.groundClearance<.028),
+        aeroLowCab:day.roof<1.65&&day.cabF<.36,
+        aeroTaperedNose:day.noseW>.66&&day.noseW<.75,
+        aeroLongWheelbase:day.front-day.rear>3.62,
+        aeroWingHeight:2.44>day.roof+.68&&2.44<day.roof+1.04,
+        wheelSamples:samples};
+    });
+    Object.assign(metrics,wheelQA);
+    console.log('REAL 3D WHEEL QUALITY:',JSON.stringify(wheelQA));
+    // 9 modelos x 4 vistas, maior zoom e fundo neutro: galeria focada
+    // em volume de pneus, arcos de paralama, frente e asa aerodinamica.
+    const improvedWheels=await game.evaluate(()=>{
+      const tileW=385,tileH=270,cols=4,rows=CAR_MODELS.length;
+      const sheet=makeCanvas(tileW*cols,tileH*rows),g=sheet.getContext('2d');
+      const prev={x:cam.x,y:cam.y,W:cam.W,H:cam.H,zoom:cam.zoom,
+        ang:cam.ang,sin:cam.sin,cos:cam.cos};
+      const headings=[0,Math.PI/2,Math.PI,3*Math.PI/2];
+      cam.W=tileW;cam.H=tileH;cam.zoom=74;
+      for(let row=0;row<rows;row++){
+        const model=CAR_MODELS[row],b=vehicleSystem.cars.find(a=>a.model===model.id);
+        const orig=b.rot;
+        for(let col=0;col<4;col++){
+          const c=makeCanvas(tileW,tileH),ctx=c.getContext('2d');
+          cam.x=b.x;cam.y=b.y;
+          cam.ang=Math.PI/4;cam.sin=Math.sin(cam.ang);cam.cos=Math.cos(cam.ang);
+          b.rot=headings[col];
+          ctx.fillStyle='#777b7b';ctx.fillRect(0,0,tileW,tileH);
+          carDraw(ctx,b,0,false);
+          g.drawImage(c,col*tileW,row*tileH);
+          g.fillStyle='rgba(11,13,17,.82)';
+          g.fillRect(col*tileW,row*tileH,tileW,25);
+          g.fillStyle='#f8f2e7';g.font='bold 14px system-ui';
+          g.fillText(model.name+' · '+(col*90)+'°',
+            col*tileW+10,row*tileH+18);
+        }
+        b.rot=orig;
+      }
+      cam.x=prev.x;cam.y=prev.y;cam.W=prev.W;cam.H=prev.H;
+      cam.zoom=prev.zoom;cam.ang=prev.ang;cam.sin=prev.sin;cam.cos=prev.cos;
+      return sheet.toDataURL('image/png').split(',')[1];
+    });
+    fs.writeFileSync('artifacts/cityofgod-wheels-thickness-gallery.png',
+      Buffer.from(improvedWheels,'base64'));
+
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));

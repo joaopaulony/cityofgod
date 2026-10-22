@@ -14,8 +14,8 @@ const CAR_MODELS=[
   cabF:.32,cabB:-1.31,roofF:-.08,roofB:-.93,roofW:.77,noseW:.97,tailW:1.00,paint:'#b82323',kind:'fastback',cue:'foxbody'},
  {id:'explorer',name:'Utilitário temático 1993',len:4.86,w:2.02,roof:2.13,hood:1.28,deck:1.32,front:1.54,rear:-1.53,wheel:.46,acc:4.9,max:15,
   cabF:.68,cabB:-2.03,roofF:.19,roofB:-1.74,roofW:.83,noseW:.93,tailW:.95,paint:'#be3330',kind:'suv',cue:'jurassic'},
- {id:'daytona',name:'Muscle Daytona 1969',len:5.38,w:1.95,roof:1.72,hood:.98,deck:1.08,front:1.80,rear:-1.75,wheel:.41,acc:7.4,max:21,
-  cabF:.40,cabB:-1.22,roofF:.03,roofB:-.96,roofW:.77,noseW:.61,tailW:.98,paint:'#512c6b',kind:'aero',cue:'towerWing'},
+ {id:'daytona',name:'Muscle Daytona 1969',len:5.42,w:1.96,roof:1.58,hood:.94,deck:1.02,front:1.82,rear:-1.84,wheel:.425,acc:7.4,max:21,
+  cabF:.31,cabB:-1.27,roofF:-.16,roofB:-1.06,roofW:.76,noseW:.70,tailW:.98,paint:'#512c6b',kind:'aero',cue:'towerWing'},
  {id:'challenger',name:'Muscle de corrida 1970',len:4.88,w:1.98,roof:1.71,hood:1.12,deck:1.12,front:1.60,rear:-1.63,wheel:.41,acc:7.0,max:20,
   cabF:.37,cabB:-1.33,roofF:-.05,roofB:-1.00,roofW:.82,noseW:.96,tailW:.99,paint:'#adc913',kind:'muscle',cue:'number77'},
  {id:'pickup',name:'Picape clássica',len:5.33,w:2.03,roof:1.95,hood:1.29,deck:1.31,front:1.73,rear:-1.71,wheel:.44,acc:4.8,max:16,
@@ -52,34 +52,121 @@ function carLine(g,b,vertices,color,w=.022){
  g.strokeStyle=color;g.lineWidth=Math.max(.55,w*cam.zoom);
  g.lineCap='round';g.lineJoin='round';g.stroke();
 }
+// Pneumatico REAL de 2.5D: cilindro com duas faces separadas fisicamente
+// no eixo lateral do carro, banda de rodagem envolvendo toda a largura,
+// ombro arredondado, aro independente, cinco raios e cavidade de paralama.
+// Todas as faces usam carProject (mudam corretamente ao girar camera).
+// A posicao da roda acompanha a largura LOCAL da carroceria.
+// Em superesportivos e no Daytona o nariz afunila bastante: um eixo
+// com largura constante deixava a roda oposta completamente solta.
+function carWheelMount(m,u,side){
+ const L=m.len/2,w=m.w/2;
+ let ratio=1;
+ if(u>m.cabF){
+  ratio=lerp(1,m.noseW,
+    clamp((u-m.cabF)/(L-m.cabF),0,1));
+ }else if(u<m.cabB){
+  ratio=lerp(1,m.tailW,
+    clamp((m.cabB-u)/(L+m.cabB),0,1));
+ }
+ // Centro do pneu levemente dentro do painel, com ombro para fora.
+ return side*w*(ratio-.065);
+}
+function carWheelGeometry(b,u,v,m){
+ const r=m.wheel,side=Math.sign(v)||1,
+   width=m.id==='pickup'||m.id==='explorer'?.37:m.id==='daytona'?.34:.31,
+   sideWall=Math.abs(v),centerZ=r+.012,
+   back=side*(sideWall-width*.50),
+   front=side*(sideWall+width*.50);
+ return {r,width,side,back,front,u,centerZ,
+   centerBack:carProject(b,u,back,centerZ),
+   centerFront:carProject(b,u,front,centerZ)};
+}
+function carWheelRing(b,u,v,z,r,n=28){
+ return Array.from({length:n},(_,i)=>{
+  const t=TAU*i/n;
+  return [u+Math.cos(t)*r,v,z+Math.sin(t)*r];
+ });
+}
 function carTire(g,b,u,v,m){
- const r=m.wheel,center=.47,side=Math.sign(v),v0=v+side*.045,turn=b.odometer/r;
- const pp=(angle,radius)=>carProject(b,u+Math.cos(angle)*radius,v0,
-   center+Math.sin(angle)*radius);
- const ring=(r0,n=20)=>Array.from({length:n},(_,i)=>pp(i*TAU/n,r0));
- poly(g,ring(r),'#11171a','#2d3235',Math.max(.8,cam.zoom*.022));
- poly(g,ring(r*.85),'#292e31','#11191d',.65);
- poly(g,ring(r*.65),'#b6b9bb','#44484e',Math.max(.6,cam.zoom*.013));
- poly(g,ring(r*.50),'#40484f',null);
+ const geo=carWheelGeometry(b,u,v,m),{r,back,front,centerZ:z}=geo,
+   n=28,spin=(b.odometer||0)/r;
+ const ring=(v0,rr)=>carWheelRing(b,u,v0,z,rr,n);
+ // Cubo traseiro evita a impressao de uma unica elipse sem profundidade.
+ carFill(g,b,ring(back,r),'#090c0e','#242b30');
+ const outer=ring(back,r),frontOuter=ring(front,r);
+ // Banda de rodagem com largura real + sulcos que cruzam o pneu.
+ // Quadrilateros segmentados criam um volume cilíndrico completo.
+ for(let i=0;i<n;i++){
+  const j=(i+1)%n,
+    k=(i+Math.floor(spin*7))%7,
+    tread=['#12181c','#1b2125','#262b2e','#151a1d',
+      '#1c2025','#202529','#13181c'][k];
+  carFill(g,b,[outer[i],outer[j],frontOuter[j],frontOuter[i]],tread);
+  if(i%3===0){
+   const a=TAU*(i+.37)/n,ci=Math.cos(a),si=Math.sin(a);
+   carLine(g,b,[
+     [u+ci*r*.988,back,z+si*r*.988],
+     [u+ci*r*.988,front,z+si*r*.988]],
+    'rgba(91,98,104,.45)',.011);
+  }
+ }
+ // Ombro visível de borracha; aro embutido e painel lateral do pneu.
+ carFill(g,b,ring(front,r),'#111519','#343b40');
+ carFill(g,b,ring(front+geo.side*.009,r*.91),
+  '#25292d','#0b1014');
+ carFill(g,b,ring(front+geo.side*.013,r*.77),
+  '#171e23','#3b4346');
+ // Aro de metal espesso, aro de montagem e prato interno em camadas.
+ const pV=front+geo.side*.020;
+ carFill(g,b,ring(pV,r*.685),'#b8bfc0','#69737a');
+ carFill(g,b,ring(pV+geo.side*.008,r*.595),'#ecede8','#747d81');
+ carFill(g,b,ring(pV+geo.side*.015,r*.53),'#424b50','#bbc1c4');
+ // Raios giram de acordo com o deslocamento real, não o frame.
  for(let i=0;i<5;i++){
-  const a=turn+TAU*i/5;
-  carFill(g,b,[
-   [u+Math.cos(a-.22)*r*.13,v0,center+Math.sin(a-.22)*r*.13],
-   [u+Math.cos(a-.17)*r*.51,v0,center+Math.sin(a-.17)*r*.51],
-   [u+Math.cos(a+.17)*r*.51,v0,center+Math.sin(a+.17)*r*.51],
-   [u+Math.cos(a+.22)*r*.13,v0,center+Math.sin(a+.22)*r*.13]
-  ],i%2?'#dce0df':'#aeb8bd');
+  const a=spin+TAU*i/5,
+   q=(angle,k)=>[u+Math.cos(angle)*r*k,
+       pV+geo.side*.026,z+Math.sin(angle)*r*k];
+  carFill(g,b,[q(a-.19,.12),q(a-.13,.51),
+    q(a+.13,.51),q(a+.19,.12)],
+    i%2===0?'#d8dddd':'#bdc6c8');
+  // Entalhe escuro entre os raios.
+  carLine(g,b,[q(a+.18,.27),q(a+.19,.49)],
+    'rgba(35,44,48,.65)',.010);
  }
- const hub=pp(0,0);
- g.fillStyle='#bcc1c2';g.beginPath();g.arc(hub.x,hub.y,
-  Math.max(1,cam.zoom*.067),0,TAU);g.fill();
- g.fillStyle='#3d4749';g.beginPath();g.arc(hub.x,hub.y,
-  Math.max(.5,cam.zoom*.029),0,TAU);g.fill();
+ carFill(g,b,ring(pV+geo.side*.033,r*.175),'#777f83');
+ const hub=carProject(b,u,pV+geo.side*.047,z);
+ g.fillStyle='#c6cccb';g.beginPath();
+ g.arc(hub.x,hub.y,Math.max(1,cam.zoom*.053),0,TAU);g.fill();
+ g.fillStyle='#60676d';g.beginPath();
+ g.arc(hub.x,hub.y,Math.max(.55,cam.zoom*.022),0,TAU);g.fill();
+ // Letras/textura na lateral, leves, nao poluem o aro em zoom pequeno.
  for(let i=0;i<12;i++){
-  const a=i*TAU/12+turn*.14,p=pp(a,r*.90),q=pp(a+.065,r*.99);
-  g.strokeStyle='rgba(177,185,188,.25)';g.lineWidth=.65;
-  g.beginPath();g.moveTo(p.x,p.y);g.lineTo(q.x,q.y);g.stroke();
+  const a=TAU*i/12+spin*.10,rr=r*.85;
+  carLine(g,b,[
+    [u+Math.cos(a)*rr,pV+.01*geo.side,z+Math.sin(a)*rr],
+    [u+Math.cos(a+.036)*rr,pV+.01*geo.side,
+      z+Math.sin(a+.036)*rr]],
+      'rgba(158,168,171,.22)',.009);
  }
+}
+function carDrawFender(g,b,u,side,m,C){
+ const r=m.wheel,v=carWheelMount(m,u,side)+side*.10,z=r+.012;
+ const curve=(a,rr,y=v)=>[u+Math.cos(a)*rr,y,z+Math.sin(a)*rr];
+ // A face do paralama passa na frente da parte superior do pneu.
+ // Na montagem: carroceria -> roda externa -> aba pintada -> arco escuro.
+ const outer=[],inner=[];
+ for(let i=0;i<=19;i++){
+  const a=.035*Math.PI+i*.93*Math.PI/19;
+  outer.push(curve(a,r*1.20,v+side*.015));
+  inner.push(curve(a,r*1.005,v+side*.045));
+ }
+ carFill(g,b,outer.concat(inner.reverse()),C.paint);
+ carLine(g,b,inner.slice().reverse(),
+   'rgba(12,16,21,.85)',.027);
+ // Faixa de reflexo sobre a aba, arredondada como chapa estampada.
+ carLine(g,b,outer.slice(3,17),
+   'rgba(235,230,219,.26)',.022);
 }
 function carLamp(g,b,u,v,z,kind,on){
  const p=carProject(b,u,v,z),r=Math.max(1.4,cam.zoom*.085);
@@ -141,7 +228,7 @@ function carWing(g,b,m,kind){
  const L=m.len/2,w=m.w/2;
  if(kind==='daytona'){
   // Extra tall hollow race wing: height and side profiles unique to 1969 Aero.
-  const rear=-L+.47,top=2.65;
+  const rear=-L+.47,top=2.44;
   for(const side of [-1,1]){
    const v=side*w*.76;
    carPanel(g,b,[[rear-.17,v,1.02],[rear+.01,v,1.02],
@@ -358,7 +445,13 @@ function carDraw(g,b,time=0,night=false){
  shadow.addColorStop(1,'rgba(9,12,15,0)');
  g.fillStyle=shadow;g.beginPath();g.arc(0,0,cam.zoom*(L+.22),0,TAU);
  g.fill();g.restore();
- for(const u of [m.rear,m.front])carTire(g,b,u,-farSide*w*.96,m);
+ // Em nariz bem afilado, a roda dianteira do lado oposto fica
+ // inteiramente escondida pela frente da carroceria. Pintá-la antes do
+ // capô deixava um arco negro flutuando FORA do contorno do veículo.
+ for(const u of [m.rear,m.front]){
+  if(u===m.front&&m.noseW<.84)continue;
+  carTire(g,b,u,carWheelMount(m,u,-farSide),m);
+ }
  // Each shoulder follows actual model nose/tail taper and deck height.
  for(const side of [-1,1]){
   const v=side*w,frontWidth=v*m.noseW,rearWidth=v*m.tailW;
@@ -369,15 +462,8 @@ function carDraw(g,b,time=0,night=false){
   carPanel(g,b,[p(-L+.20,rearWidth,.44),p(L-.16,frontWidth,.44),
     p(L-.12,frontWidth,.53),p(-L+.17,rearWidth,.53)],
      C.dark,null);
-  for(const u of [m.front,m.rear]){
-   const arch=[];
-   for(let i=0;i<12;i++){
-    const theta=.08*Math.PI+i*.84*Math.PI/11;
-    arch.push(p(u+Math.cos(theta)*m.wheel*1.13,
-      v*.993,.47+Math.sin(theta)*m.wheel*1.15));
-   }
-   carLine(g,b,arch,'rgba(15,18,23,.80)',.036);
-  }
+  // Os arcos superiores so entram depois da roda visivel;
+  // pintar os dois lados aqui deixava um arco preto no ar, sobre o capo.
   carLine(g,b,[p(-L+.28,rearWidth,.59),
      p(front-.12,v,.59),p(L-.30,frontWidth,.59)],
      'rgba(12,16,20,.40)',.019);
@@ -481,8 +567,12 @@ function carDraw(g,b,time=0,night=false){
     blink&&(b.hazards||b.indicator===side));
  }
  carReferenceDecor(g,b,m,C);
- // Foreground tires always drawn after the body (correct visibility all cameras).
- for(const u of [m.rear,m.front])carTire(g,b,u,farSide*w*.96,m);
+ // Pneus no primeiro plano sobrepoem o asfalto, mas os arcos de
+ // carroceria os recobrem parcialmente: rodas realmente encaixadas.
+ for(const u of [m.rear,m.front]){
+  carTire(g,b,u,carWheelMount(m,u,farSide),m);
+  carDrawFender(g,b,u,farSide,m,C);
+ }
  if(b.engine&&Math.abs(b.speed)>.32){
   const tailp=carProject(b,-L-.13,w*.46,.51);
   for(let i=0;i<3;i++){
