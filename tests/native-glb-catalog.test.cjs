@@ -20,6 +20,7 @@ test('five distinct source models have attribution and local paths',()=>{
  assert.ok(credits.includes('chevrolet-opala.glb'),'archived Opala credit');
  assert.equal((catalog.match(/frontAxis:/g)||[]).length,5);
  assert.match(catalog,/file:'bmw-e30.glb'/);
+ assert.match(catalog,/file:'bmw-e30\.glb',title:'BMW E30 1985',frontAxis:'-X'/);
  assert.doesNotMatch(catalog,/file:'chevrolet-opala.glb'/);
  assert.doesNotMatch(runtime,/opalaCandidateGallery/);
  assert.match(credits,/creativecommons.org\/licenses\/by\/4.0/);
