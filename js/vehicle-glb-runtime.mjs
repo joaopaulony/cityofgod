@@ -143,7 +143,9 @@ async function bake(model){
  camera.top=orthoSpan/2;
  camera.bottom=-orthoSpan/2;
  camera.updateProjectionMatrix();
+ scene.remove(car.body);
  opalaCandidateGallery(gltf,model);
+ scene.add(car.body);
  try{
   renderer.toneMappingExposure=model.id==='explorer'?2.35:1.25;
   for(let frame=0;frame<DIRECTIONS;frame++){
