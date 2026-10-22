@@ -669,7 +669,7 @@ function makeBush() {
       x=cx+Math.cos(angle)*r*S*dist,
       y=by+Math.sin(angle)*r*S*.76*dist;
     shoots.push({x,y,rad:R(8,14),phase:R(0,TAU),
-      lit:clamp(.54+(cx-x)/(r*S)*.23+(by-y)/(r*S)*.11,.14,.94)});
+      lit:Math.max(.14,Math.min(.94,.54+(cx-x)/(r*S)*.23+(by-y)/(r*S)*.11))});
   }
   // Os galhos continuam existindo, mas agora sustentam uma moita cheia.
   for(const n of shoots)woodyBranch(g,cx,by,n.x,n.y,1.1);
