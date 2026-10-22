@@ -128,7 +128,7 @@ function chunkItems(ci, cj) {
     if (pick < w.grass * 0.82) {
       const dryk = sstep(0.45, 0.68, f.dry), pal = r() < dryk ? DRY : LUSH;
       items.push({ t: 'blade', x, y, l: 0.06 + r() * 0.1 * (1 - w.trail), a: r() * 0.9 - 0.45, c: pal[(r() * pal.length) | 0] });
-      if (r() < 0.022 * (1 - dryk)) items.push({ t: 'flower', x, y, c: ['#f2efe2', '#f4d34a', '#c9a2d8', '#f0a0b0', '#d3a66f', '#a7b6d8', '#f0dca4'][(r() * 7) | 0], k: 3 + ((r() * 4) | 0) });
+      if (r() < 0.0132 * (1 - dryk)) items.push({ t: 'flower', x, y, c: ['#f2efe2', '#f4d34a', '#c9a2d8', '#f0a0b0', '#d3a66f', '#a7b6d8', '#f0dca4'][(r() * 7) | 0], k: 3 + ((r() * 4) | 0) });
       else if (r() < 0.02) items.push({ t: 'clover', x, y, s: 0.03 + r() * 0.02 });
     } else if (pick < w.grass * 0.82 + w.forest * 0.5) {
       if (r() < 0.82) items.push({ t: 'leaf', x, y, s: 0.04 + r() * 0.04, a: r() * TAU, c: LITTER[(r() * LITTER.length) | 0] });
@@ -157,7 +157,7 @@ function chunkItems(ci, cj) {
   // Detalhe assado no bloco: nenhum custo de animacao adicional por quadro.
   const blooms=['#eee6ce','#ead064','#ccacd1','#db9ca9',
     '#9eaad0','#e6a274','#ca7778','#ede0a8'];
-  for(let i=0;i<28;i++){
+  for(let i=0;i<17;i++){
     const x=x0+r()*CH,y=y0+r()*CH;
     fieldsAt(x,y,f);
     const w=weightsAt(f);
