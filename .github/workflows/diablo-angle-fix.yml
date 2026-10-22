@@ -1,0 +1,64 @@
+name: Diablo pilot - manual approved pose correction, two billable images
+on:
+  push:
+    branches: [feat/diablo-pilot-isometric-sprites]
+    paths: [tools/gemini/trigger-diablo-angle-fix.txt]
+permissions:
+  contents: write
+concurrency:
+  group: diablo-angle-fix-once
+  cancel-in-progress: false
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/diablo-pilot-isometric-sprites
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm bounded paid correction
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          test -n "$GEMINI_API_KEY" || exit 1
+          test "$(cat tools/gemini/trigger-diablo-angle-fix.txt)" = "yes-two-paid-calls" || exit 1
+          test -s assets/vehicles/diablo/directions/front-left.png || exit 1
+          test -s assets/vehicles/diablo/directions/rear-left.png || exit 1
+          test -s assets/vehicles/diablo/manifest.json || exit 1
+          grep -qv 'directionCorrection' assets/vehicles/diablo/manifest.json || { echo "::error::Already corrected"; exit 1; }
+      - name: Install pinned Gemini SDK
+        working-directory: tools/gemini
+        run: npm install --no-audit --no-fund
+      - name: Free syntax validation
+        run: |
+          node --check tools/gemini/diablo-angle-fix.mjs
+          node --check tools/gemini/validate-diablo.mjs
+      - name: Correct right profile and exact rear, mirror alternate views
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CONFIRM_DIABLO_REANGLE: yes-two-paid-calls
+        run: node tools/gemini/diablo-angle-fix.mjs
+      - name: Fail on copied camera poses
+        run: node tools/gemini/validate-diablo.mjs
+      - name: Save corrected eight-way sprite assets
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/vehicles/diablo/
+          git diff --cached --quiet && exit 1
+          git commit -m "assets(diablo): correct right and rear views and symmetrical alternatives"
+          git push origin HEAD:feat/diablo-pilot-isometric-sprites
+      - name: Keep renders available for art review even if QA rejects
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diablo-corrected-camera-views
+          path: assets/vehicles/diablo/
+          retention-days: 21
+          if-no-files-found: ignore
