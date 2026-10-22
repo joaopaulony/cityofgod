@@ -34,6 +34,49 @@ async function makeCutout(src,dst){
     data[k+3]=0;oldGreen++;
   }
  }
+ // If Nano Banana returns an opaque flat background, remove only the
+ // contiguous edge-connected backdrop. Never erase similarly colored wheels
+ // and dark grilles inside the vehicle silhouette.
+ let edgeOpaque=0;
+ for(let x=0;x<w;x++){if(data[(x)*C+3]>50)edgeOpaque++;
+  if(data[((h-1)*w+x)*C+3]>50)edgeOpaque++;}
+ for(let y=0;y<h;y++){if(data[(y*w)*C+3]>50)edgeOpaque++;
+  if(data[(y*w+w-1)*C+3]>50)edgeOpaque++;}
+ if(edgeOpaque/(2*(w+h))>.20){
+  const corner=(x,y)=>{const k=(y*w+x)*C;return [data[k],data[k+1],data[k+2]];};
+  const samples=[corner(0,0),corner(w-1,0),corner(0,h-1),corner(w-1,h-1)];
+  const avg=[0,1,2].map(i=>Math.round(samples.reduce((sum,c)=>sum+c[i],0)/4));
+  const maxCornerDist=Math.max(...samples.map(c=>Math.max(...c.map((v,i)=>Math.abs(v-avg[i])))));
+  if(maxCornerDist>42)throw Error('Gemini returned a non-transparent irregular background: manual rework required');
+  const queue=new Int32Array(w*h),visited=new Uint8Array(w*h);
+  let head=0,tail=0;
+  const push=(x,y)=>{
+   if(x<0||x>=w||y<0||y>=h)return;
+   const loc=y*w+x;if(visited[loc])return;
+   const k=loc*C;
+   const closeness=Math.max(Math.abs(data[k]-avg[0]),Math.abs(data[k+1]-avg[1]),Math.abs(data[k+2]-avg[2]));
+   if(data[k+3]>40&&closeness>40)return;
+   visited[loc]=1;queue[tail++]=loc;
+  };
+  for(let x=0;x<w;x++){push(x,0);push(x,h-1);}
+  for(let y=0;y<h;y++){push(0,y);push(w-1,y);}
+  while(head<tail){
+   const loc=queue[head++],x=loc%w,y=Math.floor(loc/w);
+   data[loc*C+3]=0;
+   push(x-1,y);push(x+1,y);push(x,y-1);push(x,y+1);
+  }
+ }
+ let transparentEdge=0;
+ for(let x=0;x<w;x++){
+  if(data[x*C+3]<50)transparentEdge++;
+  if(data[((h-1)*w+x)*C+3]<50)transparentEdge++;
+ }
+ for(let y=0;y<h;y++){
+  if(data[(y*w)*C+3]<50)transparentEdge++;
+  if(data[(y*w+w-1)*C+3]<50)transparentEdge++;
+ }
+ if(transparentEdge/(2*(w+h))<.80)
+  throw Error('PNG lacks sufficient transparent edges: rejected before game integration');
  let minX=w,minY=h,maxX=-1,maxY=-1,remaining=0;
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
   const k=(y*w+x)*C;
