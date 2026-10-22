@@ -55,7 +55,11 @@ const SQUIRREL_PALETTES=[
 const SQUIRREL_PIXEL_SIZE=26;
 // O divisor anterior (280) gerava menos de 8px de animal no zoom comum.
 // Com 155 ficam ~14px: perceptivel, mas 5.5x menor que a versao gigante.
-const SQUIRREL_SCALE_DIVISOR=155;
+// 155 -> 141 equivale a 10% de aumento em relacao ao ultimo deploy.
+const SQUIRREL_SCALE_DIVISOR=155/1.10;
+// Multiplicador aplicado a TODAS as velocidades fisicas e animacoes de locomocao.
+const SQUIRREL_MOVEMENT_FACTOR=.40;
+const SQUIRREL_MAX_COUNT=21; // 105 -> 21: reducao de 80%.
 const SQUIRREL_DEBUG=new URLSearchParams(location.search).get('wildlifeDebug')==='1';
 function ecoSquirrelPixelSprite(kind,pose,frame){
   const col=SQUIRREL_PALETTES[kind],c=makeCanvas(26,26),g=c.getContext('2d');
@@ -200,10 +204,14 @@ function ecosystemInit(){
     }
     return a;
   };
-  const candidates=[...shuffle(near),...shuffle(far)];
+  // Reserva no maximo duas primeiras arvores perto do spawn; distribui as
+  // restantes pelo mapa para nao aglomerar todos os 21 animais numa regiao.
+  const nearShuffled=shuffle(near);
+  const candidates=[...nearShuffled.slice(0,2),
+    ...shuffle([...nearShuffled.slice(2),...far])];
   let closeSpawns=0;
   for(const t of candidates){
-    if(ecosystem.squirrels.length>=105)break;
+    if(ecosystem.squirrels.length>=SQUIRREL_MAX_COUNT)break;
     const isNear=distSpawn(t)<24;
     if((!isNear||closeSpawns>=3)&&rr()>.64)continue;
     if(ecosystem.squirrels.some(s=>
@@ -252,9 +260,9 @@ function ecosystemTick(dt,player,t){
     // Escalada fisica em etapas, da raiz ate a copa, e descida pelo tronco.
     if(s.mode==='climb'||s.mode==='descend'){
       const destination=s.mode==='climb'?s.goalZ:.035;
-      const step=(s.mode==='climb'?2.6:2.3)*dt;
+      const step=(s.mode==='climb'?2.6:2.3)*SQUIRREL_MOVEMENT_FACTOR*dt;
       s.z+=clamp(destination-s.z,-step,step);
-      s.anim+=dt*13;
+      s.anim+=dt*13*SQUIRREL_MOVEMENT_FACTOR;
       s.move=1;
       if(Math.abs(s.z-destination)<.055){
         s.z=destination;
@@ -267,7 +275,7 @@ function ecosystemTick(dt,player,t){
       continue;
     }
     if(s.mode==='perch'){
-      s.anim+=dt*4;
+      s.anim+=dt*2.5;
       s.move=0;
       if(distance>7&&s.timer<=0){
         s.mode='descend';s.goalZ=.035;
@@ -292,7 +300,7 @@ function ecosystemTick(dt,player,t){
     }
     const dx=s.goalX-s.x,dy=s.goalY-s.y,d=Math.hypot(dx,dy);
     if(d>.07){
-      const speed=s.mode==='flee'?6.2:s.mode==='toTree'?2.35:1.35,
+      const speed=(s.mode==='flee'?6.2:s.mode==='toTree'?2.35:1.35)*SQUIRREL_MOVEMENT_FACTOR,
         step=Math.min(d,speed*dt),a=Math.atan2(dy,dx),
         nx=s.x+Math.cos(a)*step,ny=s.y+Math.sin(a)*step;
       if(ecoFree(nx,ny)){
@@ -310,7 +318,7 @@ function ecosystemTick(dt,player,t){
         s.mode='recover';s.timer=.45+rr()*.9;
       }
     }
-    s.anim+=dt*(s.move>.1?(s.mode==='flee'?22:15):3.8);
+    s.anim+=dt*(s.move>.1?(s.mode==='flee'?22:15)*SQUIRREL_MOVEMENT_FACTOR:2.5);
     s.phase+=dt;
   }
 
@@ -346,6 +354,22 @@ function ecoDrawButterfly(g,b,t){
   g.strokeStyle='#3a3429';g.lineWidth=Math.max(.6,sc*.095);g.beginPath();g.moveTo(0,-sc*.35);g.lineTo(0,sc*.33);g.stroke();
   g.restore();
 }
+// O sprite olha para a DIREITA. Usar a projecao horizontal da velocidade
+// no mundo (rot()) evita o erro antigo de inverter o angulo da camera
+// e fazer o bichinho aparentar andar de re.
+function ecoSquirrelFacing(dir){
+  return Math.cos(dir)*cam.cos-Math.sin(dir)*cam.sin>=0?1:-1;
+}
+// Desaparecimento gradual somente quando o corpo entra na folhagem.
+// No tronco continua visivel; na copa (escondido por folhas) alpha = 0.
+function ecoSquirrelCanopyAlpha(s){
+  if(!s.tree||!s.tree.sp)return 1;
+  if(s.mode!=='climb'&&s.mode!=='perch'&&s.mode!=='descend')return 1;
+  const trunk=s.tree.sp.trunkH;
+  const start=trunk*.86;
+  const hidden=trunk+Math.min(s.tree.sp.r*.16,.29);
+  return clamp((hidden-s.z)/(hidden-start),0,1);
+}
 function ecoDrawSquirrel(g,s,t){
   // O sprite antigo tinha ~37 unidades de largura e era ampliado por zoom/40.
   // Este tem 26px em escala adaptada: continua pequeno, mas identificavel.
@@ -356,14 +380,19 @@ function ecoDrawSquirrel(g,s,t){
   const sc=cam.zoom/SQUIRREL_SCALE_DIVISOR;
   const hop=pose==='run'?Math.abs(Math.sin(s.anim*.52))*.048:0;
   const p=proj(s.x,s.y,s.z+hop);
-  const direction=Math.cos(s.dir-cam.ang)>=0?1:-1;
+  const direction=ecoSquirrelFacing(s.dir);
+  const canopyAlpha=ecoSquirrelCanopyAlpha(s);
+  if(canopyAlpha<=0&&!SQUIRREL_DEBUG)return;
   g.save();
   g.imageSmoothingEnabled=false;
-  // Sombra permanece no solo inclusive enquanto o esquilo sobe na arvore.
+  // Sombra de contato apenas perto do chao; nenhuma mancha fantasma na copa.
   const foot=proj(s.x,s.y,0);
-  g.fillStyle='rgba(17,20,10,.32)';g.beginPath();
-  g.ellipse(foot.x,foot.y+1.3,Math.max(1.5,cam.zoom*.037),
-    Math.max(.55,cam.zoom*.016),0,0,TAU);g.fill();
+  if(s.z<.18){
+    g.fillStyle='rgba(17,20,10,.32)';g.beginPath();
+    g.ellipse(foot.x,foot.y+1.3,Math.max(1.5,cam.zoom*.037),
+      Math.max(.55,cam.zoom*.016),0,0,TAU);g.fill();
+  }
+  g.globalAlpha=canopyAlpha;
   g.translate(p.x,p.y);g.scale(sc*direction,sc);
   g.drawImage(sp.img,-sp.ax,-sp.ay);
   g.restore();

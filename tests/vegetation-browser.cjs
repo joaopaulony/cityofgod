@@ -99,8 +99,8 @@ const fs=require('node:fs');
       ecology.squirrels<8||!ecology.moved||ecology.opaque<800)
       throw Error('Wildlife, meadow or sprites missing: '+JSON.stringify(ecology));
 
-    // Regressao dos esquilos: tamanho ~10x menor, animacoes em pixel art
-    // realmente diferentes, corrida de fuga e subida progressiva no tronco.
+    // Regressao da fauna: escala +10%, orientacao em cameras giradas,
+    // menos 60% de velocidade e -80% de populacao, sumico gradual nas folhas.
     const squirrelCheck=await game.evaluate(()=>{
       const spriteSet=ecosystem.squirrelSprites;
       const a=spriteSet[0].idle[1].img,b=spriteSet[0].idle[4].img;
@@ -115,6 +115,24 @@ const fs=require('node:fs');
       const pxWidth=ecosystem.squirrelSprites[0].idle[0].img.width*
         cam.zoom/SQUIRREL_SCALE_DIVISOR;
       const oldWidth=37*cam.zoom/40;
+      const formerPixelWidth=26*cam.zoom/155;
+      const sizeIncrease=pxWidth/formerPixelWidth;
+      // Cada direcao desenhada deve apontar para o movimento projetado na
+      // tela, inclusive quando a camera gira (bug antigo: caminhava de re).
+      const saved={ang:cam.ang,cos:cam.cos,sin:cam.sin};
+      let backwards=0,orientations=0;
+      for(const viewAngle of [0,Math.PI/4,Math.PI/2,Math.PI]){
+        cam.ang=viewAngle;cam.cos=Math.cos(viewAngle);cam.sin=Math.sin(viewAngle);
+        for(const heading of [-Math.PI,-2.1,-Math.PI/2,-.4,0,.6,Math.PI/2,2.7]){
+          const start=proj(30,30,0),
+            end=proj(30+Math.cos(heading),30+Math.sin(heading),0);
+          const horizontal=end.x-start.x;
+          if(Math.abs(horizontal)<.01)continue;
+          orientations++;
+          if(ecoSquirrelFacing(heading)!==(horizontal>0?1:-1))backwards++;
+        }
+      }
+      cam.ang=saved.ang;cam.cos=saved.cos;cam.sin=saved.sin;
       const nearTrees=world.props.filter(p=>p.type==='tree'&&
         Math.hypot(p.x-world.spawn[0],p.y-world.spawn[1])<24).length;
       const nearSpawn=ecosystem.squirrels.filter(s=>
@@ -147,6 +165,12 @@ const fs=require('node:fs');
       player.x=climbing.x+20;player.y=climbing.y+20;
       ecosystemTick(.22,player,13);
       const rise=climbing.z-z0;
+      const canopyLow=ecoSquirrelCanopyAlpha({...climbing,z:.035,mode:'climb'});
+      const canopyMid=ecoSquirrelCanopyAlpha({...climbing,
+        z:climbing.tree.sp.trunkH*.98,mode:'climb'});
+      const canopyHigh=ecoSquirrelCanopyAlpha({...climbing,
+        z:climbing.tree.sp.trunkH+
+          Math.min(climbing.tree.sp.r*.16,.29)+.06,mode:'perch'});
       // Galeria automatizada: repouso, respiracao, corrida e escalada.
       const gallery=document.createElement('canvas'),ctx=gallery.getContext('2d');
       gallery.width=600;gallery.height=180;gallery.id='squirrel-pixel-gallery';
@@ -161,18 +185,24 @@ const fs=require('node:fs');
       document.body.append(gallery);
       return {kinds:spriteSet.length,frames:spriteSet[0].idle.length,
         changePixels:changed,opaque:solid,pxWidth,oldWidth,
-        sizeRatio:oldWidth/pxWidth,nearTrees,nearSpawn,
-        totalSquirrels:ecosystem.squirrels.length,sprint,rise};
+        sizeRatio:oldWidth/pxWidth,sizeIncrease,
+        movementFactor:SQUIRREL_MOVEMENT_FACTOR,
+        backwards,orientations,canopyLow,canopyMid,canopyHigh,
+        nearTrees,nearSpawn,totalSquirrels:ecosystem.squirrels.length,sprint,rise};
     });
     await game.screenshot({path:'artifacts/squirrel-pixel-gallery.png',fullPage:true});
     console.log('Tiny animated squirrels:',JSON.stringify(squirrelCheck));
     if(squirrelCheck.kinds!==3||squirrelCheck.frames!==6||
        squirrelCheck.opaque<50||squirrelCheck.changePixels<12||
-       squirrelCheck.sizeRatio<4.5||squirrelCheck.sizeRatio>7.5||
-       squirrelCheck.totalSquirrels<50||
-       (squirrelCheck.nearTrees>=3&&squirrelCheck.nearSpawn<2)||
-       squirrelCheck.sprint<.75||
-       squirrelCheck.rise<.3)
+       Math.abs(squirrelCheck.sizeIncrease-1.10)>.002||
+       squirrelCheck.movementFactor!==.40||
+       squirrelCheck.totalSquirrels!==21||
+       squirrelCheck.backwards!==0||squirrelCheck.orientations<20||
+       squirrelCheck.canopyLow!==1||squirrelCheck.canopyHigh!==0||
+       !(squirrelCheck.canopyMid>0&&squirrelCheck.canopyMid<1)||
+       (squirrelCheck.nearTrees>=3&&squirrelCheck.nearSpawn<1)||
+       Math.abs(squirrelCheck.sprint-.496)>.025||
+       Math.abs(squirrelCheck.rise-.2288)>.025)
       throw Error('Small animated squirrel regression: '+JSON.stringify(squirrelCheck));
     await game.evaluate(()=>{
       document.querySelector('#squirrel-pixel-gallery')?.remove();
