@@ -14,6 +14,14 @@ Esta ferramenta opera fora do navegador e NUNCA embute a chave no JavaScript do 
 
 Nenhuma chamada paga ocorre durante push ou pull request: esses eventos rodam apenas testes gratuitos.
 
+## Quando a imagem sai, mas o GitHub diz que falhou
+
+Se o log mostrar **"GitHub Actions is not permitted to create or approve pull requests"**, a geração pode ter terminado corretamente. Abra a execução em **Actions**, desça até **Artifacts** e baixe o arquivo **gemini-<id>-review**. Extraia **asset.png**. Esse erro não exige outra geração nem outra cobrança.
+
+O PR é só uma conveniência, e não é necessário para baixar a imagem. O workflow agora não invalida uma imagem gerada com sucesso caso a abertura opcional de PR seja recusada. Ele mostra o caminho do ZIP e uma alternativa manual no resumo da execução.
+
+Para permitir PRs automáticos: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**, caso sua conta permita alterar essa opção. Se estiver desabilitada ou bloqueada, deixe **create_pr = false**, pois o PNG continuará disponível no ZIP.
+
 ## Como usar uma imagem de referencia
 
 Suba sua imagem PNG/JPG/WebP para a pasta **assets/references/** do repositorio.
