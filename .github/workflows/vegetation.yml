@@ -22,6 +22,7 @@ on:
       - tests/vegetation*
       - tests/architecture.test.js
       - tests/procedural-cars.test.cjs
+      - tests/car-steering.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
   pull_request:
@@ -44,6 +45,7 @@ on:
       - tests/vegetation*
       - tests/architecture.test.js
       - tests/procedural-cars.test.cjs
+      - tests/car-steering.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
 permissions:
@@ -63,6 +65,8 @@ jobs:
         run: node tests/vegetation.test.js
       - name: Ensure only original Canvas 2D vehicles are active
         run: node tests/procedural-cars.test.cjs
+      - name: Verify steering direction for six camera orientations
+        run: node tests/car-steering.test.cjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
