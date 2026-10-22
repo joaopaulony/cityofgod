@@ -34,6 +34,10 @@ jobs:
       - name: Install controlled SDK version
         working-directory: tools/gemini
         run: npm install --no-audit --no-fund
+      - name: Verify generator syntax before any billable API request
+        run: |
+          node --check tools/gemini/diablo-pilot.mjs
+          node tests/diablo-pilot.test.cjs
       - name: Paid image generation - seven directions maximum, no retries
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
