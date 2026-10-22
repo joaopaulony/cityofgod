@@ -462,15 +462,8 @@ function carDraw(g,b,time=0,night=false){
   carPanel(g,b,[p(-L+.20,rearWidth,.44),p(L-.16,frontWidth,.44),
     p(L-.12,frontWidth,.53),p(-L+.17,rearWidth,.53)],
      C.dark,null);
-  for(const u of [m.front,m.rear]){
-   const arch=[];
-   for(let i=0;i<12;i++){
-    const theta=.08*Math.PI+i*.84*Math.PI/11;
-    arch.push(p(u+Math.cos(theta)*m.wheel*1.13,
-      v*.993,.47+Math.sin(theta)*m.wheel*1.15));
-   }
-   carLine(g,b,arch,'rgba(15,18,23,.80)',.036);
-  }
+  // Os arcos superiores so entram depois da roda visivel;
+  // pintar os dois lados aqui deixava um arco preto no ar, sobre o capo.
   carLine(g,b,[p(-L+.28,rearWidth,.59),
      p(front-.12,v,.59),p(L-.30,frontWidth,.59)],
      'rgba(12,16,20,.40)',.019);
