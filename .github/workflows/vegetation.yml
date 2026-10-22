@@ -13,6 +13,8 @@ on:
       - js/farmhouses.js
       - js/vision-light.js
       - js/urban-life.js
+      - js/vehicle-art.js
+      - js/vehicle-drive.js
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
@@ -32,6 +34,8 @@ on:
       - js/farmhouses.js
       - js/vision-light.js
       - js/urban-life.js
+      - js/vehicle-art.js
+      - js/vehicle-drive.js
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
