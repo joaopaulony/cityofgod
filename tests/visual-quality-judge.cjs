@@ -5,8 +5,9 @@
 const RULES=[
   ['Cercas com volume e sombra',14,m=>m.fencePainted>=440&&m.fenceColors>=9],
   ['Cerca apoiada no solo',7,m=>m.buriedPosts],
-  ['Luz bloqueada por parede',17,m=>m.wallBlocksLight&&m.partitionBlocksLight],
-  ['Luz de poste e feixe visiveis',11,m=>m.lampBeamPixels>=180&&m.lampCount>1],
+  ['Luz bloqueada por parede',17,m=>m.wallBlocksLight&&m.partitionBlocksLight&&
+    m.facadeCovered&&m.roofCovered&&m.maskLocal&&m.coneExteriorOnly],
+  ['Luz de poste e feixe visiveis',11,m=>m.lampBeamPixels>=900&&m.lampCount>1],
   ['Interior nao exposto pelas paredes',15,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked],
   ['Interior acessivel ao entrar',7,m=>m.interiorVisibleWhenInside],
   ['Fazendas distantes de estradas',11,m=>m.ruralCount>=4&&m.ruralKinds>=2&&m.ruralFarFromRoad],
