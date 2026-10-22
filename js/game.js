@@ -448,7 +448,7 @@ function drawNight(W,H){
       const x=(s.x1+s.x2)*.5+s.nx*.24,
         y=(s.y1+s.y2)*.5+s.ny*.24,r=2.05;
       if(!visible(x,y,r))continue;
-      windows.push({x,y,r,s,
+      windows.push({x,y,r,s,nx:s.nx,ny:s.ny,
         polygon:exteriorLightCone(x,y,r,s.nx,s.ny,Math.PI*.30)});
     }
   }
@@ -460,7 +460,7 @@ function drawNight(W,H){
       y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.30,
       r=3.4;
     if(!visible(x,y,r))continue;
-    porch.push({x,y,home,r,
+    porch.push({x,y,home,r,nx:sd.n[0],ny:sd.n[1],
       polygon:exteriorLightCone(x,y,r,sd.n[0],sd.n[1],Math.PI*.36)});
   }
   lg.globalCompositeOperation='destination-out';
@@ -469,9 +469,29 @@ function drawNight(W,H){
     const p=proj(x,y,z);radial(lg,p.x,p.y,r*Z,k);
     lg.restore();
   };
+  // Luz de fachada em gota eliptica: centro projetado para fora
+  // e bordas atenuadas ANTES do corte angular. Dois focos proximos
+  // se misturam sem as facetas trapezoidais na grama/calçada.
+  const directional=(ctx,source,intensity,col='0,0,0')=>{
+    ctx.save();
+    clipLightPolygon(ctx,source.polygon);
+    const center=proj(source.x+source.nx*source.r*.36,
+      source.y+source.ny*source.r*.36,0);
+    ctx.translate(center.x,center.y);
+    ctx.scale(1,TILT);
+    const r=source.r*Z*.61;
+    const grad=ctx.createRadialGradient(0,0,0,0,0,r);
+    grad.addColorStop(0,'rgba('+col+','+intensity+')');
+    grad.addColorStop(.38,'rgba('+col+','+(intensity*.56)+')');
+    grad.addColorStop(.72,'rgba('+col+','+(intensity*.13)+')');
+    grad.addColorStop(1,'rgba('+col+',0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();
+    ctx.restore();
+  };
   for(const l of lamps)carve(l.x,l.y,l.r,.985,l.polygon);
-  for(const w of windows)carve(w.x,w.y,w.r,.51,w.polygon);
-  for(const w of porch)carve(w.x,w.y,w.r,.80,w.polygon);
+  for(const w of windows)directional(lg,w,.60);
+  for(const w of porch)directional(lg,w,.88);
   // Luminarias internas iluminam cada comodo sem atravessar divisorias.
   // Interruptores F controlam a luz; o pavimento superior tem plano proprio.
   const indoor=[];
@@ -517,11 +537,12 @@ function drawNight(W,H){
     // A emissao do bulbo sera desenhada depois da mascara das casas.
     // O raycast no CHAO desligava postes visiveis diante de edificios.
   }
-  for(const w of windows)tint(w.x,w.y,w.r*.89,.13,'239,183,103',w.polygon);
-  for(const w of porch){
-    tint(w.x,w.y,w.r*.86,.20,'255,198,112',w.polygon);
-    tint(w.x,w.y,w.r*.45,.11,'254,224,155',w.polygon);
-  }
+  // Mesma mascara suave para a cor: fonte e sombra coincidem
+  // espacialmente, sem cortes triangulares nos cones sobrepostos.
+  gg.globalCompositeOperation='screen';
+  for(const w of windows)directional(gg,w,.20,'239,183,103');
+  for(const w of porch)directional(gg,w,.33,'255,207,129');
+  gg.globalCompositeOperation='source-over';
   for(const p of indoor)tint(p.x,p.y,p.r*.74,.18,'249,211,150',
     p.polygon,p.floor?STOREY_HEIGHT:0);
   gg.globalCompositeOperation='source-over';
