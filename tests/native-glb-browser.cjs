@@ -15,7 +15,7 @@ const fs=require('node:fs');
    if(msg.type()==='warning'||msg.type()==='error')
     notices.push(msg.text());
   });
-  await page.goto('http://127.0.0.1:8765/index.html?quality=performance&seed=3250',
+  await page.goto('http://127.0.0.1:8765/index.html?quality=performance&seed=3250&nativeDebug=1',
    {waitUntil:'domcontentloaded',timeout:120000});
   await page.waitForFunction(()=>{
    const sys=window.vehicleNative3D;
@@ -51,6 +51,13 @@ const fs=require('node:fs');
    }
    return gallery.toDataURL('image/png').split(',')[1];
   });
+  const candidatePng=await page.evaluate(()=>{
+   const c=window.vehicleNative3D.opalaVariantGallery;
+   return c?.toDataURL('image/png').split(',')[1];
+  });
+  if(!candidatePng)throw Error('Missing Opala variation comparison');
+  fs.writeFileSync('artifacts/native-glb-opala-five-variants.png',
+   Buffer.from(candidatePng,'base64'));
   fs.writeFileSync('artifacts/native-glb-cars-5-models-4-angles.png',
    Buffer.from(image,'base64'));
   await page.screenshot({path:'artifacts/native-glb-cityofgod-game.png'});
