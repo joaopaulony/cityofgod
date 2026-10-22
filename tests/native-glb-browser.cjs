@@ -70,3 +70,5 @@ const fs=require('node:fs');
 })().catch(e=>{console.error(e);process.exit(1);});
 
 // The latest native build must be reviewed with this gallery before release.
+
+// QA screenshot contains all 5 Opala material triplets for visual selection.
