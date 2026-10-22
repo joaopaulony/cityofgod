@@ -341,6 +341,10 @@ const {judge}=require('./visual-quality-judge.cjs');
         cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
       }
       const flash=makeCanvas(cam.W,cam.H),gc=flash.getContext('2d');
+      // O teste deve enquadrar o cano: do contrario um flash verdadeiro
+      // desenhado fora do viewport produz 0 pixels e falso negativo.
+      const previousCamera=[cam.x,cam.y];
+      cam.x=cam.tx=player.x;cam.y=cam.ty=player.y;
       player.flash=.11;
       player.J=player.J||solveSkeleton(player,animate(player,0));
       drawMuzzleFlash(gc,player,true);
@@ -356,6 +360,7 @@ const {judge}=require('./visual-quality-judge.cjs');
       };
       const muzzleCenterBrighter=sample(muzzle.x,muzzle.y)>
         sample(muzzle.x+cam.zoom*.85,muzzle.y);
+      cam.x=cam.tx=previousCamera[0];cam.y=cam.ty=previousCamera[1];
       const noFocusOutline=!drawPlayerVision.toString().includes('g.strokeStyle=st.night');
       const thresholdSource=occluded.toString();
       const focusThreshold=thresholdSource.includes('.80')?.80:0;
