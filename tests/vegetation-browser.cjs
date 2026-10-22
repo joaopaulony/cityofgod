@@ -54,7 +54,7 @@ const fs=require('node:fs');
       const worldState={
         map:MAP,area:MAP*MAP,expectedArea:80*80*4,
         groundPixels:[ground.width,ground.height],
-        groundScale:PPM,houses:houses.length,cars:world.circles.filter(c=>c.kind==='car').length,
+        groundScale:PPM,houses:houses.length,cars:boxes.filter(b=>b.kind==='car').length,
         roads:world.roads.length,roadFields:world.roadD.length
       };
       // A nova borda precisa ser alcançável e o clamp de colisão deve
@@ -67,13 +67,36 @@ const fs=require('node:fs');
         canvasWidth:document.querySelector('#view').width,...worldState};
     });
     await game.screenshot({path:'artifacts/cityofgod-game-smoke.png',fullPage:true});
+    // Testa também o render padrão, além do modo performance. Canvas maior
+    // deve continuar abaixo de 4096px e conter pixels realmente pintados.
+    const normal=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
+    const normalErrors=[];
+    normal.on('pageerror',e=>normalErrors.push(e.message));
+    await normal.goto('http://127.0.0.1:8765/index.html?seed=3250',
+      {waitUntil:'domcontentloaded',timeout:120000});
+    await normal.waitForFunction(()=>typeof world!=='undefined' &&
+      world.ground && world.props.some(p=>p.type==='tree'),
+      null,{timeout:120000});
+    const normalStats=await normal.evaluate(()=>{
+      const c=world.ground,g=c.getContext('2d',{willReadFrequently:true});
+      const data=g.getImageData(Math.floor(c.width*.49),Math.floor(c.height*.49),8,8).data;
+      let painted=0;
+      for(let i=3;i<data.length;i+=4)if(data[i]>0)painted++;
+      return {map:MAP,width:c.width,height:c.height,ppm:PPM,painted};
+    });
+    console.log('Normal quality:',JSON.stringify(normalStats));
+    await normal.screenshot({path:'artifacts/cityofgod-map-normal.png',fullPage:true});
+    if(normalErrors.length || normalStats.map!==160 || normalStats.ppm!==24 ||
+       normalStats.width!==3840 || normalStats.height!==3840 ||
+       normalStats.painted<32)
+      throw Error('Normal quality large-map failed: '+JSON.stringify({normalErrors,normalStats}));
     console.log('Game smoke:',JSON.stringify(live));
     if(gameErrors.length)throw Error('Game JavaScript errors: '+gameErrors.join('; '));
     if(live.trees<3||live.visibleAmongFirstSeven<Math.min(3,live.trees)||live.clusterCount<3)
       throw Error('Trees remain invisible in real game runtime: '+JSON.stringify(live));
     if(live.map!==160 || live.area!==live.expectedArea || live.groundPixels[0]!==160*live.groundScale ||
        live.groundPixels[0]>4096 || live.groundPixels[1]>4096 ||
-       live.houses<12 || live.roads<2 || live.roadFields!==160*160*4 ||
+       live.houses<12 || live.cars<6 || live.roads<2 || live.roadFields!==160*160*4 ||
        live.clamped.some(v=>v>159.5))
       throw Error('Expanded map geometry or content invalid: '+JSON.stringify(live));
   } finally {await browser.close();}
