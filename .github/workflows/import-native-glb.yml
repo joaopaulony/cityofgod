@@ -72,3 +72,5 @@ jobs:
             git commit -m 'assets: import five CC BY GLB cars and bundle native viewer'
             git push origin HEAD:feat/native-glb-cars-20261022
           fi
+
+# Re-run after test file was committed.
