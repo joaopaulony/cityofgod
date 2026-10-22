@@ -17,7 +17,10 @@ function wallOccluders(x,y,radius){
     if(H.x1<x-radius||H.x0>x+radius||H.y1<y-radius||H.y0>y+radius)continue;
     // Todas as paredes bloqueiam o halo, internas ou externas.
     // Aberturas sao analisadas separadamente no sistema de visao.
-    for(const s of H.segs)ret.push(s);
+    for(const s of H.segs){
+      if(!s.ext&&s.door&&s.doorAnim?.open>=.72)continue;
+      ret.push(s);
+    }
   }
   return ret;
 }
