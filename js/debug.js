@@ -57,6 +57,14 @@ const SCENES = {
     zi = 5; cam.tzoom = cam.zoom = 64 * RENDER_SCALE; await wait(300);
     window.__timeScale = 0; cam.x = cam.tx = H.front[0] - sd.n[0] * 2; cam.y = cam.ty = H.front[1] - sd.n[1] * 2; cam.update(0); await wait(200); freeze();
   },
+  async rocks() {   // galeria: todas as variações de pedra sobre um fundo de grama
+    const t0 = performance.now(), list = []; for (let i = 0; i < 24; i++) list.push(makeRock());
+    const ms = performance.now() - t0, c = document.createElement('canvas'); c.width = 1280; c.height = 720;
+    const g2 = c.getContext('2d'); g2.fillStyle = '#5d7a34'; g2.fillRect(0, 0, 1280, 720);
+    list.forEach((sp, i) => { const x = 110 + (i % 8) * 152, y = 200 + Math.floor(i / 8) * 220, k = 84 / sp.ppm; g2.drawImage(sp.img, x - sp.ax * k, y - sp.ay * k, sp.img.width * k, sp.img.height * k); g2.fillStyle = '#fff'; g2.font = '12px sans-serif'; g2.fillText(sp.kind + ' ' + sp.r.toFixed(2) + 'm', x - 40, y + 40); });
+    g2.fillStyle = '#fff'; g2.fillText(`24 pedras em ${ms | 0} ms`, 10, 20);
+    const im = new Image(); im.src = c.toDataURL(); im.style.cssText = 'position:fixed;inset:0;z-index:99'; document.body.append(im); freeze();
+  },
   async pond() { const p = world.pond; if (!p) return freeze(); place(p.x + p.rx + 1.5, p.y + 0.5); zi = 2; cam.tzoom = cam.zoom = 34 * RENDER_SCALE; await wait(500); freeze(); },
   async turn() { await turnaround(false); },
   async aimturn() { await turnaround(true); },

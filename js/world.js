@@ -693,23 +693,126 @@ function makeBush() {
   return {img:c,ax:cx,ay:by,r,leafCount:19*750+95};
 }
 
+// ---- Pedras: cada sprite é "renderizado" em 3D por código (raio por pixel contra uma superfície
+// implícita), com normal, luz, oclusão, textura mineral e musgo/líquen. 7 tipos, vários tamanhos.
+const ROCK_PPM = 64;
+const ROCK_KINDS = ['granite', 'granite', 'basalt', 'basalt', 'sandstone', 'mossy', 'mossy', 'slab', 'limestone', 'cluster', 'cluster'];
+function rockNoise3(seed) {
+  const P = new Uint8Array(512), r = mulberry(seed);
+  const p = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { const j = (r() * (i + 1)) | 0; [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 512; i++) P[i] = p[i & 255];
+  const h = (x, y, z) => P[(P[(P[x & 255] + y) & 255] + z) & 255] / 255;
+  return (x, y, z) => {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), u = smooth(x - xi), v = smooth(y - yi), w = smooth(z - zi);
+    const a = lerp(lerp(h(xi, yi, zi), h(xi + 1, yi, zi), u), lerp(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), u), v);
+    const b = lerp(lerp(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), u), lerp(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), u), v);
+    return lerp(a, b, w);
+  };
+}
 function makeRock() {
-  const r = R(0.3, 0.75), S = SPR, c = makeCanvas(r * 2.6 * S, r * 2.2 * S), g = c.getContext('2d');
-  const cx = c.width / 2, by = c.height - 4, n = 8, pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = Math.PI + (i / (n - 1)) * Math.PI;
-    const rr = r * S * R(0.75, 1.05);
-    pts.push([cx + Math.cos(a) * rr * 1.15, by + Math.sin(a) * rr * R(0.7, 1.0)]);
+  const kind = ROCK_KINDS[(rng() * ROCK_KINDS.length) | 0], seed = (rng() * 1e9) | 0, rr = mulberry(seed), N3 = rockNoise3(seed);
+  const big = rr() < 0.22, r = kind === 'cluster' ? R(0.35, 0.55) : big ? R(0.75, 1.15) : R(0.28, 0.6);
+  // ---- forma: função implícita F(p) < 0 dentro da pedra (metros, z p/ cima, chão em z = 0)
+  let F, top;
+  if (kind === 'basalt') {   // poliedro de faces quebradas
+    const planes = [];
+    for (let i = 0; i < 15; i++) {
+      const a = rr() * TAU, e = Math.asin(rr() * 1.6 - 0.6), n = [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e)];
+      planes.push([n, r * (0.72 + rr() * 0.28)]);
+    }
+    const sz = 0.78 + rr() * 0.3, cz = r * 0.5 * sz;
+    F = (x, y, z) => { let m = -1e9; const q = [x, y, (z - cz) / sz]; for (const [n, d] of planes) m = Math.max(m, n[0] * q[0] + n[1] * q[1] + n[2] * q[2] - d); return m + (N3(x * 9, y * 9, z * 9) - 0.5) * 0.015; };
+    top = cz + r * sz + 0.05;
+  } else if (kind === 'slab') {   // laje baixa de lados retos (superelipse)
+    const a = r * 1.3, b = r * (0.8 + rr() * 0.3), c = r * 0.32;
+    F = (x, y, z) => Math.pow(Math.abs(x / a), 6) + Math.pow(Math.abs(y / b), 6) + Math.pow(Math.abs((z - c * 0.4) / c), 5) - 1 + (N3(x * 2.2, y * 2.2, z * 2.2) - 0.5) * 0.5 + (N3(x * 9, y * 9, z * 9) - 0.5) * 0.08;
+    top = c * 1.6;
+  } else if (kind === 'cluster') {   // grupo de 3–4 pedras menores
+    const blobs = [];
+    for (let i = 0, n = 3 + ((rr() * 2) | 0); i < n; i++) {
+      const s = r * (0.35 + rr() * 0.3), a = rr() * TAU, d = i ? r * (0.35 + rr() * 0.35) : 0;
+      blobs.push([Math.cos(a) * d, Math.sin(a) * d * 0.8, s, s * (0.75 + rr() * 0.25), s * (0.55 + rr() * 0.3)]);
+    }
+    F = (x, y, z) => { let m = 1e9; for (const [bx, by, a, b, c] of blobs) m = Math.min(m, ((x - bx) / a) ** 2 + ((y - by) / b) ** 2 + ((z - c * 0.45) / c) ** 2 - 1); return m + (N3(x * 4, y * 4, z * 4) - 0.5) * 0.3; };
+    top = r;
+  } else {   // matacões arredondados (granito, arenito, musgo, calcário)
+    const a = r, b = r * (0.72 + rr() * 0.28), c = r * (kind === 'sandstone' ? 0.48 : 0.58 + rr() * 0.22), k = kind === 'limestone' ? 0.55 : 0.62;
+    // lascas planas cortando o volume (pedra quebrada, não ovo)
+    const chips = [];
+    for (let i = 0; i < 6; i++) { const t = rr() * TAU, e = rr() * 1.1 - 0.1; chips.push([Math.cos(e) * Math.cos(t), Math.cos(e) * Math.sin(t), Math.sin(e), 0.78 + rr() * 0.18]); }
+    F = (x, y, z) => {
+      const q = [x / a, y / b, (z - c * 0.45) / c];
+      let f = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] - 1 + (N3(x * 1.4 + 5, y * 1.4, z * 1.4) - 0.5) * k + (N3(x * 4, y * 4, z * 4) - 0.5) * 0.16 + (N3(x * 10, y * 10, z * 10) - 0.5) * 0.05;
+      for (const [nx, ny, nz, d] of chips) f = Math.max(f, (nx * q[0] + ny * q[1] + nz * q[2] - d) * 2.2);
+      if (kind === 'sandstone') f += Math.abs(((z * 11 + N3(x * 2, y * 2, 3) * 0.6) % 1) - 0.5) * 0.12;   // degraus das camadas
+      return f;
+    };
+    top = c * 1.65;
   }
-  pts.push([cx + r * S * 1.1, by], [cx - r * S * 1.1, by]);
-  poly(g, pts, '#6d6a66', INK, 2);
-  const top = pts.slice(1, n - 2).map(([x, y]) => [lerp(x, cx - 4, 0.25), lerp(y, by - r * S * 0.9, 0.2)]);
-  top.push([cx - 2, by - r * S * 0.25]);
-  poly(g, top, '#8f8b84', null);
-  poly(g, [[cx - r * S * 0.55, by - r * S * 0.55], [cx - r * S * 0.1, by - r * S * 0.85], [cx, by - r * S * 0.45]], '#aeaaa1', null);
-  g.fillStyle = '#5a6b34';
-  for (let i = 0; i < 6; i++) g.fillRect(cx + R(-r, r) * S * 0.8, by - R(0, r) * S * 0.4, 3, 2);
-  return { img: c, ax: cx, ay: by, r };
+  // ---- cores/minerais por tipo
+  const base = { granite: [132, 125, 120], basalt: [82, 82, 86], sandstone: [172, 138, 98], mossy: [116, 114, 106], slab: [150, 146, 138], limestone: [184, 180, 170], cluster: rr() < 0.5 ? [124, 120, 114] : [96, 94, 92] }[kind];
+  const tint = 0.9 + rr() * 0.2;
+  const P = ROCK_PPM, ext = kind === 'slab' ? r * 1.4 : r * 1.25;
+  const W = Math.ceil(ext * 2 * P) + 8, Hh = Math.ceil((top * HZ + ext * TILT) * P) + 10;
+  const c = makeCanvas(W, Hh), g = c.getContext('2d'), img = g.createImageData(W, Hh), d = img.data;
+  const cx = W / 2, by = Hh - Math.ceil(ext * TILT * P) - 4;
+  const L = V.norm([-0.55, 0.45, 0.75]);   // luz de cima/esquerda, levemente de frente
+  const steps = 40, dz = top / steps;
+  for (let py = 0; py < Hh; py++) for (let px = 0; px < W; px++) {
+    const X = (px + 0.5 - cx) / P, Y = (py + 0.5 - by) / P;
+    // raio de visão: tela (X,Y) <-> mundo (X, y, z) com Y = 0,5·y − 0,86·z; marcha do alto p/ o chão
+    let zHit = -1;
+    for (let k = 0; k <= steps; k++) {
+      const z = top - k * dz, y = (Y + HZ * z) / TILT;
+      if (F(X, y, z) < 0) {
+        let lo = z, hi = z + dz;   // refina a borda
+        for (let it = 0; it < 4; it++) { const m = (lo + hi) / 2; F(X, (Y + HZ * m) / TILT, m) < 0 ? lo = m : hi = m; }
+        zHit = lo; break;
+      }
+    }
+    if (zHit < 0) continue;
+    const z = zHit, y = (Y + HZ * z) / TILT, e = 0.01;
+    const n = V.norm([F(X + e, y, z) - F(X - e, y, z), F(X, y + e, z) - F(X, y - e, z), F(X, y, z + e) - F(X, y, z - e)]);
+    const dif = Math.max(0, V.dot(n, L)), sky = 0.5 + 0.5 * n[2];
+    const ao = clamp(0.45 + z / (top * 0.55), 0.45, 1) * (0.75 + 0.25 * N3(X * 5, y * 5, z * 5));
+    let lum = (0.22 * sky + 0.88 * dif) * ao;
+    // textura mineral
+    let col = base.map(v => v * tint), hn = N3(X * 38, y * 38, z * 38), mn = N3(X * 11 + 7, y * 11, z * 11);
+    lum *= 0.88 + mn * 0.24;
+    if (kind === 'granite' || kind === 'cluster') { if (hn > 0.8) col = col.map(v => v * 0.45); else if (hn < 0.16) col = col.map(v => v * 1.35 + 20); }
+    else if (kind === 'basalt') { lum *= 0.92 + hn * 0.16; }
+    else if (kind === 'sandstone') { const band = Math.sin(z * 26 + N3(X * 2, y * 2, 0) * 6); col = col.map((v, i) => v * (0.9 + band * 0.08) + (i === 0 ? band * 6 : 0)); }
+    else if (kind === 'limestone') { if (hn > 0.86) lum *= 0.55; }
+    else if (kind === 'slab') { lum *= 0.93 + hn * 0.12; }
+    // trincas (ruído "ridged")
+    const cr = Math.abs(N3(X * 6 + 3, y * 6, z * 6) - 0.5);
+    if (cr < 0.006 && N3(X * 2 + 9, y * 2, z * 2) > 0.58 && kind !== 'sandstone') lum *= 0.55;
+    // musgo no topo / líquen claro
+    const up = n[2], mos = N3(X * 3.5 + 11, y * 3.5, z * 3.5);
+    if (kind === 'mossy' && up > 0.35 && mos > 0.38) { const t = clamp((up - 0.35) * 2.2, 0, 1) * clamp((mos - 0.38) * 5, 0, 1); col = col.map((v, i) => lerp(v, [74, 98, 44][i] * (0.85 + hn * 0.35), t)); }
+    else if (kind !== 'basalt' && mos > 0.72 && up > 0.2) { const t = clamp((mos - 0.72) * 6, 0, 0.7); col = col.map((v, i) => lerp(v, [176, 178, 132][i], t)); }
+    // brilho especular leve
+    const hv = V.norm([L[0], L[1] + 0.866, L[2] + 0.5]), spec = Math.pow(Math.max(0, V.dot(n, hv)), 24) * (kind === 'basalt' ? 0.35 : 0.15);
+    const o = (py * W + px) * 4;
+    d[o] = clamp(col[0] * lum + spec * 255, 0, 255); d[o + 1] = clamp(col[1] * lum + spec * 255, 0, 255); d[o + 2] = clamp(col[2] * lum + spec * 255, 0, 255); d[o + 3] = 255;
+  }
+  // sombra de contato no chão (por baixo do corpo) + composição
+  const sh = makeCanvas(W, Hh), sg = sh.getContext('2d');
+  const gr = sg.createRadialGradient(cx + ext * 0.15 * P, by, 0, cx + ext * 0.15 * P, by, ext * 1.1 * P);
+  gr.addColorStop(0, 'rgba(18,20,10,0.55)'); gr.addColorStop(0.6, 'rgba(18,20,10,0.25)'); gr.addColorStop(1, 'rgba(18,20,10,0)');
+  sg.fillStyle = gr; sg.save(); sg.translate(cx + ext * 0.15 * P, by); sg.scale(1, TILT); sg.translate(-cx - ext * 0.15 * P, -by);
+  sg.beginPath(); sg.arc(cx + ext * 0.15 * P, by, ext * 1.1 * P, 0, TAU); sg.fill(); sg.restore();
+  const body = makeCanvas(W, Hh); body.getContext('2d').putImageData(img, 0, 0);
+  g.drawImage(sh, 0, 0); g.drawImage(body, 0, 0);
+  // tufos de grama encostados na base (integra a pedra ao chão)
+  g.lineCap = 'round';
+  for (let i = 0; i < 10 + r * 20; i++) {
+    const a = rr() * TAU, x = cx + Math.cos(a) * ext * P * (0.75 + rr() * 0.3), y = by + Math.sin(a) * ext * TILT * P * 0.9;
+    if (Math.sin(a) < -0.2) continue;
+    g.strokeStyle = ['#4f7a2c', '#6a8f38', '#3e6324'][(rr() * 3) | 0]; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + (rr() - 0.5) * 4, y - 5, x + (rr() - 0.5) * 8, y - 6 - rr() * 8); g.stroke();
+  }
+  return { img: c, ax: cx, ay: by, r: kind === 'slab' ? r * 1.15 : r, ppm: P, kind };
 }
 
 function makeTuft(c1='#5f8a34',c2='#86ab4a',hmax=17) {
@@ -832,7 +935,7 @@ function buildWorld() {
     makeTree('street','flowering'),makeTree('oak','fruiting'),
     makeTree('yard','common'),makeTree('oak','mixed')
   ], pines = pool(5, () => makeTree('pine'));
-  const bushes = pool(8, makeBush), rocks = pool(6, makeRock);
+  const bushes = pool(8, makeBush), rocks = pool(14, makeRock);
   const addTree = (x, y, sp2) => {
     const t = { type: 'tree', x, y, sp: sp2, hit: 0, phase: rng() * 6 };
     world.props.push(t);
@@ -924,7 +1027,7 @@ function drawProp(g, p, t, player) {
   } else if (p.type === 'tuft') {
     drawSway(g, p.sp.img, p.sp.ax, p.sp.ay, base, sc, wind(t, p.x, p.y) * 0.22);
   } else if (p.type === 'rock') {
-    g.save(); g.setTransform(sc, 0, 0, sc, base.x, base.y); g.drawImage(p.sp.img, -p.sp.ax, -p.sp.ay); g.restore();
+    const rs = cam.zoom / (p.sp.ppm || SPR); g.save(); g.imageSmoothingEnabled = true; g.setTransform(rs, 0, 0, rs, base.x, base.y); g.drawImage(p.sp.img, -p.sp.ax, -p.sp.ay); g.restore();
   } else if (p.type === 'target') {
     const w = Math.sin(p.wob * 40) * p.wob * 0.5;
     drawSway(g, p.sp.img, p.sp.ax, p.sp.ay, base, sc * 0.72, w);
