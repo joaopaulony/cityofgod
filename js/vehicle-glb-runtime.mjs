@@ -8,7 +8,8 @@ import {NATIVE_CAR_MODELS} from './vehicle-model-catalog.mjs';
 const SIZE=384, DIRECTIONS=16, REFERENCE_ZOOM=68;
 const states=new Map();
 const loadedModels=[];
-window.vehicleNative3D={states,loadedModels,models:NATIVE_CAR_MODELS,
+const geometryInfo=new Map();
+window.vehicleNative3D={states,loadedModels,geometryInfo,models:NATIVE_CAR_MODELS,
   version:'glb-webgl-bake-1'};
 const stage=document.createElement('canvas');
 stage.width=SIZE;stage.height=SIZE;
@@ -30,7 +31,7 @@ keyLight.position.set(-4,9,8);scene.add(keyLight);
 const fillLight=new THREE.DirectionalLight(0xb4ccff,1.2);
 fillLight.position.set(7,4,-5);scene.add(fillLight);
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,.05,80);
-const ELEVATION=Math.atan2(Math.sqrt(1-.5*.5),.5); // camera ground TILT .5
+const ELEVATION=Math.asin(.5); // ground depth projects with TILT=sin(elevation)
 camera.position.set(0,Math.tan(ELEVATION)*15,15);
 camera.lookAt(0,0,0);
 camera.updateProjectionMatrix();
@@ -40,33 +41,48 @@ loader.setMeshoptDecoder(MeshoptDecoder);
 function normalizedCar(gltf,model){
  const root=gltf.scene;
  root.updateMatrixWorld(true);
+ const measure=node=>{
+  const b=new THREE.Box3().setFromObject(node),
+   center=new THREE.Vector3(),size=new THREE.Vector3();
+  b.getCenter(center);b.getSize(size);
+  return {name:node.name||'',type:node.type,children:node.children.length,
+   center:center.toArray().map(x=>+x.toFixed(2)),
+   size:size.toArray().map(x=>+x.toFixed(2))};
+ };
+ const groups=[...root.children];
+ if(groups.length===1&&groups[0].children.length>1)
+  groups.push(...groups[0].children.slice(0,22));
+ geometryInfo.set(model.id,{
+  root:measure(root),
+  groups:groups.slice(0,24).map(measure)
+ });
  const raw=new THREE.Box3().setFromObject(root);
  if(raw.isEmpty())throw Error('No vehicle mesh');
  const span=new THREE.Vector3();raw.getSize(span);
  if(!(span.x>0&&span.y>0&&span.z>0))throw Error('Invalid car bounds');
- const body=new THREE.Group();
- body.add(root);
- // Normalize the longest horizontal extent to the game's real car length.
- // Keep geometry/materials/textures exactly as received from its creator.
+ // Center and scale inside independent parent groups. Any subsequent yaw
+ // rotates about the TRUE center, rather than rotating the offset geometry.
+ const centered=new THREE.Group();
+ centered.position.set(-(raw.min.x+raw.max.x)/2,
+                        -raw.min.y,
+                       -(raw.min.z+raw.max.z)/2);
+ centered.add(root);
+ const scaled=new THREE.Group();
  const sourceLen=Math.max(span.x,span.z),
   vehicle=CAR_MODELS.find(x=>x.id===model.id);
- const size=(vehicle?.len||4.6)/sourceLen;
- root.scale.setScalar(size);
- root.position.set(-raw.min.x*size-span.x*size/2,
-                   -raw.min.y*size,
-                   -raw.min.z*size-span.z*size/2);
- root.updateMatrixWorld(true);
- const front={
+ scaled.scale.setScalar((vehicle?.len||4.6)/sourceLen);
+ scaled.add(centered);
+ const orient=new THREE.Group();
+ orient.rotation.y={
   '+X':0,'-X':Math.PI,
   '+Z':Math.PI/2,'-Z':-Math.PI/2
- }[model.frontAxis];
- // Assets can have different coordinate conventions; this offset is
- // explicitly calibrated per model, never guessed frame by frame.
- root.rotation.y=front??0;
- const normalizedBounds=new THREE.Box3().setFromObject(root);
- const dims=new THREE.Vector3();normalizedBounds.getSize(dims);
- const maxSide=Math.max(dims.x,dims.z);
- return {body,height:dims.y,longSide:maxSide};
+ }[model.frontAxis]??0;
+ orient.add(scaled);
+ const body=new THREE.Group();
+ body.add(orient);
+ const dims=new THREE.Vector3();
+ new THREE.Box3().setFromObject(body).getSize(dims);
+ return {body,height:dims.y,longSide:Math.max(dims.x,dims.z)};
 }
 
 async function bake(model){
