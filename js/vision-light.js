@@ -144,7 +144,6 @@ function protectBuildingSurfaces(ctx,ambientColor){
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle=ambientColor;
     paintBuildingLightMask(ctx);
-    ctx.fill();
   }
   ctx.restore();
 }
