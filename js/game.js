@@ -279,7 +279,8 @@ function render() {
   g.fillStyle = '#26301c'; g.fillRect(0, 0, W, H);
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
-  drawGround(g, W, H);
+  drawGround(g,W,H);
+  if(st.night)for(const lamp of world.lamps)drawLampBeam(g,lamp,T);
 
   const list = [], margin = 6 * s;
   for (const p of world.props) {
@@ -357,46 +358,89 @@ function occluded() {
   return false;
 }
 
-function drawNight(W, H) {
-  // mapa de luz: escuridão azulada com "furos" elípticos (iso) nas fontes de luz
-  const Z = cam.zoom;
-  lg.globalCompositeOperation = 'source-over'; lg.clearRect(0, 0, W, H);
-  lg.fillStyle = 'rgba(12,16,42,0.78)'; lg.fillRect(0, 0, W, H);
-  lg.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r, k = 1, flat = TILT) => {
-    lg.save(); lg.translate(x, y); lg.scale(1, flat);
-    const gr = lg.createRadialGradient(0, 0, 0, 0, 0, r); gr.addColorStop(0, `rgba(0,0,0,${k})`); gr.addColorStop(0.55, `rgba(0,0,0,${k * 0.6})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    lg.fillStyle = gr; lg.beginPath(); lg.arc(0, 0, r, 0, TAU); lg.fill(); lg.restore();
+function drawNight(W,H){
+  const Z=cam.zoom;
+  lg.setTransform(1,0,0,1,0,0);
+  lg.globalCompositeOperation='source-over';
+  lg.clearRect(0,0,W,H);
+  lg.fillStyle='rgba(10,16,31,.78)';lg.fillRect(0,0,W,H);
+  const radial=(ctx,x,y,r,k,flat=TILT,col='0,0,0')=>{
+    ctx.save();ctx.translate(x,y);ctx.scale(1,flat);
+    const gr=ctx.createRadialGradient(0,0,0,0,0,r);
+    gr.addColorStop(0,'rgba('+col+','+k+')');
+    gr.addColorStop(.54,'rgba('+col+','+(k*.68)+')');
+    gr.addColorStop(1,'rgba('+col+',0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,0,r,0,TAU);
+    ctx.fill();ctx.restore();
   };
-  const glow = (x, y, r, col, a, flat = TILT) => {
-    g.save(); g.translate(x, y); g.scale(1, flat);
-    const gr = g.createRadialGradient(0, 0, 0, 0, 0, r); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
-    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill(); g.restore();
+  const visible=(x,y,r)=>{
+    const p=proj(x,y,0);
+    return p.x>-r*Z&&p.x<W+r*Z&&p.y>-r*Z&&p.y<H+r*Z;
   };
-  const lampPts = world.lamps.map(l => proj(l.x + l.ax * 1.1, l.y + l.ay * 1.1, 0));
-  for (const p of lampPts) hole(p.x, p.y, 3.4 * Z, 0.95);
-  // janelas acesas derramam luz no chão em frente
-  const wins = [];
-  for (const Hh of houses) for (const sg of Hh.segs) if (sg.window && sg.ext) wins.push(proj((sg.x1 + sg.x2) / 2 + sg.nx * 0.9, (sg.y1 + sg.y2) / 2 + sg.ny * 0.9, 0));
-  for (const p of wins) hole(p.x, p.y, 1.3 * Z, 0.7);
-  for (const Hh of houses) if (Hh.inside) { const p = proj((Hh.x0 + Hh.x1) / 2, (Hh.y0 + Hh.y1) / 2, 0); hole(p.x, p.y, 6 * Z, 0.85); }
-  const cars = boxes.filter(b => b.kind === 'car');
-  const heads = cars.map(b => { const c = Math.cos(b.rot), s = Math.sin(b.rot); return proj(b.x + c * (b.w / 2 + 1.6), b.y + s * (b.w / 2 + 1.6), 0); });
-  for (const p of heads) hole(p.x, p.y, 1.8 * Z, 0.6);
-  const wl = houses.filter(H => H.wallLamp && H.frontSide).map(H => { const sd = H.sides[H.frontSide]; return [sd.a[0] + sd.dir[0] * H.wallLamp[0] + sd.n[0] * 0.15, sd.a[1] + sd.dir[1] * H.wallLamp[0] + sd.n[1] * 0.15]; });
-  for (const [x, y] of wl) { const p = proj(x, y, 0); hole(p.x, p.y, 1.8 * Z, 0.8); }
-  const pp = proj(player.x, player.y, 0); hole(pp.x, pp.y, 1.2 * Z, 0.3);
-  if (player.flash > 0) { const m = proj(...player.J.rifle.muzzle); hole(m.x, m.y, 7 * Z, 1, 0.8); }
-  g.drawImage(light, 0, 0);
-  // cor das fontes: sódio laranja nos postes, amarelo nas janelas, branco frio nos faróis
-  g.globalCompositeOperation = 'lighter';
-  for (const p of lampPts) glow(p.x, p.y, 3.2 * Z, '255,150,60', 0.28);
-  for (const l of world.lamps) { const p = proj(l.x + l.ax * 1.1, l.y + l.ay * 1.1, 3.9); glow(p.x, p.y, 0.9 * Z, '255,210,130', 0.7, 1); }
-  for (const p of wins) glow(p.x, p.y, 1.2 * Z, '255,200,90', 0.16);
-  for (const p of heads) glow(p.x, p.y, 1.6 * Z, '220,230,255', 0.14);
-  for (const [x, y] of wl) { const p = proj(x, y, 1.95); glow(p.x, p.y, 0.6 * Z, '255,214,150', 0.6, 1); const q = proj(x, y, 0); glow(q.x, q.y, 1.6 * Z, '255,190,110', 0.18); }
-  const shop = houses.find(h => h.brick), sg = shop && shop.segs.find(s => s.sign); if (sg) { const p = proj(sg.x1 + sg.ny * 2 + sg.nx * 0.3, sg.y1 - sg.nx * 2 + sg.ny * 0.3, 2.6); glow(p.x, p.y, 2.4 * Z, '255,60,50', 0.35, 0.6); }
-  g.globalCompositeOperation = 'source-over';
+  const lamps=[];
+  for(const l of world.lamps){
+    const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,r=3.55;
+    if(!visible(x,y,r))continue;
+    lamps.push({l,x,y,r,polygon:lightVisibilityFor(l,x,y,r)});
+  }
+  const windows=[];
+  for(const home of houses)for(const s of home.segs){
+    if(!s.ext||!s.window||!s.side)continue;
+    const x=(s.x1+s.x2)*.5+s.nx*.83,
+      y=(s.y1+s.y2)*.5+s.ny*.83;
+    if(!visible(x,y,1.55))continue;
+    windows.push({x,y,r:1.55,s,polygon:lightVisibilityFor(s,x,y,1.55)});
+  }
+  const porch=[];
+  for(const home of houses){
+    if(!home.wallLamp||!home.frontSide)continue;
+    const sd=home.sides[home.frontSide],
+      x=sd.a[0]+sd.dir[0]*home.wallLamp[0]+sd.n[0]*.45,
+      y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.45;
+    if(!visible(x,y,2.05))continue;
+    porch.push({x,y,home,r:2.05,polygon:lightVisibilityFor(home,x,y,2.05)});
+  }
+  lg.globalCompositeOperation='destination-out';
+  const carve=(x,y,r,k,polygon)=>{
+    lg.save();if(polygon)clipLightPolygon(lg,polygon);
+    const p=proj(x,y,0);radial(lg,p.x,p.y,r*Z,k);
+    lg.restore();
+  };
+  for(const l of lamps)carve(l.x,l.y,l.r,.91,l.polygon);
+  for(const w of windows)carve(w.x,w.y,w.r,.54,w.polygon);
+  for(const w of porch)carve(w.x,w.y,w.r,.77,w.polygon);
+  for(const home of houses)if(home.inside){
+    const poly=lightVisibilityPolygon(player.x,player.y,3.8);
+    carve(player.x,player.y,3.8,.70,poly);
+  }
+  const cars=boxes.filter(b=>b.kind==='car');
+  for(const b of cars){
+    const a=b.rot,x=b.x+Math.cos(a)*(b.w/2+1.1),
+      y=b.y+Math.sin(a)*(b.w/2+1.1);
+    if(!visible(x,y,1.5))continue;
+    carve(x,y,1.5,.32,lightVisibilityFor(b,x,y,1.5));
+  }
+  carve(player.x,player.y,1.05,.25,
+    lightVisibilityPolygon(player.x,player.y,1.05));
+  lg.globalCompositeOperation='source-over';
+  g.drawImage(light,0,0);
+  g.globalCompositeOperation='lighter';
+  const tint=(x,y,r,a,color,polygon)=>{
+    g.save();if(polygon)clipLightPolygon(g,polygon);
+    const p=proj(x,y,0);radial(g,p.x,p.y,r*Z,a,TILT,color);
+    g.restore();
+  };
+  for(const l of lamps){
+    tint(l.x,l.y,l.r*.88,.22,'245,162,83',l.polygon);
+    const bulb=proj(l.x,l.y,3.9);
+    if(lightIsVisible(player.x,player.y,l.x,l.y)||Math.hypot(
+      player.x-l.x,player.y-l.y)>11){
+      radial(g,bulb.x,bulb.y,.46*Z,.48,1,'255,221,162');
+    }
+  }
+  for(const w of windows)tint(w.x,w.y,w.r*.78,.10,'242,188,108',w.polygon);
+  for(const w of porch)tint(w.x,w.y,w.r*.75,.16,'251,199,118',w.polygon);
+  g.globalCompositeOperation='source-over';
 }
 
 // ---------- laço ----------
