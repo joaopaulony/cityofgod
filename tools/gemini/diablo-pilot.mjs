@@ -146,7 +146,7 @@ async function main(){
      {type:'image',mime_type:'image/png',data:ref},
      {type:'text',text:promptFor(direction)}
    ],
-   response_format:{type:'image',mime_type:'image/png',aspect_ratio:'1:1',image_size:'1K'}
+   response_format:{type:'image',aspect_ratio:'1:1',image_size:'1K'}
   });
   const blocks=res.output_image?.data?[res.output_image]:
     (res.steps||[]).flatMap(s=>s.type==='model_output'?s.content||[]:[]);
