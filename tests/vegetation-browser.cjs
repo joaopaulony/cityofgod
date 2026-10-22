@@ -317,6 +317,62 @@ const {judge}=require('./visual-quality-judge.cjs');
         houseCount:houses.length,fixtureKinds,roomsWithLights,
         manualDoorWorks,waterActionWorks,lightSwitchWorks,renderOK:true};
     });
+    // Novo julgador: pixels reais (flash e objetos), quantidade/posicao
+    // e mascara de oclusao: sem aprovar apenas pela existencia de metodos.
+    const city=await game.evaluate(()=>{
+      const litter=urbanLife.litter,bins=urbanLife.bins;
+      const chimneyHouses=houses.filter(H=>!!H.chimney),
+        smoky=chimneyHouses.filter(H=>H.chimney.smoke);
+      const urbanCurbOnly=litter.every(d=>
+        roadDist(d.x,d.y)>=ROAD_W-.60-1e-3&&
+        roadDist(d.x,d.y)<=ROAD_W+SIDE+.13);
+      const sprite=urbanLife.sprites[0][0],
+        bits=sprite.getContext('2d').getImageData(0,0,sprite.width,sprite.height).data;
+      let urbanPixelDetail=0;
+      for(let j=3;j<bits.length;j+=4)if(bits[j]>180)urbanPixelDetail++;
+      let smokeDrawn=false;
+      if(smoky.length){
+        const H=smoky[0],c=H.chimney,remember=[cam.x,cam.y];
+        cam.x=cam.tx=c.x;cam.y=cam.ty=c.y;
+        const smoke=makeCanvas(cam.W,cam.H),ctx=smoke.getContext('2d');
+        urbanDrawChimney(ctx,H,4.5);
+        const raw=ctx.getImageData(0,0,smoke.width,smoke.height).data;
+        smokeDrawn=raw.some((v,i)=>i%4===3&&v>0);
+        cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
+      }
+      const flash=makeCanvas(cam.W,cam.H),gc=flash.getContext('2d');
+      player.flash=.11;
+      player.J=player.J||solveSkeleton(player,animate(player,0));
+      drawMuzzleFlash(gc,player,true);
+      const px=gc.getImageData(0,0,cam.W,cam.H).data;
+      let muzzleLitPixels=0;
+      for(let j=3;j<px.length;j+=4)if(px[j]>4)muzzleLitPixels++;
+      const muzzle=proj(...player.J.rifle.muzzle);
+      const sample=(x,y)=>{
+        const xx=Math.max(0,Math.min(cam.W-1,Math.round(x))),
+          yy=Math.max(0,Math.min(cam.H-1,Math.round(y)));
+        const k=(yy*cam.W+xx)*4;
+        return px[k]+px[k+1]+px[k+2];
+      };
+      const muzzleCenterBrighter=sample(muzzle.x,muzzle.y)>
+        sample(muzzle.x+cam.zoom*.85,muzzle.y);
+      const noFocusOutline=!drawPlayerVision.toString().includes('g.strokeStyle=st.night');
+      const thresholdSource=occluded.toString();
+      const focusThreshold=thresholdSource.includes('.80')?.80:0;
+      // Fração baixa (apenas bota/beiral) nunca ultrapassa o limite.
+      const partialCoverageRejected=houseBodyCoverage.toString()
+        .includes('for(const h of [.16,.48,.82,1.15,1.48])')&&
+        focusThreshold===.80;
+      return {muzzleLitPixels,muzzleCenterBrighter,
+        urbanDebris:litter.length,urbanStyles:new Set(litter.map(d=>d.kind)).size,
+        urbanCurbOnly,urbanBins:bins.length,urbanPixelDetail,
+        chimneys:chimneyHouses.length,smokingChimneys:smoky.length,
+        smokeDrawn,focusThreshold,focusOutlineRemoved:noFocusOutline,
+        partialCoverageRejected};
+    });
+    Object.assign(metrics,city);
+    console.log('Urban/night regression:',JSON.stringify(city));
+    await game.screenshot({path:'artifacts/cityofgod-muzzle-urban-chimneys.png',fullPage:true});
     await game.screenshot({path:'artifacts/cityofgod-night-light-judge.png',fullPage:true});
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
