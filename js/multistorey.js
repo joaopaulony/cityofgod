@@ -81,8 +81,9 @@ function initUpperFloor(H,T,L,k){
   if(!T.upper)return;
   const u=T.upper,z=H.floorHeight;
   H.upper={z,walls:[],furniture:[],style:u.style};
+  const bottom=L(u.stair.x,u.stair.y+.52),top=L(u.stair.x,u.stair.y-.52);
   H.stair={house:H,x:L(u.stair.x,u.stair.y)[0],
-    y:L(u.stair.x,u.stair.y)[1],z,local:u.stair};
+    y:L(u.stair.x,u.stair.y)[1],bottom,top,z,rot:k*Math.PI/2,local:u.stair};
   world.upperSegs=world.upperSegs||[];
   for(const wall of u.walls){
     const start=L(wall.x1,wall.y1),end=L(wall.x2,wall.y2),
@@ -113,10 +114,10 @@ function initUpperFloor(H,T,L,k){
   }
   // Degraus geometricos em z crescente, como referencia visual da escada.
   // O jogador ativa F no patamar, subindo animadamente sem teleportar no eixo XY.
-  H.upper.steps=Array.from({length:9},(_,i)=>{
-    const p=L(u.stair.x,u.stair.y+(i-4)*.14);
-    return {x:p[0],y:p[1],z:z*(i/9),
-      width:.93,depth:.14};
+  H.upper.steps=Array.from({length:10},(_,i)=>{
+    const p=L(u.stair.x,u.stair.y+.52-i*(1.04/9));
+    return {x:p[0],y:p[1],z:z*(i/10),
+      width:1.08,depth:.19};
   });
 }
 function upstairsHouseAt(x,y){
@@ -130,6 +131,8 @@ function updateHouseStairs(p,dt,activate){
     // Caminha por uma transicao de subida suave, sem escada instantanea.
     const t=tr.t*tr.t*(3-2*tr.t);
     p.floorZ=tr.start+(tr.end-tr.start)*t;
+    p.x=tr.fromX+(tr.toX-tr.fromX)*t;
+    p.y=tr.fromY+(tr.toY-tr.fromY)*t;
     if(tr.t>=1){
       p.floor=tr.to;p.floorZ=tr.end;p.stairTravel=null;
     }
@@ -138,17 +141,47 @@ function updateHouseStairs(p,dt,activate){
   if(!activate)return false;
   const H=upstairsHouseAt(p.x,p.y);
   if(!H||Math.hypot(p.x-H.stair.x,p.y-H.stair.y)>1.05)return false;
-  p.stairTravel={to:p.floor===1?0:1,start:p.floorZ||0,
-    end:p.floor===1?0:H.stair.z,t:0};
+  const to=p.floor===1?0:1;
+  p.stairTravel={to,start:p.floorZ||0,
+    end:to===1?H.stair.z:0,
+    fromX:p.x,fromY:p.y,toX:to===1?H.stair.top[0]:H.stair.bottom[0],
+    toY:to===1?H.stair.top[1]:H.stair.bottom[1],t:0};
   return true;
+}
+// Escada de madeira com degraus de espelho e corrimao, desenhada somente
+// na casa em que o jogador entrou: nao se paga esse custo na rua.
+function drawHouseStaircase(g,H){
+  for(const step of H.upper.steps)drawBox(g,{
+    x:step.x,y:step.y,z:step.z,w:step.width,d:step.depth,
+    h:.17,rot:H.stair.rot,top:'#c8a47c',side:'#735139',kind:'step'
+  });
+  const p=H.upper.steps;
+  for(const side of [-1,1]){
+    const offset=side*.48,ang=H.stair.rot,
+      ox=Math.cos(ang)*offset,oy=Math.sin(ang)*offset;
+    const a=proj(p[0].x+ox,p[0].y+oy,.85),
+      b=proj(p[p.length-1].x+ox,p[p.length-1].y+oy,H.stair.z+.72);
+    g.strokeStyle='rgba(35,25,17,.84)';g.lineWidth=Math.max(2,cam.zoom*.048);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();
+    g.strokeStyle='#a98152';g.lineWidth=Math.max(1,cam.zoom*.025);g.stroke();
+  }
 }
 function drawHouseUpper(g,H){
   if(!H.upper)return;
   const z=H.upper.z;
   const base=[[H.x0+.12,H.y0+.12],[H.x1-.12,H.y0+.12],
     [H.x1-.12,H.y1-.12],[H.x0+.12,H.y1-.12]];
-  poly(g,base.map(p=>proj(p[0],p[1],z)),
-    '#a68b69','rgba(35,24,17,.72)',1.4);
+  // Laje com abertura verdadeira na escada (fill evenodd), sem tapar o vao.
+  const holeX=H.stair.x,holeY=H.stair.y;
+  g.beginPath();
+  const outer=base.map(p=>proj(p[0],p[1],z));
+  outer.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();
+  const hole=[[holeX-.62,holeY-.80],[holeX+.62,holeY-.80],
+    [holeX+.62,holeY+.80],[holeX-.62,holeY+.80]]
+    .map(p=>proj(p[0],p[1],z));
+  hole.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();
+  g.fillStyle='#a68b69';g.fill('evenodd');
+  g.strokeStyle='rgba(35,24,17,.72)';g.lineWidth=1.4;g.stroke();
   // Tabuas com ritmos alternados e linhas de iluminacao: textura assada por
   // geometria simples e visivel apenas quando o jogador esta no piso de cima.
   for(let x=H.x0+.14;x<H.x1-.14;x+=.35){
@@ -171,14 +204,6 @@ function drawHouseUpper(g,H){
   // Moveis sobem junto com a laje; composicao por profundidade local.
   for(const b of [...H.upper.furniture].sort((a,b)=>
     depthOf(a.x,a.y)-depthOf(b.x,b.y)))drawBox(g,b);
-  // Patamar e escada com madeira e risers que acompanham a direcao do sobrado.
-  for(const step of H.upper.steps){
-    const at=proj(step.x,step.y,Math.max(0,step.z));
-    g.fillStyle='#a57e51';
-    g.fillRect(at.x-cam.zoom*.13,at.y-cam.zoom*.035,
-      cam.zoom*.26,Math.max(1,cam.zoom*.07));
-    g.fillStyle='rgba(48,31,19,.48)';
-    g.fillRect(at.x-cam.zoom*.13,at.y+cam.zoom*.022,
-      cam.zoom*.26,Math.max(.6,cam.zoom*.018));
-  }
+  // Escada pode ser vista pelo vao e o corrimao continua no patamar.
+  drawHouseStaircase(g,H);
 }
