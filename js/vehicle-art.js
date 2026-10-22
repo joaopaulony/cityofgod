@@ -193,6 +193,11 @@ function carDraw(g,b,time=0,night=false){
  }
  carLine(g,b,[p(f,-w*.74,.49),p(f,w*.74,.49)],'#adb2b0',.074);
  carLine(g,b,[p(r,-w*.73,.52),p(r,w*.73,.52)],'#999d9b',.061);
+ // Placas embutidas, sem logotipos de fabricantes.
+ carFill(g,b,[p(f+.023,-.24,.58),p(f+.023,.24,.58),
+   p(f+.023,.24,.67),p(f+.023,-.24,.67)],'#cdd4d2','#263037');
+ carFill(g,b,[p(r-.023,-.22,.58),p(r-.023,.22,.58),
+   p(r-.023,.22,.67),p(r-.023,-.22,.67)],'#bcc8cb','#24303a');
  const blink=Math.floor(time*2.8)%2===0;
  for(const side of [-1,1]){
   carLamp(g,b,f,side*w*.71,hood-.23,'front',b.headlights);
