@@ -186,7 +186,7 @@ function vehicleUpdate(dt,player){
 function vehicleDrivingHUD(ctx,W,H){
  const b=vehicleSystem.driver;if(!b)return;
  const m=carModel(b),speed=Math.round(Math.abs(b.speed)*3.6),
-   width=312,height=98,x=Math.max(24,W-width-24),y=H-287;
+   width=312,height=98,x=Math.max(24,(W-width)/2),y=Math.max(150,H-260);
  ctx.save();ctx.fillStyle='rgba(13,17,19,.91)';
  ctx.strokeStyle='rgba(183,181,165,.54)';ctx.lineWidth=1;
  ctx.beginPath();ctx.roundRect(x,y,width,height,11);ctx.fill();ctx.stroke();
