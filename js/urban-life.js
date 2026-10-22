@@ -420,10 +420,42 @@ function urbanDrawChimneySmoke(g,c,t,top){
     }
   }
 }
+// Pequena sapata real de antena: 32 cm com quatro parafusos,
+// guarnição de borracha e base conformada à telha. Diferente de uma
+// chapa larga de chaminé, não deve cobrir várias telhas.
+function urbanAntennaBracket(g,H,x,y,r=.19){
+  const P=(dx,dy,lift)=>urbanRoofVertex(H,x+dx,y+dy,lift);
+  const q=[P(-r,-r,.024),P(r,-r,.024),
+    P(r,r,.024),P(-r,r,.024)];
+  const pad=[P(-r*.71,-r*.71,.045),P(r*.71,-r*.71,.045),
+    P(r*.71,r*.71,.045),P(-r*.71,r*.71,.045)];
+  const shadow=q.map(p=>[p[0]+.026,p[1]+.024,p[2]-.017]);
+  urbanRoofPoly(g,shadow,'rgba(23,26,28,.32)');
+  urbanRoofPoly(g,q,'#4e5659','rgba(33,39,41,.55)',.75);
+  urbanRoofPoly(g,pad,'#879298','rgba(35,43,45,.40)',.5);
+  urbanRoofStroke(g,[pad[3],pad[0],pad[1]],
+    'rgba(217,221,212,.68)',.010);
+  for(const [dx,dy] of [[-r*.82,-r*.82],[r*.82,-r*.82],
+    [r*.82,r*.82],[-r*.82,r*.82]]){
+    const p=proj(...P(dx,dy,.05));
+    g.fillStyle='#c6cbc5';
+    g.beginPath();
+    g.arc(p.x,p.y,Math.max(.6,cam.zoom*.016),0,TAU);
+    g.fill();
+  }
+  const center=proj(...P(0,0,.062));
+  const grad=g.createRadialGradient(center.x,center.y,0,
+    center.x,center.y,Math.max(2,cam.zoom*.15));
+  grad.addColorStop(0,'rgba(29,40,44,.34)');
+  grad.addColorStop(1,'rgba(29,40,44,0)');
+  g.fillStyle=grad;g.beginPath();
+  g.ellipse(center.x,center.y,cam.zoom*.14,
+    cam.zoom*.08,0,0,TAU);g.fill();
+}
 function urbanDish(g,H,a){
   const x=a.x,y=a.y,z=a.z,co=Math.cos(a.yaw),si=Math.sin(a.yaw);
   // Base de fixação, com dobras e abraçadeiras de aço.
-  urbanRoofFlashing(g,H,x,y,.32,.30);
+  urbanAntennaBracket(g,H,x,y,.19);
   const base=urbanRoofVertex(H,x,y,.08),
     upright=[x,y,z+.59],center=[x+co*.19,y+si*.19,z+.95];
   urbanRoofStroke(g,[base,upright], '#343f43',.075);
@@ -479,7 +511,7 @@ function urbanYagi(g,H,a){
     cx=Math.cos(a.yaw),sy=Math.sin(a.yaw),
     nx=-sy,ny=cx,base=[x,y,z+.08],
     top=[x,y,z+a.mast];
-  urbanRoofFlashing(g,H,x,y,.27,.27);
+  urbanAntennaBracket(g,H,x,y,.18);
   urbanRoofStroke(g,[base,top],'#515b61',.053);
   urbanRoofStroke(g,[[x-.26,y,urbanRoofSurface(H,x-.26,y)+.035],
     [x,y,z+.52]],'#768088',.018);
