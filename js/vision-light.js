@@ -135,17 +135,65 @@ function paintBuildingLightMask(ctx){
 }
 // A oclusao de fachada e telhado evita que o shader 2D do chao volte a
 // iluminar a parede quando a iluminacao final e composta sobre a cena.
+// Um unico canal alpha solido para a silhueta. Nunca acumular preto
+// a cada face da casa: o source-over cumulativo causava as faixas diagonais.
+const surfaceMask=makeCanvas(1,1),surfaceCtx=surfaceMask.getContext('2d');
 function protectBuildingSurfaces(ctx,ambientColor){
+  const w=ctx.canvas.width,h=ctx.canvas.height;
+  if(surfaceMask.width!==w||surfaceMask.height!==h){
+    surfaceMask.width=w;surfaceMask.height=h;
+  }
+  surfaceCtx.setTransform(1,0,0,1,0,0);
+  surfaceCtx.globalCompositeOperation='source-over';
+  surfaceCtx.clearRect(0,0,w,h);
+  surfaceCtx.fillStyle='#fff';
+  paintBuildingLightMask(surfaceCtx);
   ctx.save();
   ctx.globalCompositeOperation='destination-out';
-  ctx.fillStyle='#fff';
-  paintBuildingLightMask(ctx);
+  ctx.drawImage(surfaceMask,0,0);
   if(ambientColor){
+    // source-in gera um unico alpha .78 mesmo com paredes/telhado
+    // sobrepostos (sem somar opacidade nas empenas ou agua do telhado).
+    surfaceCtx.globalCompositeOperation='source-in';
+    surfaceCtx.fillStyle=ambientColor;
+    surfaceCtx.fillRect(0,0,w,h);
+    surfaceCtx.globalCompositeOperation='source-over';
     ctx.globalCompositeOperation='source-over';
-    ctx.fillStyle=ambientColor;
-    paintBuildingLightMask(ctx);
+    ctx.drawImage(surfaceMask,0,0);
   }
   ctx.restore();
+}
+// A oclusao do bulbo deve testar a ALTURA da luminaria e nao apenas
+// a linha de visada no CHAO, que escondia a lampada diante de casas atras.
+function insideScreenPoly(x,y,vertices){
+  let ok=false;
+  for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
+    const a=vertices[i],b=vertices[j];
+    if(((a.y>y)!==(b.y>y))&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)ok=!ok;
+  }
+  return ok;
+}
+function lampHeadVisible(l){
+  const wx=l.x+l.ax*1.1,wy=l.y+l.ay*1.1,
+    bulb=proj(wx,wy,4.03),lampDepth=depthOf(wx,wy);
+  for(const H of houses){
+    if(H.inside)continue;
+    const mid=depthOf((H.x0+H.x1)/2,(H.y0+H.y1)/2);
+    // Casas atras do poste NAO podem apagar o bulbo em foreground.
+    if(mid<=lampDepth+.65)continue;
+    for(const side of Object.values(H.sides)){
+      const endX=side.a[0]+side.dir[0]*side.len,
+        endY=side.a[1]+side.dir[1]*side.len;
+      const face=[[side.a[0],side.a[1],0],[endX,endY,0],
+        [endX,endY,H.h],[side.a[0],side.a[1],H.h]];
+      if(insideScreenPoly(bulb.x,bulb.y,face.map(p=>proj(...p))))return false;
+    }
+    const roof=H.roofGeom||(H.roofGeom=buildRoofGeom(H));
+    if(!roof.flat)for(const face of roof.faces)
+      if(insideScreenPoly(bulb.x,bulb.y,face.p.map(p=>proj(...p))))
+        return false;
+  }
+  return true;
 }
 // Feixe de atmosfera: tres laminas translúcidas sobrepostas com queda suave.
 // Desenhado ANTES da geometria das casas para ser escondido por ela.

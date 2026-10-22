@@ -216,6 +216,55 @@ const {judge}=require('./visual-quality-judge.cjs');
       let coverage=0;
       for(let k=3;k<all.length;k+=4)if(all[k]>100)coverage++;
       const maskLocal=coverage>1000&&coverage<mask.canvas.width*mask.canvas.height*.75;
+      // Composicao uniforme: dois pontos em aguas inclinadas diferentes
+      // devem ter a MESMA opacidade, nao faixas pretas sobrepostas.
+      const overlay=makeCanvas(cam.W,cam.H),og=overlay.getContext('2d');
+      og.fillStyle='rgba(10,16,31,.78)';og.fillRect(0,0,cam.W,cam.H);
+      og.globalCompositeOperation='destination-out';
+      const glow=og.createRadialGradient(cam.W/2,cam.H/2,0,
+        cam.W/2,cam.H/2,Math.max(cam.W,cam.H)*.72);
+      glow.addColorStop(0,'rgba(0,0,0,.95)');
+      glow.addColorStop(1,'rgba(0,0,0,0)');
+      og.fillStyle=glow;og.fillRect(0,0,cam.W,cam.H);
+      og.globalCompositeOperation='source-over';
+      protectBuildingSurfaces(og,'rgba(10,16,31,.78)');
+      const maskShades=building.roofGeom.faces.filter(f=>f.slope).map(f=>{
+        const p=f.p.reduce((o,v)=>o.map((n,i)=>n+v[i]/f.p.length),
+          [0,0,0]);
+        const loc=proj(...p);
+        const x=Math.max(0,Math.min(cam.W-1,Math.round(loc.x))),
+          y=Math.max(0,Math.min(cam.H-1,Math.round(loc.y)));
+        return og.getImageData(x,y,1,1).data[3];
+      });
+      const noBlackStripes=maskShades.length>1&&
+        Math.max(...maskShades)-Math.min(...maskShades)<=3&&
+        maskShades.every(v=>v>=195&&v<=203);
+      // Postes nao podem apagar so porque outro edificio intercepta o raio
+      // no chao. Cabeceira usa teste em altura e contexto da camera.
+      const streetPole=world.lamps.find(l=>lampHeadVisible(l))||world.lamps[0];
+      const normalVisible=lampHeadVisible(streetPole);
+      const priorPlayer=[player.x,player.y];
+      player.x=-20;player.y=-20;
+      const unaffectedByPlayerRay=lampHeadVisible(streetPole)===normalVisible;
+      player.x=priorPlayer[0];player.y=priorPlayer[1];
+      // Lente revela de forma suave, nao como o antigo boneco x-ray
+      // pintado por cima da casa: centro opaco, periferia transparente.
+      let focusCenterAlpha=0,focusEdgeAlpha=0;
+      const oldPosition=[player.x,player.y];
+      player.x=(building.x0+building.x1)/2;
+      player.y=(building.y0+building.y1)/2;
+      const focal=proj(player.x,player.y,1.05+(player.floorZ||0));
+      drawPlayerVision([],building,cam.W,cam.H);
+      const fy=Math.round(focal.y+cam.zoom*.17),
+        fx=Math.round(focal.x),fr=Math.max(54,cam.zoom*1.85);
+      const fp=(x,y)=>fg.getImageData(
+        Math.max(0,Math.min(cam.W-1,Math.round(x))),
+        Math.max(0,Math.min(cam.H-1,Math.round(y))),1,1).data[3];
+      focusCenterAlpha=fp(fx,fy);
+      focusEdgeAlpha=fp(fx+fr*.99,fy);
+      const featheredFocus=focusCenterAlpha>=235&&focusEdgeAlpha<40;
+      player.x=oldPosition[0];player.y=oldPosition[1];
+
       const outward=building.segs.find(s=>s.ext&&s.window),
         ox=(outward.x1+outward.x2)*.5+outward.nx*.24,
         oy=(outward.y1+outward.y2)*.5+outward.ny*.24,
@@ -258,6 +307,8 @@ const {judge}=require('./visual-quality-judge.cjs');
         wallBlocksLight,partitionBlocksLight,
         lampBeamPixels,lampCount:world.lamps.length,
         facadeCovered,roofCovered,maskLocal,coneExteriorOnly,
+        noBlackStripes,maskShades,unaffectedByPlayerRay,featheredFocus,
+        focusCenterAlpha,focusEdgeAlpha,
         outsideRoofOpaque,sightThroughWindow,closedDoorBlocked,
         interiorVisibleWhenInside,ruralCount:rural.length,
         ruralKinds:ruralKinds.size,urbanCount:urban.length,

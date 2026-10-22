@@ -5,6 +5,9 @@ const view = document.getElementById('view'), g = view.getContext('2d');
 const hudC = document.getElementById('hud'), h = hudC.getContext('2d');
 const light = makeCanvas(1, 1), lg = light.getContext('2d');
 const glows=makeCanvas(1,1),gg=glows.getContext('2d');
+const buildingMask=makeCanvas(1,1),mg=buildingMask.getContext('2d');
+const buildingShade=makeCanvas(1,1),sg=buildingShade.getContext('2d');
+const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 
 buildWorld();
 
@@ -30,6 +33,9 @@ function resize() {
   hudC.width = innerWidth; hudC.height = innerHeight;
   light.width = view.width; light.height = view.height;
   glows.width=view.width;glows.height=view.height;
+  buildingMask.width=view.width;buildingMask.height=view.height;
+  buildingShade.width=view.width;buildingShade.height=view.height;
+  focusCanvas.width=view.width;focusCanvas.height=view.height;
   cam.W = view.width; cam.H = view.height;
 }
 addEventListener('resize', resize); resize();
@@ -288,7 +294,7 @@ function render() {
   for (const p of world.props) {
     const b = proj(p.x, p.y, 0);
     if (b.x < -margin || b.x > W + margin || b.y < -margin * 0.3 || b.y > H + margin * 1.2) continue;
-    list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: () => drawProp(g, p, T, player) });
+    list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: ctx => drawProp(ctx,p,T,player),prop:p });
   }
   ecosystemAddDrawables(list, g, T, player);
   houseDrawables(list, player.x, player.y);
@@ -296,18 +302,18 @@ function render() {
     const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
     if(pos.x < -padding || pos.x > W+padding ||
        pos.y < -padding || pos.y > H+padding) continue;
-    list.push({ d: depthOf(l.x, l.y), draw: () => drawLamp(g, l, st.night) });
+    list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night),lamp:l });
   }
   for (const a of actors) {
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
       a.x>H.x0&&a.x<H.x1&&a.y>H.y0&&a.y<H.y1);
     const above=upper?Math.max(...[[upper.x0,upper.y0],[upper.x1,upper.y1]]
       .map(p=>depthOf(p[0],p[1])))+4:depthOf(a.x,a.y)+.05;
-    list.push({d:above,draw:()=>{
-      g.save();
-      if(a.floorZ)g.translate(0,-a.floorZ*cam.zoom*HZ);
-      drawActor(g,a,a.J,a.pal);
-      g.restore();
+    list.push({d:above,draw:ctx=>{
+      ctx.save();
+      if(a.floorZ)ctx.translate(0,-a.floorZ*cam.zoom*HZ);
+      drawActor(ctx,a,a.J,a.pal);
+      ctx.restore();
     },actor:a});
   }
   for (const q of parts) list.push({ d: depthOf(q.x, q.y) + (q.z > 0.5 ? 0.3 : 0), draw: () => drawPart(q) });
@@ -327,10 +333,12 @@ function render() {
     poly(g, [[m.x, m.y - 3], [dir.x, dir.y], [m.x, m.y + 3]], '#fff2b0', null);
     g.fillStyle = 'rgba(255,190,80,.8)'; g.beginPath(); g.arc(m.x, m.y, 0.12 * s, 0, TAU); g.fill();
   }
-  // silhueta do jogador quando atrás de paredes/telhados
-  if (occluded()) { g.globalAlpha = 0.35; drawActor(g, player, player.J, PAL.hero); g.globalAlpha = 1; }
-
-  if (st.night) drawNight(W, H);
+  // O antigo X-ray de personagem nao respeitava a profundidade: parecia
+  // flutuar em cima do telhado. A lente redesenha a cena sem a parede
+  // que realmente bloqueia a camera, com mascara radial suavizada.
+  if (st.night) drawNight(W,H);
+  const blocker=occluded();
+  if(blocker)drawPlayerVision(list,blocker,W,H);
   // balões de fala
   g.font = '7px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const b of bubbles) {
@@ -342,22 +350,67 @@ function render() {
   }
 }
 
+// Devuelve unicamente a construcao que cobre a projecao do corpo;
+// nunca ativa a lente se o jogador esta de fato dentro do edificio.
 function occluded() {
-  const p = player, pp = proj(p.x, p.y, 1), pd = depthOf(p.x, p.y);
-  for (const H of houses) {
-    if (H.inside) continue;
-    const cs = [[H.x0, H.y0], [H.x1, H.y0], [H.x1, H.y1], [H.x0, H.y1]];
-    const near = Math.max(...cs.map(c => depthOf(c[0], c[1])));
-    if (pd > near) continue;
-    const sp = cs.flatMap(c => [proj(c[0], c[1], 0), proj(c[0], c[1], H.h + 1.7)]);
-    const xs = sp.map(q => q.x), ys = sp.map(q => q.y);
-    if (pp.x > Math.min(...xs) && pp.x < Math.max(...xs) && pp.y > Math.min(...ys) && pp.y < Math.max(...ys)) {
-      const ins = (p.x > H.x0 - 0.5 && p.x < H.x1 + 0.5 && p.y > H.y0 - 0.5 && p.y < H.y1 + 0.5);
-      const behind = cs.some(c => depthOf(c[0], c[1]) > pd + 0.5);
-      if (behind && !ins || ins) return true;
-    }
+  const p=player,pp=proj(p.x,p.y,1+(p.floorZ||0)),pd=depthOf(p.x,p.y);
+  for(const H of houses){
+    if(H.inside)continue;
+    const corners=[[H.x0,H.y0],[H.x1,H.y0],[H.x1,H.y1],[H.x0,H.y1]];
+    const ds=corners.map(q=>depthOf(q[0],q[1]));
+    if(pd>Math.max(...ds)+.2)continue;
+    const screen=corners.flatMap(q=>[
+      proj(q[0],q[1],0),proj(q[0],q[1],H.h+1.7)]);
+    const xs=screen.map(q=>q.x),ys=screen.map(q=>q.y);
+    if(pp.x<Math.min(...xs)||pp.x>Math.max(...xs)||
+       pp.y<Math.min(...ys)||pp.y>Math.max(...ys))continue;
+    const insideFoot=p.x>H.x0-.45&&p.x<H.x1+.45&&
+      p.y>H.y0-.45&&p.y<H.y1+.45;
+    if(insideFoot||ds.some(d=>d>pd+.45))return H;
   }
-  return false;
+  return null;
+}
+// Abertura macia de visao apenas sobre a superficie realmente oclusora.
+// Replica a cena no pequeno circulo, sem desenhar paredes/telhado do
+// obstaculo e SEM revelar mobilia interna a um jogador que esteja fora.
+function drawPlayerVision(list,blocker,W,H){
+  const point=proj(player.x,player.y,1.05+(player.floorZ||0));
+  const radius=Math.max(54,cam.zoom*1.85);
+  const cx=point.x,cy=point.y+cam.zoom*.17;
+  if(cx+radius<0||cy+radius<0||cx-radius>W||cy-radius>H)return;
+  fg.setTransform(1,0,0,1,0,0);
+  fg.globalCompositeOperation='source-over';fg.clearRect(0,0,W,H);
+  fg.save();
+  fg.beginPath();fg.arc(cx,cy,radius+3,0,TAU);fg.clip();
+  drawGround(fg,W,H);
+  for(const it of list){
+    if(it.roof===blocker||it.wall?.house===blocker&&it.wall.ext)continue;
+    if(it.upper===blocker)continue;
+    if(it.actor||it.roof||it.wall||it.house||it.fence||it.lamp||it.prop||
+       it.box)it.draw(fg);
+  }
+  // O personagem permanece nas coordenadas reais. Iluminacao reduzida
+  // cria leitura sem expor um interior que o jogador nao deveria ver.
+  if(st.night){
+    fg.fillStyle='rgba(9,16,25,.35)';fg.fillRect(cx-radius-2,cy-radius-2,
+      radius*2+4,radius*2+4);
+  }
+  fg.restore();
+  fg.globalCompositeOperation='destination-in';
+  const edge=fg.createRadialGradient(cx,cy,radius*.52,cx,cy,radius);
+  edge.addColorStop(0,'rgba(255,255,255,1)');
+  edge.addColorStop(.57,'rgba(255,255,255,.99)');
+  edge.addColorStop(.83,'rgba(255,255,255,.52)');
+  edge.addColorStop(1,'rgba(255,255,255,0)');
+  fg.fillStyle=edge;
+  fg.beginPath();fg.arc(cx,cy,radius+.1,0,TAU);fg.fill();
+  fg.globalCompositeOperation='source-over';
+  g.drawImage(focusCanvas,0,0);
+  g.save();
+  g.lineWidth=Math.max(.65,cam.zoom*.012);
+  g.strokeStyle=st.night?'rgba(220,223,196,.17)':'rgba(52,59,42,.15)';
+  g.beginPath();g.arc(cx,cy,radius*.92,0,TAU);g.stroke();
+  g.restore();
 }
 
 function drawNight(W,H){
@@ -395,7 +448,7 @@ function drawNight(W,H){
       const x=(s.x1+s.x2)*.5+s.nx*.24,
         y=(s.y1+s.y2)*.5+s.ny*.24,r=2.05;
       if(!visible(x,y,r))continue;
-      windows.push({x,y,r,s,
+      windows.push({x,y,r,s,nx:s.nx,ny:s.ny,
         polygon:exteriorLightCone(x,y,r,s.nx,s.ny,Math.PI*.30)});
     }
   }
@@ -407,7 +460,7 @@ function drawNight(W,H){
       y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.30,
       r=3.4;
     if(!visible(x,y,r))continue;
-    porch.push({x,y,home,r,
+    porch.push({x,y,home,r,nx:sd.n[0],ny:sd.n[1],
       polygon:exteriorLightCone(x,y,r,sd.n[0],sd.n[1],Math.PI*.36)});
   }
   lg.globalCompositeOperation='destination-out';
@@ -416,9 +469,29 @@ function drawNight(W,H){
     const p=proj(x,y,z);radial(lg,p.x,p.y,r*Z,k);
     lg.restore();
   };
+  // Luz de fachada em gota eliptica: centro projetado para fora
+  // e bordas atenuadas ANTES do corte angular. Dois focos proximos
+  // se misturam sem as facetas trapezoidais na grama/calçada.
+  const directional=(ctx,source,intensity,col='0,0,0')=>{
+    ctx.save();
+    clipLightPolygon(ctx,source.polygon);
+    const center=proj(source.x+source.nx*source.r*.36,
+      source.y+source.ny*source.r*.36,0);
+    ctx.translate(center.x,center.y);
+    ctx.scale(1,TILT);
+    const r=source.r*Z*.61;
+    const grad=ctx.createRadialGradient(0,0,0,0,0,r);
+    grad.addColorStop(0,'rgba('+col+','+intensity+')');
+    grad.addColorStop(.38,'rgba('+col+','+(intensity*.56)+')');
+    grad.addColorStop(.72,'rgba('+col+','+(intensity*.13)+')');
+    grad.addColorStop(1,'rgba('+col+',0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();
+    ctx.restore();
+  };
   for(const l of lamps)carve(l.x,l.y,l.r,.985,l.polygon);
-  for(const w of windows)carve(w.x,w.y,w.r,.51,w.polygon);
-  for(const w of porch)carve(w.x,w.y,w.r,.80,w.polygon);
+  for(const w of windows)directional(lg,w,.60);
+  for(const w of porch)directional(lg,w,.88);
   // Luminarias internas iluminam cada comodo sem atravessar divisorias.
   // Interruptores F controlam a luz; o pavimento superior tem plano proprio.
   const indoor=[];
@@ -461,23 +534,29 @@ function drawNight(W,H){
     tint(l.x,l.y,l.r*.95,.27,'250,200,114',l.polygon);
     tint(l.x,l.y,l.r*.62,.18,'255,222,160',l.polygon);
     tint(l.x,l.y,l.r*1.12,.062,'244,187,106',l.polygon);
-    const bulb=proj(l.x,l.y,4.03);
-    // Nunca mostrar halo de luminaria atras de uma parede no campo de visao.
-    if(lightIsVisible(player.x,player.y,l.x,l.y)){
-      radial(gg,bulb.x,bulb.y,.67*Z,.57,1,'255,231,173');
-      radial(gg,bulb.x,bulb.y,1.02*Z,.14,1,'248,195,116');
-    }
+    // A emissao do bulbo sera desenhada depois da mascara das casas.
+    // O raycast no CHAO desligava postes visiveis diante de edificios.
   }
-  for(const w of windows)tint(w.x,w.y,w.r*.89,.13,'239,183,103',w.polygon);
-  for(const w of porch){
-    tint(w.x,w.y,w.r*.86,.20,'255,198,112',w.polygon);
-    tint(w.x,w.y,w.r*.45,.11,'254,224,155',w.polygon);
-  }
+  // Mesma mascara suave para a cor: fonte e sombra coincidem
+  // espacialmente, sem cortes triangulares nos cones sobrepostos.
+  gg.globalCompositeOperation='screen';
+  for(const w of windows)directional(gg,w,.20,'239,183,103');
+  for(const w of porch)directional(gg,w,.33,'255,207,129');
+  gg.globalCompositeOperation='source-over';
   for(const p of indoor)tint(p.x,p.y,p.r*.74,.18,'249,211,150',
     p.polygon,p.floor?STOREY_HEIGHT:0);
   gg.globalCompositeOperation='source-over';
   protectBuildingSurfaces(gg);
   g.drawImage(glows,0,0);
+  g.globalCompositeOperation='screen';
+  for(const l of lamps){
+    if(!lampHeadVisible(l.l))continue;
+    const bulb=proj(l.x,l.y,4.03);
+    // Emissivo no ponto real da luminaria, mesmo que o chao entre
+    // jogador e poste esteja atras de uma parede de outra casa.
+    radial(g,bulb.x,bulb.y,.46*Z,.35,1,'255,235,182');
+    radial(g,bulb.x,bulb.y,.82*Z,.12,1,'247,196,111');
+  }
   g.globalCompositeOperation='source-over';
 }
 
