@@ -110,7 +110,9 @@ function impact(hit, z) {
 }
 
 function fire(J) {
-  const R = J.rifle, m = R.muzzle, aim = unproj(input.mx / RS, input.my / RS, m[2]);
+  const R=J.rifle,m=R.muzzle;
+  const aim=(view3d.mode==='2d'?null:view3d.pickGround(input.mx,input.my,0))
+    ||unproj(input.mx/RS,input.my/RS,m[2]);
   let dx = aim[0] - m[0], dy = aim[1] - m[1];
   const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
   const spread = (1 - player.aimV) * 0.08 + (player.speed > 0.1 ? 0.03 : 0.008), a = Math.atan2(dy, dx) + rnd(-spread, spread);
@@ -134,7 +136,8 @@ function updatePlayer(dt) {
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
   p.running = input.down('shift') && !p.aiming;
-  const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
+  const aimPt=(view3d.mode==='2d'?null:view3d.pickGround(input.mx,input.my,0))
+    ||unproj(input.mx/RS,input.my/RS,1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
@@ -648,7 +651,8 @@ function tick(dt) {
   // câmera: segue o jogador e, ao mirar, avança na direção do mouse (como no Zomboid)
   let lx = 0, ly = 0;
   if (player.aimV > 0.3) {
-    const a = unproj(input.mx / RS, input.my / RS, 0);
+    const a=(view3d.mode==='2d'?null:view3d.pickGround(input.mx,input.my,0))
+      ||unproj(input.mx/RS,input.my/RS,0);
     lx = clamp((a[0] - player.x) * 0.25, -3, 3) * player.aimV; ly = clamp((a[1] - player.y) * 0.25, -3, 3) * player.aimV;
   }
   cam.tx = player.x + lx; cam.ty = player.y + ly;
@@ -656,8 +660,9 @@ function tick(dt) {
   st.shake = Math.max(0, st.shake - dt);
   const sx = cam.x, sy = cam.y;
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
-  render();
-  cam.x = sx; cam.y = sy;
+  if(view3d.mode==='2d')render();
+  else view3d.render(player,actors,st,T);
+  cam.x=sx;cam.y=sy;
   drawHUD(h,hudC.width,hudC.height,st);
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
   const prompt=interactionPrompt(player);
@@ -672,4 +677,4 @@ function tick(dt) {
   input.endFrame();
 }
 requestAnimationFrame(frame);
-window.__game = { player, cam, st, world, houses };
+window.__game = { player, cam, st, world, houses, view3d };
