@@ -12,31 +12,6 @@ python -m http.server 4321
 
 Abra `http://localhost:4321`. Use `?seed=1234` na URL para repetir um mapa.
 
-## Alternância 2D / 3D (protótipo integrado)
-
-O mesmo jogo oferece três visualizações: **Canvas 2D clássico**, **WebGL 3D
-isométrico** e **WebGL 3D terceira pessoa**. Clique no botão `VISÃO: 2D`
-(canto superior direito) ou pressione **V** para percorrer os três modos.
-
-O 3D é desenhado em WebGL nativo (sem Three.js ou CDN), e deriva suas casas,
-janelas, telhados, chão, ruas, árvores, cercas, lixeiras, personagens e
-posições do mesmo mundo procedural do 2D. Movimento, colisão, objetos,
-interações e horário do jogo continuam compartilhados. O modo 2D permanece
-selecionável a qualquer momento. Se o navegador não oferecer WebGL, o jogo
-continua em 2D.
-
-O 3D atual é **um protótipo procedural low-poly**, não uma conversão automática
-dos sprites artísticos 2D para modelos 3D de alta fidelidade. Alguns efeitos
-visuais do 2D (por exemplo, textura de telhados, UI de mira e iluminação de
-ambientes) ainda exigem aperfeiçoamento específico para o 3D.
-
-Os modos disponíveis e seu comportamento:
-- `V` ou botão de visualização: 2D → 3D ISO → 3D terceira pessoa → 2D
-- `WASD`, `Shift`, `Q/E`, `F`, `R` e `N`: controles compartilhados
-- Mouse: mirar/atirar, arrastar com botão do meio para girar câmera;
-  roda altera o zoom dos modos
-- O mapa e a posição do jogador não são reiniciados na troca
-
 ## Controles
 
 | Ação | Tecla |
@@ -49,7 +24,6 @@ Os modos disponíveis e seu comportamento:
 | Dia / noite | N |
 | Novo mapa | G |
 | Chat | Enter |
-| Alternar visualização 2D / 3D ISO / terceira pessoa | V ou botão VISÃO |
 
 ## Como funciona
 
