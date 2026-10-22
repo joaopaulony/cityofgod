@@ -129,7 +129,6 @@ async function bake(model){
  states.set(model.id,'loading');
  const url='assets/vehicles/native-glb/'+model.file;
  const gltf=await loader.loadAsync(url);
- opalaCandidateGallery(gltf,model);
  const car=normalizedCar(gltf,model);
  scene.add(car.body);
  // Atlas with fixed frame dimensions and invariant world-ground pivot.
@@ -144,6 +143,7 @@ async function bake(model){
  camera.top=orthoSpan/2;
  camera.bottom=-orthoSpan/2;
  camera.updateProjectionMatrix();
+ opalaCandidateGallery(gltf,model);
  try{
   renderer.toneMappingExposure=model.id==='explorer'?2.35:1.25;
   for(let frame=0;frame<DIRECTIONS;frame++){
