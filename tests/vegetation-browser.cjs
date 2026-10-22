@@ -250,6 +250,9 @@ const {judge}=require('./visual-quality-judge.cjs');
       // Lente revela de forma suave, nao como o antigo boneco x-ray
       // pintado por cima da casa: centro opaco, periferia transparente.
       let focusCenterAlpha=0,focusEdgeAlpha=0;
+      const oldPosition=[player.x,player.y];
+      player.x=(building.x0+building.x1)/2;
+      player.y=(building.y0+building.y1)/2;
       const focal=proj(player.x,player.y,1.05+(player.floorZ||0));
       drawPlayerVision([],building,cam.W,cam.H);
       const fy=Math.round(focal.y+cam.zoom*.17),
@@ -260,6 +263,7 @@ const {judge}=require('./visual-quality-judge.cjs');
       focusCenterAlpha=fp(fx,fy);
       focusEdgeAlpha=fp(fx+fr*.99,fy);
       const featheredFocus=focusCenterAlpha>=235&&focusEdgeAlpha<40;
+      player.x=oldPosition[0];player.y=oldPosition[1];
 
       const outward=building.segs.find(s=>s.ext&&s.window),
         ox=(outward.x1+outward.x2)*.5+outward.nx*.24,
