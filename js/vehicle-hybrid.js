@@ -62,6 +62,7 @@ async function vehicleHybridLoad(model,manifestPath){
   if(config.model!==model)throw Error('Vehicle atlas model mismatch');
   // Sem PNG de Blender aprovado, usar sempre a arte procedural.
   if(config.enabled!==true){
+   vehicleHybrid.atlases.delete(model);
    vehicleHybrid.states.set(model,'procedural-fallback');
    return false;
   }
@@ -88,6 +89,7 @@ async function vehicleHybridLoad(model,manifestPath){
   vehicleHybrid.states.set(model,'spritesheet-ready');
   return true;
  }catch(error){
+  vehicleHybrid.atlases.delete(model);
   vehicleHybrid.states.set(model,'procedural-fallback');
   console.warn('Hybrid car renderer fallback for '+model+':',error.message);
   return false;
