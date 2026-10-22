@@ -74,3 +74,5 @@ jobs:
           fi
 
 # Re-run after test file was committed.
+
+# Rebuild bundle after integrating model labels and browser QA.
