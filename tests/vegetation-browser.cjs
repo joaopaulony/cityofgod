@@ -17,7 +17,7 @@ const fs=require('node:fs');
     console.log(summary);
     console.log(samples.join('\n'));
     if(errors.length)throw Error('Browser JavaScript errors: '+errors.join('; '));
-    if(!summary.includes('6/6'))throw Error('Canopy pixel-coverage test failed: '+summary);
+    if(!summary.includes('9/9'))throw Error('Canopy pixel-coverage test failed: '+summary);
     // Confere o jogo de verdade, não apenas sprites isolados:
     const game=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
     const gameErrors=[];
