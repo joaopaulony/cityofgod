@@ -8,7 +8,7 @@ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const credits=fs.readFileSync(path.join(root,'vehicle-credits.html'),'utf8');
 
 test('five distinct source models have attribution and local paths',()=>{
- for(const file of ['nissan-silvia-s13.glb','chevrolet-opala.glb','bmw-e30.glb',
+ for(const file of ['nissan-silvia-s13.glb','bmw-e30.glb',
   'ford-mustang.glb','ford-ranger.glb','mercedes-gclass.glb']){
   assert.ok(catalog.includes(file),file);
   assert.ok(credits.includes(file),file+' credit');
@@ -18,6 +18,7 @@ test('five distinct source models have attribution and local paths',()=>{
    assert.equal(bytes.toString('ascii',0,4),'glTF');
   }
  }
+ assert.ok(credits.includes('chevrolet-opala.glb'),'archived Opala credit');
  assert.equal((catalog.match(/frontAxis:/g)||[]).length,5);
  assert.match(catalog,/file:'bmw-e30.glb'/);
  assert.doesNotMatch(catalog,/file:'chevrolet-opala.glb'/);
