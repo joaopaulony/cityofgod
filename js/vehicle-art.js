@@ -102,6 +102,24 @@ function carLamp(g,b,u,v,z,kind,on){
 // No one-size sedan chassis or generic cuboid cabins.
 function carPanel(g,b,vs,c,edge='rgba(16,23,28,.48)'){
  carFill(g,b,vs,c,edge);
+ // Gradiente de esmalte por face (nada de caixas chapadas).
+ // Clipping respeita a geometria projetada de cada plano da carroceria.
+ if(vs.length<3)return;
+ const points=vs.map(q=>carProject(b,q[0],q[1],q[2]));
+ const xs=points.map(p=>p.x),ys=points.map(p=>p.y),
+  x0=Math.min(...xs),x1=Math.max(...xs),
+  y0=Math.min(...ys),y1=Math.max(...ys);
+ if(x1-x0<1||y1-y0<1)return;
+ g.save();g.beginPath();
+ points.forEach((p,i)=>{if(i)g.lineTo(p.x,p.y);else g.moveTo(p.x,p.y);});
+ g.closePath();g.clip();
+ const gloss=g.createLinearGradient(x0,y0,x1,y1);
+ gloss.addColorStop(0,'rgba(255,255,249,.12)');
+ gloss.addColorStop(.36,'rgba(248,246,236,.035)');
+ gloss.addColorStop(.66,'rgba(13,18,23,0)');
+ gloss.addColorStop(1,'rgba(7,11,16,.13)');
+ g.fillStyle=gloss;g.fillRect(x0,y0,x1-x0,y1-y0);
+ g.restore();
 }
 function carBadge(g,b,u,v,z,r=.055,color='#bcc9c8'){
  const q=carProject(b,u,v,z);
@@ -423,10 +441,15 @@ function carDraw(g,b,time=0,night=false){
   g.fillStyle='#2c3135';
   g.fillRect(handle.x-1.4,handle.y,Math.max(3,cam.zoom*.095),
     Math.max(.8,cam.zoom*.019));
-  const mirror=carProject(b,front+.35,side*(w+.10),hood+.20);
+  const mount=[front+.26,side*w*.89,hood+.145],
+    mirrorWorld=[front+.34,side*(w+.045),hood+.20];
+  // Stalk visibly anchors the mirror to the door (no detached dots).
+  carLine(g,b,[mount,mirrorWorld],C.dark,.036);
+  const mirror=carProject(b,...mirrorWorld);
   g.fillStyle=C.dark;g.beginPath();g.ellipse(mirror.x,mirror.y,
-    Math.max(1.3,cam.zoom*.073),Math.max(.8,cam.zoom*.046),-.2,0,TAU);
+    Math.max(1.3,cam.zoom*.075),Math.max(.8,cam.zoom*.046),-.2,0,TAU);
   g.fill();
+  g.strokeStyle='rgba(213,225,225,.37)';g.lineWidth=.65;g.stroke();
  }
  // Specific front/rear fascia; lights are small with borders (not car-sized globes).
  const nose=L-.06,tail=-L+.06;
@@ -451,9 +474,10 @@ function carDraw(g,b,time=0,night=false){
   carLamp(g,b,nose,v,hood-.21,'front',b.headlights);
   carLamp(g,b,tail,v,deck-.24,'rear',b.headlights||b.brake);
   const blink=Math.floor(time*2.8)%2===0;
-  carLamp(g,b,nose,side*w*.85,.73,'turn',
+  // Pisca fica DENTRO da quina chanfrada, não fora do carro.
+  carLamp(g,b,nose-.045,side*w*m.noseW*.57,.73,'turn',
     blink&&(b.hazards||b.indicator===side));
-  carLamp(g,b,tail,side*w*.85,.73,'turn',
+  carLamp(g,b,tail+.045,side*w*m.tailW*.58,.73,'turn',
     blink&&(b.hazards||b.indicator===side));
  }
  carReferenceDecor(g,b,m,C);
@@ -489,8 +513,8 @@ function carNightLamps(g,t){
    if(b.headlights)carLamp(g,b,L-.05,side*w*.71,m.hood-.20,'front',true);
    if(b.headlights||b.brake)carLamp(g,b,-L+.05,side*w*.71,m.hood-.20,'rear',true);
    if((b.hazards||b.indicator===side)&&Math.floor(t*2.8)%2===0){
-    carLamp(g,b,L-.05,side*w*.92,.71,'turn',true);
-    carLamp(g,b,-L+.05,side*w*.92,.77,'turn',true);
+    carLamp(g,b,L-.10,side*w*m.noseW*.57,.71,'turn',true);
+    carLamp(g,b,-L+.10,side*w*m.tailW*.58,.77,'turn',true);
    }
   }
  }
