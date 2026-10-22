@@ -484,7 +484,7 @@ const {judge}=require('./visual-quality-judge.cjs');
       let rendered=0,minCarPixels=Infinity,colorVariety=0;
       const canvas=makeCanvas(640,420),cg=canvas.getContext('2d');
       const car=all[0],original={x:car.x,y:car.y,rot:car.rot};
-      for(const b of all.slice(0,7)){
+      for(const b of all.slice(0,CAR_MODELS.length)){
         for(const a of angles){
           for(const cameraAngle of cameraAngles){
             cam.ang=cameraAngle;cam.sin=Math.sin(cameraAngle);
@@ -547,20 +547,110 @@ const {judge}=require('./visual-quality-judge.cjs');
       return {carModels:models.size,cars:all.length,
         carAngles:rendered,minCarPixels,colorVariety,
         buildingBlocked,entered,moved,wheelsRotate,lightsWork,
-        beams,exited,distinctBodies:models.size===7};
+        beams,exited,distinctBodies:models.size===CAR_MODELS.length};
     });
     Object.assign(metrics,carJudge);
     console.log('VEHICLE QUALITY:',JSON.stringify(carJudge));
+    // Exigência extra: o modelo tem de diferir NA FORMA e nas peças
+    // desenhadas, não somente em labels, nomes e paleta de cores.
+    const referenceJudge=await game.evaluate(()=>{
+      const models=CAR_MODELS,all=vehicleSystem.cars;
+      const before={x:cam.x,y:cam.y,ang:cam.ang,sin:cam.sin,
+        cos:cam.cos,zoom:cam.zoom,W:cam.W,H:cam.H};
+      const width=448,height=336,ctx=makeCanvas(width,height).getContext('2d');
+      const silhouettes=[],specials=[],samples=[],colorSamples=[];
+      cam.W=width;cam.H=height;cam.zoom=67;
+      cam.ang=Math.PI/4;cam.sin=Math.sin(cam.ang);cam.cos=Math.cos(cam.ang);
+      for(const model of models){
+        const car=all.find(b=>b.model===model.id);
+        if(!car)throw Error('Sem carro no mapa: '+model.id);
+        const originalAngle=car.rot;car.rot=0;
+        cam.x=car.x;cam.y=car.y;
+        ctx.clearRect(0,0,width,height);
+        carDraw(ctx,car,0,false);
+        const img=ctx.getImageData(0,0,width,height).data;
+        // Alpha > 190 removes fuzzy contact shadow, leaving true bodywork.
+        const sil=new Uint8Array(32*24),palette=new Set();
+        let painted=0;
+        for(let y=0;y<height;y+=2)for(let x=0;x<width;x+=2){
+          const i=(y*width+x)*4;
+          if(img[i+3]>210){
+            painted++;
+            if((x+y)%12===0)palette.add(
+              (img[i]>>4)+','+(img[i+1]>>4)+','+(img[i+2]>>4));
+          }
+        }
+        for(let j=0;j<24;j++)for(let i=0;i<32;i++){
+          const sx=Math.round((i+.5)*width/32),
+            sy=Math.round((j+.5)*height/24),
+            idx=(sy*width+sx)*4;
+          sil[j*32+i]=img[idx+3]>210?1:0;
+        }
+        silhouettes.push(sil);
+        colorSamples.push(palette.size);
+        // Overlay-only raster: ensure that every model actually paints
+        // geometry specific to it, independent of generic car bodywork.
+        ctx.clearRect(0,0,width,height);
+        const C={paint:car.top,hi:shadeHex(car.top,1.12),
+          side:shadeHex(car.top,.8),dark:shadeHex(car.top,.62),
+          roof:shadeHex(car.top,1.07)};
+        carReferenceDecor(ctx,car,model,C);
+        const pixels=ctx.getImageData(0,0,width,height).data;
+        let uniquePixels=0;
+        for(let i=3;i<pixels.length;i+=4)
+          if(pixels[i]>80)uniquePixels++;
+        specials.push(uniquePixels);
+        samples.push({id:model.id,cue:model.cue,opaque:painted,
+          colors:palette.size,featurePixels:uniquePixels,
+          height:Math.round(model.roof*100)/100,
+          bonnet:Math.round(model.hood*100)/100,
+          length:Math.round(model.len*100)/100});
+        car.rot=originalAngle;
+      }
+      let comparisons=0,differentPairs=0,sumDifference=0;
+      for(let i=0;i<silhouettes.length;i++)
+        for(let j=i+1;j<silhouettes.length;j++){
+          const a=silhouettes[i],b=silhouettes[j];
+          let union=0,diff=0;
+          for(let k=0;k<a.length;k++){
+            union+=a[k]||b[k]?1:0;
+            diff+=a[k]!==b[k]?1:0;
+          }
+          const distance=diff/Math.max(1,union);
+          if(distance>.065)differentPairs++;
+          sumDifference+=distance;comparisons++;
+        }
+      const result={
+        referenceProfiles:models.length,
+        visibleSpecificBodies:specials.filter(n=>n>48).length,
+        uniquePaints:new Set(models.map(m=>m.paint)).size,
+        uniqueCues:new Set(models.map(m=>m.cue)).size,
+        shapeComparisonPairs:comparisons,
+        distinguishableSilhouettePairs:differentPairs,
+        meanSilhouetteDifference:sumDifference/Math.max(1,comparisons),
+        dimensionsVerified:models.every(m=>m.roof>m.hood+.25&&
+          m.len>4.3&&m.w>1.7&&m.w<2.1&&m.front>0&&m.rear<0),
+        referenceParts:models.every(m=>(CAR_REFERENCE_CUES[m.id]||[]).length>=4),
+        samples
+      };
+      cam.x=before.x;cam.y=before.y;cam.ang=before.ang;
+      cam.sin=before.sin;cam.cos=before.cos;cam.zoom=before.zoom;
+      cam.W=before.W;cam.H=before.H;
+      return result;
+    });
+    Object.assign(metrics,referenceJudge);
+    console.log('REFERENCE VISUAL JUDGE:',JSON.stringify(referenceJudge));
+
     const drivingExample=await game.evaluate(()=>{
       const b=vehicleSystem.cars.find(v=>v.model==='supercar')||vehicleSystem.cars[0];
       cam.x=cam.tx=b.x;cam.y=cam.ty=b.y;cam.zoom=cam.tzoom=ZOOMS[5];
       st.night=false;world.night=false;
       render();return {type:b.model,x:b.x,y:b.y};
     });
-    await game.screenshot({path:'artifacts/cityofgod-seven-car-models-driving.png',fullPage:true});
+    await game.screenshot({path:'artifacts/cityofgod-bespoke-models-driving.png',fullPage:true});
     // Gallery of all silhouettes and four camera orientations for review.
     const galleryPng=await game.evaluate(()=>{
-      const tileW=288,tileH=215,cols=4,rows=7;
+      const tileW=336,tileH=230,cols=4,rows=CAR_MODELS.length;
       const sheet=makeCanvas(tileW*cols,tileH*rows),
         sg=sheet.getContext('2d');
       const previous={x:cam.x,y:cam.y,W:cam.W,H:cam.H,
@@ -571,7 +661,7 @@ const {judge}=require('./visual-quality-judge.cjs');
           const tile=makeCanvas(tileW,tileH),
             ctx=tile.getContext('2d'),ang=Math.PI/4+col*Math.PI/2;
           cam.x=b.x;cam.y=b.y;cam.W=tileW;cam.H=tileH;
-          cam.zoom=42;cam.ang=ang;cam.cos=Math.cos(ang);cam.sin=Math.sin(ang);
+          cam.zoom=52;cam.ang=ang;cam.cos=Math.cos(ang);cam.sin=Math.sin(ang);
           ctx.fillStyle='#727774';ctx.fillRect(0,0,tileW,tileH);
           for(let i=0;i<36;i++){
             ctx.fillStyle='rgba(17,20,21,.030)';
@@ -593,7 +683,7 @@ const {judge}=require('./visual-quality-judge.cjs');
       cam.cos=previous.cos;cam.sin=previous.sin;
       return sheet.toDataURL('image/png').split(',')[1];
     });
-    fs.writeFileSync('artifacts/cityofgod-car-gallery-7x4.png',
+    fs.writeFileSync('artifacts/cityofgod-car-gallery-9x4.png',
       Buffer.from(galleryPng,'base64'));
 
     const verdict=judge(metrics);
