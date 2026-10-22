@@ -78,6 +78,7 @@ for (let i=0;i<8;i++) {
   const bush=sandbox.testApi.makeBush();
   assert.ok(bush.img.width>0&&bush.img.height>0&&bush.r>.3);
   assert.ok(bush.leafCount>=14000,'bushes need 10x individual leaves');
+  assert.equal(bush.foliageClusters,20,'bushes need opaque foliage lobes over woody twigs');
 }
 const shadowStart=worldSource.indexOf('function bakeTreeShadow(');
 const shadowEnd=worldSource.indexOf('// ---------- sprites pintados uma vez',shadowStart);
