@@ -191,6 +191,35 @@ const {judge}=require('./visual-quality-judge.cjs');
       for(let k=3;k<pixels.length;k+=4)if(pixels[k]>2)lampBeamPixels++;
       player.x=l.x;player.y=l.y;cam.x=cam.tx=l.x;cam.y=cam.ty=l.y;
       st.night=true;world.night=true;render();
+      // Testa os interiores de verdade, incluindo uso de F e mudanca no
+      // estado da porta/luz/recurso de jogo, sem depender de mock do Canvas.
+      const furnished=houses.find(H=>H.interactables?.some(b=>
+        b.kind==='sink'&&b.floor!==1)&&
+        H.segs.some(s=>!s.ext&&s.door));
+      const fixtureKinds=new Set(houses.flatMap(H=>
+        (H.interactables||[]).map(b=>b.kind))).size;
+      const roomsWithLights=houses.filter(H=>H.indoorLights?.length>=2).length;
+      let manualDoorWorks=false,waterActionWorks=false,lightSwitchWorks=false;
+      if(furnished){
+        const door=furnished.segs.find(s=>!s.ext&&s.door),
+          mx=(door.x1+door.x2)/2,my=(door.y1+door.y2)/2;
+        door.doorAnim.open=0;door.doorAnim.target=0;
+        const blocked=world.segs.includes(door)&&
+          wallOccluders(mx,my,2).includes(door);
+        player.x=mx;player.y=my;player.floor=0;player.floorZ=0;
+        useHouseInteraction(player,st,3);
+        const target=door.doorAnim.target===1;
+        for(let i=0;i<10;i++)updateHouseOpenings(.06,[],false);
+        manualDoorWorks=blocked&&target&&door.doorAnim.open>.72&&
+          !wallOccluders(mx,my,2).includes(door);
+        const sink=furnished.interactables.find(b=>b.kind==='sink'&&b.floor!==1);
+        player.x=sink.x;player.y=sink.y;st.water=.30;
+        waterActionWorks=useHouseInteraction(player,st,6)&&st.water>.3;
+        const light=furnished.switches[0],was=furnished.lightOn;
+        player.x=light.x;player.y=light.y;
+        lightSwitchWorks=useHouseInteraction(player,st,7)&&
+          furnished.lightOn!==was;
+      }
       return {fencePainted,fenceColors:colors.size,buriedPosts,
         wallBlocksLight,partitionBlocksLight,
         lampBeamPixels,lampCount:world.lamps.length,
@@ -199,7 +228,8 @@ const {judge}=require('./visual-quality-judge.cjs');
         ruralKinds:ruralKinds.size,urbanCount:urban.length,
         ruralFarFromRoad:rural.every(H=>
           roadDist((H.x0+H.x1)/2,(H.y0+H.y1)/2)>ROAD_W+SIDE+2),
-        houseCount:houses.length,renderOK:true};
+        houseCount:houses.length,fixtureKinds,roomsWithLights,
+        manualDoorWorks,waterActionWorks,lightSwitchWorks,renderOK:true};
     });
     await game.screenshot({path:'artifacts/cityofgod-night-light-judge.png',fullPage:true});
     const verdict=judge(metrics);
