@@ -445,7 +445,13 @@ function carDraw(g,b,time=0,night=false){
  shadow.addColorStop(1,'rgba(9,12,15,0)');
  g.fillStyle=shadow;g.beginPath();g.arc(0,0,cam.zoom*(L+.22),0,TAU);
  g.fill();g.restore();
- for(const u of [m.rear,m.front])carTire(g,b,u,carWheelMount(m,u,-farSide),m);
+ // Em nariz bem afilado, a roda dianteira do lado oposto fica
+ // inteiramente escondida pela frente da carroceria. Pintá-la antes do
+ // capô deixava um arco negro flutuando FORA do contorno do veículo.
+ for(const u of [m.rear,m.front]){
+  if(u===m.front&&m.noseW<.84)continue;
+  carTire(g,b,u,carWheelMount(m,u,-farSide),m);
+ }
  // Each shoulder follows actual model nose/tail taper and deck height.
  for(const side of [-1,1]){
   const v=side*w,frontWidth=v*m.noseW,rearWidth=v*m.tailW;
