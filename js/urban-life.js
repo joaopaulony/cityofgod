@@ -75,8 +75,11 @@ function urbanGenerate(){
   for(const H of order){
     if(urbanLife.bins.length>=11)break;
     const nx=H.doorN[0],ny=H.doorN[1];
-    const x=H.doorPt[0]+nx*(1.6+(H.seed%3)*.45)-ny*1.4,
-      y=H.doorPt[1]+ny*(1.6+(H.seed%3)*.45)+nx*1.4;
+    // H.walk[1] e o ponto final da trilha ate a calçada,
+    // ao contrario da soleira que muitas vezes fica dentro do terreno.
+    const curb=H.walk?.[1]||H.front;
+    const x=curb[0]-ny*(.65+(H.seed%3)*.23),
+      y=curb[1]+nx*(.65+(H.seed%3)*.23);
     if(x<2||y<2||x>MAP-2||y>MAP-2||!onRoad(x,y)||
       pondVal(x,y)<1.25||world.blocked(x,y,.35)||
       urbanLife.bins.some(p=>Math.hypot(p.x-x,p.y-y)<8))continue;
