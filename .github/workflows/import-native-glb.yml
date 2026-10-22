@@ -90,3 +90,5 @@ jobs:
 # Rebuild after selecting one original Opala variant and lighting G-class.
 
 # Build Opala variant inspection instrumentation.
+
+# Rebuild Opala comparison with separate pristine scene clone.
