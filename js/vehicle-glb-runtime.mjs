@@ -129,6 +129,10 @@ async function bake(model){
  states.set(model.id,'loading');
  const url='assets/vehicles/native-glb/'+model.file;
  const gltf=await loader.loadAsync(url);
+ // Keep an untouched in-memory scene for comparing every Opala version.
+ const comparison=model.id==='sedan'&&
+   new URLSearchParams(location.search).get('nativeDebug')==='1'
+   ?gltf.scene.clone(true):null;
  const car=normalizedCar(gltf,model);
  scene.add(car.body);
  // Atlas with fixed frame dimensions and invariant world-ground pivot.
@@ -144,7 +148,7 @@ async function bake(model){
  camera.bottom=-orthoSpan/2;
  camera.updateProjectionMatrix();
  scene.remove(car.body);
- opalaCandidateGallery(gltf,model);
+ opalaCandidateGallery({scene:comparison||gltf.scene},model);
  scene.add(car.body);
  try{
   renderer.toneMappingExposure=model.id==='explorer'?2.35:1.25;
