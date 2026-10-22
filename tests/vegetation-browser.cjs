@@ -330,14 +330,49 @@ const {judge}=require('./visual-quality-judge.cjs');
         bits=sprite.getContext('2d').getImageData(0,0,sprite.width,sprite.height).data;
       let urbanPixelDetail=0;
       for(let j=3;j<bits.length;j+=4)if(bits[j]>180)urbanPixelDetail++;
-      let smokeDrawn=false;
+      let smokeDrawn=false,smokePixels=0,mortarDetail=0,
+        fixturePixels=0,fixturesOnRoof=true;
+      const roofAttachments=houses.flatMap(H=>
+        (H.antennas||[]).map(a=>({H,a})));
+      const dishCount=roofAttachments.filter(v=>v.a.kind==='dish').length;
+      const yagiCount=roofAttachments.filter(v=>v.a.kind==='yagi').length;
+      const chimneysEmbedded=chimneyHouses.every(H=>{
+        const c=H.chimney,surface=urbanRoofSurface(H,c.x,c.y);
+        return Math.abs(surface-c.roofZ)<.001&&
+          c.z<surface-.10&&c.z+c.h>surface+.80;
+      });
+      fixturesOnRoof=roofAttachments.every(({H,a})=>
+        Math.abs(a.z-urbanRoofSurface(H,a.x,a.y))<.001&&
+        (!H.chimney||Math.hypot(a.x-H.chimney.x,
+          a.y-H.chimney.y)>.72));
       if(smoky.length){
         const H=smoky[0],c=H.chimney,remember=[cam.x,cam.y];
         cam.x=cam.tx=c.x;cam.y=cam.ty=c.y;
         const smoke=makeCanvas(cam.W,cam.H),ctx=smoke.getContext('2d');
-        urbanDrawChimney(ctx,H,4.5);
+        urbanDrawChimneySmoke(ctx,c,4.5,c.z+c.h);
         const raw=ctx.getImageData(0,0,smoke.width,smoke.height).data;
-        smokeDrawn=raw.some((v,i)=>i%4===3&&v>0);
+        for(let j=3;j<raw.length;j+=4)if(raw[j]>12)smokePixels++;
+        smokeDrawn=smokePixels>650;
+        const art=urbanChimneyTex(c,2),im=art.getContext('2d')
+          .getImageData(0,0,art.width,art.height).data;
+        const palette=new Set();
+        for(let j=0;j<im.length;j+=4*7)palette.add(
+          (im[j]>>3)+','+(im[j+1]>>3)+','+(im[j+2]>>3));
+        mortarDetail=palette.size;
+        cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
+      }
+      if(roofAttachments.length){
+        const {H,a}=roofAttachments[0],remember=[cam.x,cam.y];
+        // Enquadramento segue a altura da antena, nao o solo.
+        // Em casas de dois andares os pixels projetados acima da
+        // camera do personagem ficam fora do canvas de teste.
+        const depth=(a.z+a.mast*.65)*HZ/TILT;
+        cam.x=cam.tx=a.x-cam.sin*depth;
+        cam.y=cam.ty=a.y-cam.cos*depth;
+        const can=makeCanvas(cam.W,cam.H),ctx=can.getContext('2d');
+        if(a.kind==='dish')urbanDish(ctx,H,a);else urbanYagi(ctx,H,a);
+        const pixels=ctx.getImageData(0,0,can.width,can.height).data;
+        for(let j=3;j<pixels.length;j+=4)if(pixels[j]>40)fixturePixels++;
         cam.x=cam.tx=remember[0];cam.y=cam.ty=remember[1];
       }
       const flash=makeCanvas(cam.W,cam.H),gc=flash.getContext('2d');
@@ -374,13 +409,45 @@ const {judge}=require('./visual-quality-judge.cjs');
         urbanDebris:litter.length,urbanStyles:new Set(litter.map(d=>d.kind)).size,
         urbanCurbOnly,urbanBins:bins.length,urbanPixelDetail,
         chimneys:chimneyHouses.length,smokingChimneys:smoky.length,
-        smokeDrawn,focusThreshold,focusOutlineRemoved:noFocusOutline,
+        smokeDrawn,smokePixels,mortarDetail,chimneysEmbedded,
+        dishCount,yagiCount,fixturesOnRoof,fixturePixels,
+        focusThreshold,focusOutlineRemoved:noFocusOutline,
         partialCoverageRejected};
     });
     Object.assign(metrics,city);
     console.log('Urban/night regression:',JSON.stringify(city));
     await game.screenshot({path:'artifacts/cityofgod-muzzle-urban-chimneys.png',fullPage:true});
     await game.screenshot({path:'artifacts/cityofgod-night-light-judge.png',fullPage:true});
+    // Registro visual com camera na altura correta: compara alvenaria,
+    // rufo, fumaca, antena parabolica e antena Yagi na imagem final.
+    async function roofCapture(kind,filename){
+      const ok=await game.evaluate(kind=>{
+        const H=houses.find(q=>kind==='chimney'?q.chimney?.smoke:
+          (q.antennas||[]).some(a=>a.kind===kind));
+        if(!H)return false;
+        const fixture=kind==='chimney'?H.chimney:
+          H.antennas.find(a=>a.kind===kind);
+        const height=kind==='chimney'?
+          fixture.z+fixture.h+.35:fixture.z+(kind==='yagi'?1.2:.8);
+        const offset=height*HZ/TILT;
+        cam.x=cam.tx=fixture.x-cam.sin*offset;
+        cam.y=cam.ty=fixture.y-cam.cos*offset;
+        cam.zoom=cam.tzoom=ZOOMS[5];
+        st.night=false;world.night=false;
+        render();
+        return true;
+      },kind);
+      if(!ok)throw Error('Missing rooftop fixture for screenshot: '+kind);
+      await game.screenshot({path:filename,fullPage:true});
+    }
+    await roofCapture('chimney','artifacts/roof-chimney-brick-flashing-smoke.png');
+    await roofCapture('dish','artifacts/roof-satellite-dish.png');
+    await roofCapture('yagi','artifacts/roof-tv-radio-antenna.png');
+    await game.evaluate(()=>{
+      cam.zoom=cam.tzoom=ZOOMS[zi];cam.x=cam.tx=player.x;
+      cam.y=cam.ty=player.y;
+    });
+
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
