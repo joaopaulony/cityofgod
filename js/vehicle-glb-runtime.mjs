@@ -40,6 +40,20 @@ loader.setMeshoptDecoder(MeshoptDecoder);
 
 function normalizedCar(gltf,model){
  const root=gltf.scene;
+ // Alguns autores publicam variantes inteiras num mesmo GLB. O Opala
+ // tem cinco carros; escolhemos um conjunto COMPLETO de 3 materiais.
+ // Os bytes originais em disco nao sao alterados.
+ if(model.variantMaterials){
+  const allowed=new Set(model.variantMaterials),discard=[];
+  root.traverse(node=>{
+   if(!node.isMesh)return;
+   const materials=Array.isArray(node.material)?node.material:[node.material];
+   if(!materials.some(m=>allowed.has(m?.name)))discard.push(node);
+  });
+  for(const node of discard)node.parent?.remove(node);
+  if(!root.getObjectByProperty('isMesh',true))
+   throw Error('Required Opala variant is missing');
+ }
  root.updateMatrixWorld(true);
  const measure=node=>{
   const b=new THREE.Box3().setFromObject(node),
@@ -104,6 +118,7 @@ async function bake(model){
  camera.bottom=-orthoSpan/2;
  camera.updateProjectionMatrix();
  try{
+  renderer.toneMappingExposure=model.id==='explorer'?2.35:1.25;
   for(let frame=0;frame<DIRECTIONS;frame++){
    // The Three.js Y rotation must be NEGATIVE so positive Canvas yaw
    // moves the car nose clockwise/downwards, not counterclockwise.
