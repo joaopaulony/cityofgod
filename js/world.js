@@ -783,7 +783,10 @@ function makeRock() {
     const X = (px + 0.5 - cx) / P, Y = (py + 0.5 - by) / P;
     // raio de visão: tela (X,Y) <-> mundo (X, y, z) com Y = 0,5·y − 0,86·z; marcha do alto p/ o chão
     let zHit = -1;
-    for (let k = 0; k <= steps; k++) {
+    const yExt = ext * 1.1;
+    if (Math.abs(X) > yExt) continue;
+    const kA = Math.max(0, Math.floor((top - (yExt * TILT - Y) / HZ) / dz)), kB = Math.min(steps, Math.ceil((top - (-yExt * TILT - Y) / HZ) / dz));
+    for (let k = kA; k <= kB; k++) {
       const z = top - k * dz, y = (Y + HZ * z) / TILT;
       if (F(X, y, z) < 0) {
         let lo = z, hi = z + dz;   // refina a borda
@@ -1135,10 +1138,41 @@ function drawLamp(g,l,night){
 }
 
 // ---------- colisão e tiro ----------
+// Carro ativo como caixa orientada (o colisor publicado é só um círculo central de 0,55 m).
+function vehicleBox(c) {
+  const Vs = typeof window !== 'undefined' ? window.cityVehicles : null;
+  if (!Vs || c !== Vs.collider || !Vs.car) return null;
+  return { x: Vs.car.x, y: Vs.car.y, a: Vs.car.angle, hl: (Vs.carLength || 4.4) / 2, hw: (Vs.bodyWidth || 1.85) / 2, driving: !!Vs.driver };
+}
+function pushOutBox(b, x, y, r) {
+  if (b.driving && Math.hypot(x - b.x, y - b.y) < 0.05) return null;   // o motorista está no centro do carro
+  const ca = Math.cos(b.a), sa = Math.sin(b.a), rx = x - b.x, ry = y - b.y;
+  let lx = rx * ca + ry * sa, ly = -rx * sa + ry * ca;
+  const hl = b.hl + r, hw = b.hw + r;
+  if (Math.abs(lx) >= hl || Math.abs(ly) >= hw) return null;
+  if (hl - Math.abs(lx) < hw - Math.abs(ly)) lx = (lx < 0 ? -1 : 1) * hl; else ly = (ly < 0 ? -1 : 1) * hw;
+  return [b.x + lx * ca - ly * sa, b.y + lx * sa + ly * ca];
+}
+function rayBox(b, ox, oy, dx, dy) {   // teste de lajes no espaço local da caixa
+  const ca = Math.cos(b.a), sa = Math.sin(b.a), rx = ox - b.x, ry = oy - b.y;
+  const lo = [rx * ca + ry * sa, -rx * sa + ry * ca], ld = [dx * ca + dy * sa, -dx * sa + dy * ca], h = [b.hl, b.hw];
+  let t0 = -Infinity, t1 = Infinity, axis = 0;
+  for (let k = 0; k < 2; k++) {
+    if (Math.abs(ld[k]) < 1e-9) { if (Math.abs(lo[k]) > h[k]) return null; continue; }
+    let a = (-h[k] - lo[k]) / ld[k], c2 = (h[k] - lo[k]) / ld[k]; if (a > c2) [a, c2] = [c2, a];
+    if (a > t0) { t0 = a; axis = k; }
+    t1 = Math.min(t1, c2);
+  }
+  if (t0 > t1 || t0 < 0.05) return null;
+  const ln = axis === 0 ? [-Math.sign(ld[0]), 0] : [0, -Math.sign(ld[1])];
+  return { t: t0, nx: ln[0] * ca - ln[1] * sa, ny: ln[0] * sa + ln[1] * ca };
+}
 function raycast(ox, oy, dx, dy, maxD) {
   let best = { t: maxD, kind: 'none' };
   for (const c of world.circles) {
     if (c.soft) continue;
+    const vb = vehicleBox(c);
+    if (vb) { const q = rayBox(vb, ox, oy, dx, dy); if (q && q.t < best.t) best = { t: q.t, kind: 'vehicle', ref: c, nx: q.nx, ny: q.ny }; continue; }
     const fx = ox - c.x, fy = oy - c.y, b = fx * dx + fy * dy, cc = fx * fx + fy * fy - c.r * c.r;
     const disc = b * b - cc;
     if (disc < 0) continue;
@@ -1161,22 +1195,54 @@ function raycast(ox, oy, dx, dy, maxD) {
   return best;
 }
 
+// Grade espacial p/ colisão: objetos fixos são indexados por célula de 4 m (reindexa quando as
+// listas mudam de tamanho); colisores que se movem (veículos) são checados à parte.
+const COLL_CELL = 4;
+const collGrid = { key: '', n: 0, circ: null, segs: null, up: null, dyn: [], stamp: 0 };
+function collIndex() {
+  const key = world.circles.length + ':' + world.segs.length + ':' + ((world.upperSegs || []).length);
+  if (collGrid.key === key) return collGrid;
+  const n = Math.ceil(MAP / COLL_CELL) + 2, mk = () => Array.from({ length: n * n }, () => []);
+  const G = { key, n, circ: mk(), segs: mk(), up: mk(), dyn: [], stamp: collGrid.stamp };
+  const put = (arr, x0, y0, x1, y1, o) => {
+    const i0 = clamp(Math.floor(x0 / COLL_CELL), 0, n - 1), i1 = clamp(Math.floor(x1 / COLL_CELL), 0, n - 1);
+    const j0 = clamp(Math.floor(y0 / COLL_CELL), 0, n - 1), j1 = clamp(Math.floor(y1 / COLL_CELL), 0, n - 1);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) arr[j * n + i].push(o);
+  };
+  const M = 0.8;   // folga: raio máximo de quem colide
+  for (const c of world.circles) {
+    if (c.kind === 'vehicle') { G.dyn.push(c); continue; }
+    put(G.circ, c.x - c.r - M, c.y - c.r - M, c.x + c.r + M, c.y + c.r + M, c);
+  }
+  const segBox = (arr, s) => put(arr, Math.min(s.x1, s.x2) - M, Math.min(s.y1, s.y2) - M, Math.max(s.x1, s.x2) + M, Math.max(s.y1, s.y2) + M, s);
+  for (const s of world.segs) segBox(G.segs, s);
+  for (const s of world.upperSegs || []) segBox(G.up, s);
+  Object.assign(collGrid, G);
+  return collGrid;
+}
+function pushOutCircle(c, x, y, r) {
+  const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy), m = c.r + r * (c.soft ? 0.5 : 1);
+  return d < m && d > 1e-6 ? [c.x + dx / d * m, c.y + dy / d * m] : null;
+}
+function pushOutSeg(s, x, y, r) {
+  if (s.door && s.doorAnim?.open >= .72) return null;
+  const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
+  const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);
+  const px = s.x1 + ex * u, py = s.y1 + ey * u, dx = x - px, dy = y - py, d = Math.hypot(dx, dy), m = r + 0.08;
+  return d < m && d > 1e-6 ? [px + dx / d * m, py + dy / d * m] : null;
+}
 function collide(x, y, r, floor=0) {
+  const G = collIndex(), n = G.n;
   for (let it = 0; it < 3; it++) {
-    for (const c of (floor===1?[]:world.circles)) {
-      const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy), m = c.r + r * (c.soft ? 0.5 : 1);
-      if (d < m && d > 1e-6) { x = c.x + dx / d * m; y = c.y + dy / d * m; }
-    }
-    const walls=floor===1
-      ? world.segs.filter(s=>s.ext||(!s.house&&s.kind==='fence'))
-        .concat(world.upperSegs||[])
-      : world.segs;
-    for (const s of walls) {
-      if(s.door && s.doorAnim?.open>=.72)continue;
-      const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
-      const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);
-      const px = s.x1 + ex * u, py = s.y1 + ey * u, dx = x - px, dy = y - py, d = Math.hypot(dx, dy), m = r + 0.08;
-      if (d < m && d > 1e-6) { x = px + dx / d * m; y = py + dy / d * m; }
+    const cell = clamp(Math.floor(y / COLL_CELL), 0, n - 1) * n + clamp(Math.floor(x / COLL_CELL), 0, n - 1);
+    if (floor !== 1) {
+      for (const c of G.circ[cell]) { const q = pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const c of G.dyn) { const vb = vehicleBox(c), q = vb ? pushOutBox(vb, x, y, r) : pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of G.segs[cell]) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+    } else {
+      // andar de cima: paredes externas, cercas soltas e as paredes do pavimento superior
+      for (const s of G.segs[cell]) { if (!(s.ext || (!s.house && s.kind === 'fence'))) continue; const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of G.up[cell]) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     }
   }
   return [clamp(x, 0.5, MAP - 0.5), clamp(y, 0.5, MAP - 0.5)];

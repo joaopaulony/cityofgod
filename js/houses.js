@@ -56,18 +56,33 @@ function addHouse(def) {
 }
 
 // texturas da casa, pintadas uma vez na primeira vez que aparecem
+// Texturas da casa. houseTexStep pinta UMA peça por chamada (p/ pré-pintar sem travar);
+// houseTex termina o que faltar de uma vez. A ordem de consumo do rnd é a mesma nos dois casos.
+function houseTexStep(H) {
+  if (H.tex) return true;
+  const S = H.style;
+  const B = H._texBuild || (H._texBuild = { rnd: mulberry(H.seed + 5), T: { ext: {}, int: {} }, jobs: [] });
+  if (!B.jobs.length && !B.started) {
+    B.started = true;
+    for (const k in H.sides) { B.jobs.push(['ext', k]); B.jobs.push(['int', k]); }
+    B.jobs.push(['part']); B.jobs.push(['door']); B.jobs.push(['innerDoor']);
+  }
+  const job = B.jobs.shift(), rnd = B.rnd, T = B.T;
+  if (job[0] === 'ext') T.ext[job[1]] = paintFacade(H, job[1], true, rnd);
+  else if (job[0] === 'int') T.int[job[1]] = paintFacade(H, job[1], false, rnd);
+  else if (job[0] === 'part') {   // divisória interna: 1 m com rodapé
+    const hh = H.storeys ? H.floorHeight : H.h, pc = makeCanvas(TEX, hh * TEX), pg = pc.getContext('2d');
+    paintPlaster(pg, 0, 0, TEX, hh * TEX, S.interior, rnd, 0.1);
+    pg.fillStyle = '#6b4a32'; pg.fillRect(0, (hh - 0.12) * TEX, TEX, 0.12 * TEX);
+    T.part = pc;
+  } else if (job[0] === 'door') T.door = paintDoor(S.door[0], S.door[1], rnd);
+  else T.innerDoor = paintDoor('flush', '#a07850', rnd);
+  if (!B.jobs.length) { H.tex = T; H._texBuild = null; return true; }
+  return false;
+}
 function houseTex(H) {
-  if (H.tex) return H.tex;
-  const rnd = mulberry(H.seed + 5), S = H.style, T = { ext: {}, int: {} };
-  for (const k in H.sides) { T.ext[k] = paintFacade(H, k, true, rnd); T.int[k] = paintFacade(H, k, false, rnd); }
-  // divisória interna: 1 m com rodapé
-  const pc = makeCanvas(TEX, (H.storeys ? H.floorHeight : H.h) * TEX), pg = pc.getContext('2d');
-  paintPlaster(pg, 0, 0, TEX, (H.storeys ? H.floorHeight : H.h) * TEX, S.interior, rnd, 0.1);
-  pg.fillStyle = '#6b4a32'; pg.fillRect(0, ((H.storeys ? H.floorHeight : H.h) - 0.12) * TEX, TEX, 0.12 * TEX);
-  T.part = pc;
-  T.door = paintDoor(S.door[0], S.door[1], rnd);
-  T.innerDoor = paintDoor('flush', '#a07850', rnd);
-  return (H.tex = T);
+  while (!H.tex) houseTexStep(H);
+  return H.tex;
 }
 
 function addBox(b) {
@@ -375,15 +390,22 @@ world.blocked = (x, y, r) => {
 
 // pisos + caminhos + sombras das casas, pintados uma vez no chão
 world.paintFloors = (g, M, rect) => {
+  // world.floorClip = [x0,y0,x1,y1] (metros): o terreno pinta por blocos; ignora casas longe do bloco
+  const C = world.floorClip, far = (x0, y0, x1, y1, m) => C && (x1 + m < C[0] || x0 - m > C[2] || y1 + m < C[1] || y0 - m > C[3]);
+  // world.floorSet (opcional): só estas casas; world.floorNoFences: pula as cercas (pintura em passos)
+  const only = world.floorSet, skipH = H => only && !only.has(H), mode = world.floorMode;   // 'walk' | 'floor' | undefined (tudo)
   g.lineCap = 'butt';
-  for (const H of houses) if (H.walk) {
+  for (const H of mode === 'floor' ? [] : houses) if (H.walk) {
+    if (skipH(H)) continue;
     if(H.rural){paintRuralAccess(g,M,H);continue;}
+    if (far(Math.min(H.walk[0][0], H.walk[1][0]), Math.min(H.walk[0][1], H.walk[1][1]), Math.max(H.walk[0][0], H.walk[1][0]), Math.max(H.walk[0][1], H.walk[1][1]), 1)) continue;
     g.strokeStyle = '#b6b0a2'; g.lineWidth = M(H.rural?.85:1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
     g.strokeStyle = H.rural?'#6a573b':'#9d978a'; g.lineWidth = 1;
     const n = Math.hypot(H.walk[1][0] - H.walk[0][0], H.walk[1][1] - H.walk[0][1]);
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
   }
-  for (const H of houses) {
+  for (const H of mode === 'walk' ? [] : houses) {
+    if (skipH(H) || far(H.x0, H.y0, H.x1, H.y1, 6)) continue;   // sombra projetada alcança ~4 m
     // sombra projetada (na direção oposta ao sol)
     const k = (H.h + (H.roofKind === 'gable' ? 1.2 : 0)) * 0.55, ox = -SUN[0] * k, oy = -SUN[1] * k;
     g.fillStyle = 'rgba(20,26,12,0.34)';
@@ -410,7 +432,8 @@ world.paintFloors = (g, M, rect) => {
     g.fillStyle = 'rgba(0,0,0,.25)';
     g.fillRect(M(H.x0), M(H.y0), M(H.x1 - H.x0), 4); g.fillRect(M(H.x0), M(H.y0), 4, M(H.y1 - H.y0));
   }
-  for (const s of fences) {
+  for (const s of world.floorNoFences ? [] : fences) {
+    if (far(Math.min(s.x1, s.x2), Math.min(s.y1, s.y2), Math.max(s.x1, s.x2), Math.max(s.y1, s.y2), 1)) continue;
     g.fillStyle = 'rgba(20,26,12,0.25)';
     g.fillRect(M(Math.min(s.x1, s.x2) - SUN[0] * 0.4) - 2, M(Math.min(s.y1, s.y2) - SUN[1] * 0.4) - 2, M(Math.abs(s.x2 - s.x1)) + 4, M(Math.abs(s.y2 - s.y1)) + 4);
   }

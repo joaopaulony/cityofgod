@@ -77,6 +77,23 @@ function texPlane(g, img, o, e1, e2, px, clipPts) {
 
 function roofRnd(H, k) { return mulberry(H.seed * 31 + k * 7919); }
 
+// texturas de telhado criadas sob demanda (o desenho e a pré-pintura usam as mesmas funções)
+function ensureFaceTex(H, f) {
+  if (!f.tex) { const S = H.style; f.tex = paintRoofTex(S.roofMat, S.roofCol, f.amax - f.amin, f.bmax - f.bmin, roofRnd(H, H.roofGeom.faces.indexOf(f)), S.aging); bakeLight(f.tex.getContext('2d'), f.tex.width, f.tex.height, f.n); }
+  return f.tex;
+}
+function ensureSlabTex(H) {
+  if (!H.slabTex) { const S = H.style; H.slabTex = paintRoofTex('concrete', S.roofCol, H.x1 - H.x0, H.y1 - H.y0, roofRnd(H, 9), S.aging); bakeLight(H.slabTex.getContext('2d'), H.slabTex.width, H.slabTex.height, [0, 0, 1], 0.6); }
+  return H.slabTex;
+}
+// pré-pintura: cria UMA textura de telhado por chamada; devolve true quando não falta nenhuma
+function warmRoofStep(H) {
+  if (!H.roofGeom) { H.roofGeom = buildRoofGeom(H); return false; }
+  if (H.roofGeom.flat) { if (!H.slabTex) { ensureSlabTex(H); return false; } return true; }
+  const f = H.roofGeom.faces.find(f => f.slope && !f.tex);
+  if (f) { ensureFaceTex(H, f); return false; }
+  return true;
+}
 function drawPitched(g, H) {
   const R = H.roofGeom, S = H.style;
   const fs = R.faces.map(f => ({ f, d: f.p.reduce((s, q) => s + depthOf(q[0], q[1]) + q[2] * 0.02, 0) / f.p.length }));
@@ -92,7 +109,7 @@ function drawPitched(g, H) {
       texPlane(g, tex, [sd.a[0], sd.a[1], sd.Hc], [sd.dir[0], sd.dir[1], 0], [0, 0, -1], TEX, pts);
       continue;
     }
-    if (!f.tex) { f.tex = paintRoofTex(S.roofMat, S.roofCol, f.amax - f.amin, f.bmax - f.bmin, roofRnd(H, R.faces.indexOf(f)), S.aging); bakeLight(f.tex.getContext('2d'), f.tex.width, f.tex.height, f.n); }
+    ensureFaceTex(H, f);
     // origem da textura = canto (amin, bmax): x cresce ao longo do beiral, y desce a água
     const o = V.add(V.add(f.p[0], V.mul(f.e1, f.amin)), V.mul(f.e2, f.bmax));
     texPlane(g, f.tex, o, f.e1, V.mul(f.e2, -1), RTEX, pts);
@@ -139,7 +156,7 @@ function drawPitched(g, H) {
 
 function drawFlatRoof(g, H) {
   const S = H.style, z = H.h, t = PAR_T, P = PARAPET;
-  if (!H.slabTex) { H.slabTex = paintRoofTex('concrete', S.roofCol, H.x1 - H.x0, H.y1 - H.y0, roofRnd(H, 9), S.aging); bakeLight(H.slabTex.getContext('2d'), H.slabTex.width, H.slabTex.height, [0, 0, 1], 0.6); }
+  ensureSlabTex(H);
   const slab = [[H.x0 + t, H.y1 - t, z], [H.x1 - t, H.y1 - t, z], [H.x1 - t, H.y0 + t, z], [H.x0 + t, H.y0 + t, z]];
   const sp = slab.map(q => proj(...q));
   texPlane(g, H.slabTex, [H.x0, H.y0, z], [1, 0, 0], [0, 1, 0], RTEX, sp);

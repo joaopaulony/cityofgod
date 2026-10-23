@@ -169,10 +169,11 @@ function updatePlayer(dt) {
   // clique curto fica na fila: o fuzil sobe (antecipação) e o tiro sai quando a mira assenta
   if ((input.lmb || p.wantShot) && p.reloadT < 0) {
     p.aimHold = 1.3;
-    if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = 'Sem munição — aperte R'; hud.msgT = 1.6; fireCD = 0.4; } }
+    if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
     else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = 0.12; p.wantShot = false; }
   }
   if (p.reloadT >= 0) p.wantShot = false;
+  if (input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve <= 0) { hud.msg = 'Sem carregadores'; hud.msgT = 1.4; }
   if (input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
   for (const ev of p.events.splice(0)) {
     if (ev === 'magOut') p.magState = 'hand';
@@ -192,7 +193,11 @@ function updateNPC(n, dt) {
     const [hx, hy, w, hgt] = n.home;
     n.goal = Math.random() < 0.4 ? null : [hx + rnd(0, w), hy + rnd(0, hgt)];
     n.timer = rnd(2, 6);
-    if (Math.random() < 0.18) { const t = npcLines[(Math.random() * npcLines.length) | 0]; chat(n.name, t); bubbles.push({ who: n, text: t, t: 3.5 }); }
+    // fala de vez em quando, sem repetir a última frase; o chat local só registra quem está por perto
+    if (Math.random() < 0.08 && Math.hypot(n.x - player.x, n.y - player.y) < 22) {
+      let t; do t = npcLines[(Math.random() * npcLines.length) | 0]; while (t === n.lastLine && npcLines.length > 1);
+      n.lastLine = t; chat(n.name, t); bubbles.push({ who: n, text: t, t: 3.5 });
+    }
   }
   let spd = 0;
   if (n.goal) {
@@ -633,7 +638,14 @@ function drawNight(W,H){
 // ---------- laço ----------
 function frame(now) {
   const dt = clamp((now - last) / 1000, 0, 0.05) * (window.__timeScale ?? 1); last = now;
-  if (!window.__manual) tick(dt);   // __manual: a gravação avança o jogo quadro a quadro
+  if (!window.__manual) {   // __manual: a gravação avança o jogo quadro a quadro
+    const t0 = performance.now(); terrain.workMs = 0;
+    tick(dt);
+    // custo do quadro sem a pintura do chão define quanto tempo o chão pode usar no próximo
+    const cost = performance.now() - t0 - terrain.workMs;
+    terrain.budget = clamp(14 - cost, 1.5, 7);
+    if (cost + terrain.workMs < 12) warmIdle();
+  }
   requestAnimationFrame(frame);
 }
 function tick(dt) {
@@ -698,5 +710,23 @@ function tick(dt) {
   }
   input.endFrame();
 }
+// Pré-pinta as texturas das casas (paredes e telhados) antes de aparecerem na tela, uma peça por
+// quadro com folga. Cada casa inteira custa ~20–60 ms; sem isto o jogo trava ao andar pela cidade.
+const warmCtx = makeCanvas(1, 1).getContext('2d');
+function warmRoof(H) {
+  H._warm = true;
+  try { drawRoofInner(warmCtx, H); } catch (e) { console.warn('warmRoof', e); }
+}
+function warmIdle() {
+  let best = null, bd = 1e9;
+  for (const H of houses) if (!H._warm) { const d = Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y); if (d < bd) { bd = d; best = H; } }
+  if (!best) return;
+  try {
+    if (!houseTexStep(best)) return;                              // uma fachada por quadro
+    if (typeof warmRoofStep === 'function' && !warmRoofStep(best)) return;   // uma água do telhado por quadro
+  } catch (e) { console.warn('warmHouse', e); best._warm = true; return; }
+  warmRoof(best);   // detalhes restantes (rápido: as texturas já existem)
+}
+for (const H of houses) if (Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y) < 45) { houseTex(H); warmRoof(H); }
 requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };

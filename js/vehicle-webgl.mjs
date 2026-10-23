@@ -25,6 +25,8 @@ const system={
  wheelStatus:'loading',available:VEHICLE_MODELS.length
 };
 window.cityVehicles=system;
+// Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
+Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
  shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;
@@ -279,6 +281,7 @@ function interact(){
    if(!bridge.world.blocked(x,y,.33)&&bridge.pondVal(x,y)>1.1){
     p.x=x;p.y=y;
     system.driver=false;system.braking=false;
+    state.speed=0;state.steer=0; // sem velocidade guardada: evita tranco ao voltar ao carro
     return 'Saiu do veículo';
    }
   }
@@ -286,6 +289,7 @@ function interact(){
  }
  if(Math.hypot(p.x-state.x,p.y-state.y)>3.3)return false;
  system.driver=true;system.engineOn=true;p.x=state.x;p.y=state.y;
+ state.speed=0;state.steer=0;
  return 'Entrou no '+activeModel.name+' — W/S acelerar, A/D esterçar, Espaço freio';
 }
 function drawPanel(g,w,h){

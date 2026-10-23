@@ -103,14 +103,24 @@ function terrainInit() {
 
 // ---------- itens de detalhe (determinísticos por bloco) ----------
 function chunkItems(ci, cj) {
+  while (!chunkItemsStep(ci, cj, 1e9));
+  return terrain.items.get(ci + ',' + cj);
+}
+// Gera os detalhes de um bloco em partes (maxIter candidatos por chamada), retomando de onde parou:
+// a sequência do sorteio é a mesma de uma geração única. Devolve true quando terminou.
+function chunkItemsStep(ci, cj, maxIter) {
   const key = ci + ',' + cj;
   terrain.items = terrain.items || new Map();
-  if (terrain.items.has(key)) return terrain.items.get(key);
-  const r = mulberry(world.seed * 131 + ci * 7919 + cj * 104729), items = [], f = {};
+  terrain.itemGen = terrain.itemGen || new Map();
+  if (terrain.items.has(key)) return true;
+  let G = terrain.itemGen.get(key);
+  if (!G) { G = { r: mulberry(world.seed * 131 + ci * 7919 + cj * 104729), items: [], f: {}, i: 0 }; terrain.itemGen.set(key, G); }
+  const r = G.r, items = G.items, f = G.f;
   const x0 = ci * CH, y0 = cj * CH, n = CH * CH * 26;
   const LUSH = ['#416a28', '#527b32', '#65923e', '#7fa14b', '#a1bc65'], DRY = ['#77703a', '#92874b', '#afa361', '#777044'];
   const LITTER = ['#6b4a2a', '#8a5a2c', '#9a6e34', '#5e5a2c', '#7a6a3a', '#a2552a'];
-  for (let i = 0; i < n; i++) {
+  const iEnd = Math.min(n, G.i + maxIter);
+  for (let i = G.i; i < iEnd; i++) {
     const x = x0 + r() * CH, y = y0 + r() * CH;
     fieldsAt(x, y, f); const w = weightsAt(f), pick = r();
     if (w.paved) {
@@ -142,6 +152,8 @@ function chunkItems(ci, cj) {
       else if (r() < 0.05 && f.pv > 1.12) items.push({ t: 'ripple', x, y, s: 0.15 + r() * 0.2, a: Math.atan2(y - world.pond.y, x - world.pond.x) + Math.PI / 2 });
     } else if (w.mud > 0.5 && r() < 0.05) items.push({ t: 'pebble', x, y, s: 0.02 + r() * 0.03, a: r() * TAU, wet: 1 });
   }
+  G.i = iEnd;
+  if (G.i < n) return false;
   // remendos, rachaduras e manchas no asfalto deste bloco
   for (let i = 0; i < 40; i++) {
     const x = x0 + r() * CH, y = y0 + r() * CH, rd = bil(world.roadD, MAP * 2, x, y);
@@ -167,8 +179,8 @@ function chunkItems(ci, cj) {
     items.push({t:'wildflower',x,y,c:blooms[(r()*blooms.length)|0],
       k:5+((r()*6)|0),radius:.16+r()*.19,phase:r()*TAU});
   }
-  terrain.items.set(key, items);
-  return items;
+  terrain.items.set(key, items); terrain.itemGen.delete(key);
+  return true;
 }
 
 // ---------- pintura de um bloco (em etapas p/ não travar o jogo) ----------
@@ -341,17 +353,21 @@ function paintRoadVectors(ch, g) {
 }
 
 // itens agrupados por cor (um path por cor = rápido)
-function paintItems(ch, g) {
-  const x0 = ch.ci * CH - 0.4, y0 = ch.cj * CH - 0.4, x1 = x0 + CH + 0.8, y1 = y0 + CH + 0.8;
-  const all = [];
-  for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-    const ci = ch.ci + di, cj = ch.cj + dj; if (ci < 0 || cj < 0 || ci * CH >= MAP || cj * CH >= MAP) continue;
-    for (const it of chunkItems(ci, cj)) if (it.x > x0 && it.x < x1 && it.y > y0 && it.y < y1) all.push(it);
+function paintItems(ch, g, from = 0, to = Infinity) {
+  if (!ch._keys) {
+    const x0 = ch.ci * CH - 0.4, y0 = ch.cj * CH - 0.4, x1 = x0 + CH + 0.8, y1 = y0 + CH + 0.8;
+    const all = [];
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ci = ch.ci + di, cj = ch.cj + dj; if (ci < 0 || cj < 0 || ci * CH >= MAP || cj * CH >= MAP) continue;
+      for (const it of chunkItems(ci, cj)) if (it.x > x0 && it.x < x1 && it.y > y0 && it.y < y1) all.push(it);
+    }
+    const bk = new Map(), bucket = (k, f) => { if (!bk.has(k)) bk.set(k, []); bk.get(k).push(f); };
+    for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
+    const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
+    ch._buckets = bk;
+    ch._keys = [...bk.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
   }
-  const buckets = new Map(), bucket = (k, f) => { if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(f); };
-  for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
-  const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
-  const keys = [...buckets.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
+  const buckets = ch._buckets, keys = ch._keys.slice(from, to);
   g.lineCap = 'round';
   for (const key of keys) {
     const its = buckets.get(key), t = key.split('|')[0], col = key.split('|')[1];
@@ -455,32 +471,52 @@ function paintItems(ch, g) {
   }
 }
 
+// Etapa final em passos curtos (antes era um bloco único de 50–80 ms que travava o jogo):
+// vias -> itens (2 grupos por passo) -> pisos das casas -> sombras e minimapa.
 function finishChunk(ch) {
-  const g = ch.g, ox = ch.ci * CH * TP - PAD, oy = ch.cj * CH * TP - PAD;
-  g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy);
-  paintRoadVectors(ch, g);
-  paintItems(ch, g);
-  g.restore();
-  // pisos e caminhos das casas (houses.js), em pixels do bloco
-  g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
-  const M = v => v * TP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
-  world.paintFloors && world.paintFloors(g, M, rect);
-  g.restore();
+  const g = ch.g, ox = ch.ci * CH * TP - PAD, oy = ch.cj * CH * TP - PAD, stp = ch.fin || 0;
+  if (stp === 0) { g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintRoadVectors(ch, g); g.restore(); ch.fin = 1; return; }
+  if (stp === 1) {
+    if (!ch._keys && (ch.nb || 0) < 9) {   // detalhes dos 8 vizinhos + o próprio: um bloco por passo
+      const k = ch.nb || 0, ci = ch.ci + (k % 3) - 1, cj = ch.cj + ((k / 3) | 0) - 1;
+      if (ci >= 0 && cj >= 0 && ci * CH < MAP && cj * CH < MAP && !chunkItemsStep(ci, cj, 1500)) return;
+      ch.nb = k + 1; return;
+    }
+    if (!ch._keys) { paintItems(ch, g, 0, 0); return; }   // só agrupa (passo de cálculo)
+    const from = ch.itemPos || 0;
+    g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintItems(ch, g, from, from + 1); g.restore();
+    ch.itemPos = from + 1; if (ch.itemPos >= ch._keys.length) ch.fin = 2;
+    return;
+  }
+  if (stp === 2) {   // pisos e caminhos das casas (houses.js), em pixels do bloco — uma casa por passo
+    // mesma ordem do desenho único: todos os caminhos, depois pisos/sombras, por fim as cercas
+    if (!ch.floorList) ch.floorList = [...houses.map(H => ['walk', H]), ...houses.map(H => ['floor', H]), ['fences', null]];
+    const [mode, H] = ch.floorList.shift(), last = !ch.floorList.length;
+    g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
+    const M = v => v * TP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
+    world.floorClip = [ch.ci * CH - 1, ch.cj * CH - 1, ch.ci * CH + CH + 1, ch.cj * CH + CH + 1];
+    world.floorSet = new Set(H ? [H] : []); world.floorNoFences = mode !== 'fences'; world.floorMode = mode === 'fences' ? 'walk' : mode;
+    try { world.paintFloors && world.paintFloors(g, M, rect); } finally { world.floorClip = null; world.floorSet = null; world.floorNoFences = false; world.floorMode = undefined; }
+    g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
+  }
   // sombras assadas (árvores, arbustos, pedras) — camada suave em baixa resolução
   const sc = world.groundCtx.canvas, k = PPM / TP, sx = ox * k, sy = oy * k;
   g.save(); g.imageSmoothingEnabled = true; g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, CSZ, CSZ); g.restore();
   // refina o minimapa com a versão detalhada
   terrain.miniCtx.imageSmoothingEnabled = true;
   terrain.miniCtx.drawImage(ch.c, PAD, PAD, CPX, CPX, ch.ci * CH * MINI, ch.cj * CH * MINI, CH * MINI, CH * MINI);
-  ch.done = true; ch.F = null; ch.img = null;
+  ch.done = true; ch.F = null; ch.img = null; ch._buckets = null; ch._keys = null;
 }
 
 // avança a pintura de um bloco dentro do orçamento de tempo
 function workChunk(ch, budgetMs) {
   const t0 = performance.now();
+  try { workChunkLoop(ch, budgetMs, t0); } finally { terrain.workMs = (terrain.workMs || 0) + performance.now() - t0; }
+}
+function workChunkLoop(ch, budgetMs, t0) {
   while (!ch.done && performance.now() - t0 < budgetMs) {
     if (ch.stage === 0) { chunkFields(ch); ch.stage = 1; }
-    else if (ch.stage === 1) { paintRows(ch, 48); if (ch.row >= CSZ) ch.stage = 2; }
+    else if (ch.stage === 1) { paintRows(ch, 16); if (ch.row >= CSZ) ch.stage = 2; }   // ~1,5 ms por fatia
     else { finishChunk(ch); }
   }
 }
@@ -498,7 +534,8 @@ function drawGround(g, W, H) {
   const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
   const ci0 = clamp(Math.floor((Math.min(...xs) - 1) / CH), 0, MAP / CH - 1), ci1 = clamp(Math.floor((Math.max(...xs) + 1) / CH), 0, MAP / CH - 1);
   const cj0 = clamp(Math.floor((Math.min(...ys) - 1) / CH), 0, MAP / CH - 1), cj1 = clamp(Math.floor((Math.max(...ys) + 1) / CH), 0, MAP / CH - 1);
-  const pending = [];
+  const pending = [], need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3);
+  terrain.maxChunks = Math.max(24, need + 2);
   for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
     const ch = terrain.chunks.get(ci + ',' + cj) || startChunk(ci, cj);
     ch.used = terrain.frame;
@@ -507,14 +544,19 @@ function drawGround(g, W, H) {
   if (world.terrainSync) for (const ch of pending) workChunk(ch, 1e9);
   else if (pending.length) {
     pending.sort((a, b) => Math.hypot(a.ci * CH + 8 - cam.x, a.cj * CH + 8 - cam.y) - Math.hypot(b.ci * CH + 8 - cam.x, b.cj * CH + 8 - cam.y));
-    workChunk(pending[0], 7);
-  } else {   // ocioso: pré-pinta o anel ao redor da câmera
-    for (let cj = cj0 - 1; cj <= cj1 + 1; cj++) for (let ci = ci0 - 1; ci <= ci1 + 1; ci++) {
-      if (ci < 0 || cj < 0 || ci >= MAP / CH || cj >= MAP / CH) continue;
-      const ch = terrain.chunks.get(ci + ',' + cj);
-      if (!ch) { workChunk(startChunk(ci, cj), 4); ci = 1e9; cj = 1e9; } else if (!ch.done) { workChunk(ch, 4); ci = 1e9; cj = 1e9; }
-    }
+    workChunk(pending[0], terrain.budget || 7);
   }
+  // anel ao redor da vista: TODO ele conta como em uso (senão o cache o descarta e repinta sem fim);
+  // quando nada visível está pendente, pré-pinta o primeiro bloco do anel que faltar
+  let ringTarget = null;
+  for (let cj = cj0 - 1; cj <= cj1 + 1; cj++) for (let ci = ci0 - 1; ci <= ci1 + 1; ci++) {
+    if (ci < 0 || cj < 0 || ci >= MAP / CH || cj >= MAP / CH) continue;
+    const ch = terrain.chunks.get(ci + ',' + cj);
+    if (ch) ch.used = terrain.frame;
+    if (!ringTarget && (!ch || !ch.done)) ringTarget = ch || [ci, cj];
+  }
+  if (!world.terrainSync && !pending.length && ringTarget)
+    workChunk(Array.isArray(ringTarget) ? startChunk(...ringTarget) : ringTarget, Math.min(4, terrain.budget || 4));
   for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
     const ch = terrain.chunks.get(ci + ',' + cj);
     if (!ch || !ch.done) continue;
