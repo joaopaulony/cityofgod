@@ -1104,6 +1104,28 @@ function drawLamp(g,l,night){
   g.lineTo(lamp.x+r*.81,lamp.y+r*.29);
   g.lineTo(lamp.x+r*.52,lamp.y+r*.54);
   g.lineTo(lamp.x-r*.90,lamp.y+r*.59);g.closePath();g.fill();
+  // Caixa de inspeção fundida no poste, rebites e pequenas uniões.
+  const panel=proj(l.x,l.y,1.22),pw=Math.max(2.4,cam.zoom*.095);
+  g.fillStyle='#29373d';g.strokeStyle='#afb8b7';g.lineWidth=.85;
+  g.beginPath();g.roundRect(panel.x-pw*.4,panel.y-pw*.65,
+    pw*.8,pw*1.3,Math.max(1,pw*.12));g.fill();g.stroke();
+  g.fillStyle='#161f22';g.fillRect(panel.x-pw*.18,panel.y-pw*.17,
+    pw*.36,Math.max(1,pw*.055));
+  for(const z of [.27,.92,1.61,3.15]){
+    const q=proj(l.x,l.y,z),rr=Math.max(1,w*.13);
+    g.fillStyle='#94a3a6';g.beginPath();g.arc(q.x-w*.12,q.y,rr,0,TAU);g.fill();
+    g.fillStyle='#202a2f';g.beginPath();g.arc(q.x-w*.12,q.y,rr*.43,0,TAU);g.fill();
+  }
+  // Refletor LED fisicamente separado em chips discretos sobre uma lente.
+  for(let j=0;j<4;j++){
+    const px=lamp.x-r*.76+j*r*.43,py=lamp.y+r*.43-j*r*.018;
+    g.fillStyle=night?'rgba(255,247,210,.94)':'rgba(210,229,225,.54)';
+    g.fillRect(px,py,Math.max(1,r*.23),Math.max(.65,r*.08));
+  }
+  // Marca d'agua, poeira e desgaste delicado junto a sapata.
+  g.strokeStyle='rgba(72,78,71,.32)';g.lineWidth=Math.max(.6,w*.16);
+  g.beginPath();g.moveTo(p0.x+w*.24,p0.y-w*.15);
+  g.lineTo(p0.x+w*.25,p0.y-w*1.6);g.stroke();
   if(night){
     g.globalCompositeOperation='screen';
     g.fillStyle='rgba(255,232,169,.3)';g.beginPath();
