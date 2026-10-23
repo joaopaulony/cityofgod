@@ -63,19 +63,31 @@ const {chromium}=require('playwright'),fs=require('node:fs');
     if(!ok)return {id,ok:false,error:v.error};
     c.ang=c.tang=point.angle;
     c.cos=Math.cos(c.ang);c.sin=Math.sin(c.ang);
-    Object.assign(v.car,{x:point.x,y:point.y,angle:0,speed:0});
-    v.prepareScene();
-    tick(0);
     const H=b.houses.find(h=>h.roofKind==='hip'&&!h.inside)||
      b.houses.find(h=>h.roofKind==='gable'&&!h.inside);
-    return {id,ok,roofFade:H.vehicleRoofFade,canvasFade:H.fade,
+    // Different body lengths require different points behind the exact
+    // same roof; reusing the Silvia's edge point generated false failures.
+    let overlap=null;
+    for(const offset of [0,.4,-.4,.8,-.8,1.2,-1.2,1.6,-1.6,
+                          2,-2,2.6,-2.6]){
+     for(const shift of [0,.4,-.4,.8,-.8,1.2,-1.2]){
+      const x=point.x+offset,y=point.y+shift;
+      if(x>H.x0&&x<H.x1&&y>H.y0&&y<H.y1)continue;
+      Object.assign(v.car,{x,y,angle:0,speed:0});
+      v.prepareScene();
+      if(H.vehicleRoofFade){overlap={x,y};break;}
+     }
+     if(overlap)break;
+    }
+    tick(0);
+    return {id,ok,overlap,roofFade:H.vehicleRoofFade,canvasFade:H.fade,
       count:v.roofCutaways,wallDepth:v.houseOccluders,
       model:v.model,frames:v.frames};
    },{id,point:positions[0]});
    summary.push(result);
    console.log('ROOF MODEL',JSON.stringify(result));
    await page.screenshot({path:'artifacts/vehicle-roof/'+id+'.png'});
-   if(!result.ok||!result.roofFade||!result.canvasFade||
+   if(!result.ok||!result.overlap||!result.roofFade||!result.canvasFade||
       result.wallDepth<1||result.frames<2)
     throw Error('Roof GLB transparency not synchronized: '+JSON.stringify(result));
   }
