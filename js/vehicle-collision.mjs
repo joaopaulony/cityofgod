@@ -82,7 +82,8 @@ export function carCollision(world,car,options={}){
  }
  // Bancadas, lixeiras e outras caixas fisicas, com orientacao propria.
  for(const b of options.boxes||[]){
-  if(b.solid===false||b.floor===1||b.z>1.5||b.house)continue;
+  if(b.solid===false||b.floor===1||b.z>1.5||
+     (b.house&&!b.exteriorFixture))continue;
   if(Math.hypot(b.x-car.x,b.y-car.y)>radius+Math.max(b.w,b.d))continue;
   const obstacle=carFootprint(b.x,b.y,b.rot||0,b.w,b.d,0);
   if(polyHit(verts,obstacle))return record('object',b);
