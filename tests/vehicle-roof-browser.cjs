@@ -38,8 +38,14 @@ const {chromium}=require('playwright'),fs=require('node:fs');
      cam.y=cam.ty=(H.y0+H.y1)/2;
      // Vehicle in front of wall and along overhanging roof, including the
      // precise angle that used to create a hard perpendicular cut.
+     // Foreground-facing car must remain visible in front of the roof.
+     // Using the far wall made every screenshot show only the house,
+     // which validated opacity but did not exercise real car visibility.
+     const cx=(H.x0+H.x1)/2,cy=(H.y0+H.y1)/2,
+      dist=Math.max(H.x1-H.x0,H.y1-H.y0)/2+v.car.length/2+.45;
      Object.assign(v.car,{
-      x:H.x0-v.car.length/2-.7,y:(H.y0+H.y1)/2,angle:0,speed:0
+      x:cx+Math.sin(angle)*dist,y:cy+Math.cos(angle)*dist,
+      angle:0,speed:0
      });
      v.render();tick(0);
      const found=window.cityVehicleBridge.houses.find(h=>
