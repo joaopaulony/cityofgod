@@ -30,7 +30,7 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
 // O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
 window.cityVehicleBridge={
-  cam,player,world,houses,boxes,buildRoofGeom,
+  cam,player,world,houses,boxes,actors,buildRoofGeom,
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,
   get mapSize(){return MAP;}

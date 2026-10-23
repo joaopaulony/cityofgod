@@ -112,6 +112,23 @@ const fs=require('node:fs');
   console.log('ROOF DEPTH QA',JSON.stringify(roof));
   if(!roof.ok||roof.items.length!==4)
    throw Error('WebGL roofs lack depth occlusion '+JSON.stringify(roof));
+  // Teste direto das classes de objeto mostradas nos screenshots do usuario:
+  // poste (hastes/braço), copas e troncos, arbustos, atores, cercas vazadas.
+  const depth=await page.evaluate(()=>{
+   const v=window.cityVehicles,w=window.cityVehicleBridge.world;
+   const counts=v.occlusionStats||{};
+   return {counts,lamps:w.lamps.length,
+    trees:w.props.filter(p=>p.type==='tree').length,
+    bushes:w.props.filter(p=>p.type==='bush').length,
+    actors:window.cityVehicleBridge.actors.length,
+    fences:w.segs.filter(s=>s.kind==='fence').length};
+  });
+  console.log('SCREENSHOT DEPTH QA',JSON.stringify(depth));
+  if(depth.counts.lamps!==depth.lamps||depth.counts.trees!==depth.trees||
+     depth.counts.bushes!==depth.bushes||depth.counts.actors!==depth.actors||
+     depth.counts.fences!==depth.fences||
+     depth.trees<1||depth.lamps<1||depth.actors<1||depth.fences<1)
+   throw Error('Missing car depth proxy category: '+JSON.stringify(depth));
   if(errors.length)throw Error('Browser errors: '+JSON.stringify(errors));
   fs.writeFileSync('artifacts/vehicles/report.json',JSON.stringify(results,null,2));
   console.log('PASS',models.length,'REAL GLB models with animated rims and tires');
