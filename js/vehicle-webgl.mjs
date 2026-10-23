@@ -6,6 +6,7 @@ import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
+import {selectVehicleRoofCutaways} from './vehicle-roof-visibility.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 
@@ -26,7 +27,7 @@ const system={
 };
 window.cityVehicles=system;
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
- shadowGround=null,lampL=null,lampR=null,occluders=[],occlusionScene=null;
+ shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;
 
 function nearestSafeParking(){
@@ -98,25 +99,33 @@ function makeOccluders(){
  for(const H of bridge.houses){
   const w=H.x1-H.x0,d=H.y1-H.y0;
   if(w<=0||d<=0)continue;
-  const verts=[];
+  const walls=[],slopes=[];
+  // Separate wall and roof depth. When a vehicle is behind the tiles
+  // only the roof fades; masonry stays opaque and solid in every angle.
   for(const side of Object.values(H.sides||{})){
    const a=side.a,b=[a[0]+side.dir[0]*side.len,
                       a[1]+side.dir[1]*side.len];
    const h=side.Hc||H.h;
    face([[a[0],a[1],0],[b[0],b[1],0],
-     [b[0],b[1],h],[a[0],a[1],h]],verts);
+     [b[0],b[1],h],[a[0],a[1],h]],walls);
   }
   const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
   if(roof.flat)
    face([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
-    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],verts);
-  else for(const f of roof.faces)face(f.p,verts);
-  if(!verts.length)continue;
-  const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-  const mesh=new THREE.Mesh(geometry,invisible);
-  mesh.userData.house=H;mesh.frustumCulled=false;
-  scene.add(mesh);occluders.push(mesh);
+    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],slopes);
+  else for(const f of roof.faces)
+   face(f.p,f.gable?walls:slopes);
+  const make=(vertices)=>{
+   if(!vertices.length)return null;
+   const geometry=new THREE.BufferGeometry();
+   geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+   const mesh=new THREE.Mesh(geometry,invisible);
+   mesh.userData.house=H;mesh.frustumCulled=false;
+   scene.add(mesh);return mesh;
+  };
+  const wallMesh=make(walls),roofMesh=make(slopes);
+  if(wallMesh)occluders.push(wallMesh);
+  if(roofMesh)roofOccluders.set(H,roofMesh);
  }
  system.houseOccluders=occluders.length;
  // Os outros objetos possuem profundidade propria: nao usar a cerca
@@ -329,9 +338,21 @@ system.drawHUD=drawPanel;
 system.prompt=()=>system.ready&&!system.driver&&
  Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
  ?'F — entrar no '+activeModel.name:null;
+system.prepareScene=()=>{
+ // The Canvas renderer reads this property when sorting/drawing roofs.
+ // The exact same decision disables only the WebGL roof depth surface.
+ const cutaways=system.ready?selectVehicleRoofCutaways(
+  bridge.cam,{...state,length:activeModel.length,
+   width:system.bodyWidth||1.85},
+  bridge.houses,H=>H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H))
+ ):new Set();
+ for(const H of bridge.houses)H.vehicleRoofFade=cutaways.has(H);
+ system.roofCutaways=cutaways.size;
+};
 system.render=()=>{
  if(!system.ready||!renderer)return;
  const c=bridge.cam;
+ system.prepareScene();
  setCamera();
  body.position.set(state.x,0,state.y);
  body.rotation.y=-state.angle;
@@ -339,6 +360,8 @@ system.render=()=>{
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  for(const o of occluders)o.visible=!o.userData.house.inside;
+ for(const [H,mesh] of roofOccluders)
+  mesh.visible=!H.inside&&!H.vehicleRoofFade;
  occlusionScene?.updateActors(system.driver,bridge.player);
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
