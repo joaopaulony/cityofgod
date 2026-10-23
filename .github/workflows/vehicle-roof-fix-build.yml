@@ -1,0 +1,41 @@
+name: Verify vehicle roof cutaway and porch sorting
+on:
+  push:
+    branches: [fix/vehicle-roof-fade-and-porch-order-20261023]
+    paths:
+      - .github/workflows/vehicle-roof-fix-build.yml
+permissions:
+  contents: write
+jobs:
+  test-and-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test exact house cutaway in four angles and all GLB physics
+        run: |
+          node --test tests/vehicle-roof-visibility.test.mjs tests/vehicle-depth-collision.test.mjs tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
+      - name: Build real-time Three.js vehicle renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs --bundle --format=esm --platform=browser --target=es2020 --minify --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+      - name: Commit real WebGL bundle to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: bundle vehicle roof cutaway and garage overhang fix'
+            git push origin HEAD:fix/vehicle-roof-fade-and-porch-order-20261023
+          fi
