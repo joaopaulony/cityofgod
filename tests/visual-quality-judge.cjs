@@ -31,32 +31,11 @@ const RULES=[
   ['Parabólicas e antenas de TV fixadas ao telhado',4,m=>
     m.dishCount>=2&&m.yagiCount>=2&&
     m.fixturesOnRoof&&m.fixturePixels>55],
-  ['Modelos de carros com proporções e detalhes próprios',7,m=>
-    m.carModels===9&&m.cars>=9&&m.carAngles>=288&&
-    m.minCarPixels>900&&m.colorVariety>=12&&
-    m.visibleSpecificBodies===9&&m.referenceProfiles===9&&
-    m.uniquePaints===9&&m.uniqueCues===9&&
-    m.referenceParts&&m.dimensionsVerified&&
-    m.shapeComparisonPairs===36&&
-    m.distinguishableSilhouettePairs>=16&&
-    m.meanSilhouetteDifference>.085],
-  ['Direção, colisões, luzes e entradas verificadas',2,m=>
-    m.buildingBlocked&&m.entered&&m.moved&&m.wheelsRotate&&
-    m.lightsWork&&m.beams&&m.exited&&m.distinctBodies],
-  ['Rodas com cilindro, banda, aro e paralamas reais',5,m=>
-    m.wheelTypeCount===9&&m.wheelWidthMin>=.28&&
-    m.wheelFrontBackMin>3&&m.wheelRimPixelsMin>45&&
-    m.wheelTreadPixelsMin>125&&m.wheelArchMaskedMin>8&&
-    m.wheelGeometriesOK&&m.wheelTrackMounted&&
-    m.wheelMaxGroundClearance<.028],
-  ['Daytona roxo com proporções e aerofólio corrigidos',2,m=>
-    m.aeroLowCab&&m.aeroTaperedNose&&m.aeroLongWheelbase&&
-    m.aeroWingHeight],
   ['Render 2D sem erros',1,m=>m.renderOK]
 ];
 function judge(metrics){
   const items=RULES.map(([name,weight,test])=>({name,weight,pass:!!test(metrics)}));
   return {score:items.reduce((sum,item)=>sum+(item.pass?item.weight:0),0),
-    maximum:100,passed:items.every(x=>x.pass),items,metrics};
+    maximum:RULES.reduce((total,[,weight])=>total+weight,0),passed:items.every(x=>x.pass),items,metrics};
 }
 module.exports={judge,RULES};

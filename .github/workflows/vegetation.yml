@@ -13,19 +13,13 @@ on:
       - js/farmhouses.js
       - js/vision-light.js
       - js/urban-life.js
-      - js/vehicle-art.js
-      - js/vehicle-drive.js
-      - js/vehicle-hybrid.js
-      - assets/vehicles/skyline-1992/**
-      - tests/vehicle-hybrid.test.cjs
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
+      - tests/no-vehicles.test.cjs
       - tests/architecture.test.js
-      - tests/procedural-cars.test.cjs
-      - tests/car-steering.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
   pull_request:
@@ -39,19 +33,13 @@ on:
       - js/farmhouses.js
       - js/vision-light.js
       - js/urban-life.js
-      - js/vehicle-art.js
-      - js/vehicle-drive.js
-      - js/vehicle-hybrid.js
-      - assets/vehicles/skyline-1992/**
-      - tests/vehicle-hybrid.test.cjs
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
+      - tests/no-vehicles.test.cjs
       - tests/architecture.test.js
-      - tests/procedural-cars.test.cjs
-      - tests/car-steering.test.cjs
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
 permissions:
@@ -69,12 +57,8 @@ jobs:
         run: node tests/architecture.test.js
       - name: Check foliage generation
         run: node tests/vegetation.test.js
-      - name: Ensure only original Canvas 2D vehicles are active
-        run: node tests/procedural-cars.test.cjs
-      - name: Verify steering direction for six camera orientations
-        run: node tests/car-steering.test.cjs
-      - name: Verify hybrid spritesheet loading and fallback
-        run: node tests/vehicle-hybrid.test.cjs
+      - name: Ensure all vehicle systems are removed
+        run: node tests/no-vehicles.test.cjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test

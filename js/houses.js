@@ -1,10 +1,10 @@
-// houses.js — casas, mercado, móveis, cercas e carros como geometria 3D chapada.
+// houses.js — casas, mercado, móveis e cercas desenhados em Canvas 2D.
 // Paredes são fatiadas em pedaços de 1 m p/ ordenar por profundidade junto com o personagem.
 // Quando o jogador entra, as paredes viradas p/ a câmera são cortadas e o telhado some (como no Zomboid).
 'use strict';
 
 const houses = [];
-const boxes = [];      // móveis/carros: {x,y,z,w,d,h,rot,top,side,kind}
+const boxes = [];      // móveis e objetos: {x,y,z,w,d,h,rot,top,side,kind}
 
 function addHouse(def) {
   const H = Object.assign({ h: 2.7, segs: [], inside: false, roofKind: 'gable' }, def);
@@ -253,11 +253,6 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   return H;
 }
 
-// carros
-function addCar(x,y,rot,col,index=0) {
-  return vehicleCreate(x,y,rot,col,index);
-}
-
 // cerca de madeira em pedaços de 1 m; gap(x,y) abre portões
 const fences = [];
 function fenceLine(x1, y1, x2, y2, gap = () => false, rural = false) {
@@ -364,31 +359,14 @@ function buildHouses() {
     H.walk = [H.doorPt,[H.doorPt[0]+H.doorN[0]*t,
       H.doorPt[1]+H.doorN[1]*t]];
   }
-  // carros estacionados junto ao meio-fio
-  const cols = ['#b03a32', '#dedbd3', '#2f5d7c', '#3d3f45', '#c9a13a', '#4d6b3a'], cars = [];
-  for (let i = 0; i < 900 && cars.length < 12; i++) {
-    const r = world.roads[(rng() * world.roads.length) | 0], j = 8 + ((rng() * (r.pts.length - 16)) | 0), p = r.pts[j], s = rng() < 0.5 ? 1 : -1;
-    const x = p.x + p.nx * s * (ROAD_W - 1.3), y = p.y + p.ny * s * (ROAD_W - 1.3);
-    if (x < 3 || y < 3 || x > MAP - 3 || y > MAP - 3 || Math.hypot(x - J.x, y - J.y) < 12 || cars.some(c => Math.hypot(c[0] - x, c[1] - y) < 8)) continue;
-    cars.push([x,y]); addCar(x,y,Math.atan2(p.ty,p.tx)+(s>0?0:Math.PI),
-      cols[cars.length%cols.length],cars.length-1);
-  }
 }
 world.buildHouses = buildHouses;
 
 world.blocked = (x, y, r) => {
   for (const H of houses) if (x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5) return true;
   for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
-  for (const b of boxes) {
-    if(b.kind==='car'){
-      // Veiculo com hitbox orientada: nao impede que o jogador chegue
-      // perto da porta, como acontecia com a antiga colisao circular.
-      const dx=x-b.x,dy=y-b.y,c=Math.cos(b.rot),s=Math.sin(b.rot),
-        u=dx*c+dy*s,v=-dx*s+dy*c;
-      if(Math.abs(u)<b.w*.5+r+.08&&Math.abs(v)<b.d*.5+r+.08)return true;
-    }else if(Math.hypot(b.x-x,b.y-y)<
-        Math.max(b.w,b.d)/2+r+.6)return true;
-  }
+  for (const b of boxes) if(Math.hypot(b.x-x,b.y-y)<
+      Math.max(b.w,b.d)/2+r+.6)return true;
   return false;
 };
 
@@ -427,10 +405,6 @@ world.paintFloors = (g, M, rect) => {
     }
     g.fillStyle = 'rgba(0,0,0,.25)';
     g.fillRect(M(H.x0), M(H.y0), M(H.x1 - H.x0), 4); g.fillRect(M(H.x0), M(H.y0), 4, M(H.y1 - H.y0));
-  }
-  for (const b of boxes) if (b.kind === 'car') {
-    g.save(); g.translate(M(b.x - SUN[0] * 0.5), M(b.y - SUN[1] * 0.5)); g.rotate(b.rot);
-    g.fillStyle = 'rgba(20,20,20,.35)'; g.beginPath(); g.ellipse(0, 0, M(b.w * 0.55), M(b.d * 0.6), 0, 0, TAU); g.fill(); g.restore();
   }
   for (const s of fences) {
     g.fillStyle = 'rgba(20,26,12,0.25)';
@@ -633,10 +607,6 @@ function behindHouse(H, px, py) {
   return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
 }
 function drawBox(g,b) {
-  if(b.kind==='car'){
-    if(vehicleHybridDraw(g,b,T))return;
-    return carDraw(g,b,T,world.night);
-  }
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
   for (let i = 0; i < 4; i++) {
@@ -648,10 +618,6 @@ function drawBox(g,b) {
   faces.sort((a, b) => a.d - b.d);
   for (const f of faces) {
     poly(g, f.pts, tone(b.side, f.lit), 'rgba(24,18,14,0.75)', 1);
-    if (b.kind === 'car') {   // faróis e lanternas nas pontas
-      const end = (f.i === 1 || f.i === 3);
-      if (end) { const L = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.15), Rr = lerp2(lerp2(f.pts[0], f.pts[3], 0.6), lerp2(f.pts[1], f.pts[2], 0.6), 0.85); g.fillStyle = f.i === 1 ? '#f4eecb' : '#d33b2c'; for (const p of [L, Rr]) g.fillRect(p.x - 2, p.y - 1, 4, 3); }
-    }
     if (b.kind === 'fridge') {   // portas e puxador
       const m0 = lerp2(f.pts[0], f.pts[3], 0.62), m1 = lerp2(f.pts[1], f.pts[2], 0.62);
       g.strokeStyle = INK; g.lineWidth = 1; g.beginPath(); g.moveTo(m0.x, m0.y); g.lineTo(m1.x, m1.y); g.stroke();
