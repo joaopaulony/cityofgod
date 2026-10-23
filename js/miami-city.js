@@ -161,6 +161,16 @@ function drawHelipad(g, H, z, it) {
   g.fillStyle = '#ffffff'; g.font = `bold ${r * 0.9}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('H', 0, 0); g.restore();
 }
+// marquise da portaria: laje com testeira escura e o nome do prédio em letras brancas na face da rua
+function drawMarquee(g, b) {
+  drawBox(g, Object.assign({}, b, { draw: null }));
+  if (!b.label || facingCam(b.nx, b.ny) <= 0) return;
+  const ax = Math.abs(b.nx) > 0.5, half = (ax ? b.d : b.w) / 2, ex = b.x + b.nx * (ax ? b.w : b.d) / 2, ey = b.y + b.ny * (ax ? b.w : b.d) / 2;
+  const tx = -b.ny, ty = b.nx, zm = b.z + b.h / 2, a = proj(ex - tx * half, ey - ty * half, zm), c = proj(ex + tx * half, ey + ty * half, zm), Z = cam.zoom;
+  g.save(); g.translate((a.x + c.x) / 2, (a.y + c.y) / 2); g.transform(1, (c.y - a.y) / (c.x - a.x || 1), 0, 1, 0, 0);
+  g.fillStyle = b.side === '#2f3a44' ? '#f4f2ec' : '#3a4650'; g.font = `bold ${Math.max(6, Z * 0.26)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(b.label, 0, 0); g.restore();
+}
 
 // arredores de cada prédio: calçadão/praça, palmeiras em canteiro, docas, estacionamento, quadra
 function miaBuildingSurround(S, H, kind, L, r) {
@@ -176,7 +186,8 @@ function miaBuildingSurround(S, H, kind, L, r) {
     }
     if (kind !== 'deco') {   // marquise da portaria + bancos, floreiras e frades na praça
       const ax = Math.abs(n[0]) > 0.5, cx2 = fx + n[0] * 1.4, cy2 = fy + n[1] * 1.4;
-      addBox({ x: cx2, y: cy2, z: 3.4, w: ax ? 2.8 : 6, d: ax ? 6 : 2.8, h: 0.28, top: '#ecebe6', side: '#c9c6bf', kind: 'canopy', solid: false });
+      addBox({ x: cx2, y: cy2, z: 3.4, w: ax ? 2.8 : 6, d: ax ? 6 : 2.8, h: 0.42, top: '#ecebe6', side: kind === 'office' ? '#2f3a44' : '#d9d6ce', kind: 'canopy', solid: false, nx: n[0], ny: n[1], label: H.bName, draw: drawMarquee });
+      for (const sg of [-1, 1]) addBox({ x: fx + n[0] * 2.6 + t[0] * sg * 2.7, y: fy + n[1] * 2.6 + t[1] * sg * 2.7, w: 0.26, d: 0.26, h: 3.4, top: '#c9c6bf', side: kind === 'office' ? '#3a4650' : '#e4e1da', kind: 'column' });
       for (const sg of [-1, 1]) {
         if (ext > 3) { miaBench(fx + t[0] * sg * 4.5 + n[0] * (ext - 1.6), fy + t[1] * sg * 4.5 + n[1] * (ext - 1.6), Math.atan2(t[1], t[0])); miaPlanter(fx + t[0] * sg * 2.6 + n[0] * (ext - 1.3), fy + t[1] * sg * 2.6 + n[1] * (ext - 1.3)); }
         for (let k = 0; k < 3; k++) miaBollard(fx + t[0] * sg * (1.2 + k * 1.3) + n[0] * (ext - 0.3), fy + t[1] * sg * (1.2 + k * 1.3) + n[1] * (ext - 0.3));
@@ -261,9 +272,11 @@ function miaMansion(S, c, rects) {
   for (let i = -1; i <= 1; i++) addBox({ x: bk[0] + n[0] * 3.1 + t[0] * (i * 1.6 - 3), y: bk[1] + n[1] * 3.1 + t[1] * (i * 1.6 - 3), w: ax ? 1.95 : 0.68, d: ax ? 0.68 : 1.95, h: 0.8, rot: Math.atan2(-n[1], -n[0]) + (ax ? 0 : 0), top: '#f6f4ee', side: '#d9d3c6', kind: 'lounger', solid: false, pad: '#f4f2ec', draw: drawLounger });
   addBox({ x: bk[0] + n[0] * 3 + t[0] * 4, y: bk[1] + n[1] * 3 + t[1] * 4, w: 0.3, d: 0.3, h: 2.2, kind: 'umbrella', solid: false, col: '#f4f2ec', col2: '#2b6fb8', draw: drawBeachUmbrella });
   // cerca viva alta com portões nos acessos
-  const gate = (x, y) => [-1, 1].some(sg => Math.hypot(x - (fc[0] + t[0] * sg * 3.4 + n[0] * (ext - fy * 0.5)), y - (fc[1] + t[1] * sg * 3.4 + n[1] * (ext - fy * 0.5))) < 1.9);
+  // vão na cerca da frente onde cada acesso a cruza; pilares do portão na própria linha da cerca
+  const frontLon = (lcx - fc[0]) * n[0] + (lcy - fc[1]) * n[1] + depthLot / 2;
+  const gate = (x, y) => [-1, 1].some(sg => { const dx = x - fc[0] - t[0] * sg * 3.4, dy = y - fc[1] - t[1] * sg * 3.4; return Math.abs(dx * t[0] + dy * t[1]) < 1.9 && dx * n[0] + dy * n[1] > 0; });
   miaHedgeRect([L.x0, L.y0, L.x1, L.y1], gate);
-  for (const sg of [-1, 1]) for (const sg2 of [-1, 1]) addBox({ x: fc[0] + t[0] * (sg * 3.4 + sg2 * 1.9) + n[0] * (ext - fy * 0.5 - 0.3), y: fc[1] + t[1] * (sg * 3.4 + sg2 * 1.9) + n[1] * (ext - fy * 0.5 - 0.3), w: 0.6, d: 0.6, h: 2, top: '#f1ede4', side: '#e3ddd0', kind: 'gatepost' });
+  for (const sg of [-1, 1]) for (const sg2 of [-1, 1]) addBox({ x: fc[0] + t[0] * (sg * 3.4 + sg2 * 1.9) + n[0] * frontLon, y: fc[1] + t[1] * (sg * 3.4 + sg2 * 1.9) + n[1] * frontLon, w: 0.6, d: 0.6, h: 2, top: '#f1ede4', side: '#e3ddd0', kind: 'gatepost' });
   // palmeiras imperiais em alas ao longo da frente; coqueiros perto da piscina; canteiros junto às paredes
   for (const sg of [-1, 1]) for (let k = 0; k < 2; k++) { const px = fc[0] + t[0] * sg * (widthLot / 2 - 2) + n[0] * (k * 4.5 - 2), py = fc[1] + t[1] * sg * (widthLot / 2 - 2) + n[1] * (k * 4.5 - 2); if (!miaBlocked(px, py, 0.8)) miaPalm(px, py, 'royal'); }
   for (const sg of [-1, 1]) { const px = bk[0] + t[0] * sg * 9.5, py = bk[1] + t[1] * sg * 9.5; if (!miaBlocked(px, py, 0.8)) miaPalm(px, py, 'coconut'); }
@@ -563,6 +576,15 @@ function miaBeach(S) {
       if (pondVal(x, y) < 1.07 || world.districtFn(x, y) !== D_.BEACH || !free(x, y, 1.7)) continue;
       miaUmbrellaSet(x, y, f, R); taken.push([x, y, 1.7]);
     }
+    // gente em pé na água rasa em frente ao grupo (e às vezes alguém nadando mais longe)
+    if (R() < 0.75) {
+      let wx = q[0], wy = q[1], s2 = 0; while (s2++ < 60 && pondVal(wx, wy) > 0.94) { wx += f[0] * 0.5; wy += f[1] * 0.5; }
+      for (let k = 0, m = 1 + ((R() * 3) | 0); k < m; k++) {
+        const u = (R() - 0.5) * 7, v = R() * 2.5, x = wx + t[0] * u + f[0] * v, y = wy + t[1] * u + f[1] * v, pv = pondVal(x, y);
+        if (pv > 0.97 || pv < 0.8 || x < x0 + 1 || y < y0 + 1 || x > x0 + S.SP - 1 || y > y0 + S.SP - 1) continue;
+        addBox({ x, y, w: 0.5, d: 0.5, h: 1.2, kind: 'wader', solid: false, swim: R() < 0.25, face: R() * TAU, skin: ['#e9c3a0', '#c68e63', '#8d5a3b', '#f1d2b6'][(R() * 4) | 0], suit: ['#e8364f', '#1f2a44', '#f5c518', '#2b8be6', '#2ec46b', '#ff8fb1'][(R() * 6) | 0], hair: ['#3a2a1e', '#1a1410', '#8a5a2a', '#d9b46a'][(R() * 4) | 0], draw: drawWader });
+      }
+    }
   }
   // 3. linha de sargaço na marca da maré e trilhas de pegadas até a água
   for (const [x, y, pv] of pts) if (pv > 1.03 && pv < 1.06 && R() < 0.4) {
@@ -610,6 +632,31 @@ function drawBather(g, b) {   // banhista deitado de bruços na toalha
   g.strokeStyle = b.suit; g.lineWidth = Z * 0.31; const h0 = P(0.18, 0.14), h1 = P(-0.05, 0.14); g.beginPath(); g.moveTo(h0.x, h0.y); g.lineTo(h1.x, h1.y); g.stroke();
   g.fillStyle = b.skin; g.beginPath(); g.ellipse(head.x, head.y, Z * 0.12, Z * 0.11, 0, 0, TAU); g.fill();
   g.fillStyle = '#3a2a1e'; g.beginPath(); g.ellipse(head.x, head.y - Z * 0.03, Z * 0.11, Z * 0.07, 0, 0, TAU); g.fill();
+}
+function drawWader(g, b) {   // banhista com água pela cintura (ou nadando: só cabeça e um braço), com marola em volta
+  const Z = cam.zoom, base = proj(b.x, b.y, 0), ca = Math.cos(b.face), sa = Math.sin(b.face);
+  g.strokeStyle = 'rgba(245,250,248,0.75)'; g.lineWidth = Math.max(1, Z * 0.035);
+  for (const k of [1, 1.7]) { g.beginPath(); g.ellipse(base.x, base.y, Z * 0.32 * k, Z * 0.32 * k * TILT, 0, 0, TAU); g.stroke(); }
+  g.lineCap = 'round';
+  if (b.swim) {
+    const hd = proj(b.x, b.y, 0.1), arm = proj(b.x + ca * 0.5, b.y + sa * 0.5, 0.35);
+    g.strokeStyle = b.skin; g.lineWidth = Z * 0.09; g.beginPath(); g.moveTo(hd.x, hd.y); g.lineTo(arm.x, arm.y); g.stroke();
+    g.fillStyle = b.skin; g.beginPath(); g.ellipse(hd.x, hd.y, Z * 0.12, Z * 0.1, 0, 0, TAU); g.fill();
+    g.fillStyle = b.hair; g.beginPath(); g.ellipse(hd.x, hd.y - Z * 0.03, Z * 0.12, Z * 0.07, 0, 0, TAU); g.fill();
+    return;
+  }
+  const hip = proj(b.x, b.y, -0.05), sh = proj(b.x, b.y, 0.5), head = proj(b.x, b.y, 0.7);
+  const shl = proj(b.x - sa * 0.2, b.y + ca * 0.2, 0.48), shr = proj(b.x + sa * 0.2, b.y - ca * 0.2, 0.48);
+  const hl = proj(b.x - sa * 0.3 + ca * 0.1, b.y + ca * 0.3 + sa * 0.1, 0.12), hr = proj(b.x + sa * 0.32, b.y - ca * 0.32, 0.2);
+  g.strokeStyle = b.skin; g.lineWidth = Z * 0.08;
+  for (const [a, e] of [[shl, hl], [shr, hr]]) { g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(e.x, e.y); g.stroke(); }
+  g.lineWidth = Z * 0.3; g.beginPath(); g.moveTo(hip.x, hip.y); g.lineTo(sh.x, sh.y); g.stroke();
+  if (b.seed === undefined) b.seed = (b.x * 7 + b.y * 3) | 0;
+  if (b.seed & 1) { g.strokeStyle = b.suit; g.lineWidth = Z * 0.31; const t0 = proj(b.x, b.y, 0.36), t1 = proj(b.x, b.y, 0.44); g.beginPath(); g.moveTo(t0.x, t0.y); g.lineTo(t1.x, t1.y); g.stroke(); }
+  g.fillStyle = b.skin; g.beginPath(); g.ellipse(head.x, head.y, Z * 0.12, Z * 0.11, 0, 0, TAU); g.fill();
+  g.fillStyle = b.hair; g.beginPath(); g.ellipse(head.x, head.y - Z * 0.04, Z * 0.12, Z * 0.07, 0, 0, TAU); g.fill();
+  // linha d'água por cima do quadril
+  g.fillStyle = 'rgba(96,178,170,0.7)'; g.beginPath(); g.ellipse(base.x, base.y, Z * 0.26, Z * 0.26 * TILT, 0, 0, TAU); g.fill();
 }
 function paintWrack(g, d) {   // faixa contínua e irregular de sargaço que engrossa e afina, com conchas e gravetos
   const r = mulberry(d.seed >>> 0), N = 14, pts = [];
@@ -711,6 +758,65 @@ function miaStreets(S, zoneAt) {
       if (!z || miaBlocked(x, y, 0.4) || pondVal(x, y) < 1.2) continue;
       addBox({ x, y, w: 0.3, d: 0.3, h: 0.75, top: '#e7c21e', side: '#d1a90f', kind: 'hydrant', draw: drawHydrant });
     }
+    // abrigos de ônibus junto ao meio-fio (de costas p/ os prédios) e bicicletários no centro e na orla
+    for (let i = 48, sg = 1; i < rd.pts.length - 8; i += rd.cls === 'avenue' ? 110 : 170, sg = -sg) {
+      const p = rd.pts[i], q = rd.pts[i + 1], off = ROAD_W + rd.off + 1.15, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
+      if (z !== 'brickell' && z !== 'southbeach' && z !== 'bungalow' && z !== 'town') continue;
+      if (Math.abs(roadDist(x, y) - (ROAD_W + 1.15)) > 0.4 || pondVal(x, y) < 1.2 || miaBlocked(x, y, 2)) continue;
+      addBox({ x, y, w: 3.6, d: 1.3, h: 2.6, rot: Math.atan2(q.y - p.y, q.x - p.x), kind: 'busstop', nx: -p.nx * sg, ny: -p.ny * sg, solid: false, seed: i * 7 + rd.pts.length, draw: drawBusStop });
+    }
+    for (let i = 36, sg = -1; i < rd.pts.length - 8; i += 64, sg = -sg) {
+      const p = rd.pts[i], q = rd.pts[i + 1], off = ROAD_W + rd.off + SIDE - 0.6, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
+      if (z !== 'brickell' && z !== 'southbeach') continue;
+      if (Math.abs(roadDist(x, y) - (ROAD_W + SIDE - 0.6)) > 0.4 || pondVal(x, y) < 1.2 || miaBlocked(x, y, 1.6)) continue;
+      addBox({ x, y, w: 3.4, d: 0.5, h: 0.85, rot: Math.atan2(q.y - p.y, q.x - p.x), kind: 'bikerack', solid: false, seed: (x * 13 + y * 7) | 0, draw: drawBikeRack });
+    }
+  }
+}
+function drawBusStop(g, b) { miaCached(g, b, cg => paintBusStop(cg, b)); }
+function paintBusStop(g, b) {
+  // abrigo de vidro: postes de alumínio, painel do fundo, banco, laje fina, painel de anúncio iluminado e placa azul
+  const c = Math.cos(b.rot), s = Math.sin(b.rot), Z = cam.zoom, r = mulberry(b.seed >>> 0);
+  const sv = -Math.sign(b.nx * -s + b.ny * c) || 1;   // v local cresce p/ o lado do prédio (fundo do abrigo); (nx,ny) aponta p/ a rua
+  const P = (u, v, z) => proj(b.x + u * c - v * sv * s, b.y + u * s + v * sv * c, z);
+  const line = (a, e, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(e.x, e.y); g.stroke(); };
+  poly(g, [P(-1.9, -0.5, 0), P(1.9, -0.5, 0), P(2.2, 0.9, 0), P(-1.6, 0.9, 0)], 'rgba(20,24,28,0.22)', null);
+  const back = facingCam(b.nx, b.ny) < 0;   // fundo voltado p/ a câmera: o vidro vem por último
+  const glass = () => { poly(g, [P(-1.7, 0.55, 0.15), P(1.7, 0.55, 0.15), P(1.7, 0.55, 2.3), P(-1.7, 0.55, 2.3)], 'rgba(170,205,220,0.28)', 'rgba(200,210,215,0.9)', 1);
+    line(P(-1.7, 0.55, 1.1), P(1.7, 0.55, 1.1), 'rgba(220,228,232,0.7)', 1); };
+  if (!back) glass();
+  // painel lateral de anúncio (aceso)
+  const ad = ['#e8364f', '#2b8be6', '#f5c518', '#1abc9c'][(r() * 4) | 0];
+  poly(g, [P(1.75, -0.45, 0.25), P(1.75, 0.5, 0.25), P(1.75, 0.5, 2.1), P(1.75, -0.45, 2.1)], '#f4f2ec', 'rgba(40,46,52,0.9)', 1);
+  poly(g, [P(1.75, -0.35, 0.45), P(1.75, 0.4, 0.45), P(1.75, 0.4, 1.95), P(1.75, -0.35, 1.95)], ad, null);
+  poly(g, [P(1.75, -0.2, 1.2), P(1.75, 0.25, 1.2), P(1.75, 0.25, 1.75), P(1.75, -0.2, 1.75)], 'rgba(255,255,255,0.7)', null);
+  drawBox(g, { x: b.x + 0.2 * sv * -s * 1, y: b.y + 0.2 * sv * c, z: 0.42, w: 2.8, d: 0.42, h: 0.06, rot: b.rot, top: '#8b939a', side: '#5f666c' });   // banco
+  for (const [u, v] of [[-1.75, 0.55], [1.75, 0.55], [-1.75, -0.45], [1.75, -0.45]]) line(P(u, v, 0), P(u, v, 2.45), '#9aa3aa', Math.max(1.2, Z * 0.06));
+  if (back) glass();
+  drawBox(g, { x: b.x + 0.05 * sv * -s, y: b.y + 0.05 * sv * c, z: 2.45, w: 3.9, d: 1.5, h: 0.12, rot: b.rot, top: '#d9dde0', side: '#7f878d' });   // laje
+  // placa de parada no poste, do lado da rua
+  const pb = P(-2.2, -0.55, 0), pt = P(-2.2, -0.55, 2.9); line(pb, pt, '#6d757b', Math.max(1.2, Z * 0.05));
+  const sgn = P(-2.2, -0.55, 2.55); g.fillStyle = '#1f5fae'; g.fillRect(sgn.x - Z * 0.24, sgn.y - Z * 0.34, Z * 0.48, Z * 0.36);
+  g.fillStyle = '#ffffff'; g.font = `bold ${Math.max(5, Z * 0.15)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BUS', sgn.x, sgn.y - Z * 0.16);
+}
+function drawBikeRack(g, b) {
+  // paraciclos em "U" invertido perpendiculares à calçada; algumas bicicletas presas
+  const c = Math.cos(b.rot), s = Math.sin(b.rot), Z = cam.zoom, r = mulberry(b.seed >>> 0), P = (u, v, z) => proj(b.x + u * c - v * s, b.y + u * s + v * c, z);
+  const line = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke(); };
+  g.lineCap = 'round';
+  for (let k = 0; k < 5; k++) {
+    const u = -1.6 + k * 0.8;
+    if (r() < 0.55) {   // bicicleta: duas rodas no plano (v,z), quadro em triângulo, guidão e selim
+      const col = ['#c0392b', '#2b6fb8', '#1f1f1f', '#f5c518', '#2ec46b', '#ecebe7'][(r() * 6) | 0], uu = u + 0.12;
+      const wheel = v0 => { const pts = []; for (let a = 0; a <= 12; a++) { const t = a / 12 * TAU; pts.push(P(uu, v0 + Math.cos(t) * 0.33, 0.34 + Math.sin(t) * 0.33)); } line(pts, '#1c1c1e', Math.max(1, Z * 0.04)); };
+      wheel(-0.55); wheel(0.55);
+      line([P(uu, -0.55, 0.34), P(uu, -0.05, 0.36), P(uu, 0.15, 0.78), P(uu, -0.4, 0.75), P(uu, -0.55, 0.34)], col, Math.max(1, Z * 0.05));
+      line([P(uu, -0.05, 0.36), P(uu, 0.45, 0.8), P(uu, 0.55, 0.34)], col, Math.max(1, Z * 0.05));
+      line([P(uu - 0.22, 0.45, 0.95), P(uu + 0.22, 0.45, 0.95)], '#2a2a2a', Math.max(1, Z * 0.04));
+      line([P(uu, -0.42, 0.88), P(uu, -0.3, 0.88)], '#2a2a2a', Math.max(1.5, Z * 0.07));
+    }
+    const pts = []; for (let a = 0; a <= 8; a++) { const t = a / 8 * Math.PI; pts.push(P(u, -Math.cos(t) * 0.3, a === 0 || a === 8 ? 0 : 0.55 + Math.sin(t) * 0.25)); }
+    pts[0] = P(u, -0.3, 0); pts[8] = P(u, 0.3, 0); line(pts, '#9aa3aa', Math.max(1.2, Z * 0.05));
   }
 }
 function drawHydrant(g, b) {
@@ -754,7 +860,7 @@ function miaClutter(S, zoneAt, rects) {
   for (let gi = 0; gi < 220; gi++) {
     const cx = x0 + 6 + R() * (S.SP - 12), cy = y0 + 6 + R() * (S.SP - 12), z = zoneAt(cx, cy);
     if (!z || onRoad(cx, cy) || inRect(cx, cy) || pondVal(cx, cy) < 1.3) continue;
-    if ((z === 'mansion' || z === 'bungalow') && R() < 0.68) continue;
+    if ((z === 'mansion' && R() < 0.3) || (z === 'bungalow' && R() < 0.68)) continue;
     if (z === 'brickell') {   // canteiro de praça: árvore em floreira, bancos em volta, quiosque ou carrinho de café
       if (miaBlocked(cx, cy, 4)) continue;
       miaPlanter(cx, cy); if (!miaBlocked(cx, cy, 0.3)) miaPalm(cx, cy, 'royal');
@@ -771,9 +877,13 @@ function miaClutter(S, zoneAt, rects) {
       if (R() < 0.5) world.decals.push({ kind: 'path', x: cx, y: cy, a: R() * Math.PI, l: 8 + R() * 14, seed: (R() * 1e6) | 0, bb: [cx - 12, cy - 12, cx + 12, cy + 12], paint: paintPath });
       if (R() < 0.4) miaDecal([[cx - 2.5, cy - 2.5], [cx + 2.5, cy - 2.5], [cx + 2.5, cy + 2.5], [cx - 2.5, cy + 2.5]], 'stains', R);
     } else if (z === 'mansion' || z === 'bungalow') {   // terreno baldio ajardinado: grupo de palmeiras com canteiro
-      if (R() < 0.6) continue;
+      if (R() < (z === 'mansion' ? 0.25 : 0.6) || miaBlocked(cx, cy, 3)) continue;
       for (let i = 0; i < 3; i++) { const x = cx + (R() - 0.5) * 4, y = cy + (R() - 0.5) * 4; if (!miaBlocked(x, y, 0.8)) miaPalm(x, y, R() < 0.5 ? 'coconut' : 'royal'); }
       world.decals.push({ kind: 'mulch', x: cx, y: cy, r: 3.2, seed: (R() * 1e6) | 0, bb: [cx - 4, cy - 4, cx + 4, cy + 4], paint: paintMulch });
+      if (z === 'mansion') {   // bairro nobre: maciços de cróton, hibisco e buganvília em volta e cerca viva baixa num dos lados
+        for (let i = 0; i < 5; i++) { const a = R() * TAU, x = cx + Math.cos(a) * (3 + R()), y = cy + Math.sin(a) * (3 + R()); if (!miaBlocked(x, y, 0.6) && !onRoad(x, y)) miaBush(x, y, ['croton', 'hibiscus', 'bougainvillea'][(R() * 3) | 0]); }
+        if (R() < 0.5) { const a = R() * Math.PI, dx = Math.cos(a) * 5, dy = Math.sin(a) * 5, ox = -dy * 1.2, oy = dx * 1.2; miaHedgeRun(cx + ox - dx, cy + oy - dy, cx + ox + dx, cy + oy + dy, (x, y) => miaBlocked(x, y, 0.5), 0.9); }
+      }
     }
   }
   // tampas de bueiro e marcas de óleo no centro

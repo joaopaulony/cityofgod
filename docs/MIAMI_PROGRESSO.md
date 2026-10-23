@@ -70,29 +70,29 @@ Notas da rodada 6, por cena:
   - `urban-life.js`: sem chaminés no mundo aberto.
   - `game.js`: palmeiras não soltam folhas (antes travava o loop).
 
-## Próximos passos (lista da rodada 6 do juiz, ainda não feita)
-O patch da rodada 7 foi preparado e cancelado; precisa ser refeito:
+## Rodada 7 (feita, ainda sem juiz)
+Tudo da lista da rodada 6 foi implementado:
 
-1. **Sargaço**
-   - Faixa contínua e irregular em vez de traços paralelos (`paintWrack`).
-   - Conchas e gravetos maiores.
+1. **Sargaço**: faixa contínua e irregular (`paintWrack`), conchas e gravetos maiores.
 2. **Praia**
-   - Grupos maiores e mais próximos: até 16 grupos, espaçamento de 17 m, 5 a 10 conjuntos cada.
-   - Caixas térmicas variadas e chinelos.
-   - Pessoas em pé na água.
+   - Até 16 grupos, espaçamento de 17 m, 5 a 10 conjuntos cada; caixas térmicas variadas e chinelos.
+   - Gente em pé na água rasa e nadando em frente aos grupos (`drawWader`, kind `wader`).
 3. **Brickell**
-   - Mais carros: `miaParking`, brickell 0,55.
-   - Tampas de bueiro, bicicletários, pontos de ônibus.
-   - Fachada `office` variando por andar, com persianas.
-   - Pódio ou marquise visível na portaria.
+   - `miaParking` brickell 0,55; tampas de bueiro; fachada `office` com reflexo e persianas por andar.
+   - Abrigos de ônibus com placa BUS e anúncio aceso (`drawBusStop`), bicicletários com bicicletas (`drawBikeRack`), ambos em `miaStreets`.
+   - Marquise da portaria com testeira, nome do prédio e duas colunas (`drawMarquee`).
 4. **Mansão**
-   - Escolher uma posição de screenshot em que a fachada da frente apareça: `frontSide` S ou E.
-   - Vizinhança menos vazia em volta do lote.
-5. Depois: nova rodada de screenshots e juiz.
+   - Corrigido: a cerca viva da frente fechava as duas entradas de carro; agora abre na linha da cerca, com os pilares do portão nas pontas.
+   - Vizinhança mais cheia: `miaClutter` põe palmeiras, maciços de cróton/hibisco/buganvília e cercas vivas baixas nos terrenos livres.
+   - Para ver a fachada, gire a câmera em vez de procurar `frontSide` S/E: com `cam.ang = π/4 + k·π/2`, k=0 mostra S e E, k=3 mostra W e S. Ex.: mansão de frente W em 1641,2777, jogador em 1628,2780, k=3.
+
+## Próximos passos
+1. Nova rodada de screenshots e juiz (meta: média ≥ 7,5, nenhuma cena < 6,5).
+2. Em Brickell as torres tapam a rua em quase todos os ângulos; escolher pontos de print em cruzamentos ou praças.
 
 ## Como testar e tirar prints
 - Servidor: `preview_start` com o nome `piloto-iso` (porta 4321).
-- Prints são feitos com `miashots.mjs` em um Chrome headless; o script ficava no scratchpad da sessão.
+- Prints: o Edge headless não abre nesta máquina; use o painel do navegador visível (oculto, o jogo para de desenhar). O antigo `miashots.mjs` ficava no scratchpad da sessão.
   - Teleporte: `owTeleport(x, y)`.
   - Use `WAIT` de 45 a 70 s para o terreno detalhado terminar.
 - Pontos usados:
