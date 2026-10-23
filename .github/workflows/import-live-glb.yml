@@ -66,3 +66,5 @@ jobs:
 # Rebuild after parking spawn, body collision and live fence occlusion update.
 
 # Final refresh after parking distance and visual QA checks.
+
+# Refresh model runtime after safe parking selection and road clearance test.
