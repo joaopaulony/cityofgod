@@ -332,10 +332,7 @@ function render() {
   // O antigo X-ray de personagem nao respeitava a profundidade: parecia
   // flutuar em cima do telhado. A lente redesenha a cena sem a parede
   // que realmente bloqueia a camera, com mascara radial suavizada.
-  if (st.night) {
-    drawNight(W,H);
-    carNightLamps(g,T);
-  }
+  if (st.night) drawNight(W,H);
   const blocker=occluded();
   if(blocker)drawPlayerVision(list,blocker,W,H);
   drawMuzzleFlash(g,player,st.night);
