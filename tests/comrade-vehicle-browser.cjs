@@ -92,3 +92,5 @@ const fs=require('node:fs');
   console.log('PASS',models.length,'REAL GLB models with animated rims and tires');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+// Release QA runs against the final local GLB bundle and roof-depth renderer.
