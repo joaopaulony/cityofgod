@@ -34,6 +34,8 @@ const poly=(_g,pts)=>assert.ok(Array.isArray(pts)&&pts.length>=3);
 const world={groundCtx:context2d};
 const sandbox=vm.createContext({Math,TAU:Math.PI*2,SPR:40,PPM:28,SUN:[-.55,-.75,.9],rng:rand,R,
   makeCanvas,poly,world});
+// The foliage fixture must use the same palette as the real game.
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/visual-palette.js'),'utf8'),sandbox);
 vm.runInContext(worldSource.slice(start,end)+'\nthis.testApi={makeTree,makeBush,leafBatch};',sandbox);
 const sprites=['oak','oak','yard','street','pine','pine'].map(kind=>sandbox.testApi.makeTree(kind));
 for (const sp of sprites) {
