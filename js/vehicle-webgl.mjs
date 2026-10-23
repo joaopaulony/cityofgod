@@ -26,9 +26,15 @@ function nearestSafeParking(){
  for(const r of bridge.world.roads)
   for(let i=2;i<r.pts.length-2;i+=5){
    const q=r.pts[i],d=Math.hypot(q.x-p.x,q.y-p.y);
-   if(d<5.5&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
+   if(d<22&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
   }
  around.sort((a,b)=>a.d-b.d);
+ // Evita estacionar em quintais onde o carro fica preso em poucos metros.
+ for(const q of around){
+  const runway=[0,3,6,9,12].every(k=>isFree(
+   q.x+Math.cos(q.angle)*k,q.y+Math.sin(q.angle)*k,q.angle));
+  if(runway)return q;
+ }
  for(const q of around)if(isFree(q.x,q.y,q.angle))return q;
  // O spawn original prioriza floresta, nao proximidade de estradas.
  // Garantir carro acessivel mesmo em seeds longe de ruas.
@@ -58,6 +64,15 @@ function isFree(x,y,a){
 function setupCar(){
  const q=nearestSafeParking();
  Object.assign(state,q,{speed:0,steer:0,distance:0});
+ // Piloto 3D: se o ponto de nascimento original ficar distante da via,
+ // posiciona o personagem ao lado do carro para a demonstracao dirigir.
+ const p=bridge.player;
+ if(Math.hypot(p.x-q.x,p.y-q.y)>6){
+  p.x=q.x-Math.sin(q.angle)*2.2;
+  p.y=q.y+Math.cos(q.angle)*2.2;
+  bridge.cam.x=bridge.cam.tx=p.x;
+  bridge.cam.y=bridge.cam.ty=p.y;
+ }
  system.position={...q};
  system.collider={x:state.x,y:state.y,r:1.05,kind:'vehicle',h:1.4};
  bridge.world.circles.push(system.collider);
