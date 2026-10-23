@@ -256,7 +256,9 @@ function moveCar(dt){
   Object.assign(state,old,{speed:0});
  }
  system.braking=c.down('s')||c.down(' ');
- stepWheelRig(wheelRig,state.distance-old.distance,state.steer);
+ const signedTravel=(state.x-old.x)*Math.cos(old.angle)+
+   (state.y-old.y)*Math.sin(old.angle);
+ stepWheelRig(wheelRig,signedTravel,state.steer);
  system.collider.x=state.x;system.collider.y=state.y;
  p.x=state.x;p.y=state.y;p.speed=0;p.wantShot=false;p.aiming=false;
  p.running=false;p.aimHold=0;
