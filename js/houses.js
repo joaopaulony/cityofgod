@@ -405,7 +405,7 @@ world.paintFloors = (g, M, rect) => {
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
   }
   for (const H of mode === 'walk' ? [] : houses) {
-    if (skipH(H) || far(H.x0, H.y0, H.x1, H.y1, 6)) continue;   // sombra projetada alcança ~4 m
+    if (skipH(H) || far(H.x0, H.y0, H.x1, H.y1, Math.max(6, H.h * 0.6 + 2))) continue;   // sombra projetada (prédios: mais longa)
     // sombra projetada (na direção oposta ao sol)
     const k = (H.h + (H.roofKind === 'gable' ? 1.2 : 0)) * 0.55, ox = -SUN[0] * k, oy = -SUN[1] * k;
     g.fillStyle = 'rgba(20,26,12,0.34)';
@@ -458,13 +458,13 @@ function drawWallSlice(g, s, z0, z1, u0, u1, forceExt) {
   const outside = forceExt || (s.ext && f > 0);
   const tex = s.ext ? (outside ? T.ext[s.side] : T.int[s.side]) : T.part;
   const m = wallMap(s), O = proj(m.a[0], m.a[1], 0), A = proj(m.a[0] + m.dir[0], m.a[1] + m.dir[1], 0), Zp = proj(m.a[0], m.a[1], 1);
-  const zx = Zp.x - O.x, zy = Zp.y - O.y;
-  let sx = (m.idx + u0) * TEX - 0.7, sw = (u1 - u0) * TEX + 1.4;
+  const zx = Zp.x - O.x, zy = Zp.y - O.y, K = tex.ppm || TEX;   // prédios Miami pintam a fachada em outra resolução
+  let sx = (m.idx + u0) * K - 0.7, sw = (u1 - u0) * K + 1.4;
   if (sx < 0) { sw += sx; sx = 0; }
   if (sx + sw > tex.width) sw = tex.width - sx;
-  const sy = (m.Hc - z1) * TEX, sh = (z1 - z0) * TEX;
+  const sy = (m.Hc - z1) * K, sh = (z1 - z0) * K;
   g.save(); g.imageSmoothingEnabled = true;
-  g.transform((A.x - O.x) / TEX, (A.y - O.y) / TEX, -zx / TEX, -zy / TEX, O.x + zx * m.Hc, O.y + zy * m.Hc);
+  g.transform((A.x - O.x) / K, (A.y - O.y) / K, -zx / K, -zy / K, O.x + zx * m.Hc, O.y + zy * m.Hc);
   g.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh);
   g.restore();
 }
@@ -634,6 +634,7 @@ function behindHouse(H, px, py) {
   return pp.x > Math.min(...xs) - 6 && pp.x < Math.max(...xs) + 6 && pp.y > Math.min(...ys) && pp.y < Math.max(...ys);
 }
 function drawBox(g,b) {
+  if (b.draw) return b.draw(g, b);   // objetos com desenho próprio (miami-city.js)
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
   for (let i = 0; i < 4; i++) {
@@ -776,6 +777,7 @@ function fenceGrain(g,s,t0,t1,z,seed){
   g.restore();
 }
 function drawFence(g,s){
+  if (s.chain) return drawChainFence(g, s);
   const old=s.woodSeed||0,grain=old%13;
   const rural=!!s.rural;
   const base=rural?'#98744c':'#b59b77';

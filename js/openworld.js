@@ -55,7 +55,9 @@ function hashSegs(map, pts, pad, extra) {
 function owInstallFields() {
   const geo = OW.geo, { N1, N2 } = geo.noise, C = OW.RC;
   // distrito com fronteira orgânica (mesmo deslocamento usado pelo atlas)
-  world.districtFn = (x, y) => geo.districtAt(x + (N1(x * 0.03, y * 0.03) - 0.5) * 34, y + (N2(x * 0.03 + 7, y * 0.03) - 0.5) * 34);
+  const rawDist = (x, y) => geo.districtAt(x + (N1(x * 0.03, y * 0.03) - 0.5) * 34, y + (N2(x * 0.03 + 7, y * 0.03) - 0.5) * 34);
+  // orla: roça/campo encostado no mar vira praia (faixa) e mata de restinga atrás
+  world.districtFn = (x, y) => { const d = rawDist(x, y); if ((d === D_.FARM || d === D_.RURAL) && geo.coastDist(x, y) < 200) return geo.coastDist(x, y) < 70 ? D_.BEACH : D_.FOREST; return d; };
   // distância até a borda do asfalto normalizada: o terreno vê ROAD_W na borda de qualquer via
   world.roadDistFn = (x, y) => {
     const a = OW.roadHash.get(Math.floor(y / C) * 65536 + Math.floor(x / C)); if (!a) return 99;
@@ -97,7 +99,8 @@ function owInstallFields() {
 function owPaintMini() {
   const geo = OW.geo, k = OW.MINI_PPM, c = makeCanvas(geo.W * k, geo.H * k), g2 = c.getContext('2d');
   const COLS = { [D_.SEA]: '#2c5f74', [D_.BEACH]: '#cdbb8c', [D_.DOWNTOWN]: '#8f8c86', [D_.URBAN]: '#6f8248', [D_.FAVELA]: '#8a6a4c', [D_.GHETTO]: '#77785e',
-    [D_.INDUSTRIAL]: '#7d8086', [D_.PORT]: '#7a7c80', [D_.FARM]: '#8c8a46', [D_.FOREST]: '#2f4a28', [D_.TOWN]: '#6a8344', [D_.AIRPORT]: '#83955a', [D_.RURAL]: '#6c8a3a', [D_.RIVER]: '#3d6c78' };
+    [D_.INDUSTRIAL]: '#7d8086', [D_.PORT]: '#7a7c80', [D_.FARM]: '#8c8a46', [D_.FOREST]: '#2f4a28', [D_.TOWN]: '#6a8344', [D_.AIRPORT]: '#83955a', [D_.RURAL]: '#6c8a3a', [D_.RIVER]: '#3d8c98' };
+  COLS[D_.SEA] = '#2a8fa8'; COLS[D_.BEACH] = '#e2d3ae';
   const cs = geo.C * k;
   for (let j = 0; j < geo.NY; j++) for (let i = 0; i < geo.NX; i++) { g2.fillStyle = COLS[geo.dist[j * geo.NX + i]]; g2.fillRect(i * cs, j * cs, cs + 0.5, cs + 0.5); }
   g2.lineCap = 'round'; g2.lineJoin = 'round';
@@ -173,7 +176,7 @@ function owPlaceAirport(S, q) {
 
 const OW_TRACK = () => [['houses', houses], ['boxes', boxes], ['fences', fences], ['props', world.props], ['circles', world.circles], ['segs', world.segs],
   ['upperSegs', world.upperSegs], ['lamps', world.lamps], ['yards', world.yards], ['litter', urbanLife.litter], ['bins', urbanLife.bins],
-  ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies]];
+  ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies], ['decals', world.decals]];
 function owSnap() { return OW_TRACK().map(([, a]) => a.length); }
 function owCollect(S, snap) {
   OW_TRACK().forEach(([name, a], i) => {
@@ -223,8 +226,10 @@ function* owGenSector(S) {
   const rects = [];
   const apq = owAirportFor(S);
   if (apq) { const H = owPlaceAirport(S, apq); rects.push([H.x0 - 4, H.y0 - 40, H.x1 + 4, H.y1 + 6]); yield; }
-  // --- casas ao longo das vias, de frente p/ a rua (modelo depende do distrito do lote)
-  if (built > 0.02) {
+  // --- Miami: prédios, mansões, bangalôs, casas pobres, praia e ruas (miami-city.js)
+  yield* miaGenSector(S, rects);
+  // --- casas ao longo das vias (gerador antigo, desligado: substituído pela ocupação Miami)
+  if (false) {
     const cands = [];
     for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 5) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, r: rng() }); }
     cands.sort((a, b) => a.r - b.r);
@@ -288,6 +293,9 @@ function* owGenSector(S) {
     if (OW_BARE.has(di) || owAirfield(x, y)) continue;
     if (rng() > smooth(clamp((f - 0.46) / 0.24, 0, 1)) * 0.85 + (di === D_.FARM ? 0.0006 : di === D_.RURAL ? 0.003 : BUILT.has(di) ? 0.002 : 0.004)) continue;
     if (!owFree(S, x, y, 1.2)) continue;
+    const tropical = BUILT.has(di) || world.geoCoast(x, y) < 500;
+    if (BUILT.has(di) && di !== D_.FAVELA && rng() < 0.75) continue;   // bairro: lotes ocupados, não mata
+    if (tropical && rng() < 0.45) { miaPalm(x, y, rng() < 0.7 ? 'coconut' : 'royal'); n++; continue; }
     const sp = f > 0.64 && rng() < 0.65 ? P.pines[(rng() * P.pines.length) | 0] : P.oaks[(rng() * P.oaks.length) | 0];
     const t = { type: 'tree', x, y, sp, hit: 0, phase: rng() * 6 };
     world.props.push(t); owAddCircle({ x, y, r: 0.28, kind: 'tree', ref: t, h: 6 });
@@ -301,6 +309,8 @@ function* owGenSector(S) {
     if (rng() > Math.max(0.03, edge * 0.5)) continue;
     const db = dd(x, y); if (OW_BARE.has(db) || owAirfield(x, y) || (db === D_.FARM && rng() > 0.12)) continue;
     if (!owFree(S, x, y, 0.7)) continue;
+    if (BUILT.has(db) && rng() < 0.55) continue;
+    if (BUILT.has(db) && rng() < 0.7) { miaBush(x, y, ['hibiscus', 'croton', 'seagrape', 'bougainvillea'][(rng() * 4) | 0]); n++; continue; }
     const s = P.bushes[(rng() * P.bushes.length) | 0]; world.props.push({ type: 'bush', x, y, sp: s, phase: rng() * 6 });
     owAddCircle({ x, y, r: s.r * 0.6, kind: 'bush', soft: true });
     bakeShadow(x, y, s.r, s.r * 0.6, 1); n++;
@@ -321,6 +331,7 @@ function* owGenSector(S) {
     if (pv < 1.1) { if (rng() < 0.5) world.props.push({ type: 'tuft', x, y, sp: P.reeds[i % 2], phase: rng() * 6, flat: true }); continue; }
     if (onRoad(x, y) || world.blocked(x, y, 0.2)) continue;
     const d = dd(x, y); if (OW_BARE.has(d) || owAirfield(x, y)) continue;
+    if ((d === D_.URBAN || d === D_.TOWN) && rng() < 0.85) continue;   // gramados de Miami são aparados
     world.props.push({ type: 'tuft', x, y, sp: P.tufts[i % P.tufts.length], phase: rng() * 6, flat: true });
   }
   yield;
@@ -356,6 +367,7 @@ function* owGenSector(S) {
     for (let i = 0; i < 2400 && fl.length < 220; i++) {
       const x = x0 + 1 + R3() * (S.SP - 2), y = y0 + 1 + R3() * (S.SP - 2), f = forest(x, y);
       if (f < 0.36 || f > 0.79 || !ecoFree(x, y)) continue;
+      const de = dd(x, y); if ((de === D_.URBAN || de === D_.TOWN || de === D_.DOWNTOWN) && R3() < 0.9) continue;
       const type = (R3() * ecosystem.sprites.length) | 0;
       const o = { x, y, sp: ecosystem.sprites[type], phase: R3() * TAU, density: 0.65 + R3() * 0.35, kind: type }; ecosystem.flowers.push(o); fl.push(o);
     }
@@ -478,6 +490,7 @@ function owWalk(H) {
 // manchas). Os carimbos são feitos na montagem do mundo, na mesma ordem sempre (sorteio determinístico).
 function owTreeStamp(sp) {
   if (sp._shStamp) return sp._shStamp;
+  if (sp.kind === 'palm') return palmShadowStamp(sp);
   const R = sp.r * 2 + sp.trunkH + 2, size = Math.ceil(2 * R * OW.SPPM), c = makeCanvas(size, size), ctx = c.getContext('2d');
   ctx.setTransform(OW.SPPM / PPM, 0, 0, OW.SPPM / PPM, -(100 - R) * OW.SPPM, -(100 - R) * OW.SPPM);
   const prev = world.groundCtx; world.groundCtx = ctx;
@@ -587,7 +600,7 @@ function buildOpenWorld() {
   rngCur = mulberry(COG.WORLD_SEED ^ 0x5bd1e995);
   { const p = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 512; i++) PERM[i] = p[i & 255]; }
   OW.cw = COG.buildWorld(COG.WORLD_SEED); OW.geo = OW.cw.geo; COG.indexRoads(OW.cw);
-  for (const rd of OW.cw.roads) if (rd.cls !== 'rail') hashSegs(OW.roadHash, rd.pts, rd.w / 2 + SIDE + 14, { off: rd.w / 2 - ROAD_W });
+  for (const rd of OW.cw.roads) if (rd.cls !== 'rail') hashSegs(OW.roadHash, rd.pts, rd.w / 2 + SIDE + 14, { off: rd.w / 2 - ROAD_W, id: rd.id });
   for (const rv of OW.geo.rivers) hashSegs(OW.riverHash, rv.pts, rv.w / 2 + 14, { hw: rv.w / 2 });
   owInstallFields();
   world.roads = []; world.junction = null; world.pond = null; world.pondPoly = null; world.trails = []; world.trafficSignals = [];
@@ -610,6 +623,8 @@ function buildOpenWorld() {
     reeds: [makeTuft('#3d6b3a', '#5a8a46', 24), makeTuft('#4a7a3c', '#6f9a4e', 28)],
   };
   for (const sp of [...OW.pools.oaks, ...OW.pools.pines]) owTreeStamp(sp);
+  world.geoCoast = (x, y) => OW.geo.coastDist(x, y);
+  miaInit();
   urbanLife.litter = []; urbanLife.bins = []; urbanLife.sprites = URBAN_KINDS.map(kind => Array.from({ length: 3 }, (_, v) => urbanSprite(kind, v)));
   ecosystemInit();   // sprites das flores antes dos setores (o game.js chama de novo e ignora)
 

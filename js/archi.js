@@ -110,6 +110,27 @@ function paintWindow(g, x0, x1, ytop, ybot, S, rnd, exterior, wide) {
   const sg = g.createLinearGradient(0, sy + sh, 0, sy + sh + 0.14 * TEX);
   sg.addColorStop(0, 'rgba(30,22,15,0.35)'); sg.addColorStop(1, 'rgba(30,22,15,0)');
   g.fillStyle = sg; g.fillRect(sx0 + 2, sy + sh, sx1 - sx0 - 2, 0.14 * TEX);
+  if (exterior && S.shutters) {   // venezianas abertas ao lado do vão
+    const sw = Math.max(5, w * 0.32);
+    for (const sx of [x0 - sw - 2, x1 + 2]) {
+      g.fillStyle = 'rgba(30,22,15,0.25)'; g.fillRect(sx + 2, ytop + 2, sw, h);
+      g.fillStyle = S.shutters; g.fillRect(sx, ytop, sw, h);
+      g.fillStyle = 'rgba(0,0,0,0.22)'; for (let yy = ytop + 3; yy < ybot - 1; yy += 4) g.fillRect(sx + 1, yy, sw - 2, 1);
+      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.strokeRect(sx + 0.5, ytop + 0.5, sw - 1, h - 1);
+    }
+  }
+  if (exterior && S.boarded && rnd() < 0.3) {   // compensado pregado no vão (casa abandonada)
+    g.fillStyle = '#b08d5c'; g.fillRect(x0 + 2, ytop + 2, w - 4, h - 4);
+    g.fillStyle = 'rgba(80,55,30,0.35)'; for (let yy = ytop + 6; yy < ybot - 4; yy += 7) g.fillRect(x0 + 2, yy, w - 4, 1);
+    g.fillStyle = 'rgba(60,40,20,0.5)'; g.fillRect(x0 + 2, ytop + h * 0.5, w - 4, 2);
+    g.fillStyle = '#3a3a3a'; for (const px of [x0 + 5, x1 - 7]) for (const py of [ytop + 5, ybot - 7]) g.fillRect(px, py, 2, 2);
+    return;
+  }
+  if (exterior && S.bars) {   // grade de ferro (bairros pobres de Miami)
+    g.fillStyle = '#2a2a2c'; for (let bx = x0 + 4; bx < x1 - 2; bx += 0.11 * TEX) g.fillRect(bx, ytop + 2, 2, h - 4);
+    g.fillRect(x0 + 2, ytop + h * 0.33, w - 4, 2); g.fillRect(x0 + 2, ytop + h * 0.66, w - 4, 2);
+    g.fillStyle = 'rgba(255,255,255,0.15)'; for (let bx = x0 + 4; bx < x1 - 2; bx += 0.11 * TEX) g.fillRect(bx, ytop + 2, 0.7, h - 4);
+  }
   if (exterior && S.aging > 0.45) for (const ex of [sx0 + 4, sx1 - 6]) {
     const dg = g.createLinearGradient(0, sy + sh, 0, sy + sh + 0.5 * TEX);
     dg.addColorStop(0, `rgba(70,58,40,${S.aging * 0.25})`); dg.addColorStop(1, 'rgba(70,58,40,0)');
@@ -120,6 +141,7 @@ function paintWindow(g, x0, x1, ytop, ybot, S, rnd, exterior, wide) {
 // ---------- fachada de um lado inteiro da casa ----------
 // segs: pedaços desse lado (com idx); Hc: altura total da textura (inclui empena/platibanda)
 function paintFacade(H, side, exterior, rnd) {
+  if (H.facadeFn) { const fc = H.facadeFn(H, side, exterior, rnd, false); if (fc) return fc; }
   const S = H.style, sd = H.sides[side], L = sd.len, Hc = sd.Hc, W = L * TEX, Hp = Math.ceil(Hc * TEX);
   const c = makeCanvas(W, Hp), g = c.getContext('2d');
   const Y = z => (Hc - z) * TEX, X = u => u * TEX;
@@ -240,7 +262,7 @@ function paintFacade(H, side, exterior, rnd) {
   }
   // luz do sol assada na textura (a normal de cada lado é fixa no mundo)
   const n = LOCAL_SIDES[side].n;
-  bakeLight(g, W, Hp, exterior ? [n[0], n[1], 0] : [-n[0], -n[1], 0], 0.75);
+  bakeLight(g, W, Hp, exterior ? [n[0], n[1], 0] : [-n[0], -n[1], 0], H.miaKind ? 0.45 : 0.75);   // Miami: muita luz rebatida no reboco claro
   return c;
 }
 function bakeLight(g, W, Hh, n, k = 1) {

@@ -183,9 +183,10 @@ function drawFlatRoof(g, H) {
   for (const d of [[H.x0 + t + 0.25, H.y1 - t - 0.25], [H.x1 - t - 0.25, H.y0 + t + 0.25]]) {
     const p = proj(d[0], d[1], z); g.fillStyle = '#2b2a28'; g.fillRect(p.x - 3, p.y - 1.5, 6, 3); g.fillStyle = '#6b6a66'; g.fillRect(p.x - 2, p.y - 1, 4, 1);
   }
-  const its = H.roofItems.slice().sort((a, b) => depthOf(a.x, a.y) - depthOf(b.x, b.y));
+  const its = H.roofItems.slice().sort((a, b) => (a.flat ? -1e9 : depthOf(a.x, a.y)) - (b.flat ? -1e9 : depthOf(b.x, b.y)));
   for (const it of its) {
-    if (it.k === 'tank') {
+    if (it.draw) it.draw(g, H, z, it);
+    else if (it.k === 'tank') {
       drawBox(g, { x: it.x, y: it.y, z, w: 1.5, d: 1.5, h: 0.25, rot: 0, top: '#a9a59c', side: '#8a867e' });
       drawCyl(g, it.x, it.y, z + 0.25, 0.68, 0.95, '#3c74ad', '#4f88c0');
       const l = proj(it.x, it.y, z + 1.2); g.fillStyle = '#2f5f90'; g.beginPath(); g.ellipse(l.x, l.y, cam.zoom * 0.35, cam.zoom * 0.35 * TILT, 0, 0, TAU); g.fill();

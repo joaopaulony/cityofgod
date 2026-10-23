@@ -220,7 +220,7 @@ function spawnAmbientLeaves(dt) {
   if (dt <= 0) return;
   const near = [];
   for (const p of world.props) {
-    if (p.type !== 'tree' || Math.abs(p.x-cam.x)>16 || Math.abs(p.y-cam.y)>16) continue;
+    if (p.type !== 'tree' || p.sp.kind === 'palm' || Math.abs(p.x-cam.x)>16 || Math.abs(p.y-cam.y)>16) continue;   // palmeira não solta folhas
     near.push(p);
   }
   if (!near.length) { ambientLeafBudget = 0; return; }

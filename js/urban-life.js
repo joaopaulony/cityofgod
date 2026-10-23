@@ -338,7 +338,7 @@ function urbanChimneyTex(c,index){
 function urbanChimneyFor(H,T,L){
   // Lajes de concreto nao possuem agua inclinada para acoplar chaminés.
   // Preserva caixas-d'agua, ventilacoes e antenas nas lajes.
-  if(H.roofKind==='flat'||H.brick||H.templateKey==='SHOP')return;
+  if(world.open||H.roofKind==='flat'||H.brick||H.templateKey==='SHOP')return;   // Miami: casas sem lareira
   const r=mulberry((H.seed*2101+41)>>>0);
   if(r()>(H.rural?.52:.36))return;
   const wide=(H.x1-H.x0)>=(H.y1-H.y0),W=H.x1-H.x0,D=H.y1-H.y0;

@@ -140,7 +140,7 @@ function chunkItemsStep(ci, cj, maxIter) {
       continue;
     }
     if (w.water) {
-      if (f.pv > 0.72 && f.pv < 0.95 && pick < 0.03) items.push({ t: 'lily', x, y, s: 0.12 + r() * 0.14, a: r() * TAU, fl: r() < 0.12 });
+      if (f.pv > 0.72 && f.pv < 0.95 && pick < 0.03 && !(world.open && f.di !== 13)) items.push({ t: 'lily', x, y, s: 0.12 + r() * 0.14, a: r() * TAU, fl: r() < 0.12 });
       else if (f.pv > 0.95 && pick < 0.25) items.push({ t: 'foam', x, y, s: 0.04 + r() * 0.08 });
       continue;
     }
@@ -285,8 +285,8 @@ function paintRows(ch, rows) {
         // favela: terra batida e pisada com manchas de cimento; conjunto: grama gasta e terra
         const wv = wOf(4), wg = wOf(5);
         if (wv + wg > 0) {
-          const cem = d3 > 0.62 && wv > 0 ? 1 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
-          const cr = cem ? COL.curbF[0] * 1.1 : COL.dirt[0] * m, cg = cem ? COL.curbF[1] * 1.1 : COL.dirt[1] * m, cb = cem ? COL.curbF[2] * 1.1 : COL.dirt[2] * m;
+          const cem = d3 > 0.86 && wv > 0 ? 0.55 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
+          const cr = lerp(COL.dirt[0] * m, COL.curbF[0] * 1.1, cem), cg = lerp(COL.dirt[1] * m, COL.curbF[1] * 1.1, cem), cb = lerp(COL.dirt[2] * m, COL.curbF[2] * 1.1, cem);
           const ww3 = wv * 0.9 + wg * 0.45 * sstep(0.4, 0.7, d3);
           r = lerp(r, cr, ww3); gg = lerp(gg, cg, ww3); b = lerp(b, cb, ww3);
         }
@@ -305,10 +305,17 @@ function paintRows(ch, rows) {
       }
       // --- água: rasa esverdeada -> funda, com ondulação e espuma na margem
       if (pv < 1.02) {
-        const ww = sstep(1.02, 0.985, pv), dp = sstep(0, 0.6, 1 - pv), rip = 1 + (d3 - 0.5) * 0.14 + (d1 - 0.5) * 0.08;
+        const ww = sstep(1.02, 0.985, pv), dp = sstep(0, open ? 0.32 : 0.6, 1 - pv), rip = 1 + (d3 - 0.5) * 0.14 + (d1 - 0.5) * 0.08;
         let wr = lerp(COL.shallow[0], COL.deep[0], dp) * rip, wg = lerp(COL.shallow[1], COL.deep[1], dp) * rip, wb = lerp(COL.shallow[2], COL.deep[2], dp) * rip;
         const fe = 1 - sstep(0, 0.045, 1 - pv);
         wr = lerp(wr, COL.foam[0], fe * 0.55 * (0.6 + d1 * 0.4)); wg = lerp(wg, COL.foam[1], fe * 0.55 * (0.6 + d1 * 0.4)); wb = lerp(wb, COL.foam[2], fe * 0.55 * (0.6 + d1 * 0.4));
+        // linhas de espuma: onda que morre na areia + arrebentação mais ao largo (só no mar aberto)
+        if (open && Fdi[k] !== 13) {
+          const f1 = 1 - sstep(0, 0.0032, Math.abs(pv - 0.9925 + (d2 - 0.5) * 0.007)), f2 = (1 - sstep(0, 0.005, Math.abs(pv - 0.968 + (d3 - 0.5) * 0.03))) * 0.55 * sstep(0.35, 0.55, d2);
+          const f3 = (1 - sstep(0, 0.004, Math.abs(pv - 0.935 + (d2 - 0.5) * 0.04))) * 0.3 * sstep(0.45, 0.6, d1), f4 = (1 - sstep(0, 0.004, Math.abs(pv - 0.89 + (d1 - 0.5) * 0.05))) * 0.2 * sstep(0.5, 0.65, d3);
+          const ff = Math.max(f1, f2, f3, f4) * (0.55 + d1 * 0.45);
+          if (ff > 0) { wr = lerp(wr, 250, ff); wg = lerp(wg, 252, ff); wb = lerp(wb, 248, ff); }
+        }
         r = lerp(r, wr, ww); gg = lerp(gg, wg, ww); b = lerp(b, wb, ww);
       }
       // --- calçada / meio-fio / sarjeta / asfalto
@@ -582,8 +589,14 @@ function finishChunk(ch) {
   }
   if (stp === 2) {   // pisos e caminhos das casas (houses.js), em pixels do bloco — uma casa por passo
     // mesma ordem do desenho único: todos os caminhos, depois pisos/sombras, por fim as cercas
-    if (!ch.floorList) ch.floorList = [...houses.map(H => ['walk', H]), ...houses.map(H => ['floor', H]), ['fences', null]];
+    if (!ch.floorList) ch.floorList = [['decals', null], ...houses.map(H => ['walk', H]), ...houses.map(H => ['floor', H]), ['fences', null]];
     const [mode, H] = ch.floorList.shift(), last = !ch.floorList.length;
+    if (mode === 'decals') {
+      const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
+      g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy);
+      for (const d of world.decals || []) if (!(d.bb[0] > bx1 || d.bb[2] < bx0 || d.bb[1] > by1 || d.bb[3] < by0)) d.paint(g, d);
+      g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
+    }
     g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
     const M = v => v * TP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
     world.floorClip = [ch.ci * CH - 1, ch.cj * CH - 1, ch.ci * CH + CH + 1, ch.cj * CH + CH + 1];

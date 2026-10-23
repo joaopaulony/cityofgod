@@ -1049,11 +1049,12 @@ function moveTo(ox, oy, nx, ny, r, floor=0) {
 
 // desenho de um prop já ordenado por profundidade
 function drawProp(g, p, t, player) {
-  const sc = cam.zoom / SPR, base = proj(p.x, p.y, 0);
+  if (p.draw) return p.draw(g, p, t);
+  const sc = cam.zoom / SPR * (p.scale || 1), base = proj(p.x, p.y, 0);
   if (p.type === 'tree') {
     const sp = p.sp;
     g.save(); g.setTransform(sc, 0, 0, sc, base.x, base.y); g.drawImage(sp.trunk, -sp.tax, -sp.tay); g.restore();
-    const top = proj(p.x, p.y, sp.trunkH);
+    const top = proj(p.x, p.y, sp.trunkH * (p.scale || 1));
     const w = wind(t, p.x, p.y) * 0.05 + Math.sin(p.hit * 30) * p.hit * 0.15;
     // copa fica translúcida quando o jogador está atrás dela (como no Zomboid)
     let a = 1;
@@ -1063,7 +1064,7 @@ function drawProp(g, p, t, player) {
       if (dx * dx + dy * dy < 1.05 &&
           depthOf(player.x,player.y)<depthOf(p.x,p.y)-0.25) a=0.68;
     }
-    drawSway(g, sp.crown, sp.cax, sp.cay, { x: top.x + w * 8 * sc, y: top.y }, sc, w, a);
+    drawSway(g, sp.crown, sp.cax, sp.cay, { x: top.x + ((sp.topDx || 0) + w * 8) * sc, y: top.y }, sc, w, a);
   } else if (p.type === 'bush') {
     drawSway(g, p.sp.img, p.sp.ax, p.sp.ay, base, sc, wind(t, p.x, p.y) * 0.06);
   } else if (p.type === 'tuft') {
