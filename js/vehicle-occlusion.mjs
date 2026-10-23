@@ -3,7 +3,7 @@
 // quando necessario, sem rasterizar/screenshot do carro ou do cenario.
 export function createWorldOccluders(scene,THREE,bridge,material){
  const groups=[],dynamic=[],buckets=new Map(),
-  state={objects:0,actors:0,lamps:0,trees:0,bushes:0};
+  state={objects:0,actors:0,lamps:0,signals:0,bins:0,trees:0,bushes:0};
  const make=(geo,x,y,z,scale=null,live=false)=>{
   const m=live?new THREE.Mesh(geo,material):new THREE.Object3D();
   m.position.set(x,y,z);
@@ -36,12 +36,23 @@ export function createWorldOccluders(scene,THREE,bridge,material){
   make(cube,l.x+l.ax*1.1,4.05,l.y+l.ay*1.1,[.24,.10,.20]);
   state.lamps++;
  }
- // Semaforos podem ocultar os carros GLB: profundidade 3D das
- // hastes, do braço e da cabeca do sinal.
+ // Mesma geometria fisica do Canvas: poste em L transversal a rua,
+ // cabeca suspensa ao centro da pista, e placa do pedestre na coluna.
  for(const l of bridge.world.trafficSignals||[]){
-  beam(l.x,0,l.y,l.x,l.poleHeight,l.y,.064);
-  beam(l.x,l.poleHeight,l.y,l.x+l.ax*.60,l.headHeight,l.y+l.ay*.60,.05);
-  make(cube,l.x+l.ax*.60,l.headHeight,l.y+l.ay*.60,[.27,.70,.22]);
+  const tx=l.x+l.ix*l.armSpan,tz=l.y+l.iy*l.armSpan,
+   face={x:-l.ax,y:-l.ay};
+  beam(l.x,0,l.y,l.x,l.poleHeight,l.y,.073);
+  beam(l.x,l.armHeight,l.y,tx,l.armHeight,tz,.061);
+  beam(tx,l.armHeight,tz,tx,l.headHeight+.6,tz,.045);
+  const head=make(cube,tx,l.headHeight,tz,[.48,1.21,.25]);
+  head.rotation.y=Math.atan2(face.x,face.y);
+  const ped=make(cube,l.x,2.4,l.y,[.55,.68,.25]);
+  ped.rotation.y=Math.atan2(-l.ix,-l.iy);
+  state.signals++;
+ }
+ for(const b of bridge.urbanBins||[]){
+  make(cube,b.x,.49,b.y,[.60,.98,.58]);
+  state.bins++;
  }
  // Copas e troncos sao aproximacoes de profundidade; o sprite original
  // continua sendo desenhado pelo jogo e nunca vira uma textura 3D.
