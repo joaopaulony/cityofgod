@@ -21,7 +21,8 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  const step=Math.min(Math.max(dt,0),.05);
  if(!step)return {...state};
  const car={...state};
- const gas=controls.forward?1:0,reverse=controls.reverse?1:0;
+ const gas=controls.engineOn&&controls.forward?1:0,
+  reverse=controls.engineOn&&controls.reverse?1:0;
  const brake=controls.handbrake?1:0;
  const left=controls.left?1:0,right=controls.right?1:0;
  const targetSteer=(right-left)*steerLimit(car.speed,spec);
