@@ -47,7 +47,10 @@ const {chromium}=require('playwright'),fs=require('node:fs');
       x:cx+Math.sin(angle)*dist,y:cy+Math.cos(angle)*dist,
       angle:0,speed:0
      });
-     v.render();tick(0);
+     // Follow the actual vehicle: avoid false QA passes with car
+     // completely off-screen and only a visible roof in the screenshot.
+     cam.x=cam.tx=v.car.x;cam.y=cam.ty=v.car.y;
+     tick(0);v.render();
      const found=window.cityVehicleBridge.houses.find(h=>
       h.roofKind===H.kind&&h.x0===H.x0&&h.y0===H.y0);
      return {id,kind:H.kind,angle,status:v.status,
