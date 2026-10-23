@@ -165,7 +165,7 @@ function importModel(root,config=activeModel){
  root.traverse(obj=>{
   if(obj.isMesh){obj.castShadow=true;obj.receiveShadow=true;}
  });
- wheelRig=createWheelRig(root,THREE);
+ wheelRig=createWheelRig(root,THREE,{forward:config.front});
  system.wheels=wheelRig.metadata;
  system.wheelStatus=wheelRig.complete?'4 rodas articuladas':
   wheelRig.wheels.size+' de 4 rodas identificadas';
