@@ -15,6 +15,9 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   const info=await page.evaluate(()=>{
     const signals=world.trafficSignals||[],farm=houses.find(h=>h.rural);
     return {lamps:world.lamps.length,signals:signals.length,
+      depthSignals:window.cityVehicles.occlusionStats?.signals??-1,
+      depthBins:window.cityVehicles.occlusionStats?.bins??-1,
+      bins:urbanLife.bins.length,
       main:signals.filter(s=>s.group==='main').length,
       branch:signals.filter(s=>s.group==='branch').length,
       rural:houses.filter(h=>h.rural).length,
@@ -22,7 +25,8 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   console.log('WORLD INFRA',JSON.stringify(info));
   if(info.lamps<3||info.signals<2||info.main<1||info.branch<1||
-    info.rural<1||!info.ruralPath||info.car!=='ready')
+    info.rural<1||!info.ruralPath||info.car!=='ready'||
+    info.depthSignals!==info.signals||info.depthBins!==info.bins)
     throw Error('World infra missing '+JSON.stringify(info));
   const states=[];
   for(const [name,sec] of [['main-green',2],['main-yellow',22],
