@@ -8,8 +8,11 @@
   html, body { margin: 0; height: 100%; background: #14110f; overflow: hidden; }
   body { font-family: "Segoe UI", system-ui, sans-serif; color: #eee; user-select: none; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #view { image-rendering: auto; cursor: none; }
-  #vehicle3d { pointer-events: none; z-index: 1; }
+  /* Gráfico apenas: tonalidade, saturação e contraste da referência
+     isométrica, sem alterar texturas, malhas GLB ou alpha. */
+  #view { image-rendering: auto; cursor: none;
+    filter: saturate(1.12) contrast(1.075) brightness(1.015); }
+  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }
   #view { z-index: 0; }
@@ -62,6 +65,7 @@
   <div>Dia / noite <kbd>N</kbd></div>
   <div>Novo mapa <kbd>G</kbd></div>
 </div>
+<script src="js/visual-palette.js"></script>
 <script src="js/core.js"></script>
 <script src="js/world.js"></script>
 <script src="js/archi.js"></script>
