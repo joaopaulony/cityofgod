@@ -171,46 +171,62 @@ function drawVehicleSignalHead(g,signal,seconds,night,site){
   }
  });
 }
-function drawPedestrianIcon(g,pt,walk,size){
- // Pictograma humano construido de cabeca, tronco, bracos e pernas.
- const color=walk?'#73f1b6':'#ff6a5f';
- const w=Math.max(1,size*.17);
- g.lineCap='round';g.lineJoin='round';g.strokeStyle=color;g.lineWidth=w;
- g.fillStyle=color;g.beginPath();g.arc(pt.x,pt.y-size*.32,size*.11,0,TAU);g.fill();
+function drawPedestrianIcon(g,pt,walk,size,active=true){
+ // Mesmos simbolos de travessia do exemplo: PEDESTRE VERMELHO PARADO
+ // em cima e PEDESTRE VERDE CAMINHANDO embaixo. Nunca quadrados abstratos.
+ const color=walk?(active?'#69f6ad':'#244b3b'):
+   (active?'#fc665b':'#542725');
+ const width=Math.max(.8,size*.17);
+ g.save();g.lineCap='round';g.lineJoin='round';g.strokeStyle=color;
+ g.lineWidth=width;g.fillStyle=color;
+ g.beginPath();g.arc(pt.x,pt.y-size*.32,size*.11,0,TAU);g.fill();
  g.beginPath();g.moveTo(pt.x,pt.y-size*.17);
  if(walk){
-   g.lineTo(pt.x-size*.10,pt.y+size*.04);
-   g.lineTo(pt.x+size*.20,pt.y+size*.21);
-   g.moveTo(pt.x-size*.10,pt.y+size*.04);
-   g.lineTo(pt.x-size*.26,pt.y+size*.29);
-   g.moveTo(pt.x-size*.04,pt.y-size*.12);
-   g.lineTo(pt.x-size*.23,pt.y+size*.01);
-   g.moveTo(pt.x,pt.y-size*.12);
-   g.lineTo(pt.x+size*.21,pt.y-size*.05);
+  g.lineTo(pt.x-size*.11,pt.y+size*.025);
+  g.lineTo(pt.x+size*.19,pt.y+size*.23);
+  g.moveTo(pt.x-size*.11,pt.y+size*.025);
+  g.lineTo(pt.x-size*.25,pt.y+size*.28);
+  g.moveTo(pt.x-size*.055,pt.y-size*.13);
+  g.lineTo(pt.x-size*.23,pt.y+size*.015);
+  g.moveTo(pt.x,pt.y-size*.13);
+  g.lineTo(pt.x+size*.21,pt.y-size*.055);
  }else{
-   g.lineTo(pt.x,pt.y+size*.08);
-   g.moveTo(pt.x,pt.y+size*.02);g.lineTo(pt.x-size*.14,pt.y+size*.3);
-   g.moveTo(pt.x,pt.y+size*.02);g.lineTo(pt.x+size*.14,pt.y+size*.3);
-   g.moveTo(pt.x,pt.y-size*.12);g.lineTo(pt.x-size*.22,pt.y+size*.01);
-   g.moveTo(pt.x,pt.y-size*.12);g.lineTo(pt.x+size*.22,pt.y+size*.01);
+  g.lineTo(pt.x,pt.y+size*.085);
+  g.moveTo(pt.x,pt.y+size*.025);
+  g.lineTo(pt.x-size*.14,pt.y+size*.29);
+  g.moveTo(pt.x,pt.y+size*.025);
+  g.lineTo(pt.x+size*.14,pt.y+size*.29);
+  g.moveTo(pt.x,pt.y-size*.13);
+  g.lineTo(pt.x-size*.21,pt.y+size*.02);
+  g.moveTo(pt.x,pt.y-size*.13);
+  g.lineTo(pt.x+size*.21,pt.y+size*.02);
  }
- g.stroke();
+ g.stroke();g.restore();
 }
 function drawPedestrianSignalHead(g,signal,seconds){
  const geo=trafficSignalGeometry(signal),state=trafficPhase(seconds);
  const walk=state.pedestrian==='walk';
- const centerZ=2.40;
- const obj=drawSignalHousing(g,signal,geo.pedFront,.51,.64,centerZ);
+ const centerZ=2.35;
+ // A mesma cabeca orientada para o pedestre que espera na calcada,
+ // independentemente da orientacao da camera.
+ const obj=drawSignalHousing(g,signal,geo.pedFront,.55,.86,centerZ);
  if(!obj.frontVisible)return;
- const pt=obj.point(0,centerZ+.075,.15),size=Math.max(7,cam.zoom*.24);
- g.fillStyle='#091419';g.beginPath();
- g.roundRect(pt.x-size*.54,pt.y-size*.71,size*1.08,size*1.16,1.5);g.fill();
- drawPedestrianIcon(g,pt,walk,size);
- // Contagem digital separada para o intervalo de travessia protegida.
- const low=obj.point(0,centerZ-.20,.16);
- g.fillStyle=walk?'#7cf5ba':'#c9776f';
- g.font='bold '+Math.max(6,cam.zoom*.145)+'px monospace';
- g.textAlign='center';g.fillText(walk?String(state.countdown).padStart(2,'0'):'--',low.x,low.y+3);
+ const sz=Math.max(7,cam.zoom*.205);
+ const top=obj.point(0,centerZ+.19,.14);
+ const lower=obj.point(0,centerZ-.12,.14);
+ for(const [pt,walking,on] of [[top,false,!walk],[lower,true,walk]]){
+  g.fillStyle='#081216';g.strokeStyle='#354449';g.lineWidth=.7;
+  g.beginPath();g.roundRect(pt.x-sz*.45,pt.y-sz*.47,
+    sz*.9,sz*.79,Math.max(1,sz*.09));g.fill();g.stroke();
+  drawPedestrianIcon(g,pt,walking,sz*.86,on);
+ }
+ if(walk&&state.countdown>0){
+  const low=obj.point(0,centerZ-.335,.15);
+  g.fillStyle='#77edb4';
+  g.font='bold '+Math.max(6,cam.zoom*.13)+'px monospace';
+  g.textAlign='center';
+  g.fillText(String(state.countdown).padStart(2,'0'),low.x,low.y+2);
+ }
 }
 function drawTrafficSignal(g,signal,seconds,night){
  const geo=trafficSignalGeometry(signal),base=proj(signal.x,signal.y,0),
@@ -243,16 +259,21 @@ function drawTrafficSignal(g,signal,seconds,night){
  g.beginPath();g.moveTo(bend.x,bend.y+w*1.15);
  g.lineTo(brace.x,brace.y);g.stroke();
  g.fillStyle='#839095';g.beginPath();g.arc(bend.x,bend.y,w*.44,0,TAU);g.fill();
- // Trava de suspensão da cabeça veicular.
- const mount=proj(geo.tip.x,geo.tip.y,signal.headHeight+.66);
- g.strokeStyle='#242c30';g.lineWidth=Math.max(1,w*.50);
- g.beginPath();g.moveTo(tip.x,tip.y);g.lineTo(mount.x,mount.y);g.stroke();
+ // Duas cabecas de veiculos suspensas na faixa, ambas recebem as
+ // mesmas fases; jamais viram a luz de frente para a camera.
+ for(const site of trafficHeadSites(signal)){
+  const start=proj(site.x,site.y,signal.armHeight);
+  const mount=proj(site.x,site.y,signal.headHeight+.66);
+  g.strokeStyle='#242c30';g.lineWidth=Math.max(1,w*.50);
+  g.beginPath();g.moveTo(start.x,start.y);g.lineTo(mount.x,mount.y);g.stroke();
+ }
  // Quadro de inspeção / conduíte de sinalização.
  const hatch=proj(signal.x,signal.y,1.24);
  g.fillStyle='#222a2d';g.fillRect(hatch.x-w*.33,hatch.y-w*.6,w*.66,w*1.22);
  g.strokeStyle='#8e999d';g.lineWidth=.7;
  g.strokeRect(hatch.x-w*.33,hatch.y-w*.6,w*.66,w*1.22);
- drawVehicleSignalHead(g,signal,seconds,night);
+ for(const site of trafficHeadSites(signal))
+  drawVehicleSignalHead(g,signal,seconds,night,site);
  drawPedestrianSignalHead(g,signal,seconds);
  g.restore();
 }
