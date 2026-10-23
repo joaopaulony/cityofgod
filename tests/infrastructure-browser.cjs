@@ -28,6 +28,57 @@ const {chromium}=require('playwright'),fs=require('node:fs');
     info.rural<1||!info.ruralPath||info.car!=='ready'||
     info.depthSignals!==info.signals||info.depthBins!==info.bins)
     throw Error('World infra missing '+JSON.stringify(info));
+  // 4 cameras CARDINAIS: lights only visible from the APPROACH side;
+  // the back and profile display metal surfaces, not front-facing circles.
+  const quadrants=[];
+  for(const [index,angle] of [0,Math.PI/2,Math.PI,Math.PI*1.5].entries()){
+    const row=await page.evaluate(angle=>{
+      const l=world.trafficSignals[0],view=trafficHeadView(
+       trafficSignalGeometry(l).face,angle);
+      const original={x:cam.x,y:cam.y,ang:cam.ang,zoom:cam.zoom};
+      cam.ang=cam.tang=angle;cam.sin=Math.sin(angle);cam.cos=Math.cos(angle);
+      cam.zoom=cam.tzoom=ZOOMS[4];
+      const site=trafficHeadSites(l)[1];
+      cam.x=cam.tx=(l.x+site.x)/2;cam.y=cam.ty=(l.y+site.y)/2;
+      const canvas=makeCanvas(cam.W,cam.H),g=canvas.getContext('2d');
+      drawTrafficSignal(g,l,24.5,false);
+      const px=g.getImageData(0,0,canvas.width,canvas.height).data;
+      const point=proj(site.x,site.y,l.headHeight+.36);
+      let redPixels=0,bodyPixels=0;
+      const cx=Math.round(point.x),cy=Math.round(point.y);
+      const radius=Math.round(cam.zoom*.82);
+      for(let y=Math.max(0,cy-radius);y<Math.min(canvas.height,cy+radius);y++)
+       for(let x=Math.max(0,cx-radius);x<Math.min(canvas.width,cx+radius);x++){
+        const k=(y*canvas.width+x)*4;
+        if(px[k+3]>100)bodyPixels++;
+        if(px[k]>160&&px[k]>px[k+1]*1.45&&px[k]>px[k+2]*1.45&&px[k+3]>80)
+         redPixels++;
+       }
+      // Isolated signal to prevent false positives from colorful foliage.
+      const dataUrl=canvas.toDataURL('image/png');
+      const result={angle,view,redPixels,bodyPixels,
+       main:signalState(l,24.5),twoHeads:trafficHeadSites(l).length,
+       armSpan:trafficSignalGeometry(l).span,
+       face:trafficSignalGeometry(l).face};
+      window.__signalQAImage=dataUrl;
+      cam.x=cam.tx=original.x;cam.y=cam.ty=original.y;
+      cam.ang=cam.tang=original.ang;cam.zoom=cam.tzoom=original.zoom;
+      cam.cos=Math.cos(cam.ang);cam.sin=Math.sin(cam.ang);
+      return result;
+    },angle);
+    console.log('FOUR CAMERA QA',JSON.stringify(row));
+    if(row.twoHeads!==2||row.bodyPixels<30||
+       (row.view==='front'&&row.redPixels<5)||
+       (row.view!=='front'&&row.redPixels>3))
+      throw Error('Bad traffic light face at camera '+index+': '+JSON.stringify(row));
+    quadrants.push(row);
+    const image=await page.evaluate(()=>window.__signalQAImage);
+    fs.writeFileSync('artifacts/infrastructure/traffic-angle-'+index+'.png',
+      Buffer.from(image.split(',')[1],'base64'));
+  }
+  if(quadrants.filter(r=>r.view==='front').length<1||
+      quadrants.filter(r=>r.view==='back').length<1)
+    throw Error('Four cameras did not show both front and rear');
   const states=[];
   for(const [name,sec] of [['main-green',2],['main-yellow',22],
     ['all-red',24.5],['side-green',32],['side-yellow',43],['pedestrians-walk',49]]){
@@ -116,7 +167,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   await page.screenshot({path:'artifacts/infrastructure/sidewalk-bin-detailed.png'});
   if(errors.length)throw Error('Browser errors '+JSON.stringify(errors));
   fs.writeFileSync('artifacts/infrastructure/report.json',
-    JSON.stringify({info,states,farm},null,2));
+    JSON.stringify({info,quadrants,states,farm},null,2));
   console.log('PASS traffic phases, daylight/night LED streetlamps and rural gravel path');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

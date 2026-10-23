@@ -70,6 +70,38 @@ test('state stays periodic and safe across long play sessions',()=>{
    assert.equal(phase(t).branch,phase(t+54*1200).branch);
  }
 });
+test('two suspended vehicle heads keep fixed world geometry at four camera angles',()=>{
+ const signal={x:20,y:30,ax:1,ay:0,ix:0,iy:-1,
+  armSpan:4.45,armHeight:4.14,headHeight:3.45};
+ const sites=vm.runInContext('trafficHeadSites('+JSON.stringify(signal)+')',context);
+ assert.equal(sites.length,2);
+ assert.ok(sites[0].fraction===.53&&sites[1].fraction===1);
+ assert.ok(sites[0].y>sites[1].y);
+ const g=vm.runInContext('trafficSignalGeometry('+JSON.stringify(signal)+')',context);
+ const angles=[0,Math.PI/2,Math.PI,Math.PI*1.5];
+ const views=angles.map(yaw=>vm.runInContext(
+  'trafficHeadView('+JSON.stringify(g.face)+','+yaw+')',context));
+ assert.equal(views[0],'side');
+ assert.equal(views[1],'back');
+ assert.equal(views[2],'side');
+ assert.equal(views[3],'front');
+ // Physical face remains fixed: front and back cannot both illuminate.
+ for(let i=0;i<2;i++){
+  assert.equal(vm.runInContext(
+   'trafficHeadView('+JSON.stringify(g.face)+','+angles[i]+')',context),
+   views[i]);
+ }
+});
+test('both original pedestrian pictograms remain independent, not a color square',()=>{
+ const src=read('js/traffic-signals.js');
+ assert.match(src,/function drawPedestrianIcon/);
+ assert.match(src,/pedestrian.*walk/);
+ assert.ok(src.includes('[[top,false,!walk],[lower,true,walk]]'));
+ assert.ok(src.includes('trafficHeadSites(signal)'));
+ assert.ok(src.includes('trafficHeadView(front,cam.ang)'));
+ const oc=read('js/vehicle-occlusion.mjs');
+ assert.ok(oc.includes('fraction of [.53,1]'));
+});
 test('streetlamp maintains occluder coordinates and night light source',()=>{
  const world=read('js/world.js'),oc=read('js/vehicle-occlusion.mjs'),
   vis=read('js/vision-light.js'),game=read('js/game.js');
