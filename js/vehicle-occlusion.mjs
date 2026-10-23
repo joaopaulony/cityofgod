@@ -36,6 +36,13 @@ export function createWorldOccluders(scene,THREE,bridge,material){
   make(cube,l.x+l.ax*1.1,4.05,l.y+l.ay*1.1,[.24,.10,.20]);
   state.lamps++;
  }
+ // Semaforos podem ocultar os carros GLB: profundidade 3D das
+ // hastes, do braço e da cabeca do sinal.
+ for(const l of bridge.world.trafficSignals||[]){
+  beam(l.x,0,l.y,l.x,l.poleHeight,l.y,.064);
+  beam(l.x,l.poleHeight,l.y,l.x+l.ax*.60,l.headHeight,l.y+l.ay*.60,.05);
+  make(cube,l.x+l.ax*.60,l.headHeight,l.y+l.ay*.60,[.27,.70,.22]);
+ }
  // Copas e troncos sao aproximacoes de profundidade; o sprite original
  // continua sendo desenhado pelo jogo e nunca vira uma textura 3D.
  for(const p of bridge.world.props||[]){
