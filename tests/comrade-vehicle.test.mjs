@@ -33,6 +33,25 @@ test('front rims and tires steer; all four wheels roll by distance/radius',()=>{
  resetWheelRig(w);
  for(const n of nodes){assert.equal(n.rotation.x,0);assert.equal(n.rotation.y,0);}
 });
+test('existing Silvia FL/FR/RL/RR assemblies steer while tire/rim/disc roll',()=>{
+ const roles=['FL_15','FR_29','RL_22','RR_36'];
+ const nodes=roles.map(name=>({isObject3D:true,name,
+  rotation:{x:0,y:0,z:0,set(x,y,z){Object.assign(this,{x,y,z});}},
+  children:['Cal.001','Disc.001','Rim1.004','Rim2.004','Tyre_14'].map(name=>({
+   name,rotation:{x:0,y:0,z:0,set(x,y,z){Object.assign(this,{x,y,z});}}}))
+ }));
+ const THREE={Box3:class{setFromObject(){return this}get min(){return {y:-.33}}get max(){return {y:.33}}}};
+ const rig=createWheelRig({traverse(fn){nodes.forEach(fn)}},THREE);
+ assert.equal(rig.complete,true);
+ stepWheelRig(rig,1.32,.25);
+ assert.equal(nodes[0].rotation.y,-.25);
+ assert.equal(nodes[2].rotation.y,0);
+ for(const n of nodes){
+  assert.equal(n.children.find(x=>x.name.startsWith('Tyre')).rotation.x,2);
+  assert.equal(n.children.find(x=>x.name.startsWith('Rim')).rotation.x,2);
+  assert.equal(n.children.find(x=>x.name.startsWith('Cal')).rotation.x,0);
+ }
+});
 test('all ten authentic Comrade models registered with 4 wheel pivots',()=>{
  assert.equal(VEHICLE_MODELS.length,11);
  assert.equal(VEHICLE_MODELS.filter(x=>x.source==='passenger').length,10);
