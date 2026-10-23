@@ -1,0 +1,41 @@
+name: Live 3D GLB vehicle visual and driving QA
+
+on:
+  pull_request:
+    paths:
+      - js/vehicle-webgl*
+      - js/vehicle-physics.mjs
+      - assets/vehicles/live/**
+      - tests/live*
+      - js/game.js
+      - index.html
+      - .github/workflows/live-glb-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  live-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test physics and source contracts
+        run: node --test tests/live-vehicle.test.mjs
+      - name: Install browser driver
+        run: npm install --no-audit --no-fund --no-save playwright@1.56.1
+      - name: Load GLB in Chrome WebGL and test live driving
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/cityofgod-webgl.log 2>&1 &
+          sleep 2
+          node tests/live-glb-browser.cjs
+      - name: Upload 3D car driving evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cityofgod-live-glb-driving
+          path: artifacts/live-glb-*.png
+          if-no-files-found: ignore

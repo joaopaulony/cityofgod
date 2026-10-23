@@ -27,6 +27,14 @@ let fireCD = 0, last = performance.now(), T = 0, dragX = null;
 const ZOOMS = [22, 28, 34, 42, 52, 64].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
+// Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
+// O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
+window.cityVehicleBridge={
+  cam,player,world,houses,boxes,
+  down:k=>input.down(k),hit:k=>input.hit(k),
+  pondVal,
+  get mapSize(){return MAP;}
+};
 
 function resize() {
   view.width = Math.ceil(innerWidth / RS); view.height = Math.ceil(innerHeight / RS);
@@ -130,6 +138,10 @@ function fire(J) {
 // ---------- atualização ----------
 function updatePlayer(dt) {
   const p = player;
+  if(window.cityVehicles?.driver){
+    p.speed=0;p.aiming=false;p.wantShot=false;p.running=false;
+    p.aimHold=0;return;
+  }
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
@@ -306,6 +318,7 @@ function render() {
     list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night),lamp:l });
   }
   for (const a of actors) {
+    if(a===player&&window.cityVehicles?.driver)continue;
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
       a.x>H.x0&&a.x<H.x1&&a.y>H.y0&&a.y<H.y1);
     const above=upper?Math.max(...[[upper.x0,upper.y0],[upper.x1,upper.y1]]
@@ -619,16 +632,19 @@ function tick(dt) {
   if (input.hit('e')) cam.tang -= Math.PI / 2;
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
-  // F interage com escadas, portas, luzes e móveis.
+  // Veiculo tem prioridade ao entrar/sair; casas preservam F fora dele.
   const interactPressed=input.hit('f');
-  const stairStarted=updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
+  if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
+  const stairStarted=!vehicleMessage&&updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!vehicleMessage&&!stairStarted&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
     hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
     hud.msgT=1.8;
   }
+  window.cityVehicles?.update(dt);
   updatePlayer(dt);
   ecosystemTick(dt,player,T);
   for (const n of npcs) updateNPC(n, dt);
@@ -644,16 +660,23 @@ function tick(dt) {
     const a = unproj(input.mx / RS, input.my / RS, 0);
     lx = clamp((a[0] - player.x) * 0.25, -3, 3) * player.aimV; ly = clamp((a[1] - player.y) * 0.25, -3, 3) * player.aimV;
   }
-  cam.tx = player.x + lx; cam.ty = player.y + ly;
+  if(!window.cityVehicles?.driver){
+    cam.tx = player.x + lx;cam.ty=player.y+ly;
+  }
   cam.update(dt);
   st.shake = Math.max(0, st.shake - dt);
   const sx = cam.x, sy = cam.y;
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
   render();
+  window.cityVehicles?.render();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
+  // O painel 3D precisa de alinhamento proprio; a HUD usa textAlign=right.
+  h.save();h.textAlign='left';h.textBaseline='alphabetic';
+  window.cityVehicles?.drawHUD(h,hudC.width,hudC.height);
+  h.restore();
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=interactionPrompt(player);
+  const prompt=window.cityVehicles?.prompt()||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
