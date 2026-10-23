@@ -47,9 +47,9 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   await page.evaluate(()=>{
    input.keys.add('w');
-   for(let i=0;i<45;i++)tick(.05);
+   for(let i=0;i<18;i++)tick(.05);
    input.keys.add('d');
-   for(let i=0;i<20;i++)tick(.05);
+   for(let i=0;i<22;i++)tick(.05);
    input.keys.delete('w');input.keys.delete('d');
   });
   const moved=await page.evaluate(()=>{
