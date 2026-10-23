@@ -38,7 +38,7 @@ test('the GLB is rendered live by Three.js; no sprite or pre-render code',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  assert.match(code,/new THREE.WebGLRenderer/);
  assert.match(code,/new GLTFLoader/);
- assert.match(code,/loader.loadAsync/);
+ assert.match(code,/gltfLoader\.loadAsync/);
  assert.match(code,/renderer.render\(scene,viewCamera\)/);
  assert.match(code,/MeshoptDecoder/);
  assert.doesNotMatch(code,/\.toDataURL\(|\.drawImage\(|bakeAtlas\(|captureFrame\(/i);

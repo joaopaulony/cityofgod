@@ -3,22 +3,29 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
-import {CAR_SPEC,stepCar,cameraLead,approach} from './vehicle-physics.mjs';
+import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
+import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
+import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
 const canvas=document.querySelector('#vehicle3d');
 const state={x:0,y:0,angle:0,speed:0,steer:0,distance:0};
+const modelId=new URLSearchParams(location.search).get('vehicleModel')||'silvia';
+let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
+ gltfLoader=null,loadingSerial=0;
+const modelCache=new Map();
 const system={
  ready:false,driver:false,engineOn:false,headlights:false,braking:false,
- model:'1992 Nissan Silvia S13',status:'loading',car:state,
- source:'assets/vehicles/live/nissan-silvia-s13.glb',shadows:0
+ model:activeModel.name,modelId:activeModel.id,status:'loading',car:state,
+ source:'assets/vehicles/live/'+activeModel.file,shadows:0,
+ catalog:VEHICLE_MODELS,pendingCivilModels:CIVIL_PACK_EXPECTED,
+ wheelStatus:'loading',available:VEHICLE_MODELS.length
 };
 window.cityVehicles=system;
-let renderer=null,model=null,axles=[],scene=null,viewCamera=null,body=null,
+let renderer=null,model=null,scene=null,viewCamera=null,body=null,
  shadowGround=null,lampL=null,lampR=null,occluders=[];
 const METERS=CAR_SPEC.length;
-const objects=new Map();
 
 function nearestSafeParking(){
  const p=bridge.player;
@@ -47,12 +54,12 @@ function nearestSafeParking(){
  return {x:p.x+3,y:p.y+2,angle:0};
 }
 function isFree(x,y,a){
- const w=CAR_SPEC.width*.44,l=CAR_SPEC.length*.43,
+ const w=CAR_SPEC.width*.44,l=activeModel.length*.43,
   vec=[[0,0],[l,w],[l,-w],[-l,w],[-l,-w]];
  for(const [u,v] of vec){
   const px=x+Math.cos(a)*u-Math.sin(a)*v,
    py=y+Math.sin(a)*u+Math.cos(a)*v;
-  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.world.mapSize-2)
+  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.mapSize-2)
    return false;
   if(bridge.world.blocked(px,py,.23))return false;
   if(bridge.pondVal(px,py)<1.12)return false;
@@ -78,20 +85,41 @@ function setupCar(){
  bridge.world.circles.push(system.collider);
 }
 function makeOccluders(){
- // Objetos de profundidade invisiveis: casas a frente do GLB o escondem.
- // A geometria continua desenhada no jogo existente.
+ // A profundidade vem da geometria REAL de cada fachada e da água do telhado.
+ // Não usar caixas fechadas: seus topos quadrados ocultavam carros junto
+ // aos beirais e criavam quadrados invisíveis ao girar a câmera.
  const invisible=new THREE.MeshBasicMaterial({
   colorWrite:false,depthWrite:true,depthTest:true,side:THREE.DoubleSide
  });
+ const face=(vertices,output)=>{
+  const p=vertices.map(([x,y,z])=>[x,z,y]);
+  for(let i=1;i<p.length-1;i++)
+   for(const v of [p[0],p[i],p[i+1]])output.push(...v);
+ };
  for(const H of bridge.houses){
   const w=H.x1-H.x0,d=H.y1-H.y0;
   if(w<=0||d<=0)continue;
-  const h=H.h+(H.roofKind==='flat'?.12:1.2);
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),invisible);
-  mesh.position.set((H.x0+H.x1)/2,h/2,(H.y0+H.y1)/2);
-  mesh.userData.house=H;
+  const verts=[];
+  for(const side of Object.values(H.sides||{})){
+   const a=side.a,b=[a[0]+side.dir[0]*side.len,
+                      a[1]+side.dir[1]*side.len];
+   const h=side.Hc||H.h;
+   face([[a[0],a[1],0],[b[0],b[1],0],
+     [b[0],b[1],h],[a[0],a[1],h]],verts);
+  }
+  const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
+  if(roof.flat)
+   face([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
+    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],verts);
+  else for(const f of roof.faces)face(f.p,verts);
+  if(!verts.length)continue;
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  const mesh=new THREE.Mesh(geometry,invisible);
+  mesh.userData.house=H;mesh.frustumCulled=false;
   scene.add(mesh);occluders.push(mesh);
  }
+ system.houseOccluders=occluders.length;
  // Cercas tambem tapam corretamente partes do veiculo quando estao a frente.
  // Um unico draw call instanciado em vez de milhares de meshes separados.
  const fenceSegments=bridge.world.segs.filter(q=>q.kind==='fence'&&q.h>0);
@@ -114,7 +142,7 @@ function makeOccluders(){
   system.fenceOccluders=fenceSegments.length;
  }
 }
-function importModel(root){
+function importModel(root,config=activeModel){
  // Normaliza tamanho/pivo mantendo todos os materiais e a geometria GLB.
  root.updateMatrixWorld(true);
  const box=new THREE.Box3().setFromObject(root);
@@ -127,30 +155,33 @@ function importModel(root){
  positioned.add(root);
  const scaled=new THREE.Group();
  // S13 source is longitudinal along Z; source length 4.47 m.
- const scale=CAR_SPEC.length/Math.max(dim.z,dim.x);
+ const scale=config.length/Math.max(dim.z,dim.x);
  scaled.scale.setScalar(scale);scaled.add(positioned);
  const aligned=new THREE.Group();
  // Frente original ao longo de +Z: girar para +X antes do yaw do carro.
- aligned.rotation.y=Math.PI/2;
+ aligned.rotation.y=config.front==='+Z'?Math.PI/2:-Math.PI/2;
  aligned.add(scaled);
  body=new THREE.Group();body.add(aligned);scene.add(body);
- // Alguns arquivos contêm rodas como meshes independentes; animar se houver.
  root.traverse(obj=>{
-  if(obj.isMesh){
-   obj.castShadow=true;obj.receiveShadow=true;
-   if(/wheel|tire|roda|pneu/i.test(obj.name))axles.push(obj);
-  }
+  if(obj.isMesh){obj.castShadow=true;obj.receiveShadow=true;}
  });
+ wheelRig=createWheelRig(root,THREE);
+ system.wheels=wheelRig.metadata;
+ system.wheelStatus=wheelRig.complete?'4 rodas articuladas':
+  wheelRig.wheels.size+' de 4 rodas identificadas';
  model=root;
  system.meshes=root.getObjectByProperty('isMesh',true)?1:0;
  system.sourceSize=dim.toArray();
+ system.model=config.name;system.modelId=config.id;
+ system.source='assets/vehicles/live/'+config.file;
 }
 function createLamp(){
  const mk=()=>new THREE.SpotLight(0xfff1c8,0,16,Math.PI/7,.45,1.2);
  lampL=mk();lampR=mk();
+ const extent=activeModel.length*.38;
  for(const [light,side] of [[lampL,-1],[lampR,1]]){
-  body.add(light);light.position.set(1.65,.77,side*.63);
-  light.target.position.set(7,-.15,side*.85);body.add(light.target);
+  body.add(light);light.position.set(extent,.77,side*.63);
+  light.target.position.set(extent+5,-.15,side*.85);body.add(light.target);
  }
 }
 function initRenderer(){
@@ -218,7 +249,7 @@ function moveCar(dt){
   left:c.down('a'),right:c.down('d'),
   handbrake:c.down(' '),engineOn:system.engineOn
  };
- const old={...state},next=stepCar(state,inControl,dt);
+ const old={...state},next=stepCar(state,inControl,dt,{...CAR_SPEC,length:activeModel.length,wheelbase:Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)});
  if(isFree(next.x,next.y,next.angle)){
   Object.assign(state,next);
  }else{
@@ -226,6 +257,9 @@ function moveCar(dt){
   Object.assign(state,old,{speed:0});
  }
  system.braking=c.down('s')||c.down(' ');
+ const signedTravel=(state.x-old.x)*Math.cos(old.angle)+
+   (state.y-old.y)*Math.sin(old.angle);
+ stepWheelRig(wheelRig,signedTravel,state.steer);
  system.collider.x=state.x;system.collider.y=state.y;
  p.x=state.x;p.y=state.y;p.speed=0;p.wantShot=false;p.aiming=false;
  p.running=false;p.aimHold=0;
@@ -250,7 +284,7 @@ function interact(){
  }
  if(Math.hypot(p.x-state.x,p.y-state.y)>3.3)return false;
  system.driver=true;system.engineOn=true;p.x=state.x;p.y=state.y;
- return 'Entrou no Silvia S13 — W/S aceleração, A/D direção, Espaço freio';
+ return 'Entrou no '+activeModel.name+' — W/S acelerar, A/D esterçar, Espaço freio';
 }
 function drawPanel(g,w,h){
  if(!system.ready)return;
@@ -270,7 +304,13 @@ function drawPanel(g,w,h){
   g.font='12px system-ui';g.fillStyle='#d0d4d1';
   g.fillText(system.engineOn?'MOTOR LIGADO':'MOTOR DESLIGADO',x+190,y+32);
   g.font='11px system-ui';g.fillStyle='#b8bcc1';
-  g.fillText('F sair  ·  X motor  ·  L faróis  ·  H buzina  ·  Espaço freio',x+15,y+56);
+  g.fillText('F sair  ·  X motor  ·  L faróis  ·  H buzina',x+15,y+56);
+ }else{
+  g.font='bold 12px system-ui';g.textAlign='center';
+  g.fillStyle='#f4dc9a';
+  g.fillText('F entrar · V próximo carro ('+
+   (VEHICLE_MODELS.findIndex(v=>v.id===activeModel.id)+1)+'/'+VEHICLE_MODELS.length+')',
+   w/2,h-132);
  }
  g.restore();
 }
@@ -291,13 +331,14 @@ system.update=dt=>{
  if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
  if(bridge.hit('h')&&system.driver)engineSound();
+ if(bridge.hit('v')&&!system.driver)system.nextModel();
  moveCar(dt);
 };
 system.interact=interact;
 system.drawHUD=drawPanel;
 system.prompt=()=>system.ready&&!system.driver&&
  Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
- ?'F — entrar no Nissan Silvia S13':null;
+ ?'F — entrar no '+activeModel.name:null;
 system.render=()=>{
  if(!system.ready||!renderer)return;
  const c=bridge.cam;
@@ -311,10 +352,6 @@ system.render=()=>{
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
  }
- for(const wheel of axles){
-  if(wheel.userData.vehicleSpinAxis)
-   wheel.rotation[wheel.userData.vehicleSpinAxis]+=state.speed*.03;
- }
  renderer.render(scene,viewCamera);
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={
@@ -324,18 +361,47 @@ system.render=()=>{
  };
 };
 setupCar();
-(async()=>{
+async function selectModel(id){
+ const choice=getVehicleById(id);
+ if(!choice||system.driver)return false;
+ const serial=++loadingSerial;
+ system.ready=false;system.status='loading';system.wheelStatus='loading';
+ system.error=null;
  try{
-  initRenderer();
-  await MeshoptDecoder.ready;
-  const loader=new GLTFLoader();loader.setMeshoptDecoder(MeshoptDecoder);
-  const gltf=await loader.loadAsync(system.source);
-  importModel(gltf.scene);createLamp();
+  if(!gltfLoader){
+   await MeshoptDecoder.ready;
+   gltfLoader=new GLTFLoader();gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+  }
+  const url='assets/vehicles/live/'+choice.file;
+  let gltf=modelCache.get(choice.id);
+  if(!gltf){
+   gltf=await gltfLoader.loadAsync(url);
+   modelCache.set(choice.id,gltf);
+  }
+  if(serial!==loadingSerial)return false;
+  if(body)scene.remove(body);
+  activeModel=choice;
+  // Clone em cache: cada seleção recebe malhas e pivôs intactos.
+  importModel(gltf.scene.clone(true),choice);
+  createLamp();resetWheelRig(wheelRig);
+  state.speed=0;state.steer=0;state.distance=0;
   system.ready=true;system.status='ready';
-  console.log('City of God: original 3D GLB car live in WebGL',system.model);
- }catch(err){
-  system.status='failed';system.error=String(err?.message||err);
-  if(renderer)renderer.setClearColor(0x000000,0);
-  console.error('Native GLB vehicle failed (no fake car substituted)',err);
+  return true;
+ }catch(error){
+  system.status='failed';system.error=String(error?.message||error);
+  console.error('Live GLB model failed',choice.id,error);
+  return false;
  }
+}
+system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
+ ([role,w])=>({role,steer:w.steer,spin:w.spin,radius:w.radius,
+   nodeYaw:w.node.rotation.y,
+   rollingNodes:w.spinning.length})):[];
+
+system.selectModel=selectModel;
+system.nextModel=()=>selectModel(VEHICLE_MODELS[
+ (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
+(async()=>{
+ try{initRenderer();await selectModel(activeModel.id);}
+ catch(error){system.status='failed';system.error=String(error);console.error(error);}
 })();

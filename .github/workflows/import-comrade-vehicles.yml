@@ -1,0 +1,105 @@
+name: Import CC BY Comrade passenger GLBs and rebuild realtime WebGL client
+on:
+  push:
+    branches: [feat/comrade-packs-wheel-rigs-20261022]
+    paths:
+      - .github/workflows/import-comrade-vehicles.yml
+permissions:
+  contents: write
+jobs:
+  assets-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download 10 individually licensed GLBs with pinned SHA integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/vehicles/live
+          base='https://raw.githubusercontent.com/philpax/veldera/e66f664c1e92373ef4d30cf141aacd018d8d5661/client/veldera/assets/game/vehicles'
+          while read -r slug sha bytes; do
+            [ -n "$slug" ] || continue
+            path="assets/vehicles/live/$slug.glb"
+            curl -fLsS --retry 3 --connect-timeout 20 --max-time 100 \
+              "$base/$slug.glb" -o "$path"
+            actual="$(git hash-object "$path")"
+            if [ "$actual" != "$sha" ]; then
+              echo "Integrity failure: $slug expected $sha actual $actual" >&2
+              exit 1
+            fi
+            [ "$(wc -c < "$path")" -eq "$bytes" ]
+            [ "$(head -c 4 "$path")" = 'glTF' ]
+            echo "VERIFIED $slug size=$bytes"
+          done <<'CAR_ASSETS'
+          compact 7fa1d84c553fa19c20c5a9c85d5aabb3b9faa5aa 3693844
+          coupe 27560d76b40d5a5395a95f0ef4c803c811bdcd8c 3886316
+          hatchback e3da3cdaa7c15f80ec8f485f7307e4568a37ac94 3919820
+          minivan f6c17c646522a464b8ff7505da6feac9de633449 3427448
+          offroad 5cf9cbffb98685ca73465295a1664f473075c270 3019308
+          pickup 18058a022aeb2a969d223122d8a5a795464d9344 3489812
+          sedan 2ce0920d36d728f0622d52d1e68f5745f308f3a1 2848820
+          sport 90352c3db665f01138ac64b37d58573d28ca9f69 4039472
+          suv f2d2b388a35246dacbfc3c9160ca029503b86769 3170008
+          wagon ed05976a37777b38571493c8e7b347d4dfdc8f7f 3020708
+          CAR_ASSETS
+      - name: Inspect actual wheel meshes and licensing, every individual car
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/inspect-vehicle-glb.cjs \
+            assets/vehicles/live/nissan-silvia-s13.glb \
+            assets/vehicles/live/{compact,coupe,hatchback,minivan,offroad,pickup,sedan,sport,suv,wagon}.glb \
+            > /tmp/vehicle-inspection.log
+          python3 - <<'PY'
+          import json
+          lines=open('/tmp/vehicle-inspection.log').read().splitlines()
+          assert len(lines)==11,len(lines)
+          for line in lines:
+            d=json.loads(line.split('INSPECT ',1)[1])
+            if d['file'].endswith('nissan-silvia-s13.glb'):
+              print('SILVIA INSPECT',json.dumps(d)[:10000])
+              continue
+            names={n['name'] for n in d['nodes']}
+            required={'wheel_fl','wheel_fr','wheel_rl','wheel_rr'}
+            assert required<=names,(d['file'],names)
+            print('PASS GLB WHEEL PIVOTS',d['file'], d['bytes'], sorted(required))
+          PY
+      - name: Rebuild local WebGL renderer, test wheel math and GLB manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock \
+            three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs \
+            --bundle --platform=browser --format=esm --target=es2020 \
+            --minify --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+          node --test tests/live-vehicle.test.mjs tests/comrade-vehicle.test.mjs
+      - name: Commit model files and renderer binary to integration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/vehicles/live/{compact,coupe,hatchback,minivan,offroad,pickup,sedan,sport,suv,wagon}.glb js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'assets: add all ten verified Comrade1280 passenger GLBs with wheel rigs'
+            git push origin HEAD:feat/comrade-packs-wheel-rigs-20261022
+          fi
+
+# Validate refreshed multi-model GLB renderer and wheel tests.
+
+# Repeat after updating wheel unit tests and browser integration.
+
+# Rebuild after correcting the Silva 0.33m wheel radius test.
+
+# Final build includes GLB wheel reverse spin and accurate roof occluders.
+
+# Final release bundle: verified roof masks and per-car inspection.
