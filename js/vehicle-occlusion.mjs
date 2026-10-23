@@ -2,12 +2,19 @@
 // Depth-only geometry deixa o GLB atras de postes, arvores e personagens
 // quando necessario, sem rasterizar/screenshot do carro ou do cenario.
 export function createWorldOccluders(scene,THREE,bridge,material){
- const groups=[],dynamic=[],state={objects:0,actors:0,lamps:0,trees:0,bushes:0};
- const make=(geo,x,y,z,scale=null)=>{
-  const m=new THREE.Mesh(geo,material);
+ const groups=[],dynamic=[],buckets=new Map(),
+  state={objects:0,actors:0,lamps:0,trees:0,bushes:0};
+ const make=(geo,x,y,z,scale=null,live=false)=>{
+  const m=live?new THREE.Mesh(geo,material):new THREE.Object3D();
   m.position.set(x,y,z);
   if(scale)m.scale.set(...scale);
-  m.frustumCulled=false;scene.add(m);groups.push(m);state.objects++;
+  if(live){m.frustumCulled=false;scene.add(m);groups.push(m);}
+  else {
+   const key=geo.uuid;
+   if(!buckets.has(key))buckets.set(key,{geo,objects:[]});
+   buckets.get(key).objects.push(m);
+  }
+  state.objects++;
   return m;
  };
  const cube=new THREE.BoxGeometry(1,1,1);
@@ -59,8 +66,8 @@ export function createWorldOccluders(scene,THREE,bridge,material){
  // O sprite dos NPCs e player esta atras do canvas WebGL, mas deve ser
  // visivel quando fica entre a camera e o carro.
  const actors=(bridge.actors||[]).map(a=>{
-  const torso=make(cube,a.x,1.04,a.y,[.4,1.08,.30]);
-  const head=make(sphere,a.x,1.70,a.y,[.19,.23,.19]);
+  const torso=make(cube,a.x,1.04,a.y,[.4,1.08,.30],true);
+  const head=make(sphere,a.x,1.70,a.y,[.19,.23,.19],true);
   dynamic.push({a,torso,head});
   state.actors++;
   return a;
@@ -116,6 +123,18 @@ export function createWorldOccluders(scene,THREE,bridge,material){
    scene.add(mesh);groups.push(mesh);
   }
   state.fences=fenceSegments.length;
+ }
+ // Postes, copas, troncos e caixas usam 3 draw calls ao inves de
+ // centenas; transformacoes estaticas no mundo original.
+ for(const {geo,objects} of buckets.values()){
+  const mesh=new THREE.InstancedMesh(geo,material,objects.length);
+  objects.forEach((object,i)=>{
+   object.updateMatrix();
+   mesh.setMatrixAt(i,object.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate=true;
+  mesh.frustumCulled=false;
+  scene.add(mesh);groups.push(mesh);
  }
  return {state,updateActors};
 }
