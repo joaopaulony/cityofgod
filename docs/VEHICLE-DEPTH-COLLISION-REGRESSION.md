@@ -39,11 +39,10 @@ Os testes de geometria são automáticos. As capturas ajudam a avaliar o visual,
 - As máscaras de oclusão são profundidade 3D, não capturas de sprites.
 - Revisar as capturas dos 11 modelos após cada alteração na geometria de postes e copas.
 
-## Três imagens adicionais — revisão de beirais e telhado (23/10/2026)
-- [x] Corrigido o painter order que desenhava cobertura de varanda (porchroof/canopy) SOBRE o telhado principal, criando placas retangulares.
-- [x] Máscaras WebGL separadas em parede e telhado: esconder apenas as águas inclinadas do telhado quando o veículo ocupa a área coberta pela projeção.
-- [x] Cortina de visibilidade usa triângulos reais de telhado e profundidade da câmera ortográfica, inclusive em Q/E.
-- [x] Casa continua com parede física/visual opaca; móveis internos não se tornam visíveis ao dirigir atrás da construção.
-- [x] Restaurar telhado opaco assim que veículo sair de trás, sem deixar o recorte travado.
-- [x] Teste matemático de quatro ângulos em tests/vehicle-roof-visibility.test.mjs.
-- [ ] Evidência visual: tests/vehicle-roof-browser.cjs gera PNG por carro e por orientação no Chrome para confirmar ausência de buracos retangulares.
+## Três novos prints — geometria de empena e ordem de telhados
+- [x] Cobertura de varanda (porchroof/canopy) ordenada ANTES do telhado principal, impedindo placas sobre as telhas.
+- [x] Máscaras de profundidade WebGL divididas em paredes e águas reais.
+- [x] Paredes laterais de duas águas terminam na altura da parede; a empena triangular é representada pela sua própria geometria. Nada de parede retangular invisível até a cumeeira.
+- [x] Telhados mantidos opacos — teste visual descartou a alternativa que deixava ver o interior vazio da casa.
+- [x] Testes de gable/hip/porch em tests/vehicle-roof-order.test.mjs.
+- [ ] Verificação visual em Chrome para Silvia e os outros dez GLB: tests/vehicle-roof-browser.cjs.
