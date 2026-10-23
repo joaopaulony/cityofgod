@@ -72,3 +72,5 @@ const {chromium}=require('playwright'),fs=require('node:fs');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
 // Final QA against the built local Three.js bundle and original GLB.
+
+// Confirm browser QA against final live Three.js GLB bundle.
