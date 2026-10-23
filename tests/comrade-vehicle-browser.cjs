@@ -63,6 +63,30 @@ const fs=require('node:fs');
      result.wheels.filter(w=>w.role[0]==='r').some(w=>Math.abs(w.steer)>.001))
     throw Error('Vehicle model wheel validation FAILED: '+JSON.stringify(result));
   }
+  // Four genuine WebGL camera orientations around house roofs.
+  // Test that depth-only roof/facade meshes remain active as car moves
+  // behind the same house from each side. Captures are QA only.
+  const roof=await page.evaluate(async()=>{
+   const v=window.cityVehicles;
+   await v.selectModel('sedan');
+   const H=window.cityVehicleBridge.houses.find(h=>!h.inside);
+   if(!H)return {ok:false};
+   const cx=(H.x0+H.x1)/2,cy=(H.y0+H.y1)/2;
+   const cam=window.cityVehicleBridge.cam;
+   const items=[];
+   for(const angle of [Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]){
+    cam.ang=cam.tang=angle;cam.cos=Math.cos(angle);cam.sin=Math.sin(angle);
+    cam.x=cam.tx=cx;cam.y=cam.ty=cy;
+    v.car.x=cx-Math.sin(angle)*(Math.max(H.x1-H.x0,H.y1-H.y0)/2+1.8);
+    v.car.y=cy-Math.cos(angle)*(Math.max(H.x1-H.x0,H.y1-H.y0)/2+1.8);
+    v.render();
+    items.push({angle,position:{x:v.car.x,y:v.car.y},frames:v.frames});
+   }
+   return {ok:v.houseOccluders>0,count:v.houseOccluders,items};
+  });
+  console.log('ROOF DEPTH QA',JSON.stringify(roof));
+  if(!roof.ok||roof.items.length!==4)
+   throw Error('WebGL roofs lack depth occlusion '+JSON.stringify(roof));
   if(errors.length)throw Error('Browser errors: '+JSON.stringify(errors));
   fs.writeFileSync('artifacts/vehicles/report.json',JSON.stringify(results,null,2));
   console.log('PASS',models.length,'REAL GLB models with animated rims and tires');
