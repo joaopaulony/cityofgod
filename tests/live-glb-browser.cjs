@@ -70,3 +70,5 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   if(errors.length)throw Error('Browser JS errors: '+JSON.stringify(errors));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+// Final QA against the built local Three.js bundle and original GLB.
