@@ -18,7 +18,8 @@ on:
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
-      - tests/no-vehicles.test.cjs
+      - tests/live-vehicle.test.mjs
+      - tests/live-vehicle-browser.cjs
       - tests/architecture.test.js
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
@@ -38,7 +39,8 @@ on:
       - js/ecosystem.js
       - index.html
       - tests/vegetation*
-      - tests/no-vehicles.test.cjs
+      - tests/live-vehicle.test.mjs
+      - tests/live-vehicle-browser.cjs
       - tests/architecture.test.js
       - tests/visual-quality-judge.cjs
       - .github/workflows/vegetation.yml
@@ -57,8 +59,8 @@ jobs:
         run: node tests/architecture.test.js
       - name: Check foliage generation
         run: node tests/vegetation.test.js
-      - name: Ensure all vehicle systems are removed
-        run: node tests/no-vehicles.test.cjs
+      - name: Validate live 3D vehicle physics and WebGL contracts
+        run: node --test tests/live-vehicle.test.mjs
       - name: Install headless browser driver
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
