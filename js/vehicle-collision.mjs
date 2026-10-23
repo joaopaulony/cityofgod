@@ -55,8 +55,15 @@ export function carCollision(world,car,options={}){
  const verts=carFootprint(car.x,car.y,car.angle,car.length,car.width,margin);
  if(verts.some(([x,y])=>x<.2||y<.2||x>mapSize-.2||y>mapSize-.2))
   return record('map',null);
- if(options.isWater&&verts.some(([x,y])=>options.isWater(x,y)))
-  return record('water',null);
+ if(options.isWater){
+  const probes=[[car.x,car.y],...verts];
+  for(let i=0;i<4;i++){
+   const a=verts[i],b=verts[(i+1)%4];
+   probes.push([(a[0]+b[0])/2,(a[1]+b[1])/2]);
+  }
+  if(probes.some(([x,y])=>options.isWater(x,y)))
+   return record('water',null);
+ }
  // Casa: superficie exata, sem a zona invisivel de 1,5m nem o quintal.
  for(const H of options.houses||[]){
   if(car.x+radius<H.x0||car.x-radius>H.x1||
