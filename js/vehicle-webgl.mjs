@@ -59,7 +59,7 @@ function isFree(x,y,a){
  for(const [u,v] of vec){
   const px=x+Math.cos(a)*u-Math.sin(a)*v,
    py=y+Math.sin(a)*u+Math.cos(a)*v;
-  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.world.mapSize-2)
+  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.mapSize-2)
    return false;
   if(bridge.world.blocked(px,py,.23))return false;
   if(bridge.pondVal(px,py)<1.12)return false;
@@ -370,6 +370,11 @@ async function selectModel(id){
   return false;
  }
 }
+system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
+ ([role,w])=>({role,steer:w.steer,spin:w.spin,radius:w.radius,
+   nodeYaw:w.node.rotation.y,
+   rollingNodes:w.spinning.length})):[];
+
 system.selectModel=selectModel;
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
