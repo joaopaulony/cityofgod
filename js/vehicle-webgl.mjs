@@ -26,7 +26,7 @@ function nearestSafeParking(){
  for(const r of bridge.world.roads)
   for(let i=2;i<r.pts.length-2;i+=5){
    const q=r.pts[i],d=Math.hypot(q.x-p.x,q.y-p.y);
-   if(d<17&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
+   if(d<6.5&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
   }
  around.sort((a,b)=>a.d-b.d);
  for(const q of around)if(isFree(q.x,q.y,q.angle))return q;
@@ -51,7 +51,7 @@ function isFree(x,y,a){
   if(bridge.world.blocked(px,py,.23))return false;
   if(bridge.pondVal(px,py)<1.12)return false;
   for(const c of bridge.world.circles)
-   if(Math.hypot(px-c.x,py-c.y)<c.r+.35)return false;
+   if(c!==system.collider&&Math.hypot(px-c.x,py-c.y)<c.r+.35)return false;
  }
  return true;
 }
@@ -59,6 +59,8 @@ function setupCar(){
  const q=nearestSafeParking();
  Object.assign(state,q,{speed:0,steer:0,distance:0});
  system.position={...q};
+ system.collider={x:state.x,y:state.y,r:1.05,kind:'vehicle',h:1.4};
+ bridge.world.circles.push(system.collider);
 }
 function makeOccluders(){
  // Objetos de profundidade invisiveis: casas a frente do GLB o escondem.
@@ -188,6 +190,7 @@ function moveCar(dt){
   Object.assign(state,old,{speed:0});
  }
  system.braking=c.down('s')||c.down(' ');
+ system.collider.x=state.x;system.collider.y=state.y;
  p.x=state.x;p.y=state.y;p.speed=0;p.wantShot=false;p.aiming=false;
  p.running=false;p.aimHold=0;
  const lead=cameraLead(state);
@@ -219,22 +222,19 @@ function drawPanel(g,w,h){
  if(!system.driver&&!near)return;
  g.save();
  if(system.driver){
-  const x=w/2-142,y=h-166;
+  const x=w/2-182,y=h-175;
   g.fillStyle='rgba(13,17,20,.9)';
-  g.beginPath();g.roundRect(x,y,284,58,10);g.fill();
+  g.beginPath();g.roundRect(x,y,364,65,10);g.fill();
   g.fillStyle='#f2e9d4';g.font='bold 24px system-ui';
   g.fillText(String(Math.round(Math.abs(state.speed)*3.6)).padStart(2,'0'),
-    x+12,y+34);
-  g.font='12px system-ui';g.fillStyle='#9cb0b6';g.fillText('km/h',x+65,y+31);
+    x+20,y+35);
+  g.font='12px system-ui';g.fillStyle='#9cb0b6';g.fillText('km/h',x+73,y+33);
   g.font='bold 17px system-ui';g.fillStyle='#dfc887';
-  g.fillText(state.speed<-.2?'R':state.speed>.2?'D':'N',x+117,y+33);
+  g.fillText(state.speed<-.2?'R':state.speed>.2?'D':'N',x+137,y+34);
   g.font='12px system-ui';g.fillStyle='#d0d4d1';
-  g.fillText(system.engineOn?'MOTOR LIGADO':'MOTOR DESLIGADO',x+155,y+31);
+  g.fillText(system.engineOn?'MOTOR LIGADO':'MOTOR DESLIGADO',x+190,y+32);
   g.font='11px system-ui';g.fillStyle='#b8bcc1';
-  g.fillText('F sair · X motor · L faróis · H buzina',x+8,y+52);
- }else{
-  g.textAlign='center';g.font='bold 13px system-ui';
-  g.fillStyle='#f6dfa8';g.fillText('F — entrar no Nissan Silvia S13',w/2,h-135);
+  g.fillText('F sair  ·  X motor  ·  L faróis  ·  H buzina  ·  Espaço freio',x+15,y+56);
  }
  g.restore();
 }
