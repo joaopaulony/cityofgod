@@ -60,3 +60,5 @@ jobs:
             git commit -m 'assets: add verified Nissan Silvia GLB and live Three.js renderer'
             git push origin HEAD:feat/live-webgl-glb-vehicles-20261022
           fi
+
+# Rebuild renderer after physics test correction and browser QA integration.
