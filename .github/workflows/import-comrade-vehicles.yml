@@ -93,3 +93,5 @@ jobs:
             git commit -m 'assets: add all ten verified Comrade1280 passenger GLBs with wheel rigs'
             git push origin HEAD:feat/comrade-packs-wheel-rigs-20261022
           fi
+
+# Validate refreshed multi-model GLB renderer and wheel tests.
