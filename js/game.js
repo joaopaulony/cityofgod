@@ -671,7 +671,10 @@ function tick(dt) {
   window.cityVehicles?.render();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
+  // O painel 3D precisa de alinhamento proprio; a HUD usa textAlign=right.
+  h.save();h.textAlign='left';h.textBaseline='alphabetic';
   window.cityVehicles?.drawHUD(h,hudC.width,hudC.height);
+  h.restore();
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
   const prompt=window.cityVehicles?.prompt()||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
