@@ -119,6 +119,7 @@ function makeOccluders(){
   mesh.userData.house=H;mesh.frustumCulled=false;
   scene.add(mesh);occluders.push(mesh);
  }
+ system.houseOccluders=occluders.length;
  // Cercas tambem tapam corretamente partes do veiculo quando estao a frente.
  // Um unico draw call instanciado em vez de milhares de meshes separados.
  const fenceSegments=bridge.world.segs.filter(q=>q.kind==='fence'&&q.h>0);
