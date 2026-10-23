@@ -55,13 +55,38 @@ const fs=require('node:fs');
    results.push(result);
    await page.screenshot({path:'artifacts/vehicles/'+id+'.png'});
    console.log('MODEL QA',JSON.stringify(result));
-   if(!result.ok||!result.ready||!result.source.endsWith('/'+id+'.glb')&&id!=='silvia'||
+   const roles=new Set((result.wheels||[]).map(w=>w.role));
+   const wobble=(result.wheels||[]).concat(result.rolled||[])
+     .filter(w=>!Number.isFinite(w.tyreAxisVertical)||w.tyreAxisVertical>.2);
+   const moved=(result.rolled||[]).every(w=>{
+     const initial=result.wheelsBefore?.find(x=>x.role===w.role);
+     return initial&&Math.max(...w.tyreOrientation.map((v,i)=>
+       Math.abs(v-initial.tyreOrientation[i])))>.001;
+   });
+   const silviaRims=id!=='silvia'||(result.rolled||[]).every(w=>{
+     const initial=result.wheelsBefore?.find(x=>x.role===w.role);
+     const tyre=w.allParts.find(x=>/^tyre/i.test(x.name));
+     const rim=w.allParts.find(x=>/^rim/i.test(x.name));
+     const cal=w.allParts.find(x=>/^cal/i.test(x.name));
+     const oldTyre=initial?.allParts.find(x=>/^tyre/i.test(x.name));
+     const oldRim=initial?.allParts.find(x=>/^rim/i.test(x.name));
+     const movedPart=(one,two)=>one&&two&&one.quaternion.some((v,i)=>
+       Math.abs(v-two.quaternion[i])>.001);
+     return w.rollingNodes===5&&tyre&&rim&&!cal&&
+       movedPart(tyre,oldTyre)&&movedPart(rim,oldRim);
+   });
+   if(!result.ok||!result.ready||
+     (id!=='silvia'&&!result.source.endsWith('/'+id+'.glb'))||
      result.wheels?.length!==4||result.rolled?.length!==4||
+     roles.size!==4||['fl','fr','rl','rr'].some(role=>!roles.has(role))||
      !result.wheels.every(w=>Number.isFinite(w.radius)&&w.radius>.1)||
      !result.rolled.every(w=>Math.abs(w.spin)>.01)||
      !result.wheels.filter(w=>w.role[0]==='f').every(w=>Math.abs(w.steer)>.001)||
-     result.wheels.filter(w=>w.role[0]==='r').some(w=>Math.abs(w.steer)>.001))
-    throw Error('Vehicle model wheel validation FAILED: '+JSON.stringify(result));
+     result.wheels.filter(w=>w.role[0]==='r').some(w=>Math.abs(w.steer)>.001)||
+     wobble.length||!moved||!silviaRims||
+     (id==='silvia'&&!result.rolled.some(w=>w.name==='RR_36')))
+    throw Error('Vehicle GLB wheel axis, complete rims or steering FAILED: '+
+     JSON.stringify({id,wobble,moved,silviaRims,result}));
   }
   // Four genuine WebGL camera orientations around house roofs.
   // Test that depth-only roof/facade meshes remain active as car moves
