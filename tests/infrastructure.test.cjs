@@ -96,11 +96,11 @@ test('both original pedestrian pictograms remain independent, not a color square
  const src=read('js/traffic-signals.js');
  assert.match(src,/function drawPedestrianIcon/);
  assert.match(src,/pedestrian.*walk/);
- assert.match(src,/\\[\\[top,false,!walk\\],\\[lower,true,walk\\]\\]/);
- assert.match(src,/trafficHeadSites\\(signal\\)/);
- assert.match(src,/trafficHeadView\\(front,cam\\.ang\\)/);
+ assert.ok(src.includes('[[top,false,!walk],[lower,true,walk]]'));
+ assert.ok(src.includes('trafficHeadSites(signal)'));
+ assert.ok(src.includes('trafficHeadView(front,cam.ang)'));
  const oc=read('js/vehicle-occlusion.mjs');
- assert.match(oc,/fraction of \\[\\.53,1\\]/);
+ assert.ok(oc.includes('fraction of [.53,1]'));
 });
 test('streetlamp maintains occluder coordinates and night light source',()=>{
  const world=read('js/world.js'),oc=read('js/vehicle-occlusion.mjs'),
