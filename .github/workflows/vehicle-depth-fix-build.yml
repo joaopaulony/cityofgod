@@ -40,3 +40,5 @@ jobs:
             git commit -m 'build: WebGL car depth and collision module'
             git push origin HEAD:fix/vehicle-depth-hitboxes-20261023
           fi
+
+# Retest accurate footprint and water probes after collision corrections.
