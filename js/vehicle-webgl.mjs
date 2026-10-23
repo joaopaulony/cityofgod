@@ -394,9 +394,22 @@ async function selectModel(id){
  }
 }
 system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
- ([role,w])=>({role,steer:w.steer,spin:w.spin,radius:w.radius,
-   nodeYaw:w.node.rotation.y,
-   rollingNodes:w.spinning.length})):[];
+ ([role,w])=>{
+   const tyre=w.spinning.find(x=>/^(tyre|tire)/i.test(x.node.name))?.node||w.node;
+   const quat=new THREE.Quaternion();
+   tyre.getWorldQuaternion(quat);
+   const axle=new THREE.Vector3(1,0,0).applyQuaternion(quat);
+   const isSpinning=n=>{
+     const q=n.quaternion;
+     return [q.x,q.y,q.z,q.w];
+   };
+   return {role,name:w.node.name,steer:w.steer,spin:w.spin,
+    radius:w.radius,nodeYaw:w.node.rotation.y,
+    rollingNodes:w.spinning.length,tyreOrientation:isSpinning(tyre),
+    tyreAxisVertical:Math.abs(axle.y),
+    allParts:w.spinning.map(p=>({name:p.node.name,
+      quaternion:isSpinning(p.node)}))};
+  }):[];
 
 system.selectModel=selectModel;
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
