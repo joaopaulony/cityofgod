@@ -64,3 +64,5 @@ jobs:
 # Rebuild renderer after physics test correction and browser QA integration.
 
 # Rebuild after parking spawn, body collision and live fence occlusion update.
+
+# Final refresh after parking distance and visual QA checks.
