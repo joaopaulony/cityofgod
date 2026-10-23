@@ -667,6 +667,8 @@ function tick(dt) {
   st.shake = Math.max(0, st.shake - dt);
   const sx = cam.x, sy = cam.y;
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
+  // Both Canvas roofs and live WebGL model use the SAME cutaway decision.
+  window.cityVehicles?.prepareScene?.();
   render();
   window.cityVehicles?.render();
   cam.x = sx; cam.y = sy;
