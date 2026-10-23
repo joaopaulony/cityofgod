@@ -29,11 +29,13 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   const aligned=await page.evaluate(()=>{
    const car=window.cityVehicles,c=window.cityVehicleBridge.cam;
    const q=proj(car.car.x,car.car.y,0),s=car.lastScreenPosition;
-   return {delta:Math.hypot(q.x-s.x,q.y-s.y),viewW:c.W,viewH:c.H,
+   return {delta:Math.hypot(q.x-s.x,q.y-s.y),
+    screenFromCenter:Math.hypot(s.x-c.W/2,s.y-c.H/2),
+    viewW:c.W,viewH:c.H,
     webGLCanvas:document.querySelector('#vehicle3d').width,
     webGLType:document.querySelector('#vehicle3d').getContext('webgl2')?'webgl2':'webgl'};
   });
-  if(aligned.delta>1.5||!aligned.webGLCanvas)
+  if(aligned.delta>1.5||!aligned.webGLCanvas||aligned.screenFromCenter>315)
    throw Error('Live 3D camera misaligned: '+JSON.stringify(aligned));
   fs.mkdirSync('artifacts',{recursive:true});
   await page.screenshot({path:'artifacts/live-glb-silvia-isometric.png'});
