@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
+import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 
@@ -53,20 +54,17 @@ function nearestSafeParking(){
  }
  return {x:p.x+3,y:p.y+2,angle:0};
 }
+function hitbox(x=state.x,y=state.y,angle=state.angle){
+ return {x,y,angle,length:activeModel.length,
+  width:system.bodyWidth||1.85};
+}
+function collisionOptions(){
+ return {houses:bridge.houses,boxes:bridge.boxes,
+  mapSize:bridge.mapSize,ignoreCircle:system.collider,
+  isWater:(x,y)=>bridge.pondVal(x,y)<1.03};
+}
 function isFree(x,y,a){
- const w=CAR_SPEC.width*.44,l=activeModel.length*.43,
-  vec=[[0,0],[l,w],[l,-w],[-l,w],[-l,-w]];
- for(const [u,v] of vec){
-  const px=x+Math.cos(a)*u-Math.sin(a)*v,
-   py=y+Math.sin(a)*u+Math.cos(a)*v;
-  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.mapSize-2)
-   return false;
-  if(bridge.world.blocked(px,py,.23))return false;
-  if(bridge.pondVal(px,py)<1.12)return false;
-  for(const c of bridge.world.circles)
-   if(c!==system.collider&&Math.hypot(px-c.x,py-c.y)<c.r+.35)return false;
- }
- return true;
+ return !carCollision(bridge.world,hitbox(x,y,a),collisionOptions());
 }
 function setupCar(){
  const q=nearestSafeParking();
@@ -81,7 +79,7 @@ function setupCar(){
   bridge.cam.y=bridge.cam.ty=p.y;
  }
  system.position={...q};
- system.collider={x:state.x,y:state.y,r:1.05,kind:'vehicle',h:1.4};
+ system.collider={x:state.x,y:state.y,r:.55,kind:'vehicle',h:1.4};
  bridge.world.circles.push(system.collider);
 }
 function makeOccluders(){
@@ -172,6 +170,8 @@ function importModel(root,config=activeModel){
  model=root;
  system.meshes=root.getObjectByProperty('isMesh',true)?1:0;
  system.sourceSize=dim.toArray();
+ system.bodyWidth=Math.max(1.25,Math.min(2.6,
+   dim.x*(config.length/Math.max(dim.z,dim.x))));
  system.model=config.name;system.modelId=config.id;
  system.source='assets/vehicles/live/'+config.file;
 }
@@ -250,11 +250,16 @@ function moveCar(dt){
   handbrake:c.down(' '),engineOn:system.engineOn
  };
  const old={...state},next=stepCar(state,inControl,dt,{...CAR_SPEC,length:activeModel.length,wheelbase:Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)});
- if(isFree(next.x,next.y,next.angle)){
+ const collision=sweepCar(bridge.world,{...old,...hitbox()},
+  {...next,...hitbox(next.x,next.y,next.angle)},collisionOptions());
+ if(!collision.impact){
   Object.assign(state,next);
+  system.lastImpact=null;
  }else{
-  // Choque: desliga deslocamento mas mantém a orientação anterior.
-  Object.assign(state,old,{speed:0});
+  // Parar na ULTIMA posicao valida, nao teletransportar para antes do frame.
+  const last=collision.position;
+  Object.assign(state,next,{x:last.x,y:last.y,angle:last.angle,speed:0});
+  system.lastImpact=collision.impact.kind;
  }
  system.braking=c.down('s')||c.down(' ');
  const signedTravel=(state.x-old.x)*Math.cos(old.angle)+
