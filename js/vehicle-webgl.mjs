@@ -6,7 +6,6 @@ import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
-import {selectVehicleRoofCutaways} from './vehicle-roof-visibility.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 
@@ -105,7 +104,11 @@ function makeOccluders(){
   for(const side of Object.values(H.sides||{})){
    const a=side.a,b=[a[0]+side.dir[0]*side.len,
                       a[1]+side.dir[1]*side.len];
-   const h=side.Hc||H.h;
+   // A empena nao e retangulo ate a cumeeira: as laterais reais
+   // terminam em H.h e a parte triangular e desenhada por f.gable.
+   // Antes side.Hc enchia com uma parede QUADRADA invisivel acima das
+   // telhas, cortando carros em linhas verticais artificiais.
+   const h=H.roofKind==='flat'?(side.Hc||H.h):H.h;
    face([[a[0],a[1],0],[b[0],b[1],0],
      [b[0],b[1],h],[a[0],a[1],h]],walls);
   }
@@ -338,21 +341,9 @@ system.drawHUD=drawPanel;
 system.prompt=()=>system.ready&&!system.driver&&
  Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
  ?'F — entrar no '+activeModel.name:null;
-system.prepareScene=()=>{
- // The Canvas renderer reads this property when sorting/drawing roofs.
- // The exact same decision disables only the WebGL roof depth surface.
- const cutaways=system.ready?selectVehicleRoofCutaways(
-  bridge.cam,{...state,length:activeModel.length,
-   width:system.bodyWidth||1.85},
-  bridge.houses,H=>H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H))
- ):new Set();
- for(const H of bridge.houses)H.vehicleRoofFade=cutaways.has(H);
- system.roofCutaways=cutaways.size;
-};
 system.render=()=>{
  if(!system.ready||!renderer)return;
  const c=bridge.cam;
- system.prepareScene();
  setCamera();
  body.position.set(state.x,0,state.y);
  body.rotation.y=-state.angle;
@@ -361,7 +352,7 @@ system.render=()=>{
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  for(const o of occluders)o.visible=!o.userData.house.inside;
  for(const [H,mesh] of roofOccluders)
-  mesh.visible=!H.inside&&!H.vehicleRoofFade;
+  mesh.visible=!H.inside;
  occlusionScene?.updateActors(system.driver,bridge.player);
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
