@@ -67,6 +67,19 @@ function generateTrafficSignals(){
   }
  }
 }
+// Visibilidade calculada no MUNDO. Girar a camera nunca reorienta luzes.
+function trafficHeadView(front,angle){
+ const d=front.x*Math.sin(angle)+front.y*Math.cos(angle);
+ return d>.20?'front':d<-.20?'back':'side';
+}
+function trafficHeadSites(signal){
+ const g=trafficSignalGeometry(signal);
+ return [.53,1].map(fraction=>({
+  x:signal.x+g.arm.x*g.span*fraction,
+  y:signal.y+g.arm.y*g.span*fraction,
+  fraction
+ }));
+}
 const trafficInk='#141c22';
 const rgbLamp={red:'#f34e42',yellow:'#ffc946',green:'#4de18c'};
 const darkLamp={red:'#4e2928',yellow:'#4d4329',green:'#214536'};
@@ -74,70 +87,87 @@ function signalFacePoint(x,y,z,side,front,u,offset=0){
  return proj(x+side.x*u+front.x*offset,y+side.y*u+front.y*offset,z);
 }
 function drawSignalHousing(g,site,front,width,height,centerZ){
- const side={x:-front.y,y:front.x};
- const half=width/2,low=centerZ-height/2,high=centerZ+height/2;
- const point=(u,z,off=.095)=>signalFacePoint(site.x,site.y,z,side,front,u,off);
- const q=[point(-half,low),point(half,low),point(half,high),point(-half,high)];
- const behind=[
-  point(-half,low,-.14),point(half,low,-.14),
-  point(half,high,-.14),point(-half,high,-.14)
- ];
- const litSide=facingCam(front.x,front.y)>-.05;
- // Corpo real em perspectiva: frente/lateral/pequena cobertura com volume.
- poly(g,[behind[0],q[0],q[3],behind[3]],'#354047','#13181d',.85);
- poly(g,[behind[1],q[1],q[2],behind[2]],'#38454b','#13181d',.85);
- poly(g,[behind[3],behind[2],q[2],q[3]],'#566169','#11181c',.85);
- poly(g,q,litSide?'#202a30':'#455059','#0c1317',1.5);
- return {side,point,frontVisible:litSide,quad:q};
+ const side={x:-front.y,y:front.x},half=width/2,
+  low=centerZ-height/2,high=centerZ+height/2;
+ const point=(u,z,off=.115)=>signalFacePoint(site.x,site.y,z,side,front,u,off);
+ const near=[point(-half,low),point(half,low),point(half,high),point(-half,high)];
+ const far=[point(-half,low,-.155),point(half,low,-.155),
+  point(half,high,-.155),point(-half,high,-.155)];
+ const view=trafficHeadView(front,cam.ang);
+ const frontVisible=view==='front',backVisible=view==='back';
+ if(frontVisible){
+  poly(g,far,'#455159','#172126',.8);
+  poly(g,[far[0],near[0],near[3],far[3]],'#35424b','#182125',.9);
+  poly(g,[far[1],near[1],near[2],far[2]],'#3a444b','#182125',.9);
+  poly(g,[far[3],far[2],near[2],near[3]],'#6a767e','#172126',.9);
+  poly(g,near,'#1d272d','#0a1116',1.5);
+ }else{
+  poly(g,near,'#273238','#121a1f',1);
+  poly(g,[near[0],far[0],far[3],near[3]],'#475159','#171f24',1);
+  poly(g,[near[1],far[1],far[2],near[2]],'#3e4a51','#171f24',1);
+  poly(g,[near[3],near[2],far[2],far[3]],'#65727a','#161f24',1);
+  if(backVisible){
+   poly(g,far,'#465158','#1d262c',1.1);
+   const plate=point(0,centerZ,-.165);
+   g.fillStyle='#829199';
+   g.fillRect(plate.x-2,plate.y-2,4,4);
+  }
+ }
+ return {side,point,frontVisible,view,quad:near};
 }
-function drawVehicleSignalHead(g,signal,seconds,night){
+function drawVehicleSignalHead(g,signal,seconds,night,site){
  const geo=trafficSignalGeometry(signal);
- const site={x:geo.tip.x,y:geo.tip.y},front=geo.face;
+ const front=geo.face;
  const center=signal.headHeight,hw=.46,hh=1.21;
  const obj=drawSignalHousing(g,site,front,hw,hh,center);
- if(!obj.frontVisible){
-  // Costas de chapa, etiqueta e fixacoes: nunca luzes na direcao contraria.
-  const c=obj.point(0,center,-.02);
-  g.fillStyle='#88979d';g.fillRect(c.x-3,c.y-2,6,3);
-  return;
- }
+ if(!obj.frontVisible)return;
  const state=signalState(signal,seconds);
  const colors=['red','yellow','green'];
- const lensR=Math.max(2.2,cam.zoom*.124);
+ // Dimensao em tela acompanha orientacao da fachada verdadeira.
+ // Face de lado nunca desenha circulos flutuantes no espaco.
+ const side={x:-front.y,y:front.x};
+ const projectedSide=Math.hypot(
+  cam.cos*side.x-cam.sin*side.y,
+  (cam.sin*side.x+cam.cos*side.y)*TILT);
+ const lensX=Math.max(1.0,cam.zoom*.125*projectedSide);
+ const lensY=Math.max(2.2,cam.zoom*.118);
  const p=obj.point;
  colors.forEach((name,i)=>{
   const z=center+.36-i*.37;
-  const pos=p(0,z,.125),active=state===name;
-  const sh=cam.zoom*.028;
-  // Placa anti-reflexo, lente concava e sombreiro, calculados em tela.
-  g.fillStyle='#0c1215';g.beginPath();g.ellipse(pos.x,pos.y,
-    lensR*1.24,lensR*1.07,0,0,TAU);g.fill();
-  g.fillStyle=active?rgbLamp[name]:darkLamp[name];
-  g.beginPath();g.ellipse(pos.x,pos.y,lensR,lensR*.92,0,0,TAU);g.fill();
-  g.strokeStyle='#070d10';g.lineWidth=Math.max(1,lensR*.28);
-  g.beginPath();g.arc(pos.x,pos.y,lensR*1.10,Math.PI*1.10,Math.PI*1.91);g.stroke();
-  g.fillStyle=active?'rgba(255,255,246,.65)':'rgba(166,186,180,.10)';
-  g.beginPath();g.ellipse(pos.x-lensR*.24,pos.y-lensR*.25,
-    lensR*.25,lensR*.13,-.5,0,TAU);g.fill();
-  // Metal de sombreamento acima de cada lente
-  g.strokeStyle='#101a1e';g.lineWidth=Math.max(1,lensR*.20);
-  g.beginPath();g.moveTo(pos.x-lensR*1.12,pos.y-lensR*.25);
-  g.quadraticCurveTo(pos.x,pos.y-lensR*1.45,
-    pos.x+lensR*1.12,pos.y-lensR*.25);g.stroke();
+  const pos=p(0,z,.138),active=state===name;
+  g.fillStyle='#0b151a';g.beginPath();
+  g.ellipse(pos.x,pos.y,lensX*1.21,lensY*1.10,0,0,TAU);g.fill();
+  const ring=g.createLinearGradient(pos.x-lensX,pos.y-lensY,
+    pos.x+lensX,pos.y+lensY);
+  ring.addColorStop(0,active?'#283638':'#141f23');
+  ring.addColorStop(1,'#091217');
+  g.strokeStyle=ring;g.lineWidth=Math.max(.8,cam.zoom*.023);
+  g.beginPath();g.ellipse(pos.x,pos.y,lensX*1.12,lensY*1.04,0,0,TAU);g.stroke();
+  const glass=g.createRadialGradient(pos.x-lensX*.26,pos.y-lensY*.28,1,
+    pos.x,pos.y,Math.max(lensX,lensY)*1.3);
+  glass.addColorStop(0,active?'#f1ece0':'#354448');
+  glass.addColorStop(.28,active?rgbLamp[name]:darkLamp[name]);
+  glass.addColorStop(1,active?rgbLamp[name]:'#131b20');
+  g.fillStyle=glass;g.beginPath();
+  g.ellipse(pos.x,pos.y,lensX,lensY,0,0,TAU);g.fill();
+  // Sombreiro de aluminio projetado para fora da fachada, como no modelo.
+  const hood=cam.zoom*.047;
+  g.fillStyle='#101a20';g.strokeStyle='#38454b';
+  g.beginPath();g.moveTo(pos.x-lensX*1.14,pos.y-lensY*.35);
+  g.quadraticCurveTo(pos.x-lensX*.84,pos.y-lensY-hood,
+    pos.x,pos.y-lensY-hood);
+  g.quadraticCurveTo(pos.x+lensX*.84,pos.y-lensY-hood,
+    pos.x+lensX*1.14,pos.y-lensY*.35);
+  g.stroke();g.lineWidth=1;g.fill();
   if(active&&night){
-   const glow=g.createRadialGradient(pos.x,pos.y,0,pos.x,pos.y,lensR*4);
-   const tint=name==='red'?'255,65,50':name==='yellow'?'255,216,70':'71,246,139';
-   glow.addColorStop(0,'rgba('+tint+',.30)');
+   const tint=name==='red'?'255,65,50':name==='yellow'?'255,210,76':'75,236,136';
+   const glow=g.createRadialGradient(pos.x,pos.y,0,
+    pos.x,pos.y,lensY*3.1);
+   glow.addColorStop(0,'rgba('+tint+',.35)');
    glow.addColorStop(1,'rgba('+tint+',0)');
-   g.save();g.globalCompositeOperation='screen';
-   g.fillStyle=glow;g.fillRect(pos.x-lensR*4,pos.y-lensR*4,lensR*8,lensR*8);
+   g.save();g.globalCompositeOperation='screen';g.fillStyle=glow;
+   g.fillRect(pos.x-lensY*3.1,pos.y-lensY*3.1,lensY*6.2,lensY*6.2);
    g.restore();
-  }
-  if(i===0){
-   const cap=p(0,center+hh*.53,.13);
-   g.strokeStyle='#a9b2b3';g.lineWidth=sh;
-   g.beginPath();g.moveTo(cap.x-lensR*.45,cap.y-1);
-   g.lineTo(cap.x+lensR*.45,cap.y-1);g.stroke();
   }
  });
 }
