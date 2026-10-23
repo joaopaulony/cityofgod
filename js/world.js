@@ -6,12 +6,19 @@
 // Canvas 2D em dispositivos móveis. Sprites mantêm SPR=40 independente do chão.
 const ORIGINAL_MAP = 80;
 const WORLD_AREA_MULTIPLIER = 4;
-const MAP = ORIGINAL_MAP * Math.sqrt(WORLD_AREA_MULTIPLIER);
+// Mundo grande (padrão): mapa fixo do js/worldgen, carregado em setores (js/openworld.js).
+// ?seed=N ou ?scene=... abrem o mapa local de teste (160 m) — é o que a tecla G e os testes usam.
+const OPEN_WORLD = typeof COG !== 'undefined' && typeof location !== 'undefined' && !/[?&](seed|scene)=/.test(location.search);
+const MAP = OPEN_WORLD ? COG.WORLD_W : ORIGINAL_MAP * Math.sqrt(WORLD_AREA_MULTIPLIER);
 const PPM = (typeof RS !== 'undefined' && RS === 2) ? 20 : 24; // safe for standalone sprite lab
 const SPR = 40;      // pixels por metro dos sprites pré-pintados
 // semente: ?seed=123 na URL reproduz o mesmo mapa; sem ela, cada visita gera um mapa novo
 const SEED = Number(new URLSearchParams(location.search).get('seed')) || ((Math.random() * 1e6) | 0);
-const rng = mulberry(SEED);
+// rng global trocável: cada setor do mundo grande sorteia com a própria semente (mesmo resultado em
+// qualquer ordem de carregamento); fora disso, a sequência é a da semente do mapa.
+let rngCur = mulberry(SEED);
+const rng = () => rngCur();
+function withRng(r, fn) { const prev = rngCur; rngCur = r; try { return fn(); } finally { rngCur = prev; } }
 const R = (a, b) => a + rng() * (b - a);
 
 const world = {
@@ -28,7 +35,7 @@ function vnoise(x, y) {
   return lerp(lerp(h(xi, yi), h(xi + 1, yi), u), lerp(h(xi, yi + 1), h(xi + 1, yi + 1), u), v);
 }
 function fbm(x, y, oct = 4) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < oct; i++) { s += vnoise(x * f, y * f) * a; n += a; a *= 0.5; f *= 2.03; } return s / n; }
-const forest = (x, y) => fbm(x * 0.05 + 31.7, y * 0.05 + 7.3);
+const forest = (x, y) => world.forestFn ? world.forestFn(x, y) : fbm(x * 0.05 + 31.7, y * 0.05 + 7.3);
 
 // ---------- ruas curvas (Catmull-Rom) e campo de distância ----------
 const ROAD_W = 3.5, SIDE = 2;   // meia largura do asfalto e largura da calçada
@@ -84,6 +91,7 @@ function genRoads() {
   world.roadD = D;
 }
 function roadDist(x, y) {
+  if (world.roadDistFn) return world.roadDistFn(x, y);
   const N = MAP * 2, i = clamp(Math.round(x * 2), 0, N - 1), j = clamp(Math.round(y * 2), 0, N - 1);
   return world.roadD[j * N + i];
 }
@@ -101,6 +109,7 @@ function genPond() {
   if (best) world.pond = { x: best.x, y: best.y, rx: R(4, 6.5), ry: R(3, 5) };
 }
 function pondVal(x, y) {
+  if (world.pondFn) return world.pondFn(x, y);
   const p = world.pond; if (!p) return 9;
   return Math.hypot((x - p.x) / p.rx, (y - p.y) / p.ry) + (fbm(x * 0.35, y * 0.35, 3) - 0.5) * 0.7;
 }
@@ -932,6 +941,7 @@ function pickSpawn() {
 }
 
 function buildWorld() {
+  if (OPEN_WORLD) return buildOpenWorld();
   genRoads();
   genPond();
   world.buildHouses && world.buildHouses();
@@ -1031,7 +1041,8 @@ function buildWorld() {
 function moveTo(ox, oy, nx, ny, r, floor=0) {
   for (const [x, y] of [[nx, ny], [nx, oy], [ox, ny]]) {
     const q = collide(x, y, r, floor);
-    if (pondVal(q[0], q[1]) > 1.02) return q;
+    // água bloqueia, exceto sobre pontes (via sobre rio/mar no mundo grande)
+    if (pondVal(q[0], q[1]) > 1.02 || (OPEN_WORLD && roadDist(q[0], q[1]) < ROAD_W + SIDE)) return q;
   }
   return [ox, oy];
 }
@@ -1199,22 +1210,25 @@ function raycast(ox, oy, dx, dy, maxD) {
 // listas mudam de tamanho); colisores que se movem (veículos) são checados à parte.
 const COLL_CELL = 4;
 const collGrid = { key: '', n: 0, circ: null, segs: null, up: null, dyn: [], stamp: 0 };
+const NO_CELL = [];
 function collIndex() {
-  const key = world.circles.length + ':' + world.segs.length + ':' + ((world.upperSegs || []).length);
+  // mundo grande: reindexa só quando um setor termina ou sai (world.version); objetos de um setor
+  // ainda em geração ficam longe do jogador e entram juntos no fim
+  const key = world.open ? 'v' + world.version : world.circles.length + ':' + world.segs.length + ':' + ((world.upperSegs || []).length);
   if (collGrid.key === key) return collGrid;
-  const n = Math.ceil(MAP / COLL_CELL) + 2, mk = () => Array.from({ length: n * n }, () => []);
-  const G = { key, n, circ: mk(), segs: mk(), up: mk(), dyn: [], stamp: collGrid.stamp };
-  const put = (arr, x0, y0, x1, y1, o) => {
+  const n = Math.ceil(MAP / COLL_CELL) + 2;
+  const G = { key, n, circ: new Map(), segs: new Map(), up: new Map(), dyn: [], stamp: collGrid.stamp };
+  const put = (map, x0, y0, x1, y1, o) => {
     const i0 = clamp(Math.floor(x0 / COLL_CELL), 0, n - 1), i1 = clamp(Math.floor(x1 / COLL_CELL), 0, n - 1);
     const j0 = clamp(Math.floor(y0 / COLL_CELL), 0, n - 1), j1 = clamp(Math.floor(y1 / COLL_CELL), 0, n - 1);
-    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) arr[j * n + i].push(o);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * n + i; let a = map.get(k); if (!a) map.set(k, a = []); a.push(o); }
   };
   const M = 0.8;   // folga: raio máximo de quem colide
   for (const c of world.circles) {
     if (c.kind === 'vehicle') { G.dyn.push(c); continue; }
     put(G.circ, c.x - c.r - M, c.y - c.r - M, c.x + c.r + M, c.y + c.r + M, c);
   }
-  const segBox = (arr, s) => put(arr, Math.min(s.x1, s.x2) - M, Math.min(s.y1, s.y2) - M, Math.max(s.x1, s.x2) + M, Math.max(s.y1, s.y2) + M, s);
+  const segBox = (map, s) => put(map, Math.min(s.x1, s.x2) - M, Math.min(s.y1, s.y2) - M, Math.max(s.x1, s.x2) + M, Math.max(s.y1, s.y2) + M, s);
   for (const s of world.segs) segBox(G.segs, s);
   for (const s of world.upperSegs || []) segBox(G.up, s);
   Object.assign(collGrid, G);
@@ -1235,14 +1249,15 @@ function collide(x, y, r, floor=0) {
   const G = collIndex(), n = G.n;
   for (let it = 0; it < 3; it++) {
     const cell = clamp(Math.floor(y / COLL_CELL), 0, n - 1) * n + clamp(Math.floor(x / COLL_CELL), 0, n - 1);
+    const Cc = G.circ.get(cell) || NO_CELL, Cs = G.segs.get(cell) || NO_CELL, Cu = G.up.get(cell) || NO_CELL;
     if (floor !== 1) {
-      for (const c of G.circ[cell]) { const q = pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const c of Cc) { const q = pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
       for (const c of G.dyn) { const vb = vehicleBox(c), q = vb ? pushOutBox(vb, x, y, r) : pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
-      for (const s of G.segs[cell]) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of Cs) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     } else {
       // andar de cima: paredes externas, cercas soltas e as paredes do pavimento superior
-      for (const s of G.segs[cell]) { if (!(s.ext || (!s.house && s.kind === 'fence'))) continue; const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
-      for (const s of G.up[cell]) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of Cs) { if (!(s.ext || (!s.house && s.kind === 'fence'))) continue; const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of Cu) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     }
   }
   return [clamp(x, 0.5, MAP - 0.5), clamp(y, 0.5, MAP - 0.5)];

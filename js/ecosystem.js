@@ -45,9 +45,11 @@ function ecoFree(x,y){
     !(world.blocked&&world.blocked(x,y,.12));
 }
 function ecosystemInit(){
+  if(world.open&&world.ecoReady)return;   // mundo grande: já iniciado no buildOpenWorld
   const rr=ecosystem.rng=mulberry(world.seed^0x395f2b19);
   ecosystem.flowers=[];ecosystem.butterflies=[];ecosystem.pollen=[];
   ecosystem.sprites=WILDFLOWER_COLORS.map((_,i)=>ecoFlowerSprite(i,rr));
+  if(world.open){world.ecoReady=true;for(let i=0;i<28;i++)ecosystem.pollen.push({x:0,y:0,z:.3+rr()*1.1,phase:rr()*TAU,size:.55+rr()*1.0,alpha:.2+rr()*.24,ready:false});return;}   // flores por setor (openworld.js)
   // Pequenos conjuntos de flores, e nao um tapete artificial uniforme.
   for(let i=0;i<5200&&ecosystem.flowers.length<516;i++){
     const x=1+rr()*(MAP-2),y=1+rr()*(MAP-2),f=forest(x,y);

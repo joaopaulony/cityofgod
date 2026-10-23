@@ -38,9 +38,14 @@ function bil(grid, N, x, y) {   // grade de 0,5 m
   const a = grid[j * N + i], b = grid[j * N + i + 1], c = grid[(j + 1) * N + i], d = grid[(j + 1) * N + i + 1];
   return lerp(lerp(a, b, u), lerp(c, d, u), v);
 }
+// distância até a via: grade de 0,5 m no mapa local; função exata no mundo grande (openworld.js)
+function rdAt(x, y) { return world.roadDistFn ? world.roadDistFn(x, y) : bil(world.roadD, MAP * 2, x, y); }
 function fieldsAt(x, y, o = {}) {
   const N = MAP * 2;
-  o.rd = bil(world.roadD, N, x, y); o.tr = bil(terrain.trailD, N, x, y); o.pv = pondVal(x, y);
+  o.rd = rdAt(x, y); o.tr = terrain.trailD ? bil(terrain.trailD, N, x, y) : 99; o.pv = pondVal(x, y);
+  o.di = world.districtFn ? world.districtFn(x, y) : -1;
+  if (world.fieldFn) { const q = world.fieldFn(x, y); o.fa = q[0]; o.fc = q[1]; } else { o.fa = 0; o.fc = 0; }
+  o.bare = world.bareFn ? world.bareFn(x, y, o.di) : 0;   // pavimento/cais/pista: sem capim nem flores
   o.gt = fbm(x * 0.09, y * 0.09, 4); o.dry = fbm(x * 0.045 + 11.3, y * 0.045 + 90.1, 3);
   o.dirt = fbm(x * 0.13 + 50, y * 0.13 + 50, 3); o.wet = fbm(x * 0.11 + 200, y * 0.11 + 7, 3); o.fo = forest(x, y);
   return o;
@@ -56,7 +61,9 @@ function weightsAt(f, d1 = 0.5) {
   w.sand = 1 - sstep(1.12, 1.26, f.pv);
   w.water = f.pv < 1 ? 1 : 0;
   w.paved = f.rd < ROAD_W + SIDE + 0.05 ? 1 : 0;
+  if (f.di === 1) w.sand = 1;   // distrito de praia: areia em toda a faixa
   w.grass = Math.max(0, 1 - Math.max(w.dirt, w.mud, w.trail, w.sand, w.water, w.paved)) * (1 - w.forest * 0.7);
+  if (f.bare) { w.grass = 0; w.forest = 0; }
   return w;
 }
 
@@ -64,8 +71,10 @@ function weightsAt(f, d1 = 0.5) {
 function terrainInit() {
   const rnd = mulberry(world.seed * 7 + 3);
   terrain.n1 = tileNoise(rnd, [[64, 0.5], [32, 1], [16, 0.7]]);     // tufos/manchas ~0,1–0,3 m
+  terrain.openInit = world.open;
   terrain.n2 = new Float32Array(65536); for (let i = 0; i < 65536; i++) terrain.n2[i] = rnd();   // grão
   terrain.n3 = tileNoise(rnd, [[8, 1], [4, 0.6]]);                 // variação larga ~1–2 m
+  if (world.open) { terrain.trailD = null; return; }   // mundo grande: openworld.js monta minimapa e campos
   // distância até as trilhas (grade de 0,5 m)
   const N = MAP * 2, D = new Float32Array(N * N).fill(99);
   for (const t of world.trails) for (const p of t) {
@@ -149,17 +158,17 @@ function chunkItemsStep(ci, cj, maxIter) {
       else if (r() < 0.012 && f.dry > 0.55) items.push({ t: 'crack', x, y, s: 0.25 + r() * 0.35, a: r() * TAU });
     } else if (w.sand > 0.4 && f.pv > 1.05) {
       if (r() < 0.06) items.push({ t: 'shell', x, y, s: 0.015 + r() * 0.02, a: r() * TAU });
-      else if (r() < 0.05 && f.pv > 1.12) items.push({ t: 'ripple', x, y, s: 0.15 + r() * 0.2, a: Math.atan2(y - world.pond.y, x - world.pond.x) + Math.PI / 2 });
+      else if (r() < 0.05 && f.pv > 1.12) items.push({ t: 'ripple', x, y, s: 0.15 + r() * 0.2, a: world.pond ? Math.atan2(y - world.pond.y, x - world.pond.x) + Math.PI / 2 : Math.atan2(pondVal(x, y + 1) - pondVal(x, y - 1), pondVal(x + 1, y) - pondVal(x - 1, y)) + Math.PI / 2 });
     } else if (w.mud > 0.5 && r() < 0.05) items.push({ t: 'pebble', x, y, s: 0.02 + r() * 0.03, a: r() * TAU, wet: 1 });
   }
   G.i = iEnd;
   if (G.i < n) return false;
   // remendos, rachaduras e manchas no asfalto deste bloco
   for (let i = 0; i < 40; i++) {
-    const x = x0 + r() * CH, y = y0 + r() * CH, rd = bil(world.roadD, MAP * 2, x, y);
+    const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
     if (rd > ROAD_W - 0.5) continue;
     // direção da rua no ponto = perpendicular ao gradiente da distância
-    const N2 = MAP * 2, gx = bil(world.roadD, N2, x + 0.25, y) - bil(world.roadD, N2, x - 0.25, y), gy = bil(world.roadD, N2, x, y + 0.25) - bil(world.roadD, N2, x, y - 0.25);
+    const gx = rdAt(x + 0.25, y) - rdAt(x - 0.25, y), gy = rdAt(x, y + 0.25) - rdAt(x, y - 0.25);
     const along = Math.atan2(gy, gx) + Math.PI / 2, pick = r();
     if (pick < 0.4) items.push({ t: 'acrack', x, y, s: 0.5 + r() * 1.2, a: along + (r() - 0.5) * 1.2, seed: (r() * 1e9) | 0 });
     else if (pick < 0.62 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along });
@@ -192,7 +201,7 @@ function startChunk(ci, cj) {
 }
 function chunkFields(ch) {
   const x0 = ch.ci * CH - GSTEP, y0 = ch.cj * CH - GSTEP, F = {};
-  for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo']) F[k] = new Float32Array(GN * GN);
+  for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) F[k] = new Float32Array(GN * GN);
   const o = {};
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     fieldsAt(x0 + i * GSTEP, y0 + j * GSTEP, o); const k = j * GN + i;
@@ -207,7 +216,8 @@ const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
   .map(([name,hex])=>[name,TC(hex)]));
 function paintRows(ch, rows) {
   const { F, img } = ch, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
-  const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo;
+  const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo, Fdi = F.di, Ffa = F.fa, Ffc = F.fc;
+  const open = world.open, CROP = terrain.crops;
   const gx0 = ch.ci * CPX - PAD, gy0 = ch.cj * CPX - PAD, inv = 1 / (TP * GSTEP);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
   const end = Math.min(CSZ, ch.row + rows);
@@ -247,8 +257,48 @@ function paintRows(ch, rows) {
       // --- trilha de terra pisada (centro mais claro e gasto)
       const tw = 1 - sstep(0.55, 1.05, tr + (d1 - 0.5) * 0.35);
       if (tw > 0) { const m = (0.88 + d1 * 0.2 + (1 - sstep(0, 0.45, tr)) * 0.08) * (d2 > 0.9 ? 1.15 : 1); r = lerp(r, COL.trail[0] * m, tw); gg = lerp(gg, COL.trail[1] * m, tw); b = lerp(b, COL.trail[2] * m, tw); }
-      // --- areia seca -> areia molhada na beira
-      const sw = 1 - sstep(1.12, 1.26, pv + (d1 - 0.5) * 0.04);
+      // --- mundo grande: superfícies por distrito (peso suave pela fração dos 4 nós vizinhos)
+      let quay = 0;
+      if (open) {
+        const c0 = Fdi[k], c1 = Fdi[k + 1], c2 = Fdi[k2], c3 = Fdi[k2 + 1];
+        const wOf = D => (c0 === D ? w00 : 0) + (c1 === D ? w10 : 0) + (c2 === D ? w01 : 0) + (c3 === D ? w11 : 0);
+        const wx = (gx0 + px) / TP, wy = (gy0 + py) / TP;
+        // fazenda: fileiras de plantio na direção do talhão, sulcos de terra entre elas
+        const wf = wOf(8);
+        if (wf > 0) {
+          const kk = u < 0.5 ? (v < 0.5 ? k : k2) : (v < 0.5 ? k + 1 : k2 + 1), ang = Ffa[kk], crop = CROP[Ffc[kk] | 0];
+          const t = wx * Math.cos(ang) + wy * Math.sin(ang), row = 0.5 + 0.5 * Math.sin(t * 7.3 + (d1 - 0.5) * 0.9);
+          const plant = sstep(0.35, 0.7, row) * crop[3], m = 0.88 + d1 * 0.2 + (d2 > 0.9 ? 0.1 : 0);
+          const cr = lerp(COL.dirt[0] * 0.95, crop[0], plant) * m, cg = lerp(COL.dirt[1] * 0.95, crop[1], plant) * m, cb = lerp(COL.dirt[2] * 0.95, crop[2], plant) * m;
+          r = lerp(r, cr, wf * 0.92); gg = lerp(gg, cg, wf * 0.92); b = lerp(b, cb, wf * 0.92);
+        }
+        // centro, indústria, porto e pátio do aeroporto: placas de concreto com juntas e manchas
+        const wc = wOf(2), wi = wOf(6) + wOf(7);
+        if (wc + wi > 0) {
+          const slab = wc > wi ? 1.2 : 4, jx = Math.abs(((wx / slab) % 1 + 1) % 1 - 0.5), jy = Math.abs(((wy / slab) % 1 + 1) % 1 - 0.5);
+          const joint = (jx > 0.485 || jy > 0.485) ? 0.78 : 1, stain = d3 > 0.72 ? 0.86 : 1, m = (0.9 + d2 * 0.12) * joint * stain * (0.95 + d1 * 0.08);
+          const base = wc > wi ? COL.walk : COL.curbF;
+          const ww2 = Math.min(1, wc + wi) * 0.96;
+          r = lerp(r, base[0] * m * 1.02, ww2); gg = lerp(gg, base[1] * m, ww2); b = lerp(b, base[2] * m * 0.98, ww2);
+          quay = Math.min(1, wOf(7) + wc * 0.6);
+        }
+        // favela: terra batida e pisada com manchas de cimento; conjunto: grama gasta e terra
+        const wv = wOf(4), wg = wOf(5);
+        if (wv + wg > 0) {
+          const cem = d3 > 0.62 && wv > 0 ? 1 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
+          const cr = cem ? COL.curbF[0] * 1.1 : COL.dirt[0] * m, cg = cem ? COL.curbF[1] * 1.1 : COL.dirt[1] * m, cb = cem ? COL.curbF[2] * 1.1 : COL.dirt[2] * m;
+          const ww3 = wv * 0.9 + wg * 0.45 * sstep(0.4, 0.7, d3);
+          r = lerp(r, cr, ww3); gg = lerp(gg, cg, ww3); b = lerp(b, cb, ww3);
+        }
+        // praia: areia seca em todo o distrito (a molhada perto da água vem do campo da costa)
+        const wb = wOf(1);
+        if (wb > 0) { const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12); r = lerp(r, COL.sand[0] * m, wb); gg = lerp(gg, COL.sand[1] * m, wb); b = lerp(b, COL.sand[2] * m, wb); }
+        // aeroporto: grama aparada mais clara entre as pistas
+        const wa = wOf(11);
+        if (wa > 0) { const m = 1.06 + (Math.sin(wx * 0.5) > 0 ? 0.04 : -0.02); r = lerp(r, r * m, wa); gg = lerp(gg, gg * m, wa); b = lerp(b, b * m * 0.98, wa); }
+      }
+      // --- areia seca -> areia molhada na beira (no porto e no centro vira cais de concreto)
+      const sw = (1 - sstep(1.12, 1.26, pv + (d1 - 0.5) * 0.04)) * (1 - quay);
       if (sw > 0) {
         const ws = 1 - sstep(1.0, 1.075, pv + (d3 - 0.5) * 0.03), m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12);
         r = lerp(r, lerp(COL.sand[0], COL.wsand[0], ws) * m, sw); gg = lerp(gg, lerp(COL.sand[1], COL.wsand[1], ws) * m, sw); b = lerp(b, lerp(COL.sand[2], COL.wsand[2], ws) * m, sw);
@@ -296,8 +346,19 @@ function paintRows(ch, rows) {
 
 // marcas de rua (em metros, com transformação do bloco)
 function paintRoadVectors(ch, g) {
-  const r2 = mulberry(world.seed + ch.ci * 31 + ch.cj * 977), J = world.junction, nearJ = p => Math.hypot(p.x - J.x, p.y - J.y) < ROAD_W + 3;
+  const r2 = mulberry(world.seed + ch.ci * 31 + ch.cj * 977), J = world.junction, nearJ = p => !!J && Math.hypot(p.x - J.x, p.y - J.y) < ROAD_W + 3;
   const bx0 = ch.ci * CH - 2, by0 = ch.cj * CH - 2, bx1 = bx0 + CH + 4, by1 = by0 + CH + 4, inB = p => p.x > bx0 - 4 && p.x < bx1 + 4 && p.y > by0 - 4 && p.y < by1 + 4;
+  // pistas (mundo grande): marcações das pistas de pouso cruzando este bloco
+  if (world.airports) paintRunways(ch, g, inB);
+  // faixas tracejadas brancas separando pistas nas vias largas
+  for (const rd of world.roads) if ((rd.off || 0) > 0.5) for (const o of [-1, 1]) {
+    const lane = o * ((rd.off || 0) + ROAD_W) * 0.5;
+    for (let i = 0; i < rd.pts.length - 1; i++) {
+      const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || (i % 12) > 5) continue;
+      g.strokeStyle = 'rgba(232,230,222,0.8)'; g.lineWidth = 0.12;
+      g.beginPath(); g.moveTo(p.x + p.nx * lane, p.y + p.ny * lane); g.lineTo(q.x + q.nx * lane, q.y + q.ny * lane); g.stroke();
+    }
+  }
   // faixa dupla amarela gasta: segmentos curtos com opacidade variando
   for (const rd of world.roads) for (const o of [-0.12, 0.12]) for (let i = 0; i < rd.pts.length - 1; i++) {
     const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || nearJ(p)) continue;
@@ -306,7 +367,7 @@ function paintRoadVectors(ch, g) {
     g.beginPath(); g.moveTo(p.x + p.nx * o, p.y + p.ny * o); g.lineTo(q.x + q.nx * o, q.y + q.ny * o); g.stroke();
   }
   // faixas de pedestre gastas
-  for (const rd of world.roads) {
+  for (const rd of J ? world.roads : []) {
     let ci = 0, cd = 1e9; rd.pts.forEach((p, i) => { const d = Math.hypot(p.x - J.x, p.y - J.y); if (d < cd) { cd = d; ci = i; } });
     for (const dir of [-1, 1]) {
       const p = rd.pts[ci + dir * Math.round((ROAD_W + 3.2) * 2)]; if (!p || !inB(p)) continue;
@@ -322,7 +383,7 @@ function paintRoadVectors(ch, g) {
   // bueiros junto ao meio-fio
   for (const rd of world.roads) for (let i = 30; i < rd.pts.length; i += 55) {
     const p = rd.pts[i], s = i % 2 ? 1 : -1; if (!inB(p) || nearJ(p)) continue;
-    g.save(); g.translate(p.x + p.nx * s * (ROAD_W - 0.4), p.y + p.ny * s * (ROAD_W - 0.4)); g.rotate(Math.atan2(p.ty, p.tx));
+    const off = rd.off || 0; g.save(); g.translate(p.x + p.nx * s * (ROAD_W + off - 0.4), p.y + p.ny * s * (ROAD_W + off - 0.4)); g.rotate(Math.atan2(p.ty, p.tx));
     g.fillStyle = '#7d7a72'; g.fillRect(-0.48, -0.3, 0.96, 0.6);
     g.fillStyle = '#1c1d20'; g.fillRect(-0.4, -0.22, 0.8, 0.44);
     g.fillStyle = '#5a5b5f'; for (let k = 0; k < 7; k++) g.fillRect(-0.37 + k * 0.11, -0.2, 0.05, 0.4);
@@ -334,9 +395,9 @@ function paintRoadVectors(ch, g) {
   for (const rd of world.roads) for (let i = 0; i < rd.pts.length; i += 3) {
     const p = rd.pts[i]; if (!inB(p)) continue;
     for (const s of [1, -1]) {
-      const ax = p.x + p.nx * s * (ROAD_W + 0.2), ay = p.y + p.ny * s * (ROAD_W + 0.2);
-      if (bil(world.roadD, MAP * 2, ax, ay) < ROAD_W + 0.1) continue;
-      g.beginPath(); g.moveTo(ax, ay); g.lineTo(p.x + p.nx * s * (ROAD_W + SIDE), p.y + p.ny * s * (ROAD_W + SIDE)); g.stroke();
+      const off = rd.off || 0, ax = p.x + p.nx * s * (ROAD_W + off + 0.2), ay = p.y + p.ny * s * (ROAD_W + off + 0.2);
+      if (rdAt(ax, ay) < ROAD_W + 0.1) continue;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(p.x + p.nx * s * (ROAD_W + off + SIDE), p.y + p.ny * s * (ROAD_W + off + SIDE)); g.stroke();
     }
   }
   // brilho no canto do meio-fio
@@ -344,11 +405,42 @@ function paintRoadVectors(ch, g) {
   for (const rd of world.roads) for (const s of [1, -1]) {
     g.beginPath(); let on = false;
     for (const p of rd.pts) {
-      const x = p.x + p.nx * s * (ROAD_W + 0.08), y = p.y + p.ny * s * (ROAD_W + 0.08);
-      if (!inB(p) || bil(world.roadD, MAP * 2, x, y) < ROAD_W + 0.04) { on = false; continue; }
+      const x = p.x + p.nx * s * (ROAD_W + (rd.off || 0) + 0.08), y = p.y + p.ny * s * (ROAD_W + (rd.off || 0) + 0.08);
+      if (!inB(p) || rdAt(x, y) < ROAD_W + 0.04) { on = false; continue; }
       on ? g.lineTo(x, y) : g.moveTo(x, y); on = true;
     }
     g.stroke();
+  }
+}
+
+// pistas de pouso: asfalto, faixa central tracejada, cabeceiras (piano), números e luzes de borda
+function paintRunways(ch, g, inB) {
+  const x0 = ch.ci * CH - 2, y0 = ch.cj * CH - 2, x1 = x0 + CH + 4, y1 = y0 + CH + 4;
+  for (const ap of world.airports) {
+    const c = Math.cos(ap.ang), s = Math.sin(ap.ang), L = ap.len, Wd = ap.width;
+    // descarta rápido se o bloco está longe do retângulo do aeroporto
+    const cx = (x0 + x1) / 2 - ap.x, cy = (y0 + y1) / 2 - ap.y, lu = cx * c + cy * s, lv = -cx * s + cy * c;
+    if (Math.abs(lu) > L / 2 + 60 || lv < -Wd - 40 || lv > ap.apron + 40) continue;
+    g.save(); g.translate(ap.x, ap.y); g.rotate(ap.ang);
+    // pista de taxiamento e pátio
+    g.fillStyle = '#4b4d51'; g.fillRect(-L / 2 + 120, Wd / 2 + 30, L - 240, 18);
+    for (const t of [-0.3, 0, 0.3]) g.fillRect(t * L - 9, Wd / 2, 18, 40);
+    g.fillStyle = '#8e8c86'; g.fillRect(-L * 0.2, Wd / 2 + 48, L * 0.4, ap.apron - 80);
+    g.strokeStyle = 'rgba(40,40,40,0.35)'; g.lineWidth = 0.05;
+    for (let x = -L * 0.2; x <= L * 0.2; x += 6) { g.beginPath(); g.moveTo(x, Wd / 2 + 48); g.lineTo(x, Wd / 2 + ap.apron - 32); g.stroke(); }
+    g.fillStyle = '#d8b13a'; g.fillRect(-L / 2 + 120, Wd / 2 + 38.6, L - 240, 0.25);
+    // pista
+    g.fillStyle = '#3c3e42'; g.fillRect(-L / 2, -Wd / 2, L, Wd);
+    g.fillStyle = 'rgba(30,30,32,0.5)'; for (let x = -L / 2 + 40; x < L / 2 - 40; x += 23) g.fillRect(x, -Wd * 0.12, 9, Wd * 0.24);   // marcas de pneu no toque
+    g.fillStyle = '#ecebe5';
+    for (let x = -L / 2 + 70; x < L / 2 - 70; x += 50) g.fillRect(x, -0.45, 30, 0.9);   // eixo tracejado
+    g.fillRect(-L / 2, -Wd / 2 + 0.6, L, 0.45); g.fillRect(-L / 2, Wd / 2 - 1.05, L, 0.45);   // bordas
+    for (const e of [-1, 1]) {
+      for (let k = -5; k <= 5; k++) if (k) g.fillRect(e * (L / 2 - 12) - 15, k * (Wd / 13) - 0.9, 30, 1.8);   // piano
+      g.fillRect(e * (L / 2 - 180) - 15, -Wd / 2 + 4, 30, 5); g.fillRect(e * (L / 2 - 180) - 15, Wd / 2 - 9, 30, 5);   // zona de toque
+    }
+    g.fillStyle = '#f2e7a8'; for (let x = -L / 2; x <= L / 2; x += 30) for (const v of [-Wd / 2 - 0.6, Wd / 2 + 0.6]) g.fillRect(x - 0.25, v - 0.25, 0.5, 0.5);   // luzes
+    g.restore();
   }
 }
 
@@ -500,11 +592,23 @@ function finishChunk(ch) {
     g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
   }
   // sombras assadas (árvores, arbustos, pedras) — camada suave em baixa resolução
-  const sc = world.groundCtx.canvas, k = PPM / TP, sx = ox * k, sy = oy * k;
-  g.save(); g.imageSmoothingEnabled = true; g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, CSZ, CSZ); g.restore();
+  g.save(); g.imageSmoothingEnabled = true;
+  if (world.shadowLayers) {   // mundo grande: uma camada de sombra por setor (origem e escala próprias)
+    const bx0 = ox / TP, by0 = oy / TP, bs = CSZ / TP;
+    for (const L of world.shadowLayers.values()) {
+      if (L.x0 > bx0 + bs || L.x1 < bx0 || L.y0 > by0 + bs || L.y1 < by0) continue;
+      g.setTransform(TP / L.ppm, 0, 0, TP / L.ppm, (L.x0 - bx0) * TP, (L.y0 - by0) * TP);
+      g.drawImage(L.canvas, 0, 0);
+    }
+  } else {
+    const sc = world.groundCtx.canvas, k = PPM / TP, sx = ox * k, sy = oy * k;
+    g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, CSZ, CSZ);
+  }
+  g.restore();
   // refina o minimapa com a versão detalhada
   terrain.miniCtx.imageSmoothingEnabled = true;
-  terrain.miniCtx.drawImage(ch.c, PAD, PAD, CPX, CPX, ch.ci * CH * MINI, ch.cj * CH * MINI, CH * MINI, CH * MINI);
+  const mp = terrain.miniPPM || MINI;
+  terrain.miniCtx.drawImage(ch.c, PAD, PAD, CPX, CPX, ch.ci * CH * mp, ch.cj * CH * mp, CH * mp, CH * mp);
   ch.done = true; ch.F = null; ch.img = null; ch._buckets = null; ch._keys = null;
 }
 
@@ -528,7 +632,8 @@ function drawGround(g, W, H) {
   const affine = (ppm, x0, y0) => g.setTransform(s * c / ppm, s * TILT * sn / ppm, -s * sn / ppm, s * TILT * c / ppm,
     W / 2 + s * (c * (x0 - cam.x) - sn * (y0 - cam.y)), H / 2 + s * TILT * (sn * (x0 - cam.x) + c * (y0 - cam.y)));
   // fundo: minimapa ampliado (só aparece enquanto um bloco ainda está sendo pintado)
-  affine(MINI, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(terrain.mini, 0, 0);
+  affine(terrain.miniPPM || MINI, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(terrain.mini, 0, 0);
+  if (world.groundBase) world.groundBase(affine, g);   // mundo grande: base de 2 px/m dos setores carregados
   // blocos visíveis
   const cs = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => unproj(x, y, 0));
   const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
@@ -537,6 +642,7 @@ function drawGround(g, W, H) {
   const pending = [], need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3);
   terrain.maxChunks = Math.max(24, need + 2);
   for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
+    if (world.chunkReady && !terrain.chunks.has(ci + ',' + cj) && !world.chunkReady(ci, cj)) continue;   // setores vizinhos ainda carregando
     const ch = terrain.chunks.get(ci + ',' + cj) || startChunk(ci, cj);
     ch.used = terrain.frame;
     if (!ch.done) pending.push(ch);
@@ -553,7 +659,7 @@ function drawGround(g, W, H) {
     if (ci < 0 || cj < 0 || ci >= MAP / CH || cj >= MAP / CH) continue;
     const ch = terrain.chunks.get(ci + ',' + cj);
     if (ch) ch.used = terrain.frame;
-    if (!ringTarget && (!ch || !ch.done)) ringTarget = ch || [ci, cj];
+    if (!ringTarget && (!ch || !ch.done) && (ch || !world.chunkReady || world.chunkReady(ci, cj))) ringTarget = ch || [ci, cj];
   }
   if (!world.terrainSync && !pending.length && ringTarget)
     workChunk(Array.isArray(ringTarget) ? startChunk(...ringTarget) : ringTarget, Math.min(4, terrain.budget || 4));

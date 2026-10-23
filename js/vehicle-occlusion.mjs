@@ -159,5 +159,10 @@ export function createWorldOccluders(scene,THREE,bridge,material){
   mesh.frustumCulled=false;
   scene.add(mesh);groups.push(mesh);
  }
- return {state,updateActors};
+ // remove tudo da cena (o mundo grande remonta os oclusores em volta do carro)
+ function dispose(){
+  for(const m of groups){scene.remove(m);if(m.isInstancedMesh)m.dispose?.();}
+  groups.length=0;dynamic.length=0;
+ }
+ return {state,updateActors,dispose};
 }

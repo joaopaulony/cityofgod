@@ -85,21 +85,63 @@ function setupCar(){
  system.collider={x:state.x,y:state.y,r:.55,kind:'vehicle',h:1.4};
  bridge.world.circles.push(system.collider);
 }
+let occlusionMaterial=null;
+const occlusionSync={version:-1,x:0,y:0};
 function makeOccluders(){
  // A profundidade vem da geometria REAL de cada fachada e da água do telhado.
  // Não usar caixas fechadas: seus topos quadrados ocultavam carros junto
  // aos beirais e criavam quadrados invisíveis ao girar a câmera.
- const invisible=new THREE.MeshBasicMaterial({
+ occlusionMaterial=new THREE.MeshBasicMaterial({
   colorWrite:false,depthWrite:true,depthTest:true,side:THREE.DoubleSide
  });
+ syncOccluders(true);
+}
+// Mundo grande: as casas e objetos entram e saem por setor. Os oclusores são remontados
+// em volta do carro quando o mundo muda (world.version) ou o carro anda 25 m.
+const OCC_RADIUS=90;
+function syncOccluders(force){
+ const w=bridge.world,open=!!w.open,cx=state.x,cy=state.y;
+ if(!force&&(!open||(w.version===occlusionSync.version&&
+   Math.hypot(cx-occlusionSync.x,cy-occlusionSync.y)<25)))return;
+ Object.assign(occlusionSync,{version:w.version,x:cx,y:cy});
+ const near=(x,y)=>!open||Math.hypot(x-cx,y-cy)<OCC_RADIUS;
+ const want=new Set(bridge.houses.filter(H=>near((H.x0+H.x1)/2,(H.y0+H.y1)/2)));
+ for(let i=occluders.length-1;i>=0;i--){
+  const o=occluders[i];
+  if(want.has(o.userData.house))continue;
+  scene.remove(o);o.geometry.dispose();occluders.splice(i,1);
+ }
+ for(const [H,m] of roofOccluders){
+  if(want.has(H))continue;
+  scene.remove(m);m.geometry.dispose();roofOccluders.delete(H);
+ }
+ const have=new Set(occluders.map(o=>o.userData.house));
+ for(const H of roofOccluders.keys())have.add(H);
+ for(const H of want)if(!have.has(H))addHouseOccluder(H);
+ system.houseOccluders=occluders.length;
+ // Os outros objetos possuem profundidade propria: nao usar a cerca
+ // como um bloco solido, pois isso corta o capo atraves das ripas.
+ occlusionScene?.dispose?.();
+ const view=!open?bridge:{...bridge,
+  world:{...w,lamps:(w.lamps||[]).filter(o=>near(o.x,o.y)),
+   trafficSignals:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
+   props:(w.props||[]).filter(o=>o.type!=='tuft'&&near(o.x,o.y)),
+   segs:(w.segs||[]).filter(s=>s.kind==='fence'&&near(s.x1,s.y1))},
+  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)),
+  urbanBins:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
+ occlusionScene=createWorldOccluders(scene,THREE,view,occlusionMaterial);
+ system.occlusionStats=occlusionScene.state;
+}
+function addHouseOccluder(H){
+ const invisible=occlusionMaterial;
  const face=(vertices,output)=>{
   const p=vertices.map(([x,y,z])=>[x,z,y]);
   for(let i=1;i<p.length-1;i++)
    for(const v of [p[0],p[i],p[i+1]])output.push(...v);
  };
- for(const H of bridge.houses){
+ {
   const w=H.x1-H.x0,d=H.y1-H.y0;
-  if(w<=0||d<=0)continue;
+  if(w<=0||d<=0)return;
   const walls=[],slopes=[];
   // Separate wall and roof depth. When a vehicle is behind the tiles
   // only the roof fades; masonry stays opaque and solid in every angle.
@@ -132,11 +174,6 @@ function makeOccluders(){
   if(wallMesh)occluders.push(wallMesh);
   if(roofMesh)roofOccluders.set(H,roofMesh);
  }
- system.houseOccluders=occluders.length;
- // Os outros objetos possuem profundidade propria: nao usar a cerca
- // como um bloco solido, pois isso corta o capo atraves das ripas.
- occlusionScene=createWorldOccluders(scene,THREE,bridge,invisible);
- system.occlusionStats=occlusionScene.state;
 
 }
 function importModel(root,config=activeModel){
@@ -354,6 +391,7 @@ system.render=()=>{
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
+ syncOccluders(false);
  for(const o of occluders)o.visible=!o.userData.house.inside;
  for(const [H,mesh] of roofOccluders)
   mesh.visible=!H.inside;

@@ -74,7 +74,7 @@ function chat(who, text) {
   logEl.append(d); while (logEl.children.length > 4) logEl.firstChild.remove();
 }
 for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.home[3] / 2; }
-chat('Sistema', `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
+chat('Sistema', world.open ? `mundo ${COG.WORLD_W / 1000}×${COG.WORLD_H / 1000} km — você está em ${world.spawnName}. G abre um mapa de teste.` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (document.activeElement === say) {
@@ -309,7 +309,7 @@ function render() {
   if(st.night)for(const lamp of world.lamps)drawLampBeam(g,lamp,T);
 
   const list = [], margin = 6 * s;
-  for (const p of world.props) {
+  for (const p of (world.propsInView ? world.propsInView(W, H) : world.props)) {
     const b = proj(p.x, p.y, 0);
     if (b.x < -margin || b.x > W + margin || b.y < -margin * 0.3 || b.y > H + margin * 1.2) continue;
     list.push({ d: b.d + (p.flat ? -0.3 : 0), draw: ctx => drawProp(ctx,p,T,player),prop:p });
@@ -644,6 +644,8 @@ function frame(now) {
     // custo do quadro sem a pintura do chão define quanto tempo o chão pode usar no próximo
     const cost = performance.now() - t0 - terrain.workMs;
     terrain.budget = clamp(14 - cost, 1.5, 7);
+    // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
+    if (world.streamTick) world.streamTick(player.x, player.y, clamp(13 - cost - terrain.workMs, 2.5, 6));
     if (cost + terrain.workMs < 12) warmIdle();
   }
   requestAnimationFrame(frame);

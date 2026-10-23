@@ -8,7 +8,7 @@ const boxes = [];      // móveis e objetos: {x,y,z,w,d,h,rot,top,side,kind}
 
 function addHouse(def) {
   const H = Object.assign({ h: 2.7, segs: [], inside: false, roofKind: 'gable' }, def);
-  H.seed = (houses.length + 1) * 977 + (world.seed % 100003);
+  H.seed = def.seed != null ? def.seed : (houses.length + 1) * 977 + (world.seed % 100003);
   const wallTop = H.roofKind === 'flat' ? H.h + PARAPET : H.h;
   const W = H.x1 - H.x0, D = H.y1 - H.y0, alongX = W >= D;
   const gableEnds = H.roofKind === 'gable' ? (alongX ? ['W', 'E'] : ['N', 'S']) : [];
