@@ -39,6 +39,7 @@ export function createWorldOccluders(scene,THREE,bridge,material){
  // Mesma geometria fisica do Canvas: poste em L transversal a rua,
  // cabeca suspensa ao centro da pista, e placa do pedestre na coluna.
  for(const l of bridge.world.trafficSignals||[]){
+  const tx=l.x+l.ix*l.armSpan,tz=l.y+l.iy*l.armSpan;
   const face={x:-l.ax,y:-l.ay};
   beam(l.x,0,l.y,l.x,l.poleHeight,l.y,.073);
   beam(l.x,l.armHeight,l.y,tx,l.armHeight,tz,.061);
