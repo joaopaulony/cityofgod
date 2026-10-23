@@ -11,6 +11,11 @@ const RULES=[
   ['Luz bloqueada por parede',8,m=>m.wallBlocksLight&&m.partitionBlocksLight&&
     m.facadeCovered&&m.roofCovered&&m.maskLocal&&m.coneExteriorOnly&&
     m.noBlackStripes],
+  ['Semaforos L sobre a via, frente para carros, pedestres protegidos e lixeiras detalhadas',8,m=>
+    m.laneArmsCorrect&&m.signalFacingCorrect&&m.pedProtected&&
+    m.binDetailPixels>=280&&m.binShadeCount>=5&&
+    m.lampMetalPixels>=180&&m.lampShades>=5&&
+    m.signalLitPixels>=240&&m.signalShades>=5&&m.updatedBinDepth],
   ['Luz de poste e feixe visiveis',8,m=>m.lampBeamPixels>=900&&m.lampCount>1&&m.unaffectedByPlayerRay],
   ['Interior nao exposto pelas paredes',8,m=>m.outsideRoofOpaque&&m.sightThroughWindow&&m.closedDoorBlocked&&m.featheredFocus],
   ['Interior acessivel ao entrar',7,m=>m.interiorVisibleWhenInside],
