@@ -38,3 +38,11 @@ Os testes de geometria são automáticos. As capturas ajudam a avaliar o visual,
 - Construcao de WebGL 3D em tempo real validada pelo workflow vehicle-depth-fix-build.
 - As máscaras de oclusão são profundidade 3D, não capturas de sprites.
 - Revisar as capturas dos 11 modelos após cada alteração na geometria de postes e copas.
+
+## Três novos prints — geometria de empena e ordem de telhados
+- [x] Cobertura de varanda (porchroof/canopy) ordenada ANTES do telhado principal, impedindo placas sobre as telhas.
+- [x] Máscaras de profundidade WebGL divididas em paredes e águas reais.
+- [x] Paredes laterais de duas águas terminam na altura da parede; a empena triangular é representada pela sua própria geometria. Nada de parede retangular invisível até a cumeeira.
+- [x] Telhados mantidos opacos — teste visual descartou a alternativa que deixava ver o interior vazio da casa.
+- [x] Testes de gable/hip/porch em tests/vehicle-roof-order.test.mjs.
+- [ ] Verificação visual em Chrome para Silvia e os outros dez GLB: tests/vehicle-roof-browser.cjs.

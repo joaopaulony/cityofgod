@@ -26,7 +26,7 @@ const system={
 };
 window.cityVehicles=system;
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
- shadowGround=null,lampL=null,lampR=null,occluders=[],occlusionScene=null;
+ shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;
 
 function nearestSafeParking(){
@@ -98,25 +98,37 @@ function makeOccluders(){
  for(const H of bridge.houses){
   const w=H.x1-H.x0,d=H.y1-H.y0;
   if(w<=0||d<=0)continue;
-  const verts=[];
+  const walls=[],slopes=[];
+  // Separate wall and roof depth. When a vehicle is behind the tiles
+  // only the roof fades; masonry stays opaque and solid in every angle.
   for(const side of Object.values(H.sides||{})){
    const a=side.a,b=[a[0]+side.dir[0]*side.len,
                       a[1]+side.dir[1]*side.len];
-   const h=side.Hc||H.h;
+   // A empena nao e retangulo ate a cumeeira: as laterais reais
+   // terminam em H.h e a parte triangular e desenhada por f.gable.
+   // Antes side.Hc enchia com uma parede QUADRADA invisivel acima das
+   // telhas, cortando carros em linhas verticais artificiais.
+   const h=H.roofKind==='flat'?(side.Hc||H.h):H.h;
    face([[a[0],a[1],0],[b[0],b[1],0],
-     [b[0],b[1],h],[a[0],a[1],h]],verts);
+     [b[0],b[1],h],[a[0],a[1],h]],walls);
   }
   const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
   if(roof.flat)
    face([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
-    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],verts);
-  else for(const f of roof.faces)face(f.p,verts);
-  if(!verts.length)continue;
-  const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-  const mesh=new THREE.Mesh(geometry,invisible);
-  mesh.userData.house=H;mesh.frustumCulled=false;
-  scene.add(mesh);occluders.push(mesh);
+    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],slopes);
+  else for(const f of roof.faces)
+   face(f.p,f.gable?walls:slopes);
+  const make=(vertices)=>{
+   if(!vertices.length)return null;
+   const geometry=new THREE.BufferGeometry();
+   geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+   const mesh=new THREE.Mesh(geometry,invisible);
+   mesh.userData.house=H;mesh.frustumCulled=false;
+   scene.add(mesh);return mesh;
+  };
+  const wallMesh=make(walls),roofMesh=make(slopes);
+  if(wallMesh)occluders.push(wallMesh);
+  if(roofMesh)roofOccluders.set(H,roofMesh);
  }
  system.houseOccluders=occluders.length;
  // Os outros objetos possuem profundidade propria: nao usar a cerca
@@ -339,6 +351,8 @@ system.render=()=>{
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  for(const o of occluders)o.visible=!o.userData.house.inside;
+ for(const [H,mesh] of roofOccluders)
+  mesh.visible=!H.inside;
  occlusionScene?.updateActors(system.driver,bridge.player);
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
