@@ -829,10 +829,9 @@ function houseDrawables(list, px, py) {
       continue;
     }
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
-    // Um carro oculto pelo telhado solicita o efeito cutaway isometrico.
-    // Continua sem expor mobiliario interno: H.inside permanece falso.
-    // A mesma casa remove apenas seu depth-roof WebGL, nao as paredes.
-    H.fade=!!H.vehicleRoofFade&&!H.inside;
+    // A visibilidade do interior depende de entrar na casa, e nunca de
+    // dirigir atras de um telhado. Evita revelar o vazio verde da casa.
+    H.fade=false;
     H.visionOpenings=H.inside?[]:houseVisibleOpenings(H,px,py);
     let maxD = -1e9;
     const showIn=H.inside;
