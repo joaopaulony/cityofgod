@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '22'
       - name: Check world projection and house ordering tests
-        run: node --test tests/vehicle-roof-visibility.test.mjs
+        run: node --test tests/vehicle-roof-order.test.mjs
       - name: Install Playwright
         run: npm install --no-audit --no-fund --no-save playwright@1.56.1
       - name: Verify roof fade in Chrome with 11 GLBs and 4 directions
