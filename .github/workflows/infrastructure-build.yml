@@ -1,7 +1,7 @@
-name: Build realistic streetlights traffic and rural approaches
+name: Build realistic overhead traffic and street furniture
 on:
   push:
-    branches: [feat/realistic-streetlights-traffic-rural-20261023]
+    branches: [fix/traffic-l-arms-realistic-bins-20261023]
     paths:
       - .github/workflows/infrastructure-build.yml
 permissions:
@@ -37,7 +37,9 @@ jobs:
           git add js/vehicle-webgl.bundle.js
           if ! git diff --cached --quiet; then
             git commit -m 'build: live GLB scene including traffic light depth masks'
-            git fetch origin feat/realistic-streetlights-traffic-rural-20261023
-            git rebase origin/feat/realistic-streetlights-traffic-rural-20261023
-            git push origin HEAD:feat/realistic-streetlights-traffic-rural-20261023
+            git fetch origin fix/traffic-l-arms-realistic-bins-20261023
+            git rebase origin/fix/traffic-l-arms-realistic-bins-20261023
+            git push origin HEAD:fix/traffic-l-arms-realistic-bins-20261023
           fi
+
+# Bundled 3D occlusion geometry must match the new Canvas signal arms.
