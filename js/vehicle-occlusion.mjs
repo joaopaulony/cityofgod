@@ -39,13 +39,17 @@ export function createWorldOccluders(scene,THREE,bridge,material){
  // Mesma geometria fisica do Canvas: poste em L transversal a rua,
  // cabeca suspensa ao centro da pista, e placa do pedestre na coluna.
  for(const l of bridge.world.trafficSignals||[]){
-  const tx=l.x+l.ix*l.armSpan,tz=l.y+l.iy*l.armSpan,
-   face={x:-l.ax,y:-l.ay};
+  const face={x:-l.ax,y:-l.ay};
   beam(l.x,0,l.y,l.x,l.poleHeight,l.y,.073);
   beam(l.x,l.armHeight,l.y,tx,l.armHeight,tz,.061);
   beam(tx,l.armHeight,tz,tx,l.headHeight+.6,tz,.045);
-  const head=make(cube,tx,l.headHeight,tz,[.48,1.21,.25]);
-  head.rotation.y=Math.atan2(face.x,face.y);
+  for(const fraction of [.53,1]){
+   const hx=l.x+l.ix*l.armSpan*fraction,
+    hz=l.y+l.iy*l.armSpan*fraction;
+   beam(hx,l.armHeight,hz,hx,l.headHeight+.65,hz,.043);
+   const head=make(cube,hx,l.headHeight,hz,[.48,1.21,.25]);
+   head.rotation.y=Math.atan2(face.x,face.y);
+  }
   const ped=make(cube,l.x,2.4,l.y,[.55,.68,.25]);
   ped.rotation.y=Math.atan2(-l.ix,-l.iy);
   state.signals++;
