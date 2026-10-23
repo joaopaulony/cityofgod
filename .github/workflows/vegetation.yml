@@ -16,7 +16,11 @@ on:
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
+      - js/core.js
+      - js/visual-palette.js
       - index.html
+      - tests/reference-palette.test.cjs
+      - docs/ART-DIRECTION-COLOR-REFERENCE.md
       - tests/vegetation*
       - tests/live-vehicle.test.mjs
       - tests/live-vehicle-browser.cjs
@@ -37,7 +41,11 @@ on:
       - js/interiors.js
       - js/terrain.js
       - js/ecosystem.js
+      - js/core.js
+      - js/visual-palette.js
       - index.html
+      - tests/reference-palette.test.cjs
+      - docs/ART-DIRECTION-COLOR-REFERENCE.md
       - tests/vegetation*
       - tests/live-vehicle.test.mjs
       - tests/live-vehicle-browser.cjs
@@ -55,6 +63,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Lock official color reference and Canvas+WebGL grade
+        run: node --test tests/reference-palette.test.cjs
       - name: Check house geometry and stairs
         run: node tests/architecture.test.js
       - name: Check foliage generation
