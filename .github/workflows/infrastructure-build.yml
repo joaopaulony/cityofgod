@@ -1,9 +1,12 @@
 name: Build realistic overhead traffic and street furniture
 on:
   push:
-    branches: [fix/traffic-l-arms-realistic-bins-20261023]
+    branches: [fix/traffic-signal-four-cameras-20261023]
     paths:
       - .github/workflows/infrastructure-build.yml
+      - js/traffic-signals.js
+      - js/vehicle-occlusion.mjs
+      - tests/infrastructure.test.cjs
 permissions:
   contents: write
 jobs:
@@ -37,9 +40,9 @@ jobs:
           git add js/vehicle-webgl.bundle.js
           if ! git diff --cached --quiet; then
             git commit -m 'build: live GLB scene including traffic light depth masks'
-            git fetch origin fix/traffic-l-arms-realistic-bins-20261023
-            git rebase origin/fix/traffic-l-arms-realistic-bins-20261023
-            git push origin HEAD:fix/traffic-l-arms-realistic-bins-20261023
+            git fetch origin fix/traffic-signal-four-cameras-20261023
+            git rebase origin/fix/traffic-signal-four-cameras-20261023
+            git push origin HEAD:fix/traffic-signal-four-cameras-20261023
           fi
 
 # Bundled 3D occlusion geometry must match the new Canvas signal arms.
