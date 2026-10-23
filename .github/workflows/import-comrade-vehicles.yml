@@ -99,3 +99,5 @@ jobs:
 # Repeat after updating wheel unit tests and browser integration.
 
 # Rebuild after correcting the Silva 0.33m wheel radius test.
+
+# Final build includes GLB wheel reverse spin and accurate roof occluders.
