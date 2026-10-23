@@ -5,6 +5,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
+import {createWorldOccluders} from './vehicle-occlusion.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 
@@ -25,7 +26,7 @@ const system={
 };
 window.cityVehicles=system;
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
- shadowGround=null,lampL=null,lampR=null,occluders=[];
+ shadowGround=null,lampL=null,lampR=null,occluders=[],occlusionScene=null;
 const METERS=CAR_SPEC.length;
 
 function nearestSafeParking(){
@@ -118,27 +119,11 @@ function makeOccluders(){
   scene.add(mesh);occluders.push(mesh);
  }
  system.houseOccluders=occluders.length;
- // Cercas tambem tapam corretamente partes do veiculo quando estao a frente.
- // Um unico draw call instanciado em vez de milhares de meshes separados.
- const fenceSegments=bridge.world.segs.filter(q=>q.kind==='fence'&&q.h>0);
- if(fenceSegments.length){
-  const fence3d=new THREE.InstancedMesh(
-    new THREE.BoxGeometry(1,1,.13),invisible,fenceSegments.length);
-  const yAxis=new THREE.Vector3(0,1,0),matrix=new THREE.Matrix4();
-  for(let i=0;i<fenceSegments.length;i++){
-   const q=fenceSegments[i],dx=q.x2-q.x1,dy=q.y2-q.y1,
-    len=Math.hypot(dx,dy)||.01;
-   matrix.compose(
-    new THREE.Vector3((q.x1+q.x2)/2,q.h/2,(q.y1+q.y2)/2),
-    new THREE.Quaternion().setFromAxisAngle(yAxis,-Math.atan2(dy,dx)),
-    new THREE.Vector3(len,q.h,1));
-   fence3d.setMatrixAt(i,matrix);
-  }
-  fence3d.instanceMatrix.needsUpdate=true;
-  fence3d.frustumCulled=false;
-  scene.add(fence3d);
-  system.fenceOccluders=fenceSegments.length;
- }
+ // Os outros objetos possuem profundidade propria: nao usar a cerca
+ // como um bloco solido, pois isso corta o capo atraves das ripas.
+ occlusionScene=createWorldOccluders(scene,THREE,bridge,invisible);
+ system.occlusionStats=occlusionScene.state;
+
 }
 function importModel(root,config=activeModel){
  // Normaliza tamanho/pivo mantendo todos os materiais e a geometria GLB.
@@ -354,6 +339,7 @@ system.render=()=>{
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  for(const o of occluders)o.visible=!o.userData.house.inside;
+ occlusionScene?.updateActors(system.driver,bridge.player);
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
  }
