@@ -85,18 +85,38 @@ function setupCar(){
  bridge.world.circles.push(system.collider);
 }
 function makeOccluders(){
- // Objetos de profundidade invisiveis: casas a frente do GLB o escondem.
- // A geometria continua desenhada no jogo existente.
+ // A profundidade vem da geometria REAL de cada fachada e da água do telhado.
+ // Não usar caixas fechadas: seus topos quadrados ocultavam carros junto
+ // aos beirais e criavam quadrados invisíveis ao girar a câmera.
  const invisible=new THREE.MeshBasicMaterial({
   colorWrite:false,depthWrite:true,depthTest:true,side:THREE.DoubleSide
  });
+ const face=(vertices,output)=>{
+  const p=vertices.map(([x,y,z])=>[x,z,y]);
+  for(let i=1;i<p.length-1;i++)
+   for(const v of [p[0],p[i],p[i+1]])output.push(...v);
+ };
  for(const H of bridge.houses){
   const w=H.x1-H.x0,d=H.y1-H.y0;
   if(w<=0||d<=0)continue;
-  const h=H.h+(H.roofKind==='flat'?.12:1.2);
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),invisible);
-  mesh.position.set((H.x0+H.x1)/2,h/2,(H.y0+H.y1)/2);
-  mesh.userData.house=H;
+  const verts=[];
+  for(const side of Object.values(H.sides||{})){
+   const a=side.a,b=[a[0]+side.dir[0]*side.len,
+                      a[1]+side.dir[1]*side.len];
+   const h=side.Hc||H.h;
+   face([[a[0],a[1],0],[b[0],b[1],0],
+     [b[0],b[1],h],[a[0],a[1],h]],verts);
+  }
+  const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
+  if(roof.flat)
+   face([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
+    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],verts);
+  else for(const f of roof.faces)face(f.p,verts);
+  if(!verts.length)continue;
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  const mesh=new THREE.Mesh(geometry,invisible);
+  mesh.userData.house=H;mesh.frustumCulled=false;
   scene.add(mesh);occluders.push(mesh);
  }
  // Cercas tambem tapam corretamente partes do veiculo quando estao a frente.
