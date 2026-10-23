@@ -13,15 +13,13 @@ function jitter(hex, amt, rnd) { const [r, g, b] = hexToRgb(hex), k = 1 + (rnd()
 function shadeHex(hex, k) { const [r, g, b] = hexToRgb(hex), h2 = v => Math.round(clamp(v * k, 0, 255)).toString(16).padStart(2, '0'); return '#' + h2(r) + h2(g) + h2(b); }
 
 // ---------- estilos: variedade coerente entre casas ----------
-const PLASTERS = ['#d9cdb4', '#cbbf9f', '#e2d8c6', '#b9c2b0', '#c9b9a1', '#d6c2a6', '#aebcc4', '#d8c9b0', '#c2b49c'];
-const TRIMS = ['#efe9dc', '#f2eee6', '#e6dccb', '#d9d2c4'];
-const DOORS = [['panel', '#6b4630'], ['panel', '#4a3a2c'], ['metal', '#5e656b'], ['flush', '#8a5f3c'], ['panel', '#2f4a3a'], ['metal', '#3d4650']];
-const CURTAINS = ['#c9b38a', '#a8584a', '#6d7f94', '#d8d0c0', '#7f8f6a'];
-const ROOF_MATS = {
-  ceramic: ['#a5523a', '#9a4a34', '#b0603f', '#8e4b38'],
-  shingle: ['#4b4f57', '#5a4a42', '#3f4a52'],
-  metal: ['#8b9196', '#6f7a72', '#7d6a5c'],
-};
+// Arquitetura: paredes com luz quente e telhados ceramicos mais ricos,
+// mantendo as texturas rachadas, manchas e alvenaria originais.
+const PLASTERS = VISUAL_REFERENCE.architecture.plasters;
+const TRIMS = VISUAL_REFERENCE.architecture.trims;
+const DOORS = [['panel', '#765038'], ['panel', '#51392c'], ['metal', '#586268'], ['flush', '#96694d'], ['panel', '#34543f'], ['metal', '#3f505b']];
+const CURTAINS = ['#cdb993', '#b76a58', '#72879b', '#e2d6c5', '#849962'];
+const ROOF_MATS = VISUAL_REFERENCE.architecture.roofs;
 function houseStyle(H, rnd) {
   const pick = a => a[(rnd() * a.length) | 0];
   const S = {
@@ -33,7 +31,7 @@ function houseStyle(H, rnd) {
       H.rural?pick(['shingle','metal','ceramic']):pick(['ceramic','ceramic','shingle','metal']),
     interior: pick(['#d8d2c4', '#cfd6d0', '#e0d4c0', '#c9cdd6', '#d6c8b8']),
   };
-  S.roofCol = S.roofMat === 'concrete' ? '#8f8c86' : pick(ROOF_MATS[S.roofMat]);
+  S.roofCol = S.roofMat === 'concrete' ? VISUAL_REFERENCE.architecture.concrete : pick(ROOF_MATS[S.roofMat]);
   return S;
 }
 
