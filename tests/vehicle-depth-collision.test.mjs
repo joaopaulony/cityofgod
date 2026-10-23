@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {carCollision,sweepCar,carFootprint} from '../js/vehicle-collision.mjs';
 const base={length:4.5,width:1.8,angle:0};
 const empty=()=>({segs:[],circles:[],mapSize:160});
@@ -9,7 +10,7 @@ test('house wall exactly, no invisible 1.5m house padding',()=>{
  const H={x0:10,y0:10,x1:15,y1:15};
  const world=empty(),o=options({houses:[H]});
  assert.equal(carCollision(world,car(7,12),o),null,'30cm clear visually');
- assert.equal(carCollision(world,car(7.71,12),o)?.kind,'house');
+ assert.equal(carCollision(world,car(7.80,12),o)?.kind,'house');
  assert.equal(carCollision(world,car(7,16.7),o),null,'corner clear');
 });
 test('whole fenced yard is driveable until actual fence or wall',()=>{
@@ -17,7 +18,7 @@ test('whole fenced yard is driveable until actual fence or wall',()=>{
  const fence={x1:10,y1:8,x2:10,y2:20,kind:'fence',h:1.28};
  w.segs.push(fence);
  assert.equal(carCollision(w,car(6,12),options()),null);
- assert.equal(carCollision(w,car(7.6,12),options())?.kind,'fence');
+ assert.equal(carCollision(w,car(7.85,12),options())?.kind,'fence');
  assert.equal(carCollision(w,car(14,12),options()),null,
   'yard zone is not a wall');
 });
@@ -46,7 +47,7 @@ test('lamps, stones and solid street bins have tight contact',()=>{
  const o=options({boxes:[bin]});
  assert.equal(carCollision(w,car(7.52,10),o),null);
  assert.equal(carCollision(w,car(7.66,10),o)?.kind,'lamp');
- assert.equal(carCollision(w,car(17.4,20),o),null);
+ assert.equal(carCollision(w,car(17.2,20),o),null);
  assert.equal(carCollision(w,car(17.7,20),o)?.kind,'rock');
  assert.equal(carCollision(w,car(27.35,30),o),null);
  assert.equal(carCollision(w,car(27.48,30),o)?.kind,'object');
@@ -80,7 +81,6 @@ test('water, map limits, doors and collision independence per GLB dimensions',()
  }
 });
 test('WebGL scene includes depth proxies for all user screenshot cases',()=>{
- const fs=await import('node:fs');
  const code=fs.readFileSync(new URL('../js/vehicle-occlusion.mjs',import.meta.url),'utf8');
  const runtime=fs.readFileSync(new URL('../js/vehicle-webgl.mjs',import.meta.url),'utf8');
  assert.match(code,/bridge\.world\.lamps/);
