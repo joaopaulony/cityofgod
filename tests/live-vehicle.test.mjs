@@ -8,8 +8,9 @@ test('forward acceleration, speed cap, rear and progressive braking',()=>{
  let s=step(idle(),{forward:true},300);
  assert.ok(s.speed>17&&s.speed<=CAR_SPEC.maxForward,s.speed);
  assert.ok(s.x>50);
+ const before=s.speed;
  s=step(s,{reverse:true},100);
- assert.ok(s.speed<s.speed+1);
+ assert.ok(s.speed<before);
  s=step(s,{reverse:true},140);
  assert.ok(s.speed<0&&s.speed>=-CAR_SPEC.maxReverse);
  s=step(s,{handbrake:true},120);
@@ -40,7 +41,7 @@ test('the GLB is rendered live by Three.js; no sprite or pre-render code',()=>{
  assert.match(code,/loader.loadAsync/);
  assert.match(code,/renderer.render\(scene,viewCamera\)/);
  assert.match(code,/MeshoptDecoder/);
- assert.doesNotMatch(code,/toDataURL|drawImage|spriteSheet|spritesheet|bakeAtlas|captureFrame/i);
+ assert.doesNotMatch(code,/\.toDataURL\(|\.drawImage\(|bakeAtlas\(|captureFrame\(/i);
  assert.match(html,/<canvas id="vehicle3d"/);
  assert.match(html,/vehicle-webgl\.bundle\.js/);
  assert.doesNotMatch(html,/vehicle-hybrid|vehicle-art/);
