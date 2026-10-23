@@ -48,3 +48,5 @@ jobs:
 # Bundled 3D occlusion geometry must match the new Canvas signal arms.
 
 # Safe 54-second traffic/pedestrian phase and actual-world orientation final rebuild.
+
+# Regenerate car depth bundle after fixing gantry end-point variables.
