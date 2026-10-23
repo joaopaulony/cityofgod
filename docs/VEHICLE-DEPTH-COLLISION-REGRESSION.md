@@ -33,3 +33,8 @@
 - tests/vegetation-browser.cjs: qualidade do cenário e regressão visual geral.
 
 Os testes de geometria são automáticos. As capturas ajudam a avaliar o visual, mas não substituem a revisão de todas as silhuetas pixel a pixel.
+
+## Resultado do build
+- Construcao de WebGL 3D em tempo real validada pelo workflow vehicle-depth-fix-build.
+- As máscaras de oclusão são profundidade 3D, não capturas de sprites.
+- Revisar as capturas dos 11 modelos após cada alteração na geometria de postes e copas.
