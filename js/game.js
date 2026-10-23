@@ -317,6 +317,16 @@ function render() {
        pos.y < -padding || pos.y > H+padding) continue;
     list.push({ d: depthOf(l.x, l.y), draw: ctx => drawLamp(ctx,l,st.night),lamp:l });
   }
+  // Semaforos gerados junto ao cruzamento principal. Usar a mesma
+  // ordenacao de profundidade que postes, casas e personagens.
+  for(const signal of world.trafficSignals||[]){
+    const pos=proj(signal.x,signal.y,0),padding=cam.zoom*6;
+    if(pos.x<-padding||pos.x>W+padding||
+       pos.y<-padding||pos.y>H+padding)continue;
+    list.push({d:depthOf(signal.x,signal.y),
+      draw:ctx=>drawTrafficSignal(ctx,signal,T,st.night),
+      trafficSignal:signal});
+  }
   for (const a of actors) {
     if(a===player&&window.cityVehicles?.driver)continue;
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&

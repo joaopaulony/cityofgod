@@ -356,6 +356,9 @@ function buildHouses() {
   // Caminhos simples para casas urbanas; as rurais recebem caminho de terra.
   for (const H of houses) {
     let t = 0.2; while (t < 12 && roadDist(H.doorPt[0] + H.doorN[0] * t, H.doorPt[1] + H.doorN[1] * t) > ROAD_W + SIDE - 0.2) t += 0.25;
+    // Sem calçada urbana na fazenda: terminamos na faixa de cascalho
+    // antes da mata, mesmo quando a rodovia mais próxima é distante.
+    if(H.rural)t=Math.min(t,9.5+(H.seed%7)*.29);
     H.walk = [H.doorPt,[H.doorPt[0]+H.doorN[0]*t,
       H.doorPt[1]+H.doorN[1]*t]];
   }
@@ -374,7 +377,8 @@ world.blocked = (x, y, r) => {
 world.paintFloors = (g, M, rect) => {
   g.lineCap = 'butt';
   for (const H of houses) if (H.walk) {
-    g.strokeStyle = H.rural?'#806b4b':'#b6b0a2'; g.lineWidth = M(H.rural?.85:1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
+    if(H.rural){paintRuralAccess(g,M,H);continue;}
+    g.strokeStyle = '#b6b0a2'; g.lineWidth = M(H.rural?.85:1.1); g.beginPath(); g.moveTo(M(H.walk[0][0]), M(H.walk[0][1])); g.lineTo(M(H.walk[1][0]), M(H.walk[1][1])); g.stroke();
     g.strokeStyle = H.rural?'#6a573b':'#9d978a'; g.lineWidth = 1;
     const n = Math.hypot(H.walk[1][0] - H.walk[0][0], H.walk[1][1] - H.walk[0][1]);
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }

@@ -1,0 +1,40 @@
+name: Traffic light and rural driveway visual QA
+on:
+  pull_request:
+    paths:
+      - js/world.js
+      - js/game.js
+      - js/traffic-signals.js
+      - js/rural-paths.js
+      - js/houses.js
+      - js/vehicle-occlusion.mjs
+      - js/vehicle-webgl.bundle.js
+      - tests/infrastructure*
+      - .github/workflows/infrastructure-qa.yml
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate signal state machine and rural path
+        run: node --test tests/infrastructure.test.cjs
+      - name: Install Chrome automation
+        run: npm install --no-audit --no-fund --no-save playwright@1.56.1
+      - name: Verify live signals, road lighting and procedural gravel
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/infra-http.log 2>&1 &
+          sleep 2
+          node tests/infrastructure-browser.cjs
+      - name: Save traffic phase and farm road screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-of-god-traffic-and-rural-visual
+          path: artifacts/infrastructure/
+          if-no-files-found: ignore

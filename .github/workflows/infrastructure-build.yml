@@ -1,0 +1,43 @@
+name: Build realistic streetlights traffic and rural approaches
+on:
+  push:
+    branches: [feat/realistic-streetlights-traffic-rural-20261023]
+    paths:
+      - .github/workflows/infrastructure-build.yml
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Traffic cycle, rural road and legacy regressions
+        run: |
+          node --test tests/infrastructure.test.cjs tests/reference-palette.test.cjs
+          node tests/architecture.test.js
+          node tests/vegetation.test.js
+          node --test tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
+      - name: Build real-time WebGL car depth with new pole/signal occlusion
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs --bundle --format=esm --platform=browser --target=es2020 --minify --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+      - name: Save tested bundled car renderer
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: live GLB scene including traffic light depth masks'
+            git fetch origin feat/realistic-streetlights-traffic-rural-20261023
+            git rebase origin/feat/realistic-streetlights-traffic-rural-20261023
+            git push origin HEAD:feat/realistic-streetlights-traffic-rural-20261023
+          fi

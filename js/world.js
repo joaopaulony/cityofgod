@@ -15,7 +15,7 @@ const rng = mulberry(SEED);
 const R = (a, b) => a + rng() * (b - a);
 
 const world = {
-  ground: null, props: [], circles: [], segs: [], boxes: [], lamps: [], roads: [], yards: [], trails: [], seed: SEED,
+  ground: null, props: [], circles: [], segs: [], boxes: [], lamps: [], trafficSignals: [], roads: [], yards: [], trails: [], seed: SEED,
 };
 
 // ---------- ruído de valor (fbm) p/ terreno orgânico ----------
@@ -1021,6 +1021,7 @@ function buildWorld() {
   }
   for (const l of world.lamps) world.circles.push({ x: l.x, y: l.y, r: 0.12, kind: 'lamp', h: 4 });
   urbanGenerate();
+  generateTrafficSignals();
 }
 
 // movimento com colisão + água (desliza nos eixos se bater na margem)
@@ -1062,15 +1063,53 @@ function drawProp(g, p, t, player) {
   }
 }
 
-function drawLamp(g, l, night) {
-  const b = proj(l.x, l.y, 0), t = proj(l.x, l.y, 4.1), h = proj(l.x + l.ax * 1.1, l.y + l.ay * 1.1, 4.1);
-  const w = Math.max(2, cam.zoom * 0.09);
-  g.lineCap = 'round';
-  g.strokeStyle = INK; g.lineWidth = w + 2; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(t.x, t.y); g.lineTo(h.x, h.y); g.stroke();
-  g.strokeStyle = '#3d4248'; g.lineWidth = w; g.stroke();
-  g.strokeStyle = '#59616a'; g.lineWidth = Math.max(1, w * 0.35); g.beginPath(); g.moveTo(b.x - w * 0.2, b.y); g.lineTo(t.x - w * 0.2, t.y); g.stroke();
-  poly(g, [[h.x - w * 1.6, h.y], [h.x + w * 1.6, h.y], [h.x + w, h.y + w * 1.2], [h.x - w, h.y + w * 1.2]], '#2d3136', INK, 1);
-  g.fillStyle = night ? '#fff1b8' : '#c9c4a8'; g.fillRect(h.x - w * 0.9, h.y + w * 0.9, w * 1.8, w * 0.5);
+function drawLamp(g,l,night){
+  // Poste de rua contemporaneo: base de concreto, haste galvanizada com
+  // gradiente metalico, braço curvo e luminária LED com lente realista.
+  const base=proj(l.x,l.y,0),p0=proj(l.x,l.y,.18),
+    shaft=proj(l.x,l.y,3.95),bend=proj(l.x+l.ax*.20,l.y+l.ay*.20,4.15),
+    arm=proj(l.x+l.ax*.88,l.y+l.ay*.88,4.13),
+    lamp=proj(l.x+l.ax*1.10,l.y+l.ay*1.10,4.03),
+    w=Math.max(2,cam.zoom*.075);
+  g.save();g.lineCap='round';g.lineJoin='round';
+  g.fillStyle='rgba(14,17,19,.24)';
+  g.beginPath();g.ellipse(base.x+2,base.y+1,w*1.5,w*.55,-.25,0,TAU);g.fill();
+  // Concreto e parafusos de ancoragem.
+  poly(g,[[base.x-w*.85,base.y],[base.x+w*.85,base.y],
+    [p0.x+w*.60,p0.y],[p0.x-w*.60,p0.y]],'#858681','#252729',1.2);
+  g.fillStyle='#4f5557';g.fillRect(p0.x-w*.7,p0.y,w*1.4,w*.17);
+  for(const dx of [-.48,.48]){g.fillStyle='#272c2e';g.beginPath();
+    g.arc(base.x+dx*w,base.y-w*.07,Math.max(.6,w*.12),0,TAU);g.fill();}
+  const stroke=(col,size,offset=0)=>{
+    g.strokeStyle=col;g.lineWidth=size;g.beginPath();
+    g.moveTo(p0.x+offset,p0.y);
+    g.quadraticCurveTo(shaft.x+offset,shaft.y+w*.1,shaft.x+offset,shaft.y);
+    g.quadraticCurveTo(bend.x+offset,bend.y,bend.x+offset,bend.y);
+    g.lineTo(arm.x+offset,arm.y);g.stroke();
+  };
+  stroke('#161d20',w+2.7);stroke('#465159',w);
+  stroke('#89949a',w*.27,-w*.21);
+  stroke('rgba(215,227,227,.30)',Math.max(.7,w*.10),-w*.32);
+  // Joint, armature, bolted LED enclosure with downward diffuser.
+  g.strokeStyle='#222b2f';g.lineWidth=Math.max(1,w*.43);
+  g.beginPath();g.moveTo(arm.x,arm.y);g.lineTo(lamp.x,lamp.y);g.stroke();
+  const r=Math.max(3,cam.zoom*.15);
+  g.fillStyle='#171f23';g.strokeStyle='#10181b';g.lineWidth=1.2;
+  g.beginPath();g.moveTo(lamp.x-r*1.6,lamp.y-r*.43);
+  g.lineTo(lamp.x+r*.85,lamp.y-r*.50);g.lineTo(lamp.x+r*1.12,lamp.y+r*.3);
+  g.lineTo(lamp.x-r*1.2,lamp.y+r*.40);g.closePath();g.fill();g.stroke();
+  g.fillStyle='#748087';g.fillRect(lamp.x-r*1.1,lamp.y-r*.28,r*1.6,r*.12);
+  g.fillStyle=night?'#fff2c5':'#b8c7cb';
+  g.beginPath();g.moveTo(lamp.x-r*1.07,lamp.y+r*.35);
+  g.lineTo(lamp.x+r*.81,lamp.y+r*.29);
+  g.lineTo(lamp.x+r*.52,lamp.y+r*.54);
+  g.lineTo(lamp.x-r*.90,lamp.y+r*.59);g.closePath();g.fill();
+  if(night){
+    g.globalCompositeOperation='screen';
+    g.fillStyle='rgba(255,232,169,.3)';g.beginPath();
+    g.ellipse(lamp.x,lamp.y+r*.46,r*2.1,r*.85,0,0,TAU);g.fill();
+  }
+  g.restore();
 }
 
 // ---------- colisão e tiro ----------
