@@ -46,7 +46,7 @@ function isFree(x,y,a){
  for(const [u,v] of vec){
   const px=x+Math.cos(a)*u-Math.sin(a)*v,
    py=y+Math.sin(a)*u+Math.cos(a)*v;
-  if(px<2||py<2||px>bridge.world.mapSize-2||py>bridge.world.mapSize-2)
+  if(px<2||py<2||px>bridge.mapSize-2||py>bridge.world.mapSize-2)
    return false;
   if(bridge.world.blocked(px,py,.23))return false;
   if(bridge.pondVal(px,py)<1.12)return false;
