@@ -101,3 +101,5 @@ jobs:
 # Rebuild after correcting the Silva 0.33m wheel radius test.
 
 # Final build includes GLB wheel reverse spin and accurate roof occluders.
+
+# Final release bundle: verified roof masks and per-car inspection.
