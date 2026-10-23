@@ -97,33 +97,100 @@ function urbanDrawLitter(g,d){
   g.drawImage(image,-11,-10);g.restore();
 }
 function urbanDrawBin(g,b){
-  const p=proj(b.x,b.y,0);
-  const green=b.kind!=='metal',base=green?'#3f6151':'#65757b',
-    dark=green?'#253a36':'#303b41',edge=green?'#60826d':'#94a0a1';
-  g.fillStyle='rgba(8,12,13,.24)';
-  g.beginPath();g.ellipse(p.x+3,p.y+2,cam.zoom*.28,
-    cam.zoom*.12,0,0,TAU);g.fill();
-  const polyFace=(pts,col)=>poly(g,pts.map(v=>proj(
-    b.x+v[0],b.y+v[1],v[2])),col,'rgba(22,28,29,.60)',.7);
-  polyFace([[-.24,-.18,.05],[.24,-.18,.05],
-    [.22,-.18,.85],[-.22,-.18,.85]],dark);
-  polyFace([[.24,-.18,.05],[.24,.18,.05],
-    [.22,.18,.85],[.22,-.18,.85]],edge);
-  polyFace([[-.24,.18,.05],[.24,.18,.05],
-    [.22,.18,.85],[-.22,.18,.85]],base);
-  polyFace([[-.29,-.22,.85],[.29,-.22,.85],
-    [.29,.22,.85],[-.29,.22,.85]],dark);
-  polyFace([[-.26,-.19,.91],[.26,-.19,.91],
-    [.26,.19,.91],[-.26,.19,.91]],edge);
-  polyFace([[-.16,-.12,.915],[.16,-.12,.915],
-    [.16,.12,.915],[-.16,.12,.915]],'#252a29');
-  const label=proj(b.x,b.y+.185,.59);
-  g.fillStyle='rgba(221,233,216,.63)';
-  g.fillRect(label.x-cam.zoom*.09,label.y-cam.zoom*.05,
-    cam.zoom*.18,cam.zoom*.08);
-  g.fillStyle='rgba(52,78,61,.75)';
-  g.fillRect(label.x-cam.zoom*.06,label.y-cam.zoom*.031,
-    cam.zoom*.12,Math.max(1,cam.zoom*.014));
+ // Lixeira de coleta projetada em 3D real pelo Canvas, sem bitmap.
+ const plastic=b.kind!=='metal',steel=plastic?
+  {base:'#3b6554',shadow:'#253f38',lit:'#628778',edge:'#9aafa2',lid:'#2d4b40'}:
+  {base:'#697c82',shadow:'#36454b',lit:'#abb8bc',edge:'#c8d0ce',lid:'#3d4c51'};
+ const at=(x,y,z)=>proj(b.x+x,b.y+y,z);
+ const verts=(v)=>v.map(p=>at(...p));
+ const face=(v,fill,outline='rgba(13,23,25,.60)',w=.7)=>poly(g,verts(v),fill,outline,w);
+ const P=proj(b.x,b.y,0),q=Math.max(1,cam.zoom*.024);
+ g.save();g.lineCap='round';g.lineJoin='round';
+ // Chão: sombra larga e contato sob cada pé.
+ g.fillStyle='rgba(12,17,14,.28)';g.beginPath();
+ g.ellipse(P.x+cam.zoom*.09,P.y+cam.zoom*.04,cam.zoom*.41,
+   cam.zoom*.17,-.17,0,TAU);g.fill();
+ const faces=[
+  {v:[[-.27,-.25,.09],[.27,-.25,.09],[.27,-.25,.91],[-.27,-.25,.91]],col:steel.shadow,x:0,y:-.25},
+  {v:[[-.27,.25,.09],[.27,.25,.09],[.27,.25,.91],[-.27,.25,.91]],col:steel.base,x:0,y:.25},
+  {v:[[-.27,-.25,.09],[-.27,.25,.09],[-.27,.25,.91],[-.27,-.25,.91]],col:steel.shadow,x:-.27,y:0},
+  {v:[[.27,-.25,.09],[.27,.25,.09],[.27,.25,.91],[.27,-.25,.91]],col:steel.lit,x:.27,y:0}
+ ];
+ // Correct painter sorting based on side-face centers, not origin.
+ faces.sort((a,c)=>depthOf(b.x+a.x,b.y+a.y)-depthOf(b.x+c.x,b.y+c.y));
+ for(const f of faces)face(f.v,f.col);
+ // Visible near face with framed removable front, embossed ribbing and
+ // service hatch, not the old single untextured green rectangle.
+ const faceDir=facingCam(0,1)>=0?1:-1;
+ const zFront=faceDir*.258;
+ const plate=[
+  [-.218,zFront,.21],[.218,zFront,.21],
+  [.218,zFront,.76],[-.218,zFront,.76]
+ ];
+ face(plate,plastic?'rgba(24,49,39,.36)':'rgba(26,37,44,.28)',steel.shadow,.8);
+ const inset=[
+  [-.197,zFront+faceDir*.003,.23],[.197,zFront+faceDir*.003,.23],
+  [.197,zFront+faceDir*.003,.73],[-.197,zFront+faceDir*.003,.73]
+ ];
+ face(inset,plastic?'#456d5a':'#7a888c','rgba(10,23,23,.5)',.6);
+ for(const u of [-.14,-.07,0,.07,.14]){
+  const a=at(u,zFront+faceDir*.006,.31),c=at(u,zFront+faceDir*.006,.68);
+  g.strokeStyle='rgba(11,28,26,.22)';g.lineWidth=Math.max(.55,q*.8);
+  g.beginPath();g.moveTo(a.x,a.y);g.lineTo(c.x,c.y);g.stroke();
+ }
+ // Metal badge with weathering and identification.
+ face([[-.125,zFront+faceDir*.012,.64],
+   [.125,zFront+faceDir*.012,.64],
+   [.125,zFront+faceDir*.012,.70],
+   [-.125,zFront+faceDir*.012,.70]],
+   '#c2cabd',steel.shadow,.6);
+ const sign=at(0,zFront+faceDir*.015,.665);
+ g.save();g.fillStyle='#445852';g.textAlign='center';
+ g.font='bold '+Math.max(5,cam.zoom*.12)+'px sans-serif';
+ g.fillText(plastic?'RESÍDUOS':'RECICLE',sign.x,sign.y+1);
+ g.restore();
+ // Tampa abaulada com o recorte de inserção protegido por uma aba móvel;
+ // fecha o buraco quadrado preto dos modelos anteriores.
+ face([[-.31,-.30,.91],[.31,-.30,.91],
+   [.31,.30,.91],[-.31,.30,.91]],steel.shadow);
+ face([[-.33,-.32,.96],[.33,-.32,.96],
+   [.33,.32,.96],[-.33,.32,.96]],steel.lid,
+  '#1a2929',Math.max(1,cam.zoom*.026));
+ face([[-.21,-.08,.969],[.21,-.08,.969],
+   [.21,.20,.969],[-.21,.20,.969]],
+  plastic?'#253b33':'#2c3c43',null);
+ face([[-.175,-.055,.974],[.175,-.055,.974],
+   [.175,.13,.974],[-.175,.13,.974]],
+  plastic?'#4b7260':'#7c8b92','#182523',.7);
+ const lift=at(0,.17,.976),ww=cam.zoom*.16;
+ g.strokeStyle='#aab5ab';g.lineWidth=Math.max(1,cam.zoom*.031);
+ g.beginPath();g.moveTo(lift.x-ww,lift.y);
+ g.lineTo(lift.x+ww,lift.y);g.stroke();
+ for(const off of [-.25,.25]){
+   for(const v of [-.23,.23]){
+    const bolt=at(off,v,.975);
+    g.fillStyle='#c3ccc2';g.beginPath();g.arc(bolt.x,bolt.y,
+     Math.max(.5,cam.zoom*.015),0,TAU);g.fill();
+   }
+ }
+ // Foot pedal and paired small black caster wheels.
+ const pedal=at(0,faceDir*.32,.065);
+ g.fillStyle='#30383b';g.fillRect(pedal.x-cam.zoom*.12,pedal.y,
+    cam.zoom*.24,Math.max(1,cam.zoom*.055));
+ for(const xx of [-.19,.19]){
+  const wheel=at(xx,faceDir*.22,.065);
+  g.fillStyle='#1d282a';g.beginPath();
+  g.ellipse(wheel.x,wheel.y,cam.zoom*.068,cam.zoom*.065,0,0,TAU);g.fill();
+  g.fillStyle='#93a09d';g.beginPath();
+  g.arc(wheel.x,wheel.y,Math.max(.6,cam.zoom*.016),0,TAU);g.fill();
+ }
+ // Rust streaks on metal types and subtle paint abrasion on plastic.
+ if(!plastic)for(const xx of [-.16,.13]){
+  const a=at(xx,zFront+faceDir*.015,.73),z=at(xx+.012,zFront+faceDir*.015,.47);
+  g.strokeStyle='rgba(119,73,53,.33)';g.lineWidth=Math.max(.8,q*.55);
+  g.beginPath();g.moveTo(a.x,a.y);g.lineTo(z.x,z.y);g.stroke();
+ }
+ g.restore();
 }
 function urbanDrawables(list,g){
   const pad=cam.zoom*1.2;
