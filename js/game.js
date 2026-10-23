@@ -31,6 +31,7 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
 window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
+  urbanBins:urbanLife.bins,
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,
   get mapSize(){return MAP;}
