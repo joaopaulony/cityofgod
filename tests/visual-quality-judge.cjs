@@ -3,6 +3,9 @@
 // Nao confundir a nota automatica com avaliacao estetica humana.
 'use strict';
 const RULES=[
+  ['Paleta oficial de cores da referencia visual',6,m=>
+    m.referencePaletteValid&&m.grade2D&&m.grade3D&&
+    m.paletteTerrainMatch&&m.paletteFoliageMatch&&m.paletteArchitectureMatch],
   ['Cercas com volume e sombra',7,m=>m.fencePainted>=440&&m.fenceColors>=9],
   ['Cerca apoiada no solo',7,m=>m.buriedPosts],
   ['Luz bloqueada por parede',8,m=>m.wallBlocksLight&&m.partitionBlocksLight&&

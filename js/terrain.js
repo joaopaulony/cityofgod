@@ -108,7 +108,7 @@ function chunkItems(ci, cj) {
   if (terrain.items.has(key)) return terrain.items.get(key);
   const r = mulberry(world.seed * 131 + ci * 7919 + cj * 104729), items = [], f = {};
   const x0 = ci * CH, y0 = cj * CH, n = CH * CH * 26;
-  const LUSH = ['#3f6a25', '#4f7d2c', '#5f8d36', '#76a044', '#8fb052'], DRY = ['#7b7a3a', '#8f8a46', '#a39b56', '#6f7034'];
+  const LUSH = ['#416a28', '#527b32', '#65923e', '#7fa14b', '#a1bc65'], DRY = ['#77703a', '#92874b', '#afa361', '#777044'];
   const LITTER = ['#6b4a2a', '#8a5a2c', '#9a6e34', '#5e5a2c', '#7a6a3a', '#a2552a'];
   for (let i = 0; i < n; i++) {
     const x = x0 + r() * CH, y = y0 + r() * CH;
@@ -189,11 +189,10 @@ function chunkFields(ch) {
   ch.F = F; ch.img = ch.g.createImageData(CSZ, CSZ);
 }
 const TC = h => hexToRgb(h);
-const COL = {
-  lush: TC('#4b7a2a'), dry: TC('#8b8848'), moss: TC('#4a5a2c'), litter: TC('#5f4a30'), dirt: TC('#7c6143'), mud: TC('#4a3a29'),
-  puddle: TC('#4e5d61'), trail: TC('#8d7454'), sand: TC('#bca97c'), wsand: TC('#8b7957'), shallow: TC('#6c8b78'), deep: TC('#24434e'),
-  foam: TC('#c2c9b9'), asph: TC('#3b3c40'), patch: TC('#2e2f33'), gutter: TC('#423d36'), curbF: TC('#5c5850'), curbT: TC('#b3aea3'), walk: TC('#a7a297'),
-};
+// Cada pixel do solo continua procedural; apenas as cores de mistura
+// refletem o padrão oficial sem trocar bitmaps, rachaduras ou formas.
+const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
+  .map(([name,hex])=>[name,TC(hex)]));
 function paintRows(ch, rows) {
   const { F, img } = ch, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
   const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo;

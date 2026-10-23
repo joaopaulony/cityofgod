@@ -6,7 +6,7 @@ const RS = new URLSearchParams(location.search).get('quality') === 'performance'
 const RENDER_SCALE = 2 / RS; // mantém o tamanho visual dos objetos ao mudar a resolução
 const TILT = 0.5;        // achatamento do chão (câmera 3/4, ~30°)
 const HZ = 0.86;         // quanto 1 m de altura sobe na tela
-const INK = '#1b1310';   // contorno de tinta
+const INK = VISUAL_REFERENCE.anchors.outline;   // contorno de tinta
 const TAU = Math.PI * 2;
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -142,7 +142,7 @@ function mix(c1, c2, t) {
 }
 // 3 tons a partir da luz: escuro / base / claro
 function tone(base, lit) {
-  if (lit > 0.45) return mix(base, '#fff4dc', 0.18);
+  if (lit > 0.45) return mix(base, VISUAL_REFERENCE.anchors.sunlight, 0.16);
   if (lit > -0.05) return base;
-  return mix(base, '#1d1830', 0.32);
+  return mix(base, '#242026', 0.34);
 }
