@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - name: Test exact house cutaway in four angles and all GLB physics
         run: |
-          node --test tests/vehicle-roof-visibility.test.mjs tests/vehicle-depth-collision.test.mjs tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
+          node --test tests/vehicle-roof-order.test.mjs tests/vehicle-depth-collision.test.mjs tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
       - name: Build real-time Three.js vehicle renderer
         shell: bash
         run: |
@@ -39,3 +39,5 @@ jobs:
             git commit -m 'build: bundle vehicle roof cutaway and garage overhang fix'
             git push origin HEAD:fix/vehicle-roof-fade-and-porch-order-20261023
           fi
+
+# Validate corrected gable silhouette and original GLB draw order.
