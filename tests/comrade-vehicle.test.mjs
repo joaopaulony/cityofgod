@@ -47,8 +47,8 @@ test('existing Silvia FL/FR/RL/RR assemblies steer while tire/rim/disc roll',()=
  assert.equal(nodes[0].rotation.y,-.25);
  assert.equal(nodes[2].rotation.y,0);
  for(const n of nodes){
-  assert.equal(n.children.find(x=>x.name.startsWith('Tyre')).rotation.x,2);
-  assert.equal(n.children.find(x=>x.name.startsWith('Rim')).rotation.x,2);
+  assert.equal(n.children.find(x=>x.name.startsWith('Tyre')).rotation.x,4);
+  assert.equal(n.children.find(x=>x.name.startsWith('Rim')).rotation.x,4);
   assert.equal(n.children.find(x=>x.name.startsWith('Cal')).rotation.x,0);
  }
 });
