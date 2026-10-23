@@ -67,7 +67,7 @@ test('overhead L reaches lane center and signal faces approaching vehicles',()=>
 test('state stays periodic and safe across long play sessions',()=>{
  for(const t of [0,1,20,22,24,25,35,43,45,48,53]){
    assert.equal(phase(t).main,phase(t+54*1200).main);
-   assert.equal(phase(t).branch,phase(t+46*1200).branch);
+   assert.equal(phase(t).branch,phase(t+54*1200).branch);
  }
 });
 test('streetlamp maintains occluder coordinates and night light source',()=>{
