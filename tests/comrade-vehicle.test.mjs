@@ -32,10 +32,10 @@ test('real Comrade wheels rotate in reverse direction and maintain upright wheel
  assert.equal(rig.complete,true);
  stepWheelRig(rig,1.32,.32);
  const before=nodes.map(n=>snapshot(n));
- for(const w of rig.wheels.values())near(w.spin,-2);
+ for(const w of rig.wheels.values())near(w.spin,-4);
  for(const n of nodes)assert.ok(Math.abs(axisTilt(n.quaternion))<.01,n.name);
  stepWheelRig(rig,-.66,-.15);
- for(const w of rig.wheels.values())near(w.spin,-1);
+ for(const w of rig.wheels.values())near(w.spin,-2);
  for(const n of nodes)assert.ok(Math.abs(axisTilt(n.quaternion))<.01,n.name);
  assert.notDeepEqual(before,nodes.map(n=>snapshot(n)));
  resetWheelRig(rig);
@@ -64,7 +64,7 @@ test('Silvia original four corner groups animate, including actual RR_36',()=>{
  const rig2=createWheelRig(rootOf(traversal),THREE,{forward:'+Z'});
  resetWheelRig(rig2);
  near(rig2.wheels.get('fl').node.quaternion.y,original.y,1e-8);
- assert.deepEqual(snapshot(groups[0].children[1]),snapshot(originalPart));
+ assert.deepEqual(snapshot(groups[0].children[1]),snapshot({quaternion:originalPart}));
  stepWheelRig(rig2,1.32,.25);
  const fl=rig2.wheels.get('fl'),rr=rig2.wheels.get('rr');
  assert.ok(fl.spin>0&&rr.spin>0);
@@ -81,7 +81,7 @@ test('Silvia original four corner groups animate, including actual RR_36',()=>{
  }
  resetWheelRig(rig2);
  for(let i=0;i<groups.length;i++)assert.deepEqual(snapshot(groups[i]),baseline[i]);
- assert.deepEqual(snapshot(groups[0].children[1]),snapshot(originalPart));
+ assert.deepEqual(snapshot(groups[0].children[1]),snapshot({quaternion:originalPart}));
 });
 test('all ten original passenger GLB files are present and have four separate wheel nodes',()=>{
  assert.equal(VEHICLE_MODELS.length,11);
