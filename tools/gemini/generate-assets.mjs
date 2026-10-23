@@ -35,8 +35,8 @@ function mimeFromPath(file) {
 }
 export function optionsFromEnvironment() {
   return {
-    type: chosen('type', 'ASSET_TYPE', 'car'),
-    name: chosen('name', 'ASSET_NAME', 'purple-daytona'),
+    type: chosen('type', 'ASSET_TYPE', 'character'),
+    name: chosen('name', 'ASSET_NAME', 'urban-resident'),
     details: chosen('details', 'ASSET_DETAILS', ''),
     direction: chosen('direction', 'ASSET_DIRECTION', 'front-left'),
     model: chosen('model', 'GEMINI_MODEL', models[0]),
