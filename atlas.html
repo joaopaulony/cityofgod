@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas do Mundo</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; background: #163b5f; overflow: hidden; font-family: system-ui, sans-serif; }
+  #atlas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #info { position: absolute; right: 12px; bottom: 12px; padding: 6px 10px; border-radius: 6px; background: rgba(15,12,10,.75); color: #f3ead8; font-size: 12px; }
+  #legend { position: absolute; left: 12px; top: 12px; padding: 8px 10px; border-radius: 6px; background: rgba(15,12,10,.75); color: #f3ead8; font-size: 12px; line-height: 1.6; }
+  #legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -2px; }
+</style>
+</head>
+<body>
+<canvas id="atlas"></canvas>
+<div id="legend">
+  <b>Atlas do mundo</b><br>
+  <i style="background:#f2c25a"></i>rodovia · <i style="background:#f4efe4"></i>avenida · <i style="background:#dcd6ca"></i>rua<br>
+  <i style="background:#626266"></i>centro · <i style="background:#b6826a"></i>favela · <i style="background:#949088"></i>conjunto<br>
+  <i style="background:#9aa4ac"></i>indústria/porto · <i style="background:#c4ac5c"></i>fazenda · <i style="background:#2c4e2c"></i>floresta<br>
+  roda/pinça = zoom · arrastar = mover
+</div>
+<div id="info"></div>
+<script src="js/worldgen/geo.js"></script>
+<script src="js/worldgen/roads.js"></script>
+<script src="js/worldgen/stream.js"></script>
+<script src="js/worldgen/atlas.js"></script>
+</body>
+</html>
