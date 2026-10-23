@@ -159,18 +159,10 @@ function bakeTreeShadow(x,y,sp) {
 // Cada variante consome somente o RNG do gerador durante a criação do mundo.
 // Seis tons por espécie: sombra > meio-tom > borda iluminada.
 // Nunca use tons ciano/cinza nas coníferas; o contraste vem de verdes naturais.
-const LEAF_PALETTES = [
-  { deep:'#1b321c', shade:'#284b27', body:'#3e6c31', mid:'#598340', sun:'#809e50', glint:'#a2b76c' },
-  { deep:'#23341a', shade:'#39522a', body:'#56703a', mid:'#708b44', sun:'#96a65c', glint:'#adbb76' },
-  { deep:'#1c3726', shade:'#2a5535', body:'#3f7746', mid:'#579252', sun:'#80ae69', glint:'#a4c386' },
-  { deep:'#28351b', shade:'#425429', body:'#5d7635', mid:'#789044', sun:'#9eac55', glint:'#b7bd6a' },
-];
-const NEEDLE_PALETTES = [
-  ['#141e12','#20351e','#2f4c29','#3c6434','#637845'],
-  ['#182315','#293a22','#38512b','#516b3b','#72804b'],
-  ['#18251a','#29412a','#385a32','#4c703e','#748652'],
-  ['#12251a','#213d28','#2d5632','#41703c','#64834d']
-];
+// Mesmo desenho de cada folha e agulha, com a gama de 6 tons
+// da imagem aprovada: verdes profundos, medios vivos e luz dourada.
+const LEAF_PALETTES = VISUAL_REFERENCE.canopy;
+const NEEDLE_PALETTES = VISUAL_REFERENCE.needles;
 
 // Folha lanceolada, desenhada como forma e não como pixel aleatório.
 // As copas são formadas exclusivamente por folhas/agulhas individuais. NÃO
