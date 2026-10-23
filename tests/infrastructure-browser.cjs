@@ -41,7 +41,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
       const site=trafficHeadSites(l)[1];
       cam.x=cam.tx=(l.x+site.x)/2;cam.y=cam.ty=(l.y+site.y)/2;
       const canvas=makeCanvas(cam.W,cam.H),g=canvas.getContext('2d');
-      drawTrafficSignal(g,l,2,false);
+      drawTrafficSignal(g,l,24.5,false);
       const px=g.getImageData(0,0,canvas.width,canvas.height).data;
       const point=proj(site.x,site.y,l.headHeight+.36);
       let redPixels=0,bodyPixels=0;
@@ -57,7 +57,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
       // Isolated signal to prevent false positives from colorful foliage.
       const dataUrl=canvas.toDataURL('image/png');
       const result={angle,view,redPixels,bodyPixels,
-       main:signalState(l,2),twoHeads:trafficHeadSites(l).length,
+       main:signalState(l,24.5),twoHeads:trafficHeadSites(l).length,
        armSpan:trafficSignalGeometry(l).span,
        face:trafficSignalGeometry(l).face};
       window.__signalQAImage=dataUrl;
