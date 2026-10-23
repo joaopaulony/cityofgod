@@ -96,11 +96,10 @@
     const openAround = (grid, x, y, rad, val) => { const [ci, cj] = toCell(x, y), R = Math.ceil(rad / CS); for (let j = cj - R; j <= cj + R; j++) for (let i = ci - R; i <= ci + R; i++) if (i >= 0 && j >= 0 && i < nx && j < ny && !isFinite(grid[j * nx + i]) && geo.isLand(i * CS, j * CS)) grid[j * nx + i] = val; };
 
     // ---------- rodovias: nós principais ligados por árvore geradora mínima + atalhos ----------
-    const apGate = ap => ({ x: ap.x - Math.sin(ap.ang) * (ap.apron + 120), y: ap.y + Math.cos(ap.ang) * (ap.apron + 120) });
+    const apGate = ap => ({ x: ap.x - Math.sin(ap.ang) * (ap.apron + 52), y: ap.y + Math.cos(ap.ang) * (ap.apron + 52) });   // meio-fio do terminal
     const nodes = [
       { ...A.downtown, k: 'centro' }, { ...A.port, k: 'porto' }, ...A.industrial.map((a, i) => ({ ...a, k: 'industrial' + i })),
       ...A.towns.map(a => ({ ...a, k: a.name })), ...A.airports.map(a => ({ ...apGate(a), k: a.name })), ...A.ghettos.map((a, i) => ({ ...a, k: 'conjunto' + i })),
-      { x: W * 0.02, y: H * 0.40, k: 'saída oeste', edge: 1 }, { x: W * 0.45, y: H * 0.01, k: 'saída norte', edge: 1 },
     ].filter(n => geo.isLand(n.x, n.y));
     // árvore geradora mínima (Prim) por distância euclidiana
     const inT = [0], edges = [], used = new Set([0]);
@@ -113,10 +112,10 @@
     const extra = [];
     for (let a = 0; a < nodes.length; a++) for (let b = a + 1; b < nodes.length; b++) {
       if (edges.some(e => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a))) continue;
-      const d = Math.hypot(nodes[a].x - nodes[b].x, nodes[a].y - nodes[b].y); if (d < 2600) extra.push([a, b, d]);
+      const d = Math.hypot(nodes[a].x - nodes[b].x, nodes[a].y - nodes[b].y); if (d < 1500) extra.push([a, b, d]);
     }
     extra.sort((p, q) => p[2] - q[2]);
-    edges.push(...extra.slice(0, 4));
+    edges.push(...extra.slice(0, 3));
     const hwGrid = baseCost('road'), minCost = 0.55 * 0.75;
     for (const [a, b] of edges) {
       const na = nodes[a], nb = nodes[b];
@@ -130,7 +129,7 @@
 
     // ---------- centro: anéis deformados + radiais tortas ----------
     const dc = A.downtown, okUrban = (x, y) => geo.isLand(x, y) && geo.districtAt(x, y) !== Dd.RIVER && geo.coastDist(x, y) > 40;
-    for (const [rad, cls] of [[300, 'avenue'], [650, 'avenue'], [1150, 'avenue']]) {
+    for (const [rad, cls] of [[210, 'avenue'], [440, 'avenue'], [740, 'avenue']]) {
       const ring = [];
       for (let k = 0; k <= 64; k++) { const a = k / 64 * Math.PI * 2, rr = rad * (0.82 + N(Math.cos(a) * 1.3 + rad, Math.sin(a) * 1.3) * 0.36); ring.push([dc.x + Math.cos(a) * rr * 1.15, dc.y + Math.sin(a) * rr * 0.92]); }
       for (const seg of clipPoly(catmull(ring, 12), okUrban, 8)) roads.push({ cls, pts: seg, ring: rad });
@@ -138,7 +137,7 @@
     const nRad = 9;
     for (let k = 0; k < nRad; k++) {
       let a = (k / nRad) * Math.PI * 2 + r() * 0.3, x = dc.x, y = dc.y; const pts = [[x, y]];
-      for (let s = 0; s < 70; s++) { a += (N(k * 3.1, s * 0.12) - 0.5) * 0.18; x += Math.cos(a) * 30; y += Math.sin(a) * 30; pts.push([x, y]); }
+      for (let s = 0; s < 34; s++) { a += (N(k * 3.1, s * 0.12) - 0.5) * 0.18; x += Math.cos(a) * 30; y += Math.sin(a) * 30; pts.push([x, y]); }
       for (const seg of clipPoly(catmull(pts, 12), okUrban, 8)) roads.push({ cls: 'avenue', pts: seg, radial: k });
     }
     // avenida beira-mar seguindo a baía e a costa urbana
@@ -153,13 +152,13 @@
 
     // ---------- bairros e vilas: ruas irregulares ligando nós espalhados (sem quadriculado) ----------
     const streetNodes = [];
-    for (let y = 60; y < H; y += 230) for (let x = 60; x < W; x += 230) {
+    for (let y = 50; y < H; y += 190) for (let x = 50; x < W; x += 190) {
       const px = x + (r() - 0.5) * 170, py = y + (r() - 0.5) * 170, d = geo.districtAt(px, py);
       if ([Dd.URBAN, Dd.TOWN, Dd.GHETTO, Dd.INDUSTRIAL, Dd.DOWNTOWN].includes(d)) streetNodes.push([px, py, d]);
     }
     const linked = new Set();
     for (let a = 0; a < streetNodes.length; a++) {
-      const near = streetNodes.map((p, b) => [b, Math.hypot(p[0] - streetNodes[a][0], p[1] - streetNodes[a][1])]).filter(([b, d]) => b !== a && d < 360).sort((p, q) => p[1] - q[1]).slice(0, 3);
+      const near = streetNodes.map((p, b) => [b, Math.hypot(p[0] - streetNodes[a][0], p[1] - streetNodes[a][1])]).filter(([b, d]) => b !== a && d < 300).sort((p, q) => p[1] - q[1]).slice(0, 3);
       for (const [b] of near) {
         const key = a < b ? a + ',' + b : b + ',' + a; if (linked.has(key)) continue; linked.add(key);
         const [ax, ay] = streetNodes[a], [bx, by] = streetNodes[b], mx = (ax + bx) / 2, my = (ay + by) / 2, l = Math.hypot(bx - ax, by - ay);
@@ -170,7 +169,7 @@
     }
 
     // ---------- ferrovia: porto -> indústrias -> saída oeste ----------
-    const rail = baseCost('rail'), railStops = [A.port, ...A.industrial.slice().sort((p, q) => q.x - p.x), { x: W * 0.02, y: H * 0.52 }];
+    const rail = baseCost('rail'), railStops = [A.port, ...A.industrial.slice().sort((p, q) => q.x - p.x), { x: A.downtown.x - 500, y: A.downtown.y - 200 }];
     for (let k = 0; k < railStops.length - 1; k++) {
       const a = railStops[k], b = railStops[k + 1];
       openAround(rail, a.x, a.y, 200, 1.5); openAround(rail, b.x, b.y, 200, 1.5);
@@ -209,17 +208,17 @@
     };
     const dc = A.downtown;
     place('Prefeitura e Praça Central', 'cityhall', dc.x, dc.y, [Dd.DOWNTOWN], 70, 0);
-    place('Catedral', 'church', dc.x + 260, dc.y - 120, [Dd.DOWNTOWN], 45);
-    place('Mercado Municipal', 'market', dc.x - 280, dc.y + 90, [Dd.DOWNTOWN], 50);
-    place('Delegacia Central', 'police', dc.x + 180, dc.y + 260, [Dd.DOWNTOWN, Dd.URBAN], 35);
-    place('Hospital Geral', 'hospital', dc.x - 700, dc.y - 380, [Dd.URBAN, Dd.DOWNTOWN], 80);
-    place('Estádio Municipal', 'stadium', dc.x + 900, dc.y - 700, [Dd.URBAN], 150);
-    place('Shopping', 'mall', dc.x - 1100, dc.y - 200, [Dd.URBAN], 110);
-    place('Universidade', 'university', dc.x - 300, dc.y - 1200, [Dd.URBAN], 140);
-    place('Rodoviária', 'bus', dc.x + 500, dc.y - 900, [Dd.URBAN], 70);
+    place('Catedral', 'church', dc.x + 170, dc.y - 80, [Dd.DOWNTOWN], 45);
+    place('Mercado Municipal', 'market', dc.x - 180, dc.y + 60, [Dd.DOWNTOWN], 50);
+    place('Delegacia Central', 'police', dc.x + 120, dc.y + 170, [Dd.DOWNTOWN, Dd.URBAN], 35);
+    place('Hospital Geral', 'hospital', dc.x - 440, dc.y - 240, [Dd.URBAN, Dd.DOWNTOWN], 80);
+    place('Estádio Municipal', 'stadium', dc.x + 560, dc.y - 440, [Dd.URBAN], 150);
+    place('Shopping', 'mall', dc.x - 680, dc.y - 120, [Dd.URBAN], 110);
+    place('Universidade', 'university', dc.x - 200, dc.y - 740, [Dd.URBAN], 140);
+    place('Rodoviária', 'bus', dc.x + 320, dc.y - 560, [Dd.URBAN], 70);
     place('Terminal Portuário', 'port', A.port.x, A.port.y, [Dd.PORT], 120);
     // farol na ponta mais ao mar da baía
-    let tip = null; for (let a = 0; a < Math.PI * 2; a += 0.05) for (let m = geo.bay.r + 500; m > 0; m -= 20) { const x = geo.bay.x + Math.cos(a) * m * 1.35, y = geo.bay.y + Math.sin(a) * m; if (geo.isLand(x, y) && geo.coastDist(x, y) < 30 && y > geo.bay.y && (!tip || y > tip[1])) { tip = [x, y]; break; } }
+    let tip = null; for (let a = 0; a < Math.PI * 2; a += 0.05) for (let m = geo.bay.r + 300; m > 0; m -= 20) { const x = geo.bay.x + Math.cos(a) * m * 1.35, y = geo.bay.y + Math.sin(a) * m; if (geo.isLand(x, y) && geo.coastDist(x, y) < 30 && y > geo.bay.y && (!tip || y > tip[1])) { tip = [x, y]; break; } }
     if (tip) out.push({ name: 'Farol da Baía', kind: 'lighthouse', x: tip[0], y: tip[1], r: 15 });
     for (const t of A.towns) place('Igreja de ' + t.name, 'church', t.x, t.y, [Dd.TOWN], 25, 40);
     for (const ap of A.airports) out.push({ name: ap.name, kind: 'airport', x: ap.x, y: ap.y, r: ap.len / 2 });

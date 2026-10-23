@@ -8,7 +8,7 @@
   const view = document.getElementById('atlas'), g = view.getContext('2d');
 
   // ---------- base raster (4 m/px), pintada uma vez ----------
-  const BP = 6, BW = W / BP, BH = H / BP, base = document.createElement('canvas'); base.width = BW; base.height = BH;
+  const BP = 4, BW = Math.ceil(W / BP), BH = Math.ceil(H / BP), base = document.createElement('canvas'); base.width = BW; base.height = BH;
   const bg = base.getContext('2d'), img = bg.createImageData(BW, BH), d = img.data;
   const { N1, N2, N3 } = geo.noise, hash = (x, y) => { let h = (x * 374761393 + y * 668265263) ^ seed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   const CROPS = [[196, 172, 92], [122, 150, 62], [140, 108, 72], [96, 134, 58], [170, 160, 80], [112, 92, 60]];

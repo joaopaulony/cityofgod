@@ -34,7 +34,9 @@ Abra `http://localhost:4321`. Use `?seed=1234` na URL para repetir um mapa.
 
 ## Mundo grande (padrão)
 
-Abrir `index.html` sem parâmetros carrega o **mundo fixo de 7,2 × 6,2 km** (30,7 km² de terra, semente oficial `20261024`): litoral com baía, rios, serra florestal, centro, bairros, favelas, conjuntos, indústrias, porto, fazendas, florestas, quatro cidades do interior e dois aeroportos, ligados por rodovias e ruas orgânicas.
+Abrir `index.html` sem parâmetros carrega o **mundo fixo de 4 × 3,6 km** (~9,2 km² de terra cercada de mar, semente oficial `20261024`): baía com o centro, bairros, três favelas, um conjunto, indústria, porto, duas cidades do interior, fazendas, serra florestal, um rio e **um aeroporto internacional**, ligados por rodovias e ruas orgânicas.
+
+O jogo começa com o personagem **desembarcando no saguão do aeroporto**, como um passageiro chegando de viagem: terminal com check-in, bancos e esteira de bagagem, avião no pátio e um carro na frente para seguir até a cidade.
 
 - O mapa é gerado em **setores de 256 m** em volta do jogador (raio de 230 m), em passos curtos por quadro; setores distantes são descarregados. Cada setor tem semente própria e sai igual em qualquer ordem.
 - Casas, móveis, cercas, árvores, postes e lixo vêm dos mesmos geradores do mapa local; o terreno ganhou lavouras, pisos urbanos, cais, areia de praia e pistas de pouso.

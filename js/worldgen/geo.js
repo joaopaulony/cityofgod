@@ -6,7 +6,7 @@
 
   // ---------- semente oficial e dimensões ----------
   COG.WORLD_SEED = 20261024;                 // mundo fixo: todos os jogadores no mesmo mapa
-  COG.WORLD_W = 7200; COG.WORLD_H = 6200;    // metros: ~30 km² de terra firme + mar
+  COG.WORLD_W = 4000; COG.WORLD_H = 3600;    // metros: ~9 km² de terra firme + mar em volta
   COG.CELL = 20;                             // grade de distritos (m)
 
   // ---------- utilidades determinísticas ----------
@@ -54,15 +54,17 @@
     const geo = { seed, W, H, C, NX, NY, anchors: {} };
 
     // costa: mar ao sul e a leste, com baía da cidade e enseadas
-    const bay = { x: W * 0.55, y: H * 0.83, r: 620 };
+    const bay = { x: W * 0.55, y: H * 0.84, r: 380 };
     geo.bay = bay;
     const landField = (x, y) => {
-      const south = H * 0.825 + (N1(x * 0.0007, 3.1) - 0.5) * 900 + (N1(x * 0.003, 7.7) - 0.5) * 160 - y;
-      const east = W * 0.905 + (N1(y * 0.0008, 11.3) - 0.5) * 800 + (N1(y * 0.004, 2.2) - 0.5) * 140 - x;
+      const south = H * 0.85 + (N1(x * 0.0012, 3.1) - 0.5) * 480 + (N1(x * 0.005, 7.7) - 0.5) * 90 - y;
+      const east = W * 0.915 + (N1(y * 0.0013, 11.3) - 0.5) * 420 + (N1(y * 0.006, 2.2) - 0.5) * 80 - x;
       // oeste: costa recortada (a cidade é uma península, sem borda reta de mapa)
-      const west = x - (W * 0.045 + (N1(y * 0.0009, 21.7) - 0.5) * 600 + (N1(y * 0.004, 5.5) - 0.5) * 120);
-      let f = Math.min(south, east, west);
-      const db = Math.hypot((x - bay.x) / 1.35, y - bay.y) - bay.r - (N2(x * 0.004, y * 0.004) - 0.5) * 140;
+      const west = x - (W * 0.072 + (N1(y * 0.0015, 21.7) - 0.5) * 320 + (N1(y * 0.006, 5.5) - 0.5) * 70);
+      // norte: serra que desce até o mar (o mapa é uma ilha-península fechada)
+      const north = y - (H * 0.06 + (N1(x * 0.0014, 33.3) - 0.5) * 260);
+      let f = Math.min(south, east, west, north);
+      const db = Math.hypot((x - bay.x) / 1.35, y - bay.y) - bay.r - (N2(x * 0.006, y * 0.006) - 0.5) * 90;
       f = Math.min(f, db);
       return f;
     };
@@ -70,7 +72,7 @@
     const land = new Uint8Array(NX * NY);
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) land[j * NX + i] = landField(i * C + C / 2, j * C + C / 2) > 0 ? 1 : 0;
     // ilha pequena ao largo (marco visual do horizonte)
-    const isle = { x: W * 0.66, y: H * 0.95, r: 140 };
+    const isle = { x: W * 0.68, y: H * 0.965, r: 70 };
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const x = i * C, y = j * C; if (Math.hypot(x - isle.x, (y - isle.y) * 1.6) < isle.r + (N3(x * 0.01, y * 0.01) - 0.5) * 60) land[j * NX + i] = 1; }
     geo.land = land;
 
@@ -88,46 +90,44 @@
 
     // âncoras dos distritos (regras de layout, estilo GTA: centro na baía, porto a leste, interior ao norte/oeste)
     const A = geo.anchors;
-    A.downtown = { x: bay.x - 40, y: bay.y - bay.r - 520, r: 620 };
-    A.port = { x: W * 0.80, y: H * 0.70, r: 420 };
+    A.downtown = { x: bay.x - 30, y: bay.y - bay.r - 330, r: 420 };
+    A.port = { x: W * 0.84, y: H * 0.72, r: 260 };
     // porto: no ponto de costa mais próximo do desejado (leste do centro), recuado 180 m terra adentro
     {
-      const want = [W * 0.80, H * 0.70]; let best = null, bd = 1e18;
+      const want = [W * 0.86, H * 0.72]; let best = null, bd = 1e18;
       for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
         const k = j * NX + i; if (!land[k] || coastD[k] > C * 1.5) continue;
         const x = i * C + C / 2, y = j * C + C / 2, dd = Math.hypot(x - want[0], y - want[1]);
-        if (x > A.downtown.x + 900 && dd < bd) { bd = dd; best = [x, y]; }
+        if (x > A.downtown.x + 600 && dd < bd) { bd = dd; best = [x, y]; }
       }
       if (best) {   // recua na direção oposta ao mar (gradiente da distância à costa)
         let [x, y] = best;
-        for (let s = 0; s < 9; s++) { const gx = geo.coastDist(x + C, y) - geo.coastDist(x - C, y), gy = geo.coastDist(x, y + C) - geo.coastDist(x, y - C), l = Math.hypot(gx, gy) || 1; x += gx / l * 20; y += gy / l * 20; }
+        for (let s = 0; s < 6; s++) { const gx = geo.coastDist(x + C, y) - geo.coastDist(x - C, y), gy = geo.coastDist(x, y + C) - geo.coastDist(x, y - C), l = Math.hypot(gx, gy) || 1; x += gx / l * 20; y += gy / l * 20; }
         A.port.x = x; A.port.y = y;
       }
     }
-    A.industrial = [{ x: W * 0.72, y: H * 0.58, r: 430 }, { x: W * 0.34, y: H * 0.56, r: 380 }];
-    A.favelas = [0.8, 2.0, 3.3, 4.3].map((a, k) => { const d = 1050 + r() * 380; return { x: A.downtown.x + Math.cos(a + Math.PI) * d, y: A.downtown.y - Math.abs(Math.sin(a)) * d * 0.9, r: 230 + r() * 120 }; });
-    A.ghettos = [{ x: W * 0.64, y: H * 0.47, r: 260 }, { x: W * 0.43, y: H * 0.66, r: 240 }];
-    A.urban = { x: A.downtown.x, y: A.downtown.y - 150, r: 1750 };
-    A.towns = [{ x: W * 0.16, y: H * 0.26, r: 380, name: 'Vila Serrana' }, { x: W * 0.42, y: H * 0.16, r: 330, name: 'Santa Aurora' },
-      { x: W * 0.60, y: H * 0.11, r: 350, name: 'Pedra Alta' }, { x: W * 0.12, y: H * 0.62, r: 340, name: 'Porto Velho' }];
-    // aeroportos: pista longa no plano a nordeste; regional a oeste
+    A.industrial = [{ x: W * 0.75, y: H * 0.60, r: 260 }];
+    A.favelas = [0.9, 2.2, 3.6].map((a, k) => { const d = 640 + r() * 200; return { x: A.downtown.x + Math.cos(a + Math.PI) * d, y: A.downtown.y - Math.abs(Math.sin(a)) * d * 0.9, r: 140 + r() * 70 }; });
+    A.ghettos = [{ x: W * 0.36, y: H * 0.62, r: 170 }];
+    A.urban = { x: A.downtown.x, y: A.downtown.y - 120, r: 1180 };
+    A.towns = [{ x: W * 0.17, y: H * 0.36, r: 290, name: 'Vila Serrana' }, { x: W * 0.40, y: H * 0.17, r: 250, name: 'Santa Aurora' }];
+    // um só aeroporto: pista leste–oeste no planalto a nordeste (alinhada aos eixos p/ o terminal encaixar)
     A.airports = [
-      { name: 'Aeroporto Internacional', x: W * 0.74, y: H * 0.32, len: 2400, ang: -0.35 + r() * 0.15, apron: 420, region: [0.58, 0.18, 0.86, 0.48] },
-      { name: 'Aeroporto Regional', x: W * 0.17, y: H * 0.44, len: 1100, ang: 0.55 + r() * 0.2, apron: 220, region: [0.06, 0.34, 0.30, 0.56] },
+      { name: 'Aeroporto Internacional', x: W * 0.70, y: H * 0.20, len: 1500, ang: 0, apron: 260, region: [0.45, 0.08, 0.9, 0.42] },
     ];
     // regra: pista inteira em terra, a 300 m+ da costa e longe da cidade/vilas; busca o ponto mais
     // próximo do desejado dentro da região permitida
     const keepOff = [A.downtown, ...A.towns, ...A.favelas, ...A.ghettos, A.port, ...A.industrial];
     const fits = (ap, x, y) => [-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].every(t => {
       const px = x + Math.cos(ap.ang) * ap.len * t, py = y + Math.sin(ap.ang) * ap.len * t;
-      return geo.isLand(px, py) && geo.coastDist(px, py) > 300 && keepOff.every(a => Math.hypot(px - a.x, py - a.y) > a.r + 450);
+      return geo.isLand(px, py) && geo.coastDist(px, py) > 220 && keepOff.every(a => Math.hypot(px - a.x, py - a.y) > a.r + 260);
     });
     for (const ap of A.airports) {
       let best = null, bd = 1e18;
       const [rx0, ry0, rx1, ry1] = ap.region, a0 = ap.ang;
-      for (const da of [0, 0.25, -0.25, 0.5, -0.5, 0.8, -0.8]) {   // prefere a orientação sorteada
+      for (const da of [0]) {   // pista sempre leste–oeste
         ap.ang = a0 + da;
-        for (let y = ry0 * H; y <= ry1 * H; y += 80) for (let x = rx0 * W; x <= rx1 * W; x += 80) {
+        for (let y = ry0 * H; y <= ry1 * H; y += 40) for (let x = rx0 * W; x <= rx1 * W; x += 40) {
           if (!fits(ap, x, y)) continue;
           const d = Math.hypot(x - ap.x, y - ap.y) + Math.abs(da) * 900; if (d < bd) { bd = d; best = [x, y, ap.ang]; }
         }
@@ -138,17 +138,17 @@
 
     // rios: nascem ao norte e serpenteiam até o mar
     geo.rivers = [];
-    for (const sx of [W * 0.30, W * 0.62]) {
-      let x = sx, y = 0, a = Math.PI / 2; const pts = [[x, y]];
+    for (const sx of [W * 0.30]) {
+      let x = sx, y = H * 0.1, a = Math.PI / 2; const pts = [[x, y]];   // nasce na serra
       for (let k = 0; k < 400; k++) {
         a += (N2(k * 0.08, sx) - 0.5) * 0.5;
         // atraído para o sul, desviando do centro da cidade
         const toSea = Math.PI / 2, dd = Math.hypot(x - A.downtown.x, y - A.downtown.y);
-        a = lerp(a, toSea, 0.08) + (dd < 900 ? Math.sign(x - A.downtown.x || 1) * 0.15 : 0);
-        x += Math.cos(a) * 30; y += Math.sin(a) * 30; pts.push([x, y]);
+        a = lerp(a, toSea, 0.08) + (dd < 560 ? Math.sign(x - A.downtown.x || 1) * 0.15 : 0);
+        x += Math.cos(a) * 24; y += Math.sin(a) * 24; pts.push([x, y]);
         if (!geo.isLand(x, y) || y > H) break;
       }
-      geo.rivers.push({ pts, w: sx < W / 2 ? 34 : 26 });
+      geo.rivers.push({ pts, w: 26 });
     }
 
     // leito dos rios marcado na grade uma vez (evita medir distância a cada célula)
@@ -182,10 +182,10 @@
       else if (coastD[k] < 70 + n * 60) d = D.BEACH;
       else if (Math.hypot(x - A.urban.x, (y - A.urban.y) * 1.25) < A.urban.r * (1 + n * 0.35)) d = D.URBAN;
       else if (A.towns.some(a => Math.hypot(x - a.x, y - a.y) < a.r * wob)) d = D.TOWN;
-      else if (y < 330 + N2(x * 0.0015, 4.4) * 380) d = D.FOREST;   // serra ao norte: floresta fechada como limite natural
+      else if (y < H * 0.06 + 120 + N2(x * 0.0025, 4.4) * 200) d = D.FOREST;   // serra ao norte: floresta fechada como limite natural
       else {
-        const fo = N1(x * 0.0012 + 40, y * 0.0012 + 40) + (y < H * 0.35 && x < W * 0.5 ? 0.12 : 0);
-        d = fo > 0.6 ? D.FOREST : (N2(x * 0.001 + 9, y * 0.001) > 0.42 ? D.FARM : D.RURAL);
+        const fo = N1(x * 0.002 + 40, y * 0.002 + 40) + (y < H * 0.35 && x < W * 0.5 ? 0.08 : 0);
+        d = fo > 0.6 ? D.FOREST : (N2(x * 0.0018 + 9, y * 0.0018) > 0.36 ? D.FARM : D.RURAL);
       }
       dist[k] = d;
     }

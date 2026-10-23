@@ -24,18 +24,21 @@ test('mundo fixo: a semente oficial gera sempre o mesmo mapa', () => {
   assert.notDeepEqual(Buffer.from(other.geo.dist), Buffer.from(geo.dist));
 });
 
-test('tamanho: ~30 km² de terra firme', () => {
+test('tamanho: ~9 km² de terra firme', () => {
   const land = km2(geo.land.reduce((a, b) => a + b, 0));
-  assert.ok(land > 29 && land < 33, 'terra = ' + land.toFixed(1) + ' km²');
+  assert.ok(land > 8.6 && land < 9.6, 'terra = ' + land.toFixed(2) + ' km²');
 });
 
 test('todos os biomas e distritos existem, com proporções plausíveis', () => {
   const area = new Array(COG.D_NAMES.length).fill(0);
   for (const d of geo.dist) area[d]++;
   for (const [name, id] of Object.entries(D)) assert.ok(area[id] > 0, 'falta ' + name);
-  assert.ok(km2(area[D.AIRPORT]) < 2.6, 'aeroportos grandes demais');
-  assert.ok(km2(area[D.DOWNTOWN]) > 0.6, 'centro pequeno demais');
-  assert.ok(km2(area[D.FOREST]) > 3 && km2(area[D.FARM]) > 3, 'faltam florestas/fazendas grandes');
+  assert.ok(km2(area[D.AIRPORT]) < 1.0, 'aeroporto grande demais');
+  assert.ok(km2(area[D.DOWNTOWN]) > 0.35, 'centro pequeno demais');
+  assert.ok(km2(area[D.FOREST]) > 0.8 && km2(area[D.FARM]) > 0.8, 'faltam florestas/fazendas');
+  // menos área rural: a cidade (centro, bairros, favelas, conjuntos, vilas) ocupa mais que o campo aberto
+  const city = [D.DOWNTOWN, D.URBAN, D.FAVELA, D.GHETTO, D.TOWN].reduce((a, d) => a + km2(area[d]), 0);
+  assert.ok(city > km2(area[D.RURAL]) * 4, 'campo aberto grande demais');
 });
 
 test('regras de layout: mar ao sul, centro na baía, porto no litoral', () => {
@@ -46,14 +49,15 @@ test('regras de layout: mar ao sul, centro na baía, porto no litoral', () => {
   assert.ok(geo.coastDist(A.port.x, A.port.y) < 600, 'porto longe do mar');
 });
 
-test('aeroportos: pista inteira em terra, longe da costa e das cidades', () => {
+test('um só aeroporto: pista inteira em terra, longe da costa e das cidades', () => {
   const A = geo.anchors, keepOff = [A.downtown, ...A.towns, ...A.favelas];
+  assert.equal(A.airports.length, 1);
   for (const ap of A.airports) {
     assert.ok(ap.ok, ap.name + ' sem local válido');
     for (let t = -0.5; t <= 0.5; t += 0.05) {
       const x = ap.x + Math.cos(ap.ang) * ap.len * t, y = ap.y + Math.sin(ap.ang) * ap.len * t;
-      assert.ok(geo.isLand(x, y) && geo.coastDist(x, y) > 280, ap.name + ': pista na água/costa');
-      for (const a of keepOff) assert.ok(Math.hypot(x - a.x, y - a.y) > a.r + 300, ap.name + ': pista sobre área urbana');
+      assert.ok(geo.isLand(x, y) && geo.coastDist(x, y) > 200, ap.name + ': pista na água/costa');
+      for (const a of keepOff) assert.ok(Math.hypot(x - a.x, y - a.y) > a.r + 240, ap.name + ': pista sobre área urbana');
     }
   }
 });
@@ -111,11 +115,11 @@ test('streaming: carrega em volta do jogador, descarrega com folga', () => {
   const loaded = new Set(); let unloads = 0;
   const st = new COG.SectorStreamer({ world, radius: 420, hysteresis: 200, maxPerUpdate: 99,
     gen: (sx, sy) => COG.sectorInfo(world, sx, sy), onLoad: i => loaded.add(i.sx + ',' + i.sy), onUnload: i => { loaded.delete(i.sx + ',' + i.sy); unloads++; } });
-  st.update(3000, 3000);
+  st.update(1800, 1800);
   const n0 = loaded.size; assert.ok(n0 >= 7 && n0 <= 16, 'setores carregados: ' + n0);   // raio 420 m ≈ 8 setores de 256 m
-  st.update(3100, 3000); assert.equal(unloads, 0, 'não deve descarregar com passos pequenos (histerese)');
-  for (let x = 3000; x <= 5000; x += 50) st.update(x, 3000);
+  st.update(1900, 1800); assert.equal(unloads, 0, 'não deve descarregar com passos pequenos (histerese)');
+  for (let x = 1800; x <= 3600; x += 50) st.update(x, 1800);
   assert.ok(unloads > 0, 'deveria descarregar o que ficou para trás');
   assert.ok(loaded.size <= 24, 'memória limitada: ' + loaded.size + ' setores');
-  for (const k of loaded) { const [i, j] = k.split(',').map(Number); assert.ok(Math.hypot((i + 0.5) * 256 - 5000, (j + 0.5) * 256 - 3000) <= 620); }
+  for (const k of loaded) { const [i, j] = k.split(',').map(Number); assert.ok(Math.hypot((i + 0.5) * 256 - 3600, (j + 0.5) * 256 - 1800) <= 620); }
 });

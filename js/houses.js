@@ -614,15 +614,15 @@ const lerp2 = (p, q, t) => ({ x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) });
 function drawSign(g, segs) {
   // texto sempre lido da esquerda p/ direita de quem olha a fachada
   const s = segs[0], dx = s.ny, dy = -s.nx, along = (s.x2 - s.x1) * dx + (s.y2 - s.y1) * dy > 0;
-  const e = segs[segs.length - 1], sx = along ? s.x1 : e.x2, sy = along ? s.y1 : e.y2, len = segs.length;
+  const e = segs[segs.length - 1], sx = along ? s.x1 : e.x2, sy = along ? s.y1 : e.y2, len = segs.length, Hs = s.house || {};
   const o = proj(sx, sy, 3.05), ux = proj(sx + dx, sy + dy, 3.05), vz = proj(sx, sy, 2.05);
   g.save(); g.transform(ux.x - o.x, ux.y - o.y, vz.x - o.x, vz.y - o.y, o.x, o.y);
   g.scale(0.01, 0.01);   // fontes < 1px não renderizam: desenha em centésimos de metro
   g.fillStyle = INK; g.fillRect(-5, -5, len * 100 + 10, 75);
-  g.fillStyle = '#c23a2e'; g.fillRect(0, 0, len * 100, 65);
-  g.fillStyle = '#9a2a20'; g.fillRect(0, 50, len * 100, 15);
+  g.fillStyle = Hs.signBg || '#c23a2e'; g.fillRect(0, 0, len * 100, 65);
+  g.fillStyle = Hs.signBg2 || '#9a2a20'; g.fillRect(0, 50, len * 100, 15);
   g.fillStyle = '#fff3d6'; g.font = 'bold 50px Impact, Arial Black, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('MERCADO', len * 50, 32);
+  g.fillText(Hs.signText || 'MERCADO', len * 50, 32);
   g.restore();
 }
 

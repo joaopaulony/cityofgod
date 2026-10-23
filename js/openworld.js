@@ -130,6 +130,47 @@ function owSectorRoads(S) {
 }
 
 // ---------- listas globais marcadas por setor ----------
+// ---------- aeroporto: terminal de passageiros e avião estacionado no pátio ----------
+// Saguão aberto: portas de vidro para a rua (sul) e para o pátio (norte), letreiro, bancos de espera,
+// balcões de check-in e esteira de bagagem.
+TPL.TERMINAL = {
+  w: 36, d: 14, setback: 0,
+  def: { h: 4.4, ext: '#d6dade', int: '#ecebe6', roof: '#7d8186', trim: '#f2f2ee', roofKind: 'flat',
+    open: { S: { door: [16, 17, 18, 19], win: [...Array(36).keys()].filter(i => (i < 15 || i > 20) && i % 3 !== 2), sign: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] },
+      N: { door: [6, 29], win: [...Array(36).keys()].filter(i => i !== 6 && i !== 29 && i % 2 === 0) }, W: { win: [3, 5, 8, 10] }, E: { win: [3, 5, 8, 10] } },
+    floors: [{ x0: 0, y0: 0, x1: 36, y1: 14, kind: 'tile', col: '#d9d6cd' }] },
+  furn: [
+    ...[0, 1, 2, 3].map(i => ({ x: 4 + i * 2.6, y: 2.2, w: 2, d: 0.9, h: 1.05, top: '#d2cec4', side: '#6f7680', kind: 'counter' })),   // check-in
+    ...[0, 1, 2, 3, 4, 5].map(i => ({ x: 22 + (i % 3) * 4.4, y: 8 + ((i / 3) | 0) * 2.4, w: 3.6, d: 0.6, h: 0.46, top: '#3c6fa8', side: '#2c5282', kind: 'bench' })),
+    { x: 9, y: 9, w: 7, d: 2.2, h: 0.62, top: '#3a3d42', side: '#26282c', kind: 'carousel' },   // esteira de bagagem
+    { x: 30, y: 2.4, w: 3, d: 1, h: 1.1, top: '#c9b48a', side: '#7a5c3c', kind: 'counter' },     // lanchonete
+  ],
+};
+function owAirportFor(S) {
+  const ap = world.airports && world.airports[0]; if (!ap) return null;
+  const T = TPL.TERMINAL, x0 = Math.round(ap.x - T.w / 2), y0 = Math.round(ap.y + ap.width / 2 + ap.apron - 22);
+  const cx = x0 + T.w / 2, cy = y0 + T.d / 2;
+  if (cx < S.bounds[0] || cx >= S.bounds[2] || cy < S.bounds[1] || cy >= S.bounds[3]) return null;   // setor dono do terminal
+  return { ap, T, x0, y0 };
+}
+function owPlaceAirport(S, q) {
+  const { ap, T, x0, y0 } = q;
+  const H = placeTemplate(T, x0, y0, 0, { seed: owSeed(S, 'terminal') });
+  H.signText = 'AEROPORTO'; H.signBg = '#1f4f8a'; H.signBg2 = '#173d6b'; H.terminal = true;
+  H.walk = [H.doorPt, [H.doorPt[0], H.doorPt[1] + 14]];
+  // avião de passageiros estacionado no pátio, nariz apontado p/ o terminal
+  const px = ap.x + 6, py = y0 - 26, W = '#eef0f2', G = '#c9cdd2', B = '#1f4f8a';
+  addBox({ x: px, y: py, z: 0.9, w: 3.8, d: 34, h: 3.9, top: W, side: G, kind: 'plane' });                        // fuselagem
+  addBox({ x: px, y: py + 1, z: 1.4, w: 31, d: 4.6, h: 0.45, top: G, side: '#aeb3b9', kind: 'plane', solid: false });   // asas
+  addBox({ x: px, y: py - 15, z: 2.4, w: 10, d: 2.4, h: 0.35, top: G, side: '#aeb3b9', kind: 'plane', solid: false });  // estabilizador
+  addBox({ x: px, y: py - 15.5, z: 4.8, w: 0.5, d: 4, h: 5.2, top: B, side: B, kind: 'plane', solid: false });          // deriva
+  for (const sx of [-6.5, 6.5]) addBox({ x: px + sx, y: py + 2.2, z: 0.6, w: 2, d: 3.6, h: 2, top: '#d5d8dc', side: '#9aa0a6', kind: 'plane' });   // motores
+  addBox({ x: px, y: py + 16.8, z: 1.6, w: 3.2, d: 1.4, h: 1.2, top: '#2a3442', side: '#1c242e', kind: 'plane', solid: false });   // cabine
+  addBox({ x: px + 4, y: py + 12, z: 0, w: 1.6, d: 14, h: 3.2, top: '#b9bec4', side: '#8e949b', kind: 'jetway', solid: false });  // ponte de embarque
+  owIndexOwnedLive(S);
+  return H;
+}
+
 const OW_TRACK = () => [['houses', houses], ['boxes', boxes], ['fences', fences], ['props', world.props], ['circles', world.circles], ['segs', world.segs],
   ['upperSegs', world.upperSegs], ['lamps', world.lamps], ['yards', world.yards], ['litter', urbanLife.litter], ['bins', urbanLife.bins],
   ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies]];
@@ -178,8 +219,11 @@ function* owGenSector(S) {
   if (frac(D_.SEA) > 0.999) { yield* owPaintBase(S); return; }   // mar aberto: só a base
   yield;
 
-  // --- casas ao longo das vias, de frente p/ a rua (modelo depende do distrito do lote)
+  // --- aeroporto: terminal e avião (só no setor que contém o terminal)
   const rects = [];
+  const apq = owAirportFor(S);
+  if (apq) { const H = owPlaceAirport(S, apq); rects.push([H.x0 - 4, H.y0 - 40, H.x1 + 4, H.y1 + 6]); yield; }
+  // --- casas ao longo das vias, de frente p/ a rua (modelo depende do distrito do lote)
   if (built > 0.02) {
     const cands = [];
     for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 5) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, r: rng() }); }
@@ -569,20 +613,22 @@ function buildOpenWorld() {
   urbanLife.litter = []; urbanLife.bins = []; urbanLife.sprites = URBAN_KINDS.map(kind => Array.from({ length: 3 }, (_, v) => urbanSprite(kind, v)));
   ecosystemInit();   // sprites das flores antes dos setores (o game.js chama de novo e ignora)
 
-  // nascimento: calçada da via mais próxima do centro de uma cidade do interior
-  const town = OW.geo.anchors.towns[0]; world.spawnName = town.name;
-  let best = null, bd = 1e9;
-  for (const rd of OW.cw.roads) if (rd.cls === 'street') for (const [x, y] of rd.pts) { const d = Math.hypot(x - town.x, y - town.y); if (d < bd) { bd = d; best = [x, y]; } }
-  const sp0 = best || [town.x, town.y];
-  // carrega já tudo num raio de 150 m (síncrono): o jogo começa com o bairro pronto
+  // chegada: o jogador é um passageiro que acabou de desembarcar no saguão do aeroporto
+  const ap = world.airports[0], T = TPL.TERMINAL;
+  const tx0 = Math.round(ap.x - T.w / 2), ty0 = Math.round(ap.y + ap.width / 2 + ap.apron - 22);
+  const sp0 = [tx0 + T.w / 2 + 0.5, ty0 + T.d - 2.4];   // no saguão, diante das portas p/ a rua
+  world.spawnName = ap.name;
+  // carrega já tudo num raio de 150 m (síncrono): o terminal e o entorno prontos na abertura
   for (const [d, i, j] of owWanted(sp0[0], sp0[1])) { if (d > 150) continue; const S = owStartSector(i, j); while (!owStep(S, 1e9)); }
-  // ponto livre na calçada, de costas p/ a rua
-  let spawn = sp0, aim = 0;
-  for (let r = 0; r < 30 && spawn === sp0; r += 0.5) for (let a = 0; a < TAU; a += 0.4) {
-    const x = sp0[0] + Math.cos(a) * r, y = sp0[1] + Math.sin(a) * r, d = roadDist(x, y);
-    if (d > ROAD_W + 0.4 && d < ROAD_W + SIDE - 0.3 && !world.blocked(x, y, 0.4) && pondVal(x, y) > 1.3) { spawn = [x, y]; aim = a; break; }
+  let spawn = sp0;
+  if (collide(sp0[0], sp0[1], 0.28).some((v, i) => Math.abs(v - sp0[i]) > 0.01)) {   // empurrado por móvel: procura vão livre perto
+    for (let r = 0.5; r < 6 && spawn === sp0; r += 0.5) for (let a = 0; a < TAU; a += 0.5) {
+      const x = sp0[0] + Math.cos(a) * r, y = sp0[1] + Math.sin(a) * r, q = collide(x, y, 0.28);
+      if (Math.hypot(q[0] - x, q[1] - y) < 0.01 && y < ty0 + T.d - 0.5) { spawn = [x, y]; break; }
+    }
   }
-  world.spawn = spawn; world.aimDir = aim; world.targets = []; world.clear = [];
+  world.spawn = spawn; world.aimDir = Math.PI / 2; world.targets = []; world.clear = [];
+  world.arrival = { airport: ap.name, terminal: [tx0, ty0, tx0 + T.w, ty0 + T.d] };
   OW.stats.startMs = performance.now() - t0;
   window.openWorld = OW;
 }

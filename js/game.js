@@ -74,7 +74,8 @@ function chat(who, text) {
   logEl.append(d); while (logEl.children.length > 4) logEl.firstChild.remove();
 }
 for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.home[3] / 2; }
-chat('Sistema', world.open ? `mundo ${COG.WORLD_W / 1000}×${COG.WORLD_H / 1000} km — você está em ${world.spawnName}. G abre um mapa de teste.` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
+if (world.arrival) { hud.msg = 'Bem-vindo! Você desembarcou no ' + world.arrival.airport; hud.msgT = 6; }
+chat('Sistema', world.open ? `voo pousou — você desembarcou no ${world.spawnName}. Pegue um carro e vá para a cidade. (G abre um mapa de teste)` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (document.activeElement === say) {
