@@ -26,7 +26,7 @@ function nearestSafeParking(){
  for(const r of bridge.world.roads)
   for(let i=2;i<r.pts.length-2;i+=5){
    const q=r.pts[i],d=Math.hypot(q.x-p.x,q.y-p.y);
-   if(d<6.5&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
+   if(d<5.5&&d>2.8)around.push({x:q.x,y:q.y,angle:Math.atan2(q.ty,q.tx),d});
   }
  around.sort((a,b)=>a.d-b.d);
  for(const q of around)if(isFree(q.x,q.y,q.angle))return q;
