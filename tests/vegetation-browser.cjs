@@ -472,6 +472,41 @@ const {judge}=require('./visual-quality-judge.cjs');
     });
 
 
+    // A imagem escolhida pelo criador e a referencia cromatica oficial.
+    // Juiz valida nao so declaracoes: verifica paleta REAL usada no
+    // Canvas + filtros efetivos dos dois canvases e tons das arvores.
+    const colorReport=await game.evaluate(()=>{
+      const ref=VISUAL_REFERENCE;
+      const matches=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+      const rgb=hex=>hexToRgb(hex);
+      const keys=Object.keys(ref.terrain);
+      const paletteTerrainMatch=keys.every(k=>matches(COL[k],rgb(ref.terrain[k])));
+      const paletteFoliageMatch=LEAF_PALETTES===ref.canopy&&
+        NEEDLE_PALETTES===ref.needles&&
+        LEAF_PALETTES.every(p=>Object.keys(p).length===6);
+      const paletteArchitectureMatch=PLASTERS===ref.architecture.plasters&&
+        TRIMS===ref.architecture.trims&&
+        ROOF_MATS===ref.architecture.roofs;
+      const filter2D=getComputedStyle(document.querySelector('#view')).filter;
+      const filter3D=getComputedStyle(document.querySelector('#vehicle3d')).filter;
+      return {
+        referencePaletteValid:ref.id==='cityofgod-illustrated-daylight-v1'&&
+          ref.anchors.asphalt==='#393536'&&ref.anchors.leafSun==='#a3bc65'&&
+          ref.anchors.warmWall==='#dcc3a9',
+        grade2D:filter2D.includes('saturate(1.12)')&&
+          filter2D.includes('contrast(1.075)'),
+        grade3D:filter3D.includes('saturate(1.085)')&&
+          filter3D.includes('contrast(1.045)'),
+        paletteTerrainMatch,paletteFoliageMatch,paletteArchitectureMatch,
+        referenceId:ref.id,filter2D,filter3D,
+        asphalt:ref.terrain.asph,grass:ref.terrain.lush,
+        wall:ref.architecture.plasters[0]
+      };
+    });
+    Object.assign(metrics,colorReport);
+    console.log('Official color reference:',JSON.stringify(colorReport));
+    await game.screenshot({path:'artifacts/cityofgod-official-daylight-palette.png',
+      fullPage:true});
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
