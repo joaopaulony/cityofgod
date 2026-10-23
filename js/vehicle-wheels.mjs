@@ -1,6 +1,10 @@
 // Rodas 3D verdadeiras: pivô de direção sobre eixo vertical e rolamento
 // sobre o eixo longitudinal da roda. Nenhum frame pre-renderizado.
 const ROLES=['fl','fr','rl','rr'];
+function legacyWheelRole(name=''){
+ const match=/^(FL|FR|RL|RR)_\d+$/i.exec(name);
+ return match?match[1].toLowerCase():null;
+}
 export function classifyWheelName(name=''){
  const s=name.toLowerCase().replace(/[^a-z0-9]/g,'');
  for(const role of ROLES)
@@ -20,14 +24,26 @@ export function createWheelRig(root,THREE){
  const wheels=new Map(),original=[];
  root.traverse(node=>{
   if(!node.isObject3D && !node.isMesh && !node.isGroup)return;
-  const role=classifyWheelName(node.name||'');
+  const role=classifyWheelName(node.name||'')||legacyWheelRole(node.name);
   if(!role||wheels.has(role))return;
   // O pivô de cada roda do pack já está no centro do eixo.
   const box=new THREE.Box3().setFromObject(node);
   const radius=wheelRadiusFromBox(box);
   node.rotation.order='YXZ';
   const base={x:node.rotation.x,y:node.rotation.y,z:node.rotation.z};
-  wheels.set(role,{node,role,radius,base,spin:0,steer:0});
+  const legacy=legacyWheelRole(node.name);
+  // Silvia: a roda e um grupo com aro, pneu, disco e pinça.
+  // A pinça não gira com a roda; aro, pneu e disco giram juntos.
+  const spinning=[];
+  if(legacy){
+   for(const child of node.children||[])
+    if(/^(tyre|tire|rim|disc)/i.test(child.name||'')){
+     child.rotation.order='YXZ';
+     spinning.push({node:child,base:{
+      x:child.rotation.x,y:child.rotation.y,z:child.rotation.z}});
+    }
+  }
+  wheels.set(role,{node,role,radius,base,spin:0,steer:0,spinning});
   original.push(node.name);
  });
  return {
@@ -47,7 +63,14 @@ export function stepWheelRig(rig,deltaDistance,steerAngle){
   w.spin+=deltaDistance/Math.max(.2,w.radius);
   w.steer=steer;
   w.node.rotation.order='YXZ';
-  w.node.rotation.set(w.base.x+w.spin,w.base.y+steer,w.base.z,'YXZ');
+  if(w.spinning.length){
+   // Carro com roda composta: virar suporte inteiro, rolar só pneu e aro.
+   w.node.rotation.set(w.base.x,w.base.y+steer,w.base.z,'YXZ');
+   for(const sp of w.spinning)
+    sp.node.rotation.set(sp.base.x+w.spin,sp.base.y,sp.base.z,'YXZ');
+  }else{
+   w.node.rotation.set(w.base.x+w.spin,w.base.y+steer,w.base.z,'YXZ');
+  }
  }
 }
 export function resetWheelRig(rig){
@@ -55,5 +78,7 @@ export function resetWheelRig(rig){
  for(const w of rig.wheels.values()){
   w.spin=0;w.steer=0;
   w.node.rotation.set(w.base.x,w.base.y,w.base.z,'YXZ');
+  for(const sp of w.spinning)
+   sp.node.rotation.set(sp.base.x,sp.base.y,sp.base.z,'YXZ');
  }
 }
