@@ -160,6 +160,10 @@ function facadeOffice(H, side, ext, rnd, night) {
   for (let f = 1; f < n; f++) {
     const z0 = floorZ(f);
     if (night) for (let u = 0; u < L; u += col) glass(g, X(u), Y(z0 + FLOORH - 0.1), col * K, (FLOORH - 0.9) * K, S.glassTint, true, rnd, { frame: false, lit: 0.4 });
+    if (!night) {   // reflexo varia por andar; persianas baixadas em alguns vãos
+      g.fillStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '10,30,50'},${0.04 + rnd() * 0.1})`; g.fillRect(0, Y(z0 + FLOORH), W, (FLOORH - 0.8) * K);
+      for (let u = 0; u < L; u += col) if (rnd() < 0.18) { g.fillStyle = 'rgba(225,222,210,0.55)'; g.fillRect(X(u) + 2, Y(z0 + FLOORH - 0.1), col * K - 4, (0.4 + rnd() * 1.4) * K); }
+    }
     g.fillStyle = night ? '#1e2a36' : 'rgba(40,60,74,0.55)'; g.fillRect(0, Y(z0 + 0.8), W, 0.8 * K);
     g.fillStyle = '#3a4650'; g.fillRect(0, Y(z0 + 0.82), W, 2);
   }

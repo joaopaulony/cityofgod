@@ -125,7 +125,11 @@ function miaRoofItems(H, kind, r) {
     const pw = Math.min(W - 6, 5 + ((r() * 6) | 0)), pd = Math.min(D - 6, 3 + ((r() * 3) | 0));
     it.push({ k: 'pool', flat: true, x: cx + (r() - 0.5) * (W - pw - 6), y: cy + (r() - 0.5) * (D - pd - 6), w: pw, d: pd, n: 1 + ((r() * 4) | 0), cab: r() < 0.5, deck: ['#c9a77c', '#d9d2c4', '#b48a62'][(r() * 3) | 0], draw: drawRoofPool });
   } else if (kind === 'condo' || kind === 'deco') it.push({ k: 'garden', flat: true, x: cx, y: cy, w: W - 5, d: D - 5, seed: (r() * 1e6) | 0, draw: drawRoofGarden });
-  if (kind === 'office') it.push({ k: 'heli', flat: true, x: cx, y: cy, r: Math.min(W, D) / 2 - 2.5, draw: drawHelipad });
+  if (kind === 'office' && roll < 0.2) it.push({ k: 'heli', flat: true, x: cx, y: cy, r: Math.min(W, D) / 2 - 2.5, draw: drawHelipad });
+  else if (kind === 'office') {   // casa de máquinas grande + coroa (platibanda alta) e torres de resfriamento
+    it.push({ x: cx, y: cy, draw: (g, H2, z) => drawBox(g, { x: cx, y: cy, z, w: W * 0.45, d: D * 0.4, h: 3.2, rot: 0, top: '#bdb9b0', side: '#9fa7ad' }) });
+    for (let i = 0; i < 2; i++) { const tx = H.x0 + 2.5 + i * 3, ty = H.y1 - 2.5; it.push({ x: tx, y: ty, draw: (g, H2, z) => drawCyl(g, tx, ty, z, 1.1, 1.6, '#8e959a', '#6d7378') }); }
+  }
   const mech = { x: H.x0 + 2.4, y: H.y0 + 2.2, draw: (g, H2, z) => drawBox(g, { x: H.x0 + 2.4, y: H.y0 + 2.2, z, w: 3.2, d: 2.6, h: 2.4, rot: 0, top: '#cfcbc2', side: '#b3aea4' }) };
   if (kind !== 'shop') it.push(mech);
   for (let i = 0, n = kind === 'warehouse' ? 6 : 3 + ((r() * 4) | 0); i < n; i++) it.push({ k: 'ac', x: H.x1 - 1.4 - (i % 3) * 1.3, y: H.y1 - 1.6 - ((i / 3) | 0) * 1.2 });
@@ -549,20 +553,16 @@ function miaBeach(S) {
     taken.push([q[0], q[1], 6, true]);
   }
   // 2. grupos de guarda-sóis perto da água (2–6 conjuntos em fila irregular)
-  for (let gi = 0; gi < 34; gi++) {
-    const q = pick(1.09, 1.48); if (!q || world.districtFn(q[0], q[1]) !== D_.BEACH) continue;
-    const f = miaSeaDir(q[0], q[1]), t = [-f[1], f[0]], n = 2 + ((R() * 5) | 0);
+  const groups = [];
+  for (let gi = 0; gi < 50 && groups.length < 16; gi++) {
+    const q = pick(1.09, 1.4); if (!q || world.districtFn(q[0], q[1]) !== D_.BEACH || groups.some(g2 => Math.hypot(g2[0] - q[0], g2[1] - q[1]) < 17)) continue;
+    groups.push(q);
+    const f = miaSeaDir(q[0], q[1]), t = [-f[1], f[0]], n = 5 + ((R() * 6) | 0);
     for (let k = 0; k < n; k++) {
-      const u = (k - (n - 1) / 2) * (3.4 + R() * 1.2), v = (R() - 0.5) * 3, x = q[0] + t[0] * u + f[0] * v, y = q[1] + t[1] * u + f[1] * v;
+      const u = (k % 4 - 1.5) * (2.9 + R() * 0.6), v = ((k / 4) | 0) * 3.4 + (R() - 0.5) * 0.8, x = q[0] + t[0] * u + f[0] * v, y = q[1] + t[1] * u + f[1] * v;
       if (pondVal(x, y) < 1.07 || world.districtFn(x, y) !== D_.BEACH || !free(x, y, 1.7)) continue;
       miaUmbrellaSet(x, y, f, R); taken.push([x, y, 1.7]);
     }
-  }
-  // toalhas soltas (sem guarda-sol) e bolsas de praia
-  for (let i = 0; i < 40; i++) {
-    const q = pick(1.08, 1.4); if (!q || world.districtFn(q[0], q[1]) !== D_.BEACH || !free(q[0], q[1], 1.2)) continue;
-    const f = miaSeaDir(q[0], q[1]); miaDecal(miaQuad(q[0], q[1], f, [-f[1], f[0]], 0.5, 1.8), 'towel', R, { col: ['#e8364f', '#2b8be6', '#f5c518', '#ffffff', '#ff8fb1', '#1abc9c', '#f39c12'][(R() * 7) | 0] }); taken.push([q[0], q[1], 1.2]);
-    if (R() < 0.4) addBox({ x: q[0] + f[1] * 0.8, y: q[1] - f[0] * 0.8, w: 0.45, d: 0.3, h: 0.35, top: '#e9e5dc', side: ['#2b6fb8', '#c0392b', '#f5c518'][(R() * 3) | 0], kind: 'beachbag', solid: false });
   }
   // 3. linha de sargaço na marca da maré e trilhas de pegadas até a água
   for (const [x, y, pv] of pts) if (pv > 1.03 && pv < 1.06 && R() < 0.4) {
@@ -595,20 +595,34 @@ function miaUmbrellaSet(x, y, f, R) {
   const col = ['#e8364f', '#2b8be6', '#f5c518', '#2ec46b', '#ff7f50', '#1abc9c', '#f39c12'][(R() * 7) | 0], t = [-f[1], f[0]], rot = Math.atan2(f[1], f[0]);
   addBox({ x, y, w: 0.3, d: 0.3, h: 2.2, top: col, side: col, kind: 'umbrella', solid: false, col, col2: R() < 0.5 ? '#ffffff' : col, draw: drawBeachUmbrella });
   for (const sg of [-1, 1]) if (R() < 0.85) addBox({ x: x + t[0] * sg * 0.75, y: y + t[1] * sg * 0.75, w: 1.95, d: 0.68, h: 0.8, rot, top: '#f4f2ec', side: '#cfcac0', kind: 'lounger', solid: false, pad: ['#2b8be6', '#f4f2ec', '#e8364f', '#1abc9c'][(R() * 4) | 0], draw: drawLounger });
-  if (R() < 0.6) miaDecal(miaQuad(x + f[0] * 1.6, y + f[1] * 1.6, f, t, 0.5, 1.7), 'towel', R, { col: ['#e8364f', '#2b8be6', '#f5c518', '#ffffff', '#ff8fb1'][(R() * 5) | 0] });
-  if (R() < 0.45) addBox({ x: x - f[0] * 1.2 + t[0] * 1.6, y: y - f[1] * 1.2 + t[1] * 1.6, w: 0.6, d: 0.4, h: 0.4, rot, top: '#f4f2ec', side: R() < 0.5 ? '#2b6fb8' : '#c0392b', kind: 'cooler', solid: false });
+  const tc = ['#e8364f', '#2b8be6', '#f5c518', '#ffffff', '#ff8fb1', '#1abc9c'][(R() * 6) | 0];
+  miaDecal(miaQuad(x + f[0] * 1.3 + t[0] * 0.5, y + f[1] * 1.3 + t[1] * 0.5, f, t, 0.5, 1.8), 'towel', R, { col: tc });
+  if (R() < 0.55) addBox({ x: x + f[0] * 2.2 + t[0] * 0.5, y: y + f[1] * 2.2 + t[1] * 0.5, w: 1.75, d: 0.5, h: 0.25, rot: Math.atan2(f[1], f[0]), kind: 'bather', solid: false, skin: ['#e9c3a0', '#c68e63', '#8d5a3b', '#f1d2b6'][(R() * 4) | 0], suit: ['#e8364f', '#1f2a44', '#f5c518', '#2b8be6', '#2ec46b'][(R() * 5) | 0], draw: drawBather });
+  if (R() < 0.6) addBox({ x: x - t[0] * 0.9, y: y - t[1] * 0.9, w: 0.45, d: 0.3, h: 0.35, top: '#e9e5dc', side: ['#2b6fb8', '#c0392b', '#f5c518'][(R() * 3) | 0], kind: 'beachbag', solid: false });
+  if (R() < 0.45) { const cs = 0.7 + R() * 0.6; addBox({ x: x - f[0] * 1.2 + t[0] * 1.6, y: y - f[1] * 1.2 + t[1] * 1.6, w: 0.6 * cs, d: 0.4 * cs, h: 0.4 * cs, rot: rot + (R() - 0.5), top: ['#f4f2ec', '#2b6fb8', '#e8e2d0'][(R() * 3) | 0], side: ['#2b6fb8', '#c0392b', '#2ec46b', '#f39c12', '#7f8c8d', '#f4f2ec'][(R() * 6) | 0], kind: 'cooler', solid: false }); }
+  if (R() < 0.5) { const fx = x + f[0] * 0.4 - t[0] * 0.3, fy = y + f[1] * 0.4 - t[1] * 0.3, fc = ['#e8364f', '#2b8be6', '#f5c518', '#1f1f1f'][(R() * 4) | 0]; world.decals.push({ kind: 'flops', x: fx, y: fy, a: R() * TAU, col: fc, bb: [fx - 0.5, fy - 0.5, fx + 0.5, fy + 0.5], paint: (g, d) => { g.fillStyle = d.col; for (const o of [-0.09, 0.09]) { g.save(); g.translate(d.x + o, d.y); g.rotate(d.a); g.beginPath(); g.ellipse(0, 0, 0.13, 0.05, 0, 0, TAU); g.fill(); g.restore(); } } }); }
 }
-function paintWrack(g, d) {
-  const r = mulberry(d.seed >>> 0), ang = Math.atan2(d.t[1], d.t[0]);
-  g.save(); g.translate(d.x, d.y); g.rotate(ang); g.lineCap = 'round';
-  for (let i = 0; i < 22; i++) {   // fiapos de sargaço deitados na linha da maré
-    const u = (r() - 0.5) * 2 * d.l, v = (r() - 0.5) * 0.35, len = 0.25 + r() * 0.7;
-    g.strokeStyle = ['rgba(104,92,52,0.42)', 'rgba(84,88,48,0.4)', 'rgba(128,104,64,0.35)'][(r() * 3) | 0]; g.lineWidth = 0.05 + r() * 0.06;
-    g.beginPath(); g.moveTo(u, v); g.quadraticCurveTo(u + len / 2, v + (r() - 0.5) * 0.12, u + len, v + (r() - 0.5) * 0.08); g.stroke();
+function drawBather(g, b) {   // banhista deitado de bruços na toalha
+  const c = Math.cos(b.rot), s = Math.sin(b.rot), P = (u, z) => proj(b.x + u * c, b.y + u * s, z), Z = cam.zoom;
+  const leg0 = P(0.85, 0.08), hip = P(0.1, 0.13), sh = P(-0.45, 0.15), head = P(-0.75, 0.16);
+  g.lineCap = 'round'; g.strokeStyle = b.skin; g.lineWidth = Z * 0.16; g.beginPath(); g.moveTo(hip.x, hip.y); g.lineTo(leg0.x, leg0.y); g.stroke();
+  g.strokeStyle = b.skin; g.lineWidth = Z * 0.3; g.beginPath(); g.moveTo(hip.x, hip.y); g.lineTo(sh.x, sh.y); g.stroke();
+  g.strokeStyle = b.suit; g.lineWidth = Z * 0.31; const h0 = P(0.18, 0.14), h1 = P(-0.05, 0.14); g.beginPath(); g.moveTo(h0.x, h0.y); g.lineTo(h1.x, h1.y); g.stroke();
+  g.fillStyle = b.skin; g.beginPath(); g.ellipse(head.x, head.y, Z * 0.12, Z * 0.11, 0, 0, TAU); g.fill();
+  g.fillStyle = '#3a2a1e'; g.beginPath(); g.ellipse(head.x, head.y - Z * 0.03, Z * 0.11, Z * 0.07, 0, 0, TAU); g.fill();
+}
+function paintWrack(g, d) {   // faixa contínua e irregular de sargaço que engrossa e afina, com conchas e gravetos
+  const r = mulberry(d.seed >>> 0), N = 14, pts = [];
+  for (let k = 0; k <= N; k++) { const u = (k / N - 0.5) * 2 * d.l; pts.push([d.x + d.t[0] * u + (r() - 0.5) * 0.25, d.y + d.t[1] * u + (r() - 0.5) * 0.25, 0.08 + Math.sin(k / N * Math.PI) * (0.18 + r() * 0.22)]); }
+  for (const [col, k2] of [['rgba(70,66,34,0.55)', 1], ['rgba(96,84,46,0.5)', 0.6]]) {
+    g.fillStyle = col; g.beginPath();
+    pts.forEach(([x, y, w], i) => { const nx = -d.t[1], ny = d.t[0]; i ? g.lineTo(x + nx * w * k2, y + ny * w * k2) : g.moveTo(x + nx * w * k2, y + ny * w * k2); });
+    for (let i = pts.length - 1; i >= 0; i--) { const [x, y, w] = pts[i], nx = -d.t[1], ny = d.t[0]; g.lineTo(x - nx * w * k2 * 0.7, y - ny * w * k2 * 0.7); }
+    g.closePath(); g.fill();
   }
-  g.restore();
-  for (let i = 0; i < 3; i++) { const u = (r() - 0.5) * 2 * d.l; g.fillStyle = r() < 0.5 ? 'rgba(239,230,214,0.9)' : 'rgba(217,180,140,0.9)'; g.beginPath(); g.ellipse(d.x + d.t[0] * u, d.y + d.t[1] * u + 0.3, 0.06, 0.045, r() * 3, 0, TAU); g.fill(); }
-  if (r() < 0.25) { const u = (r() - 0.5) * d.l; g.fillStyle = 'rgba(140,110,78,0.8)'; g.save(); g.translate(d.x + d.t[0] * u, d.y + d.t[1] * u); g.rotate(ang + (r() - 0.5) * 0.6); g.fillRect(-0.6, -0.05, 1.2, 0.1); g.restore(); }
+  for (let i = 0; i < 10; i++) { const [x, y] = pts[(r() * pts.length) | 0]; g.fillStyle = 'rgba(52,56,28,0.6)'; g.beginPath(); g.ellipse(x + (r() - 0.5) * 0.4, y + (r() - 0.5) * 0.3, 0.12 + r() * 0.15, 0.08 + r() * 0.08, r() * 3, 0, TAU); g.fill(); }
+  for (let i = 0; i < 6; i++) { const [x, y] = pts[(r() * pts.length) | 0]; g.fillStyle = r() < 0.5 ? '#f1e9da' : '#e2bf96'; g.beginPath(); g.ellipse(x + (r() - 0.5) * 0.8, y + 0.2 + r() * 0.4, 0.1, 0.07, r() * 3, 0, TAU); g.fill(); }
+  if (r() < 0.6) { const [x, y] = pts[(r() * pts.length) | 0]; g.save(); g.translate(x, y); g.rotate(r() * TAU); g.fillStyle = '#9a7a56'; g.fillRect(-0.7, -0.07, 1.4, 0.14); g.fillStyle = '#7a5e40'; g.fillRect(0.2, -0.07, 0.5, 0.06); g.restore(); }
 }
 function paintSteps(g, d) {
   g.fillStyle = 'rgba(150,120,80,0.45)';
@@ -711,7 +725,7 @@ function drawHydrant(g, b) {
 
 // ---------- vagas junto ao meio-fio, bancos e lixeiras nas calçadas ----------
 function miaParking(S, zoneAt) {
-  const P = { brickell: 0.32, southbeach: 0.34, bungalow: 0.18, town: 0.15, poor: 0.22, projects: 0.25, works: 0.15, mansion: 0.06 };
+  const P = { brickell: 0.55, southbeach: 0.4, bungalow: 0.18, town: 0.15, poor: 0.22, projects: 0.25, works: 0.15, mansion: 0.06 };
   const zeb = world.decals.filter(d => d.kind === 'zebra');
   for (const rd of S.roads) {
     if (rd.cls === 'highway') continue;
@@ -761,6 +775,12 @@ function miaClutter(S, zoneAt, rects) {
       for (let i = 0; i < 3; i++) { const x = cx + (R() - 0.5) * 4, y = cy + (R() - 0.5) * 4; if (!miaBlocked(x, y, 0.8)) miaPalm(x, y, R() < 0.5 ? 'coconut' : 'royal'); }
       world.decals.push({ kind: 'mulch', x: cx, y: cy, r: 3.2, seed: (R() * 1e6) | 0, bb: [cx - 4, cy - 4, cx + 4, cy + 4], paint: paintMulch });
     }
+  }
+  // tampas de bueiro e marcas de óleo no centro
+  for (const rd of S.roads) for (let i = 10; i < rd.pts.length - 6; i += 26) {
+    const p = rd.pts[i], z = zoneAt(p.x + p.nx * 9, p.y + p.ny * 9); if (z !== 'brickell' && z !== 'southbeach') continue;
+    const o = (R() - 0.5) * 2 * (ROAD_W + rd.off - 1.2), x = p.x + p.nx * o, y = p.y + p.ny * o;
+    world.decals.push({ kind: 'manhole', x, y, seed: (R() * 1e6) | 0, bb: [x - 1.5, y - 1.5, x + 1.5, y + 1.5], paint: (g, d) => { g.fillStyle = '#2a2a2c'; g.beginPath(); g.arc(d.x, d.y, 0.38, 0, TAU); g.fill(); g.strokeStyle = 'rgba(120,120,118,0.6)'; g.lineWidth = 0.05; g.beginPath(); g.arc(d.x, d.y, 0.32, 0, TAU); g.stroke(); for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(d.x - 0.28, d.y + k * 0.1); g.lineTo(d.x + 0.28, d.y + k * 0.1); g.stroke(); } const gr = g.createRadialGradient(d.x + 0.8, d.y, 0, d.x + 0.8, d.y, 1); gr.addColorStop(0, 'rgba(10,10,12,0.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(d.x - 0.5, d.y - 1, 2.4, 2); } });
   }
   // asfalto gasto nas ruas pobres: manchas de óleo e remendos
   for (const rd of S.roads) for (let i = 6; i < rd.pts.length - 6; i += 9) {
