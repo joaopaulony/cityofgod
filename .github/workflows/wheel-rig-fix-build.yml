@@ -39,3 +39,5 @@ jobs:
             git commit -m 'build: bundle axis-correct 3D wheel renderer'
             git push origin HEAD:fix/silvia-wheel-axes-all-cars-20261022
           fi
+
+# Rebuild quaternion wheel fix after strict wheel regression updates.
