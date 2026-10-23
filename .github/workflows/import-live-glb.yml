@@ -62,3 +62,5 @@ jobs:
           fi
 
 # Rebuild renderer after physics test correction and browser QA integration.
+
+# Rebuild after parking spawn, body collision and live fence occlusion update.
