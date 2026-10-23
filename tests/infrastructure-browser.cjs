@@ -15,6 +15,9 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   const info=await page.evaluate(()=>{
     const signals=world.trafficSignals||[],farm=houses.find(h=>h.rural);
     return {lamps:world.lamps.length,signals:signals.length,
+      depthSignals:window.cityVehicles.occlusionStats?.signals??-1,
+      depthBins:window.cityVehicles.occlusionStats?.bins??-1,
+      bins:urbanLife.bins.length,
       main:signals.filter(s=>s.group==='main').length,
       branch:signals.filter(s=>s.group==='branch').length,
       rural:houses.filter(h=>h.rural).length,
@@ -22,11 +25,12 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   console.log('WORLD INFRA',JSON.stringify(info));
   if(info.lamps<3||info.signals<2||info.main<1||info.branch<1||
-    info.rural<1||!info.ruralPath||info.car!=='ready')
+    info.rural<1||!info.ruralPath||info.car!=='ready'||
+    info.depthSignals!==info.signals||info.depthBins!==info.bins)
     throw Error('World infra missing '+JSON.stringify(info));
   const states=[];
   for(const [name,sec] of [['main-green',2],['main-yellow',22],
-    ['all-red',24.5],['side-green',32],['side-yellow',43]]){
+    ['all-red',24.5],['side-green',32],['side-yellow',43],['pedestrians-walk',49]]){
     const row=await page.evaluate(sec=>{
       const c=cam;
       c.x=c.tx=world.junction.x;c.y=c.ty=world.junction.y;
@@ -39,6 +43,39 @@ const {chromium}=require('playwright'),fs=require('node:fs');
     console.log('SIGNAL PHASE',name,JSON.stringify(row));
     await page.screenshot({path:'artifacts/infrastructure/traffic-'+name+'.png'});
   }
+  // Panoramas comprovam todos os quadrantes de camera, incluindo
+  // frente e costas corretas dos tres focos e braco L orientado ao eixo.
+  const approach=await page.evaluate(()=>{
+    return world.trafficSignals.map(l=>{
+      const g=trafficSignalGeometry(l);
+      return {id:l.id,group:l.group,span:g.span,
+        poleRoad:roadDist(l.x,l.y),
+        tipRoad:roadDist(g.tip.x,g.tip.y),
+        frontDot:g.face.x*l.ax+g.face.y*l.ay,
+        perpendicular:l.ax*l.ix+l.ay*l.iy};
+    });
+  });
+  console.log('APPROACH ALIGNMENT',JSON.stringify(approach));
+  for(const a of approach){
+    if(a.span<4||a.tipRoad>1.35||a.poleRoad<3.8||
+       a.frontDot>-.99||Math.abs(a.perpendicular)>.015)
+      throw Error('Road-facing head / overhead L alignment mismatch '+JSON.stringify(a));
+  }
+  for(let q=0;q<4;q++){
+    await page.evaluate(q=>{
+      cam.x=cam.tx=world.junction.x;cam.y=cam.ty=world.junction.y;
+      cam.ang=cam.tang=Math.PI/4+q*Math.PI/2;
+      cam.cos=Math.cos(cam.ang);cam.sin=Math.sin(cam.ang);
+      T=49;render();window.cityVehicles.render();
+    },q);
+    await page.screenshot({path:'artifacts/infrastructure/gantry-camera-'+q+'.png'});
+  }
+  const protectedWalk=await page.evaluate(()=>{
+    const p=trafficPhase(49);
+    return p.main==='red'&&p.branch==='red'&&p.pedestrian==='walk'&&
+      p.countdown>0;
+  });
+  if(!protectedWalk)throw Error('Pedestrian crossing not traffic-protected');
   for(const [kind,night] of [['day',false],['night',true]]){
     await page.evaluate(night=>{
       const l=world.lamps[0];
@@ -70,6 +107,13 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   if(farm.walkLength<1||farm.walkLength>13||farm.painted<1000)
     throw Error('Unpainted rural dirt/gravel access '+JSON.stringify(farm));
   await page.screenshot({path:'artifacts/infrastructure/farm-driveway.png'});
+  await page.evaluate(()=>{
+    const b=urbanLife.bins[0];if(!b)throw Error('No sidewalk bins in world');
+    cam.x=cam.tx=b.x;cam.y=cam.ty=b.y;
+    cam.zoom=cam.tzoom=ZOOMS[5];st.night=false;render();
+    window.cityVehicles.render();
+  });
+  await page.screenshot({path:'artifacts/infrastructure/sidewalk-bin-detailed.png'});
   if(errors.length)throw Error('Browser errors '+JSON.stringify(errors));
   fs.writeFileSync('artifacts/infrastructure/report.json',
     JSON.stringify({info,states,farm},null,2));

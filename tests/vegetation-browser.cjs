@@ -507,6 +507,53 @@ const {judge}=require('./visual-quality-judge.cjs');
     console.log('Official color reference:',JSON.stringify(colorReport));
     await game.screenshot({path:'artifacts/cityofgod-official-daylight-palette.png',
       fullPage:true});
+    // Juiz permanente: avalia o poste em L pelo mapa REAL (ponta
+    // sobre a via), lente voltada aos carros no mundo e pedestres.
+    // Materiais Canvas precisam gerar pixels e variação cromática.
+    const streetDetail=await game.evaluate(()=>{
+      const S=world.trafficSignals||[],lamp=world.lamps[0],
+       bin=urbanLife.bins[0];
+      const laneArmsCorrect=S.length>=3&&S.every(l=>{
+       const g=trafficSignalGeometry(l);
+       return roadDist(l.x,l.y)>3.8&&roadDist(g.tip.x,g.tip.y)<1.35&&
+         g.span>ROAD_W+0.5&&g.span<ROAD_W+1.6&&
+         Math.hypot(g.tip.x-l.x,g.tip.y-l.y)>4;
+      });
+      const signalFacingCorrect=S.length>=3&&S.every(l=>{
+       const v=trafficSignalGeometry(l),dot=v.face.x*l.ax+v.face.y*l.ay;
+       return dot<-.995&&Math.abs(l.ax*l.ix+l.ay*l.iy)<.015&&
+         Math.hypot(v.pedFront.x,v.pedFront.y)>.99;
+      });
+      const pedProtected=[47.2,48,50,52.5].every(t=>{
+        const p=trafficPhase(t);
+        return p.pedestrian==='walk'&&p.main==='red'&&p.branch==='red'&&
+          p.pedestrianMain&&p.pedestrianBranch;
+      })&&trafficPhase(2).pedestrian==='stop';
+      const old=[cam.x,cam.y],paint=(draw,pt)=>{
+       cam.x=cam.tx=pt.x;cam.y=cam.ty=pt.y;
+       const c=makeCanvas(cam.W,cam.H),q=c.getContext('2d');
+       draw(q);const data=q.getImageData(0,0,c.width,c.height).data;
+       let pixels=0;const cols=new Set();
+       for(let i=0;i<data.length;i+=4){
+        if(data[i+3]<70)continue;
+        pixels++;
+        if(i%28===0)cols.add((data[i]>>4)+','+(data[i+1]>>4)+','+(data[i+2]>>4));
+       }
+       return {pixels,colors:cols.size};
+      };
+      const binArt=bin?paint(g=>urbanDrawBin(g,bin),bin):{pixels:0,colors:0};
+      const lampArt=lamp?paint(g=>drawLamp(g,lamp,true),lamp):{pixels:0,colors:0};
+      const signalArt=S[0]?paint(g=>drawTrafficSignal(g,S[0],48,true),S[0]):
+        {pixels:0,colors:0};
+      cam.x=cam.tx=old[0];cam.y=cam.ty=old[1];
+      return {laneArmsCorrect,signalFacingCorrect,pedProtected,
+        binDetailPixels:binArt.pixels,binShadeCount:binArt.colors,
+        lampMetalPixels:lampArt.pixels,lampShades:lampArt.colors,
+        signalLitPixels:signalArt.pixels,signalShades:signalArt.colors,
+        updatedBinDepth:window.cityVehicleBridge.urbanBins===urbanLife.bins};
+    });
+    Object.assign(metrics,streetDetail);
+    console.log('Street furniture judge:',JSON.stringify(streetDetail));
     const verdict=judge(metrics);
     console.log('QUALITY JUDGE: '+JSON.stringify(verdict));
     fs.writeFileSync('artifacts/quality-judge.json',JSON.stringify(verdict,null,2));
