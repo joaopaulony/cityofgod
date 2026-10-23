@@ -4,12 +4,17 @@ on:
     branches: [fix/traffic-l-arms-realistic-bins-20261023]
     paths:
       - .github/workflows/infrastructure-build.yml
+      - js/traffic-signals.js
+      - js/urban-life.js
+      - js/world.js
+      - js/vehicle-occlusion.mjs
+      - tests/infrastructure.test.cjs
 permissions:
   contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
