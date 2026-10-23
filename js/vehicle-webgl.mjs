@@ -187,13 +187,13 @@ function initRenderer(){
  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure=1.45;
+ renderer.toneMappingExposure=1.38;
  renderer.setClearColor(0x000000,0);
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  scene=new THREE.Scene();
- scene.add(new THREE.HemisphereLight(0xeaf3ff,0x343630,2));
- const sun=new THREE.DirectionalLight(0xffe8c3,2.8);
+ scene.add(new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95));
+ const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
  sun.position.set(-11,18,15);
  sun.castShadow=true;
  sun.shadow.mapSize.set(1024,1024);
@@ -202,7 +202,7 @@ function initRenderer(){
  sun.shadow.camera.near=.1;sun.shadow.camera.far=60;
  sun.shadow.bias=-.0003;scene.add(sun);
  scene.userData.sun=sun;
- const bounce=new THREE.DirectionalLight(0x96b3ff,.65);
+ const bounce=new THREE.DirectionalLight(0xa8b9df,.62);
  bounce.position.set(7,9,-8);scene.add(bounce);
  // Material ShadowMaterial só mostra sombra real do carro; solo e todo o
  // mapa continuam exatamente como foram desenhados.
