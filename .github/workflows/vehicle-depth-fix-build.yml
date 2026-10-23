@@ -42,3 +42,5 @@ jobs:
           fi
 
 # Retest accurate footprint and water probes after collision corrections.
+
+# Final rebuild after porch fixture contact and per-scene depth coverage tests.
