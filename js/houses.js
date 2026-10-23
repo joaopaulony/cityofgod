@@ -822,15 +822,17 @@ function houseDrawables(list, px, py) {
     return center.x >= -margin && center.x <= cam.W+margin &&
       center.y >= -margin && center.y <= cam.H+margin;
   };
+  const roofDepthByHouse=new Map();
   for (const H of houses) {
     if (!visibleHouse(H)) {
       H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
     H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
-    // Nunca revelar os moveis atraves de telhado/paredes opacas quando
-    // o jogador esta atras da construcao: apenas portas/janelas validas.
-    H.fade=false;
+    // Um carro oculto pelo telhado solicita o efeito cutaway isometrico.
+    // Continua sem expor mobiliario interno: H.inside permanece falso.
+    // A mesma casa remove apenas seu depth-roof WebGL, nao as paredes.
+    H.fade=!!H.vehicleRoofFade&&!H.inside;
     H.visionOpenings=H.inside?[]:houseVisibleOpenings(H,px,py);
     let maxD = -1e9;
     const showIn=H.inside;
@@ -851,6 +853,7 @@ function houseDrawables(list, px, py) {
       ? Math.max(...[[H.x0, H.y0], [H.x1, H.y0], [H.x0, H.y1], [H.x1, H.y1]]
         .map(p => depthOf(p[0], p[1]))) + 0.75
       : maxD + 0.5;
+    roofDepthByHouse.set(H,roofDepth);
     list.push({d:roofDepth,draw:g=>drawRoof(g,H),roof:H,house:H});
     if(H.upper&&H.inside&&!upstairs)list.push({
       d:roofDepth+.14,draw:g=>drawHouseStaircase(g,H)
@@ -866,8 +869,16 @@ function houseDrawables(list, px, py) {
     if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
     if (b.house && !b.exteriorFixture && !b.house.inside) continue;
-    const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : ['canopy', 'porchroof'].includes(b.kind) ? 0.6 : 0;
-    list.push({d:depthOf(b.x,b.y)+bias,draw:g=>drawBox(g,b),box:b,house:b.house});
+    const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
+    let d=depthOf(b.x,b.y)+bias;
+    // Coberturas secundarias da varanda estao ABAIXO das aguas do telhado.
+    // Painter sorting por apenas profundidade do centro promovia a laje
+    // da varanda sobre as telhas principais criando buracos retangulares.
+    if(b.house&&['porchroof','canopy'].includes(b.kind)){
+      const mainRoof=roofDepthByHouse.get(b.house);
+      if(Number.isFinite(mainRoof))d=Math.min(d,mainRoof-.12);
+    }
+    list.push({d,draw:g=>drawBox(g,b),box:b,house:b.house});
   }
   for(const s of fences){
     const at=proj((s.x1+s.x2)/2,(s.y1+s.y2)/2,0),m=cam.zoom*2.5;
