@@ -36,7 +36,9 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add js/vehicle-webgl.bundle.js
           if ! git diff --cached --quiet; then
-            git commit -m 'build: bundle vehicle roof cutaway and garage overhang fix'
+            git commit -m 'build: bundle exact roof mask and fixed porch ordering'
+            git fetch origin fix/vehicle-roof-fade-and-porch-order-20261023
+            git rebase origin/fix/vehicle-roof-fade-and-porch-order-20261023
             git push origin HEAD:fix/vehicle-roof-fade-and-porch-order-20261023
           fi
 
