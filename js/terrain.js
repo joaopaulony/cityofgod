@@ -534,6 +534,7 @@ function paintItems(ch, g, from = 0, to = Infinity) {
         g.fillStyle = 'rgba(60,40,10,0.6)'; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.006, 0, TAU); g.fill();
       }
     } else if (t === 'wildflower') {
+      if (globalThis.VEG3D) continue;   // flores silvestres em 3D (vegetation-3d.mjs)
       // Cada miolo tem 5 petalas com leve variacao; folhas e caule por baixo.
       // Todos os pontos estao em coordenadas do mundo, sem imagem importada.
       for(const f of its){

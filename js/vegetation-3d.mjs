@@ -76,12 +76,17 @@ export function createVegetation(THREE, scene, bridge) {
     // folha de palmeira: raque no meio (v = 0,5) indo da base (u = 0) à ponta (u = 1), folíolos inclinados p/ a ponta
     frond: canvasTex(512, 128, (g, w, h) => {
       const r = mulberry(19);
-      for (let x = 14; x < w - 6; x += 5.5) {
-        const t = x / w, L = 58 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.08 + t * 1.02)), 0.55) * (1 - t * 0.25);
-        for (const sd of [-1, 1]) { const v = 150 + r() * 105, ex = x + L * 0.5, ey = h / 2 + sd * L * 0.86; g.strokeStyle = grey(v); g.lineWidth = 3.4 - t * 1.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, h / 2); g.quadraticCurveTo(x + L * 0.12, h / 2 + sd * L * 0.5, ex, ey); g.stroke(); }
+      for (let x = 10; x < w - 6; x += 4.6) {
+        const t = x / w, L = 60 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.08 + t * 1.02)), 0.5) * (1 - t * 0.2);
+        for (const sd of [-1, 1]) { const v = 150 + r() * 105, ex = x + L * 0.5, ey = h / 2 + sd * L * 0.86; g.strokeStyle = grey(v); g.lineWidth = 6 - t * 2.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, h / 2); g.quadraticCurveTo(x + L * 0.12, h / 2 + sd * L * 0.5, ex, ey); g.stroke(); }
       }
-      g.strokeStyle = grey(205); g.lineWidth = 5; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+      g.strokeStyle = grey(170); g.lineWidth = 4; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
     }),
+    // capim: lâminas finas saindo da base (u = largura, v = altura; base embaixo)
+    grass: canvasTex(256, 256, (g, w, h) => { const r = mulberry(31); for (let i = 0; i < 70; i++) { const x = 20 + r() * (w - 40), hh = h * (0.35 + r() * 0.62), lean = (r() - 0.5) * 70, v = 120 + r() * 135; g.strokeStyle = grey(v); g.lineWidth = 2 + r() * 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, h); g.quadraticCurveTo(x + lean * 0.2, h - hh * 0.5, x + lean, h - hh); g.stroke(); } }),
+    // flor silvestre: caules verdes e flores de 5 pétalas brancas (o jogo tinge só as pétalas: vertex color por parte)
+    stems: canvasTex(256, 256, (g, w, h) => { const r = mulberry(32); for (let i = 0; i < 9; i++) { const x = 40 + r() * (w - 80), hh = h * (0.45 + r() * 0.45), lean = (r() - 0.5) * 40; g.strokeStyle = '#4f7a34'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, h); g.quadraticCurveTo(x, h - hh * 0.5, x + lean, h - hh); g.stroke(); for (const sd of [-1, 1]) { g.save(); g.translate(x + lean * 0.3, h - hh * 0.35); g.rotate(sd * 0.9 - Math.PI / 2); leafPath(g, 26, 7); g.fillStyle = '#5e8a3c'; g.fill(); g.restore(); } } }),
+    petals: canvasTex(128, 128, (g, w, h) => { g.translate(w / 2, h / 2); for (let k = 0; k < 5; k++) { g.save(); g.rotate(k / 5 * TAU); g.beginPath(); g.ellipse(0, -26, 17, 26, 0, 0, TAU); g.fillStyle = '#f4f2ea'; g.fill(); g.strokeStyle = '#b8b2a4'; g.lineWidth = 2; g.stroke(); g.restore(); } g.beginPath(); g.arc(0, 0, 13, 0, TAU); g.fillStyle = '#e8b830'; g.fill(); }),
     // cascas (repetem)
     barkOak: canvasTex(128, 256, (g, w, h) => { const r = mulberry(21); g.fillStyle = '#6a5848'; g.fillRect(0, 0, w, h); for (let i = 0; i < 90; i++) { const x = r() * w; g.strokeStyle = `rgba(${r() < 0.5 ? '30,24,18' : '150,132,110'},${0.25 + r() * 0.35})`; g.lineWidth = 1 + r() * 3; g.beginPath(); g.moveTo(x, 0); for (let y = 0; y <= h; y += 16) g.lineTo(x + (r() - 0.5) * 6, y); g.stroke(); } }, true),
     barkPalm: canvasTex(128, 256, (g, w, h) => { const r = mulberry(22); g.fillStyle = '#9c8c70'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 13 + r() * 6) { g.fillStyle = `rgba(60,46,32,${0.35 + r() * 0.25})`; g.fillRect(0, y, w, 3 + r() * 2); g.fillStyle = 'rgba(210,196,166,0.35)'; g.fillRect(0, y + 4, w, 2); } for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(70,80,50,${0.12 + r() * 0.15})`; g.fillRect(r() * w, r() * h, 4 + r() * 8, 3 + r() * 6); } }, true),
@@ -91,7 +96,7 @@ export function createVegetation(THREE, scene, bridge) {
   };
 
   // ======================= materiais (vento + vazado + normais macias) =======================
-  const time = { value: 0 }, windStr = { value: 1 };
+  const time = { value: 0 }, windStr = { value: 1 }, seeP = { value: new THREE.Vector3(-1e4, -1e4, 0) }, seeR = { value: 0 };
   // vento: desloca proporcional à altura acima de windBase, em fase pela posição da árvore; folhas ainda tremem
   const windVert = `
     vec4 vegW = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
@@ -102,20 +107,21 @@ export function createVegetation(THREE, scene, bridge) {
     transformed.z += cos(vegTime * 0.97 + vegPh * 1.4) * vegAmp * 0.7 * vegWind * vegH;
     transformed += normal * sin(vegTime * 5.3 + position.x * 2.1 + position.z * 1.7 + vegPh) * vegFlutter * vegH;`;
   const decl = 'uniform float vegTime; uniform float vegWind; uniform float vegAmp; uniform float vegBase; uniform float vegSpan; uniform float vegFlutter;\n';
-  const vegUniforms = (shader, w) => Object.assign(shader.uniforms, { vegTime: time, vegWind: windStr, vegAmp: { value: w.amp }, vegBase: { value: w.base }, vegSpan: { value: w.span }, vegFlutter: { value: w.flutter } });
+  const vegUniforms = (shader, w) => Object.assign(shader.uniforms, { vegTime: time, vegWind: windStr, vegAmp: { value: w.amp }, vegBase: { value: w.base }, vegSpan: { value: w.span }, vegFlutter: { value: w.flutter }, vegSeeP: seeP, vegSeeR: seeR });
+  // pixel na frente do jogador e dentro do círculo: pontilhado (fica ~25% no miolo, some a borda suavemente)
+  const seeThrough = `
+    { vec2 vegD = gl_FragCoord.xy - vegSeeP.xy; float vegQ = length( vec2( vegD.x, vegD.y * 0.8 ) ) / max( vegSeeR, 1.0 );
+      if ( vegQ < 1.0 && gl_FragCoord.z < vegSeeP.z ) { float keep = mix( 0.22, 1.0, smoothstep( 0.55, 1.0, vegQ ) ); float n = fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) ); if ( n > keep ) discard; } }`;
   const makeMat = (map, wind, opts = {}) => {
     const m = new THREE.MeshLambertMaterial({ map, color: 0xffffff, vertexColors: true, side: opts.leaf ? THREE.DoubleSide : THREE.FrontSide, alphaTest: opts.leaf ? 0.42 : 0 });
     m.onBeforeCompile = shader => {
       vegUniforms(shader, wind);
-      shader.vertexShader = decl + (opts.leaf ? 'attribute float aFade; varying float vFade;\n' : '') + shader.vertexShader
-        .replace('#include <begin_vertex>', '#include <begin_vertex>' + windVert + (opts.leaf ? '\n vFade = aFade;' : ''));
-      if (opts.leaf) shader.fragmentShader = 'varying float vFade;\n' + shader.fragmentShader
-        // normais esferizadas valem dos dois lados do cartão (sem o "lado escuro" do DoubleSide)
-        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize( vNormal );')
-        // vazado pontilhado quando o jogador está atrás da copa
-        .replace('#include <alphatest_fragment>', '#include <alphatest_fragment>\n if ( vFade < 0.999 ) { float n = fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) ); if ( n > vFade ) discard; }');
+      shader.vertexShader = decl + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>' + windVert);
+      shader.fragmentShader = 'uniform vec3 vegSeeP; uniform float vegSeeR;\n' + shader.fragmentShader.replace('#include <alphatest_fragment>', '#include <alphatest_fragment>' + seeThrough);
+      // normais esferizadas valem dos dois lados do cartão (sem o "lado escuro" do DoubleSide)
+      if (opts.leaf) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize( vNormal );');
     };
-    m.customProgramCacheKey = () => opts.leaf ? 'veg-leaf' : 'veg-solid';
+    m.customProgramCacheKey = () => opts.leaf ? 'veg-leaf2' : 'veg-solid2';
     return m;
   };
   const makeDepth = (map, wind, leaf) => {
@@ -274,6 +280,33 @@ export function createVegetation(THREE, scene, bridge) {
     return out;
   }
 
+  // ---------- touceira de capim: cartões cruzados em pé, lâminas da textura ----------
+  function grassClump(seed, o) {
+    const r = mulberry(seed), pos = [], nor = [], uv = [], cl = [], idx = [], base = col(o.base), tip = col(o.tip), tmp = new THREE.Color();
+    for (let k = 0; k < o.cards; k++) {
+      const a = k / o.cards * Math.PI + r() * 0.4, ox = (r() - 0.5) * 0.25, oz = (r() - 0.5) * 0.25, w = o.w * (0.8 + r() * 0.4), h = o.h * (0.75 + r() * 0.5), dx = Math.cos(a) * w / 2, dz = Math.sin(a) * w / 2, b = pos.length / 3;
+      for (const [sx, sy] of [[-1, 0], [1, 0], [1, 1], [-1, 1]]) {
+        pos.push(ox + sx * dx, sy * h, oz + sx * dz); nor.push(0, 1, 0); uv.push(sx < 0 ? 0 : 1, sy);
+        tmp.copy(base).lerp(tip, sy); cl.push(tmp.r, tmp.g, tmp.b);
+      }
+      idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    return [{ geo: build(pos, nor, uv, cl, idx), tex: 'grass', leaf: true, wind: { amp: 0.1, base: 0, span: o.h, flutter: 0.02 } }];
+  }
+  // ---------- flores silvestres: caules em cartões cruzados + flores (cor por variante) ----------
+  function flowerClump(seed, color) {
+    const r = mulberry(seed), stems = grassClump(seed, { cards: 4, w: 0.6, h: 0.6, base: '#c8d8b8', tip: '#ffffff' })[0];
+    stems.tex = 'stems';
+    const pos = [], nor = [], uv = [], cl = [], idx = [], c = col(color);
+    for (let k = 0; k < 9; k++) {
+      const x = (r() - 0.5) * 0.45, z = (r() - 0.5) * 0.45, y = 0.32 + r() * 0.28, s = 0.09 + r() * 0.05, tilt = 0.5 + r() * 0.5, a = r() * TAU, b = pos.length / 3;
+      const n = V3(Math.cos(a) * tilt, 1, Math.sin(a) * tilt).normalize(), t = V3(0, 1, 0).cross(n).normalize(), bb = n.clone().cross(t);
+      for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const q = V3(x, y, z).addScaledVector(t, su * s).addScaledVector(bb, sv * s); pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); uv.push((su + 1) / 2, (sv + 1) / 2); cl.push(c.r, c.g, c.b); }
+      idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    return [stems, { geo: build(pos, nor, uv, cl, idx), tex: 'petals', leaf: true, wind: stems.wind }];
+  }
+
   // ======================= espécies =======================
   const SPECIES = {
     liveoak: () => broadleaf(101, { trunkH: 2.6, trunkR: 0.5, crownC: [0, 6.2, 0], crownR: [6.4, 3.0, 6.4], nClusters: 26, nLimbs: 7, clusterR: 2.1, cards: 34, cardSize: 1.7, flat: 0.75, bark: 'barkOak', leaf: 'broad', dark: '#22401c', light: '#7da447', warm: '#a8b45a', minY: -0.2 }),
@@ -283,34 +316,38 @@ export function createVegetation(THREE, scene, bridge) {
     yard: () => broadleaf(104, { trunkH: 2.8, trunkR: 0.26, crownC: [0, 5.4, 0], crownR: [3.2, 2.8, 3.2], nClusters: 16, nLimbs: 5, clusterR: 1.6, cards: 32, cardSize: 1.4, bark: 'barkOak', leaf: 'broad', dark: '#24451c', light: '#82aa48', warm: '#b0b65a' }),
     poinciana: () => broadleaf(105, { trunkH: 2.6, trunkR: 0.32, crownC: [0, 5.6, 0], crownR: [5.6, 1.7, 5.6], nClusters: 22, nLimbs: 7, clusterR: 1.9, cards: 26, cardSize: 1.7, flat: 0.5, minY: -0.1, bark: 'barkRoyal', leaf: 'fine', dark: '#2a4a1e', light: '#86b04a', warm: '#aabc56', flowers: { tex: 'poinciana', n: 18, cards: 14 } }),
     pine: () => pine(106),
-    coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 18, dead: 3, len: 4.4, width: 0.75, rise: 0.75, droop: 1.9, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
-    royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 15, dead: 1, len: 4.6, width: 0.7, rise: 0.95, droop: 2.0, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
+    coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 20, dead: 3, len: 5.8, width: 1.05, rise: 0.7, droop: 1.65, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
+    royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 18, dead: 1, len: 6.6, width: 1.15, rise: 0.85, droop: 1.55, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
     shrub: () => bush(201, { h: 1.4, w: 1.0, nClusters: 8, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1e3c18', light: '#78a444', warm: '#a8b456' }),
     hibiscus: () => bush(202, { h: 1.6, w: 1.1, nClusters: 9, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1a3816', light: '#5e9038', warm: '#84a648', flowers: { tex: 'hibiscus', n: 9, cards: 4 } }),
     bougainvillea: () => bush(203, { h: 2.0, w: 1.3, nClusters: 10, clusterR: 0.65, cards: 18, cardSize: 0.85, leaf: 'broad', dark: '#22401a', light: '#6a9a40', warm: '#8aac48', flowers: { tex: 'bract', n: 16, cards: 7 } }),
     croton: () => bush(204, { h: 1.2, w: 0.75, nClusters: 7, clusterR: 0.45, cards: 18, cardSize: 0.7, leaf: 'croton', dark: '#707070', light: '#ffffff', warm: '#ffffff' }),
+    grass: () => grassClump(301, { cards: 5, w: 1.0, h: 0.7, base: '#4a6e30', tip: '#b4c86a' }),
+    reeds: () => grassClump(302, { cards: 6, w: 1.0, h: 1.3, base: '#3e6230', tip: '#9cb862' }),
+    flowerY: () => flowerClump(401, '#f2cc3a'), flowerW: () => flowerClump(402, '#f4f0e4'), flowerP: () => flowerClump(403, '#e6a0b4'),
+    flowerL: () => flowerClump(404, '#b49ad8'), flowerO: () => flowerClump(405, '#ec9a5a'),
     seagrape: () => bush(205, { h: 1.8, w: 1.5, nClusters: 10, clusterR: 0.7, cards: 16, cardSize: 0.95, leaf: 'round', dark: '#3a4a1e', light: '#a2b04e', warm: '#c0b456' }),
   };
 
   // ======================= malhas instanciadas =======================
-  const CAP = { liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500 };
+  const CAP = { grass: 9000, reeds: 3000, flowerY: 800, flowerW: 800, flowerP: 800, flowerL: 800, flowerO: 800, liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500 };
   const kinds = {};
   for (const [name, make] of Object.entries(SPECIES)) {
     const parts = make().map(part => {
       const map = part.tex ? TEX[part.tex] : null, cap = CAP[name];
       const mesh = new THREE.InstancedMesh(part.geo, makeMat(map, part.wind, { leaf: part.leaf }), cap);
       mesh.customDepthMaterial = makeDepth(map, part.wind, part.leaf);
-      mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0;
+      const tiny = /^(grass|reeds|flower)/.test(name);
+      mesh.castShadow = !tiny; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.setColorAt(0, new THREE.Color(1, 1, 1));
-      if (part.leaf) { const f = new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(1), 1); f.setUsage(THREE.DynamicDrawUsage); part.geo.setAttribute('aFade', f); }
       scene.add(mesh);
       return { mesh, leaf: !!part.leaf };
     });
     kinds[name] = { parts, list: [] };
   }
   // altura e raio da copa de cada espécie (p/ o vazado), medidos da própria geometria
-  for (const [name, k] of Object.entries(kinds)) { const b = new THREE.Box3(); for (const p of k.parts) { p.mesh.geometry.computeBoundingBox(); b.union(p.mesh.geometry.boundingBox); } k.top = b.max.y; k.rad = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / 2; k.bottom = name in { shrub: 1, hibiscus: 1, bougainvillea: 1, croton: 1, seagrape: 1 } ? 0 : k.top * 0.4; }
+  for (const [name, k] of Object.entries(kinds)) { const b = new THREE.Box3(); for (const p of k.parts) { p.mesh.geometry.computeBoundingBox(); b.union(p.mesh.geometry.boundingBox); } k.top = b.max.y; k.rad = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / 2; }
 
   // sombra no chão: um plano grande que acompanha a câmera e só mostra a sombra
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.3, transparent: true, depthWrite: false }));
@@ -319,6 +356,8 @@ export function createVegetation(THREE, scene, bridge) {
   // espécie de cada prop (sprites antigos do jogo dizem qual planta é)
   function speciesOf(p) {
     const sp = p.sp || {};
+    if (p.type === 'tuft') return sp.reed ? 'reeds' : 'grass';
+    if (p.type === 'flower') return p.kind;
     if (p.type === 'bush') return { hibiscus: 'hibiscus', bougainvillea: 'bougainvillea', croton: 'croton', seagrape: 'seagrape' }[sp.vegKind] || 'shrub';
     if (sp.kind === 'palm') return sp.palm === 'royal' ? 'royal' : 'coconut';
     if (sp.kind === 'pine') return 'pine';
@@ -330,58 +369,54 @@ export function createVegetation(THREE, scene, bridge) {
 
   const state = { trees: 0, bushes: 0, ms: 0 };
   const sync = { x: 1e9, y: 1e9, n: -1, v: -1, zoom: 0 }, mat = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), tint = new THREE.Color();
-  let active = [], faded = [];
+  let active = [];
   function rebuild(cx, cy, R) {
     const t0 = performance.now();
     for (const k of Object.values(kinds)) k.list.length = 0;
     const props = bridge.world.props || [];
     for (const p of props) {
-      if (p.type !== 'tree' && p.type !== 'bush') continue;
+      if (p.type !== 'tree' && p.type !== 'bush' && p.type !== 'tuft') continue;
       const dx = p.x - cx, dy = p.y - cy; if (dx * dx + dy * dy > R * R) continue;
       const k = kinds[speciesOf(p)]; if (k.list.length < k.parts[0].mesh.instanceMatrix.count) k.list.push(p);
     }
+    const FL = { '#eee6ce': 'flowerW', '#ead064': 'flowerY', '#ccacd1': 'flowerL', '#db9ca9': 'flowerP', '#9eaad0': 'flowerL', '#e6a274': 'flowerO', '#ca7778': 'flowerP', '#ede0a8': 'flowerY' };
+    if (bridge.terrainItems) for (const items of bridge.terrainItems.values()) for (const it of items) {
+      if (it.t !== 'wildflower') continue;
+      const dx = it.x - cx, dy = it.y - cy; if (dx * dx + dy * dy > R * R) continue;
+      const kind = FL[it.c] || 'flowerY', k = kinds[kind];
+      for (let j = 0; j < Math.min(3, Math.ceil(it.k / 3)); j++) if (k.list.length < k.parts[0].mesh.instanceMatrix.count) { const a = it.phase + j * 2.4, d = it.radius * (j ? 0.8 : 0); k.list.push({ type: 'flower', kind, x: it.x + Math.cos(a) * d, y: it.y + Math.sin(a) * d }); }
+    }
     active = [];
-    let trees = 0, bushes = 0;
+    let trees = 0, bushes = 0, small = 0;
     for (const [name, k] of Object.entries(kinds)) {
       k.list.forEach((p, i) => {
         const h1 = hash2(Math.round(p.x * 10), Math.round(p.y * 10), 1), h2 = hash2(Math.round(p.x * 10), Math.round(p.y * 10), 2);
         let s = (p.scale || 1) * (0.86 + 0.28 * h1);
         if (p.type === 'bush') s = Math.min(1.35, Math.max(0.7, (p.sp?.r || 0.8) / 0.8)) * (0.9 + 0.2 * h1);
+        else if (p.type === 'tuft' || p.type === 'flower') s = 0.8 + 0.45 * h1;
         q.setFromAxisAngle(up, h2 * TAU); ps.set(p.x, 0, p.y); sc.set(s, s, s); mat.compose(ps, q, sc);
         tint.setRGB(0.92 + 0.16 * h1, 0.92 + 0.16 * h2, 0.92 + 0.12 * (1 - h1));
         for (const part of k.parts) { part.mesh.setMatrixAt(i, mat); part.mesh.setColorAt(i, tint); }
         active.push({ p, k, i, s });
       });
       for (const part of k.parts) { part.mesh.count = k.list.length; part.mesh.instanceMatrix.needsUpdate = true; if (part.mesh.instanceColor) part.mesh.instanceColor.needsUpdate = true; }
-      if (name in { shrub: 1, hibiscus: 1, bougainvillea: 1, croton: 1, seagrape: 1 }) bushes += k.list.length; else trees += k.list.length;
+      if (/^(grass|reeds|flower)/.test(name)) small += k.list.length; else if (name in { shrub: 1, hibiscus: 1, bougainvillea: 1, croton: 1, seagrape: 1 }) bushes += k.list.length; else trees += k.list.length;
     }
-    faded = [];
-    Object.assign(state, { trees, bushes, ms: +(performance.now() - t0).toFixed(1) });
+    Object.assign(state, { trees, bushes, small, ms: +(performance.now() - t0).toFixed(1) });
   }
 
-  // vazado da copa quando o jogador está atrás dela (mesma regra do jogo 2D: copa mais perto da câmera e por cima dele)
-  function updateFade() {
-    const c = bridge.cam, pl = bridge.player, HZ = Math.sqrt(1 - (c.tilt || 0.5) ** 2), tl = c.tilt || 0.5;
-    for (const e of faded) setFade(e, 1);
-    faded = [];
-    if (!pl || !Number.isFinite(pl.x)) return;
-    const pd = c.sin * (pl.x - c.x) + c.cos * (pl.y - c.y), psx = c.cos * (pl.x - c.x) - c.sin * (pl.y - c.y);
-    const pFeet = pd * tl, pHead = pFeet - 1.9 * HZ;
-    for (const e of active) {
-      if (e.p.type === 'bush') continue;   // só copa de árvore fica vazada (arbusto é baixo)
-      const dx = e.p.x - pl.x, dy = e.p.y - pl.y; if (dx * dx + dy * dy > 400) continue;
-      const td = c.sin * (e.p.x - c.x) + c.cos * (e.p.y - c.y); if (td < pd + 0.3) continue;
-      const tsx = c.cos * (e.p.x - c.x) - c.sin * (e.p.y - c.y), R = e.k.rad * e.s;
-      if (Math.abs(tsx - psx) > R * 0.85) continue;
-      const top = td * tl - e.k.top * e.s * HZ, bot = td * tl - e.k.bottom * e.s * HZ;
-      if (pHead < bot && pFeet > top) { setFade(e, 0.32); faded.push(e); }
-    }
+  // vazado: posição na tela (px do buffer) e profundidade do alvo (jogador a pé, ou o carro) p/ o shader
+  const pv = new THREE.Vector3(), buf = new THREE.Vector2();
+  function updateSeeThrough(camera, renderer, target) {
+    if (!target || !Number.isFinite(target.x)) { seeR.value = 0; return; }
+    renderer.getDrawingBufferSize(buf);
+    pv.set(target.x, target.z, target.y).project(camera);
+    seeP.value.set((pv.x * 0.5 + 0.5) * buf.x, (pv.y * 0.5 + 0.5) * buf.y, pv.z * 0.5 + 0.5 - 0.0004);
+    seeR.value = target.r * bridge.cam.zoom * (buf.x / Math.max(1, bridge.cam.W));
   }
-  function setFade(e, v) { for (const part of e.k.parts) if (part.leaf) { const a = part.mesh.geometry.attributes.aFade; if (a.array[e.i] !== v) { a.array[e.i] = v; a.needsUpdate = true; } } }
-
   return {
     state, ground,
-    update(now) {
+    update(now, camera, renderer, target) {
       const c = bridge.cam, w = bridge.world;
       time.value = now; windStr.value = 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5);
@@ -390,7 +425,7 @@ export function createVegetation(THREE, scene, bridge) {
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 6 || n !== sync.n || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
         Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, zoom: c.zoom }); rebuild(c.x, c.y, R);
       }
-      updateFade();
+      updateSeeThrough(camera, renderer, target);
       const G = Math.min(160, R * 2.2); ground.scale.set(G, G, 1); ground.position.set(c.x, 0.01, c.y);
       return R;
     },

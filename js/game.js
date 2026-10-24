@@ -32,6 +32,7 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
   urbanBins:urbanLife.bins,
+  get terrainItems(){return terrain.items;},
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,
   get mapSize(){return MAP;}

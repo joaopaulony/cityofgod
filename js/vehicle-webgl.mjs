@@ -403,9 +403,14 @@ system.render=()=>{
  if(body){body.position.set(state.x,0,state.y);
  body.rotation.y=-state.angle;}
  // noite: as luzes da cena acompanham o escurecimento do jogo 2D
- const night=bridge.world.night?.3:1;
+ const night=bridge.world.night?.15:1;
  for(const [l,k] of scene.userData.lights)l.intensity=k*night;
- if(vegetation){vegetation.update(performance.now()/1000);shadowGround.visible=false;}
+ scene.userData.lights[0][0].color.setHex(bridge.world.night?0x8090c0:0xf8ead9);
+ if(vegetation){
+  // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
+  const p=bridge.player,target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:1.7};
+  vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
+ }
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
