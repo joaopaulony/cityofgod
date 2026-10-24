@@ -676,7 +676,9 @@ function frame(now) {
     const cost = performance.now() - t0 - terrain.workMs;
     terrain.budget = clamp(14 - cost, 1.5, 7);
     // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
-    if (world.streamTick) world.streamTick(player.x, player.y, clamp(13 - cost - terrain.workMs, 2.5, 6));
+    // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
+    const lead = terrain.vel || [0, 0];
+    if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(13 - cost - terrain.workMs, 2.5, 6));
     if (cost + terrain.workMs < 12) warmIdle();
   }
   requestAnimationFrame(frame);

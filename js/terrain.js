@@ -207,36 +207,41 @@ function startChunk(ci, cj) {
   terrain.chunks.set(ci + ',' + cj, ch);
   return ch;
 }
-function chunkFields(ch) {
-  const x0 = ch.ci * CH - GSTEP, y0 = ch.cj * CH - GSTEP, F = {};
-  for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) F[k] = new Float32Array(GN * GN);
-  const o = {};
-  for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
-    fieldsAt(x0 + i * GSTEP, y0 + j * GSTEP, o); const k = j * GN + i;
-    for (const key in F) F[key][k] = o[key];
+// campos em fatias de linhas (antes ~13 ms de uma vez, um tranco a cada bloco novo); true quando terminou
+function chunkFields(ch, budgetMs = Infinity) {
+  const t0 = performance.now(), x0 = ch.ci * CH - GSTEP, y0 = ch.cj * CH - GSTEP;
+  if (!ch.F) { ch.F = {}; ch.fj = 0; for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) ch.F[k] = new Float32Array(GN * GN); }
+  const F = ch.F, o = {};
+  while (ch.fj < GN) {
+    const j = ch.fj++;
+    for (let i = 0; i < GN; i++) { fieldsAt(x0 + i * GSTEP, y0 + j * GSTEP, o); const k = j * GN + i; for (const key in F) F[key][k] = o[key]; }
+    if (performance.now() - t0 > budgetMs) break;
   }
-  ch.F = F; ch.img = ch.g.createImageData(CSZ, CSZ);
+  if (ch.fj < GN) return false;
+  if (!TW.ok) ch.img = ch.g.createImageData(CSZ, CSZ);   // com workers a imagem chega pronta
   const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
   ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
+  return true;
 }
 const TC = h => hexToRgb(h);
 // Cada pixel do solo continua procedural; apenas as cores de mistura
 // refletem o padrão oficial sem trocar bitmaps, rachaduras ou formas.
 const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
   .map(([name,hex])=>[name,TC(hex)]));
-function paintRows(ch, rows) {
-  const { F, img } = ch, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
+// L: camada (o próprio bloco a 56 px/m, ou a versão rápida); também roda dentro dos workers
+function paintRows(ch, rows, L = ch) {
+  const F = L.F || ch.F, img = L.img, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
   const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo, Fdi = F.di, Ffa = F.fa, Ffc = F.fc;
   const open = world.open, CROP = terrain.crops;
   const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
   const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
-  const gx0 = ch.ci * CPX - PAD, gy0 = ch.cj * CPX - PAD, inv = 1 / (TP * GSTEP);
+  const sk = L.k || 1, pd = L.pad === undefined ? PAD : L.pad, SZ = L.sz || CSZ, gx0 = ch.ci * CPX - pd * sk, gy0 = ch.cj * CPX - pd * sk, gs = L.gs || GSTEP, gn = L.gn || GN, inv = 1 / ((L.tp || TP) * gs);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
-  const end = Math.min(CSZ, ch.row + rows);
-  for (let py = ch.row; py < end; py++) {
-    const gyf = (py - PAD) * inv + 1, j = Math.min(GN - 2, gyf | 0), v = gyf - j, ny = ((gy0 + py) & 255) << 8;
-    for (let px = 0; px < CSZ; px++) {
-      const gxf = (px - PAD) * inv + 1, i = Math.min(GN - 2, gxf | 0), u = gxf - i, k = j * GN + i, k2 = k + GN;
+  const end = Math.min(SZ, L.row + rows);
+  for (let py = L.row; py < end; py++) {
+    const Yp = gy0 + py * sk, gyf = (py - pd) * inv + 1, j = Math.min(gn - 2, gyf | 0), v = gyf - j, ny = (Yp & 255) << 8;
+    for (let px = 0; px < SZ; px++) {
+      const Xp = gx0 + px * sk, gxf = (px - pd) * inv + 1, i = Math.min(gn - 2, gxf | 0), u = gxf - i, k = j * gn + i, k2 = k + gn;
       const w00 = (1 - u) * (1 - v), w10 = u * (1 - v), w01 = (1 - u) * v, w11 = u * v;
       const rd = Frd[k] * w00 + Frd[k + 1] * w10 + Frd[k2] * w01 + Frd[k2 + 1] * w11;
       const pv = Fpv[k] * w00 + Fpv[k + 1] * w10 + Fpv[k2] * w01 + Fpv[k2 + 1] * w11;
@@ -246,12 +251,12 @@ function paintRows(ch, rows) {
       const dirt = Fdirt[k] * w00 + Fdirt[k + 1] * w10 + Fdirt[k2] * w01 + Fdirt[k2 + 1] * w11;
       const wet = Fwet[k] * w00 + Fwet[k + 1] * w10 + Fwet[k2] * w01 + Fwet[k2 + 1] * w11;
       const fo = Ffo[k] * w00 + Ffo[k + 1] * w10 + Ffo[k2] * w01 + Ffo[k2 + 1] * w11;
-      const ni = ny | ((gx0 + px) & 255), d1 = n1[ni], d2 = n2[ni], d3 = n3[ni];
+      const ni = ny | ((Xp) & 255), d1 = n1[ni], d2 = n2[ni], d3 = n3[ni];
       let r, gg, b;
       // --- grama: tom por ruído + tufos + grão com pontas claras/escuras
       const dk = sstep(0.42, 0.72, dry), tone = 0.82 + (gt - 0.5) * 0.55 + (d1 - 0.5) * 0.3;
       const grain = d2 > 0.86 ? 1.2 : d2 < 0.14 ? 0.78 : 0.95 + d2 * 0.1;
-      if (tex && texAt('lawn', gx0 + px, gy0 + py, tA) && texAt('weeds', gx0 + px, gy0 + py, tB)) {
+      if (tex && texAt('lawn', Xp, Yp, tA) && texAt('weeds', Xp, Yp, tB)) {
         // gramado -> mato ralo pelo campo de secura; o detalhe fino vem da textura, do campo só a variação grande
         const tn = 0.93 + (gt - 0.5) * 0.3;
         r = lerp(tA[0], tB[0], dk) * tn; gg = lerp(tA[1], tB[1], dk) * tn; b = lerp(tA[2], tB[2], dk) * tn;
@@ -262,7 +267,7 @@ function paintRows(ch, rows) {
       // --- terra batida
       const dw = sstep(0.66, 0.72, dirt + (d1 - 0.5) * 0.08);
       if (dw > 0) {
-        if (tex && texAt('dirt', gx0 + px, gy0 + py, tA)) { const m = 0.95 + d1 * 0.08; r = lerp(r, tA[0] * m, dw); gg = lerp(gg, tA[1] * m, dw); b = lerp(b, tA[2] * m, dw); }
+        if (tex && texAt('dirt', Xp, Yp, tA)) { const m = 0.95 + d1 * 0.08; r = lerp(r, tA[0] * m, dw); gg = lerp(gg, tA[1] * m, dw); b = lerp(b, tA[2] * m, dw); }
         else { const m = (0.84 + d1 * 0.26) * (d2 > 0.92 ? 1.18 : 1); r = lerp(r, COL.dirt[0] * m, dw); gg = lerp(gg, COL.dirt[1] * m, dw); b = lerp(b, COL.dirt[2] * m, dw); }
       }
       // --- lama (perto do lago e na terra úmida) com brilho molhado e poças
@@ -281,7 +286,7 @@ function paintRows(ch, rows) {
       if (open) {
         const c0 = Fdi[k], c1 = Fdi[k + 1], c2 = Fdi[k2], c3 = Fdi[k2 + 1];
         const wOf = D => (c0 === D ? w00 : 0) + (c1 === D ? w10 : 0) + (c2 === D ? w01 : 0) + (c3 === D ? w11 : 0);
-        const wx = (gx0 + px) / TP, wy = (gy0 + py) / TP;
+        const wx = (Xp) / TP, wy = (Yp) / TP;
         // fazenda: fileiras de plantio na direção do talhão, sulcos de terra entre elas
         const wf = wOf(8);
         if (wf > 0) {
@@ -298,7 +303,7 @@ function paintRows(ch, rows) {
           const joint = (jx > 0.485 || jy > 0.485) ? 0.78 : 1, stain = d3 > 0.72 ? 0.86 : 1, m = (0.9 + d2 * 0.12) * joint * stain * (0.95 + d1 * 0.08);
           const base = wc > wi ? COL.walk : COL.curbF;
           const ww2 = Math.min(1, wc + wi) * 0.96;
-          if (tex && texAt(wc > wi ? 'walk' : 'concrete', gx0 + px, gy0 + py, tA)) { const mj = joint * (0.97 + d1 * 0.05); r = lerp(r, tA[0] * mj, ww2); gg = lerp(gg, tA[1] * mj, ww2); b = lerp(b, tA[2] * mj, ww2); }
+          if (tex && texAt(wc > wi ? 'walk' : 'concrete', Xp, Yp, tA)) { const mj = joint * (0.97 + d1 * 0.05); r = lerp(r, tA[0] * mj, ww2); gg = lerp(gg, tA[1] * mj, ww2); b = lerp(b, tA[2] * mj, ww2); }
           else { r = lerp(r, base[0] * m * 1.02, ww2); gg = lerp(gg, base[1] * m, ww2); b = lerp(b, base[2] * m * 0.98, ww2); }
           quay = Math.min(1, wOf(7) + wc * 0.6);
         }
@@ -306,7 +311,7 @@ function paintRows(ch, rows) {
         const wv = wOf(4), wg = wOf(5);
         if (wv + wg > 0) {
           const cem = d3 > 0.86 && wv > 0 ? 0.55 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
-          const dt = tex && texAt('dirt', gx0 + px, gy0 + py, tA), dm = 0.95 + d1 * 0.08;
+          const dt = tex && texAt('dirt', Xp, Yp, tA), dm = 0.95 + d1 * 0.08;
           const dr = dt ? tA[0] * dm : COL.dirt[0] * m, dg = dt ? tA[1] * dm : COL.dirt[1] * m, db = dt ? tA[2] * dm : COL.dirt[2] * m;
           const cr = lerp(dr, COL.curbF[0] * 1.1, cem), cg = lerp(dg, COL.curbF[1] * 1.1, cem), cb = lerp(db, COL.curbF[2] * 1.1, cem);
           const ww3 = wv * 0.9 + wg * 0.45 * sstep(0.4, 0.7, d3);
@@ -315,7 +320,7 @@ function paintRows(ch, rows) {
         // praia: areia seca em todo o distrito (a molhada perto da água vem do campo da costa)
         const wb = wOf(1);
         if (wb > 0) {
-          if (tex && texAt('sand', gx0 + px, gy0 + py, tA)) { const m = 0.97 + d1 * 0.05; r = lerp(r, tA[0] * m, wb); gg = lerp(gg, tA[1] * m, wb); b = lerp(b, tA[2] * m, wb); }
+          if (tex && texAt('sand', Xp, Yp, tA)) { const m = 0.97 + d1 * 0.05; r = lerp(r, tA[0] * m, wb); gg = lerp(gg, tA[1] * m, wb); b = lerp(b, tA[2] * m, wb); }
           else { const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12); r = lerp(r, COL.sand[0] * m, wb); gg = lerp(gg, COL.sand[1] * m, wb); b = lerp(b, COL.sand[2] * m, wb); }
         }
         // aeroporto: grama aparada mais clara entre as pistas
@@ -326,7 +331,7 @@ function paintRows(ch, rows) {
       const sw = (1 - sstep(1.12, 1.26, pv + (d1 - 0.5) * 0.04)) * (1 - quay);
       if (sw > 0) {
         const ws = 1 - sstep(1.0, 1.075, pv + (d3 - 0.5) * 0.03);
-        if (tex && texAt('sand', gx0 + px, gy0 + py, tA)) {   // areia pintada; a molhada escurece a própria textura
+        if (tex && texAt('sand', Xp, Yp, tA)) {   // areia pintada; a molhada escurece a própria textura
           const m = (0.97 + d1 * 0.05) * (1 - ws * 0.38);
           r = lerp(r, lerp(tA[0], COL.wsand[0], ws * 0.55) * m, sw); gg = lerp(gg, lerp(tA[1], COL.wsand[1], ws * 0.55) * m, sw); b = lerp(b, lerp(tA[2], COL.wsand[2], ws * 0.55) * m, sw);
         } else {
@@ -353,7 +358,7 @@ function paintRows(ch, rows) {
       if (rd < s1 + 0.06) {
         const swk = 1 - sstep(s1 - 0.02, s1 + 0.04, rd);
         const m = (0.92 + d3 * 0.13) * (0.93 + d2 * 0.12) * (d1 < 0.22 ? 0.9 : 1), edge = sstep(s1 - 0.25, s1, rd) * 0.35;
-        const wt = tex && texAt(walkKey, gx0 + px, gy0 + py, tA), wm = 0.97 + d3 * 0.05;
+        const wt = tex && texAt(walkKey, Xp, Yp, tA), wm = 0.97 + d3 * 0.05;
         const wr = wt ? tA[0] * wm : COL.walk[0] * m, wg2 = wt ? tA[1] * wm : COL.walk[1] * m, wb2 = wt ? tA[2] * wm : COL.walk[2] * m;
         const cr = lerp(wr, COL.dirt[0], edge), cg = lerp(wg2, COL.dirt[1], edge), cb = lerp(wb2, COL.dirt[2], edge);
         r = lerp(r, cr, swk); gg = lerp(gg, cg, swk); b = lerp(b, cb, swk);
@@ -369,7 +374,7 @@ function paintRows(ch, rows) {
           const agg = d2 > 0.93 ? 1.4 : 0.8 + d2 * 0.36;
           let m3 = lerp(agg, 0.97, tracks * 0.5) * (1 - tracks * 0.07) * (1 - oil * 0.1) * (0.95 + d3 * 0.1);
           let ar = COL.asph[0] * m3 + oil * 4, ag = COL.asph[1] * m3, ab = COL.asph[2] * m3 - oil * 2;
-          if (tex && texAt('asphalt', gx0 + px, gy0 + py, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
+          if (tex && texAt('asphalt', Xp, Yp, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
           if (d3 > 0.8 && rd < ROAD_W - 0.6) { const q = 0.93 + d2 * 0.1; if (tex && GTEX.t.asphalt) { ar *= 0.84; ag *= 0.84; ab *= 0.84; } else { ar = COL.patch[0] * q; ag = COL.patch[1] * q; ab = COL.patch[2] * q; } }
           // sarjeta: faixa de concreto (0,4 m) encardida, junta escura com o asfalto, sujeira escorrida perto do meio-fio
           const gut = sstep(ROAD_W - 0.415, ROAD_W - 0.395, rd), gm = (0.86 + d1 * 0.22) * (0.94 + d3 * 0.1);
@@ -381,12 +386,12 @@ function paintRows(ch, rows) {
           r = lerp(r, ar, aw); gg = lerp(gg, ag, aw); b = lerp(b, ab, aw);
         }
       }
-      const o = (py * CSZ + px) * 4;
+      const o = (py * SZ + px) * 4;
       data[o] = r; data[o + 1] = gg; data[o + 2] = b; data[o + 3] = 255;
     }
   }
-  ch.row = end;
-  if (ch.row >= CSZ) ch.g.putImageData(img, 0, 0);
+  L.row = end;
+  if (L.row >= SZ && L.g) L.g.putImageData(img, 0, 0);
 }
 
 // marcas de rua (em metros, com transformação do bloco)
@@ -755,6 +760,113 @@ function finishChunk(ch) {
   ch.done = true; ch.F = null; ch.img = null; ch._buckets = null; ch._keys = null;
 }
 
+// ---------- versão rápida (baixa resolução) e pintura por pixel em paralelo ----------
+// Cada bloco ganha primeiro uma versão de 14 px/m (16× menos pixels) com faixas, calçadas, decalques e pisos, que
+// já aparece na tela; a nítida (56 px/m) entra por cima quando fica pronta. O "shader" por pixel (paintRows) roda em
+// workers, fora da thread do jogo e vários blocos ao mesmo tempo; a thread principal só calcula os campos e faz o
+// acabamento (faixas, detalhes, pisos e sombras). Sem Worker (testes em Node), tudo segue na thread principal.
+const QP = 14, QPAD = 1, QSZ = CH * QP + QPAD * 2;
+const TW = { pool: [], queue: [], ok: false, tried: false, tex: false };
+function twInit() {
+  if (TW.tried) return TW.ok; TW.tried = true;
+  if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return false;
+  try {
+    const src = ['"use strict";', `const CH=${CH},TP=${TP},CPX=${CPX},PAD=${PAD},CSZ=${CSZ},GSTEP=${GSTEP},GN=${GN},ROAD_W=${ROAD_W},SIDE=${SIDE};`,
+      'let COL=null,GTEX={ready:false,t:{}};const terrain={},world={open:false};',
+      'const clamp=' + clamp, 'const lerp=' + lerp, 'const sstep=' + sstep, 'const texAt=' + texAt, paintRows.toString(),
+      'onmessage=e=>{const m=e.data;if(m.init){Object.assign(terrain,m.init);COL=m.COL;return;}if(m.tex){GTEX={ready:true,t:m.tex};return;}' +
+      'world.open=m.open;terrain.crops=m.crops;const sz=m.sz,img={data:new Uint8ClampedArray(sz*sz*4)};' +
+      'paintRows({ci:m.ci,cj:m.cj,F:m.F,zone:m.zone},sz,{img,row:0,tp:m.tp,pad:m.pad,sz,k:m.k,gs:m.gs,gn:m.gn});' +
+      'postMessage({buf:img.data.buffer},[img.data.buffer]);};'].join('\n');
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const n = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 2));
+    for (let i = 0; i < n; i++) {
+      const w = new Worker(url); w.job = null;
+      w.onmessage = e => twDone(w, e.data);
+      w.onerror = e => { console.warn('Pintura do chão em paralelo falhou; volta à thread principal', e.message); TW.ok = false; const j = w.job; w.job = null; if (j) twFallback(j); };
+      w.postMessage({ init: { n1: terrain.n1, n2: terrain.n2, n3: terrain.n3 }, COL });
+      TW.pool.push(w);
+    }
+    TW.ok = true;
+  } catch (e) { console.warn('Workers do chão indisponíveis', e); TW.ok = false; }
+  return TW.ok;
+}
+function twFallback(j) { if (j.kind === 'f') { j.ch.stage = 1; j.ch.row = 0; } else j.ch.q = null; }
+function twTex() {   // texturas pintadas do chão (textures.js), uma vez quando ficam prontas
+  if (TW.tex || typeof GTEX === 'undefined' || !GTEX.ready) return;
+  TW.tex = true; const t = {};
+  for (const [k, v] of Object.entries(GTEX.t)) if (v && v.data) t[k] = { n: v.n, data: v.data };
+  for (const w of TW.pool) w.postMessage({ tex: t });
+}
+// campos numa grade de 1 m (~1 ms, contra ~13 ms da grade fina): bastam p/ a versão rápida
+const QGS = 1, QGN = CH / QGS + 3;
+function coarseFields(ch) {
+  const x0 = ch.ci * CH - QGS, y0 = ch.cj * CH - QGS, F = {}, o = {};
+  for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) F[k] = new Float32Array(QGN * QGN);
+  for (let j = 0; j < QGN; j++) for (let i = 0; i < QGN; i++) { fieldsAt(x0 + i * QGS, y0 + j * QGS, o); const k = j * QGN + i; for (const key in F) F[key][k] = o[key]; }
+  const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
+  ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
+  return F;
+}
+const twBase = (ch, F) => ({ ci: ch.ci, cj: ch.cj, F, zone: ch.zone, open: !!world.open, crops: terrain.crops || null });
+function twQuick(ch) {
+  twTex();
+  const c = makeCanvas(QSZ, QSZ); ch.q = { c, g: c.getContext('2d'), rows: false, done: false };
+  TW.queue.push({ ch, kind: 'q', msg: Object.assign({ sz: QSZ, tp: QP, pad: QPAD, k: TP / QP, gs: QGS, gn: QGN }, twBase(ch, coarseFields(ch))) });
+  twPump();
+}
+function twFull(ch) {
+  twTex();
+  TW.queue.push({ ch, kind: 'f', msg: Object.assign({ sz: CSZ, tp: TP, pad: PAD, k: 1, gs: GSTEP, gn: GN }, twBase(ch, ch.F)) });
+  twPump();
+}
+// worker livre pega a versão rápida mais perto da câmera; só depois as nítidas
+function twPump() {
+  if (!TW.ok) { for (const j of TW.queue.splice(0)) twFallback(j); return; }
+  for (const w of TW.pool) {
+    if (w.job) continue;
+    let bi = -1, bs = Infinity;
+    for (let i = 0; i < TW.queue.length; i++) {
+      const j = TW.queue[i];
+      if (terrain.chunks.get(j.ch.ci + ',' + j.ch.cj) !== j.ch) { TW.queue.splice(i--, 1); continue; }   // bloco já descartado
+      const sc = (j.kind === 'q' ? 0 : 1e5) + Math.hypot(j.ch.ci * CH + 8 - cam.x, j.ch.cj * CH + 8 - cam.y);
+      if (sc < bs) { bs = sc; bi = i; }
+    }
+    if (bi < 0) return;
+    const j = TW.queue.splice(bi, 1)[0]; w.job = j; w.postMessage(j.msg);
+  }
+}
+function twDone(w, data) {
+  const j = w.job; w.job = null;
+  if (j) {
+    const ch = j.ch;
+    if (j.kind === 'q') { if (ch.q && !ch.done) { ch.q.g.putImageData(new ImageData(new Uint8ClampedArray(data.buf), QSZ, QSZ), 0, 0); ch.q.rows = true; } }
+    else { ch.img = new ImageData(new Uint8ClampedArray(data.buf), CSZ, CSZ); ch.g.putImageData(ch.img, 0, 0); ch.row = CSZ; ch.stage = 2; }
+  }
+  twPump();
+}
+// acabamento da versão rápida: marcas da rua, decalques e pisos/caminhos das casas, a 14 px/m
+function quickFinish(ch) {
+  const q = ch.q, g = q.g, ox = ch.ci * CH * QP - QPAD, oy = ch.cj * CH * QP - QPAD;
+  q.done = true;
+  try {
+    g.save(); g.setTransform(QP, 0, 0, QP, -ox, -oy); paintRoadVectors(ch, g);
+    const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
+    for (const d of world.decals || []) if (!(d.bb[0] > bx1 || d.bb[2] < bx0 || d.bb[1] > by1 || d.bb[3] < by0)) d.paint(g, d);
+    g.restore();
+    if (world.paintFloors) {
+      const x0 = ch.ci * CH, y0 = ch.cj * CH, near = houses.filter(H => H.x1 + 18 >= x0 && H.x0 - 18 <= x0 + CH && H.y1 + 18 >= y0 && H.y0 - 18 <= y0 + CH);
+      if (near.length) {
+        g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
+        const M = v => v * QP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
+        world.floorClip = [x0 - 1, y0 - 1, x0 + CH + 1, y0 + CH + 1];
+        try { for (const mode of ['walk', 'floor']) { world.floorSet = new Set(near); world.floorNoFences = true; world.floorMode = mode; world.paintFloors(g, M, rect); } }
+        finally { world.floorClip = null; world.floorSet = null; world.floorNoFences = false; world.floorMode = undefined; g.restore(); }
+      }
+    }
+  } catch (e) { console.warn('versão rápida do chão', e); }
+}
+
 // avança a pintura de um bloco dentro do orçamento de tempo
 function workChunk(ch, budgetMs) {
   const t0 = performance.now();
@@ -762,8 +874,14 @@ function workChunk(ch, budgetMs) {
 }
 function workChunkLoop(ch, budgetMs, t0) {
   while (!ch.done && performance.now() - t0 < budgetMs) {
-    if (ch.stage === 0) { chunkFields(ch); ch.stage = 1; }
-    else if (ch.stage === 1) { paintRows(ch, 16); if (ch.row >= CSZ) ch.stage = 2; }   // ~1,5 ms por fatia
+    if (ch.stage === 0) {
+      const useW = !world.terrainSync && twInit();
+      if (useW && !ch.q) twQuick(ch);
+      if (!chunkFields(ch, budgetMs - (performance.now() - t0))) return;
+      if (useW) { ch.stage = 'w'; twFull(ch); } else ch.stage = 1;
+    }
+    else if (ch.stage === 'w') return;   // pixels sendo pintados num worker
+    else if (ch.stage === 1) { if (!ch.img) ch.img = ch.g.createImageData(CSZ, CSZ); paintRows(ch, 16); if (ch.row >= CSZ) ch.stage = 2; }   // ~1,5 ms por fatia
     else { finishChunk(ch); }
   }
 }
@@ -782,18 +900,37 @@ function drawGround(g, W, H) {
   const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
   const ci0 = clamp(Math.floor((Math.min(...xs) - 1) / CH), 0, MAP / CH - 1), ci1 = clamp(Math.floor((Math.max(...xs) + 1) / CH), 0, MAP / CH - 1);
   const cj0 = clamp(Math.floor((Math.min(...ys) - 1) / CH), 0, MAP / CH - 1), cj1 = clamp(Math.floor((Math.max(...ys) + 1) / CH), 0, MAP / CH - 1);
-  const pending = [], need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3);
-  terrain.maxChunks = Math.max(24, need + 2);
-  for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
-    if (world.chunkReady && !terrain.chunks.has(ci + ',' + cj) && !world.chunkReady(ci, cj)) continue;   // setores vizinhos ainda carregando
+  const need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3), vis = [], ahead = [];
+  const want = (ci, cj, list) => {
+    if (world.chunkReady && !terrain.chunks.has(ci + ',' + cj) && !world.chunkReady(ci, cj)) return;   // setores vizinhos ainda carregando
     const ch = terrain.chunks.get(ci + ',' + cj) || startChunk(ci, cj);
     ch.used = terrain.frame;
-    if (!ch.done) pending.push(ch);
+    if (!ch.done) list.push(ch);
+  };
+  for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) want(ci, cj, vis);
+  // velocidade da câmera (suavizada; teleportes ignorados) p/ pintar antes o que vai entrar na tela
+  const now = performance.now(), lc = terrain.lastCam, vel = terrain.vel || (terrain.vel = [0, 0]);
+  if (lc) { const dt = Math.max(1, now - lc.t) / 1000, vx = (cam.x - lc.x) / dt, vy = (cam.y - lc.y) / dt; if (Math.hypot(vx, vy) < 90) { vel[0] += (vx - vel[0]) * 0.12; vel[1] += (vy - vel[1]) * 0.12; } }
+  terrain.lastCam = { x: cam.x, y: cam.y, t: now };
+  if (Math.hypot(vel[0], vel[1]) > 3) {
+    const dx = vel[0] * 1.3, dy = vel[1] * 1.3, C = v => clamp(v, 0, MAP / CH - 1);
+    const ai0 = C(Math.floor((Math.min(...xs) + dx - 1) / CH)), ai1 = C(Math.floor((Math.max(...xs) + dx + 1) / CH));
+    const aj0 = C(Math.floor((Math.min(...ys) + dy - 1) / CH)), aj1 = C(Math.floor((Math.max(...ys) + dy + 1) / CH));
+    for (let cj = aj0; cj <= aj1; cj++) for (let ci = ai0; ci <= ai1; ci++) if (ci < ci0 || ci > ci1 || cj < cj0 || cj > cj1) want(ci, cj, ahead);
   }
-  if (world.terrainSync) for (const ch of pending) workChunk(ch, 1e9);
-  else if (pending.length) {
-    pending.sort((a, b) => Math.hypot(a.ci * CH + 8 - cam.x, a.cj * CH + 8 - cam.y) - Math.hypot(b.ci * CH + 8 - cam.x, b.cj * CH + 8 - cam.y));
-    workChunk(pending[0], terrain.budget || 7);
+  terrain.maxChunks = Math.max(24, need * 2 + 2);
+  if (world.terrainSync) for (const ch of vis) workChunk(ch, 1e9);
+  else {
+    const t0 = performance.now(), dist = ch => Math.hypot(ch.ci * CH + 8 - cam.x, ch.cj * CH + 8 - cam.y);
+    // enquanto algum pedaço da tela não tem nem a versão rápida, o chão ganha mais tempo do quadro
+    const blank = vis.some(ch => !(ch.q && ch.q.done));
+    const B = blank ? Math.max(terrain.budget || 7, 9) : Math.max(terrain.budget || 7, 4), left = () => B - (performance.now() - t0);
+    vis.sort((a, b) => dist(a) - dist(b)); ahead.sort((a, b) => dist(a) - dist(b));
+    if (twInit()) for (const ch of [...vis, ...ahead]) { if (left() <= 0) break; if (!ch.q && ch.stage !== 2) twQuick(ch); }
+    for (const ch of vis) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
+    for (const ch of ahead) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
+    for (const ch of vis) { if (left() <= 0) break; workChunk(ch, left()); }
+    for (const ch of ahead) { if (left() <= 0) break; workChunk(ch, left()); }
   }
   // anel ao redor da vista: TODO ele conta como em uso (senão o cache o descarta e repinta sem fim);
   // quando nada visível está pendente, pré-pinta o primeiro bloco do anel que faltar
@@ -804,11 +941,13 @@ function drawGround(g, W, H) {
     if (ch) ch.used = terrain.frame;
     if (!ringTarget && (!ch || !ch.done) && (ch || !world.chunkReady || world.chunkReady(ci, cj))) ringTarget = ch || [ci, cj];
   }
-  if (!world.terrainSync && !pending.length && ringTarget)
+  if (!world.terrainSync && !vis.length && !ahead.length && ringTarget)
     workChunk(Array.isArray(ringTarget) ? startChunk(...ringTarget) : ringTarget, Math.min(4, terrain.budget || 4));
   for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
     const ch = terrain.chunks.get(ci + ',' + cj);
-    if (!ch || !ch.done) continue;
+    if (!ch) continue;
+    if (!ch.done) { if (ch.q && ch.q.done) { affine(QP, ci * CH - QPAD / QP, cj * CH - QPAD / QP); g.drawImage(ch.q.c, 0, 0); } continue; }
+    if (ch.q) ch.q = null;
     affine(TP, ci * CH - PAD / TP, cj * CH - PAD / TP);
     g.drawImage(ch.c, PAD - 1, PAD - 1, CPX + 2, CPX + 2, PAD - 1, PAD - 1, CPX + 2, CPX + 2);
   }
