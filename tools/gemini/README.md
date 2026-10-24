@@ -1,81 +1,60 @@
-# Nano Banana no City of God — geracao de assets
+# Nano Banana no City of God — geração das imagens do jogo
 
-Esta ferramenta opera fora do navegador e NUNCA embute a chave no JavaScript do jogo. A API e paga por uso: cada execucao gera, no maximo, **UMA imagem**, sem repeticao automatica. Utiliza o SDK oficial Google Gen AI (@google/genai) e, por padrao, o modelo gemini-nano-banana-2.1.
+Ferramenta fora do navegador: o jogo nunca carrega este código nem recebe a chave. A API é paga por imagem, então cada asset gera **uma única chamada**, sem repetição automática, com no máximo **8 imagens por execução**.
 
-## Primeira execucao pelo GitHub Actions
+## Como funciona
 
-1. Em GitHub > Settings > Secrets and variables > Actions, crie o segredo GEMINI_API_KEY com a chave do MESMO projeto do Google que recebeu creditos.
-2. Abra Actions > **Gemini Nano Banana - Generate game asset** > **Run workflow**.
-3. Selecione o tipo (character, prop, building), o nome, a descricao, a direcao e o modelo.
-4. Deixe **confirm_spend = false** na primeira execucao: e um TESTE GRATIS, sem chamada ao Gemini. Gera o prompt e o manifesto, mas nao imagem.
-5. Para gerar uma imagem de verdade, execute novamente com **confirm_spend = true**. Isso consome creditos.
-6. Ao terminar, abra a execucao > Artifacts > gemini-...-review e baixe o ZIP com asset.png, original, prompt.txt e manifest.json.
-7. Se marcar **create_pr = true**, o workflow tenta abrir um PR com os arquivos gerados, SEM alterar o jogo diretamente. A configuracao de Actions do repositorio precisa permitir criacao de PR por GitHub Actions. Caso contrario, use o ZIP para revisar.
+- `style.mjs`: a bíblia de estilo, repetida em todo prompt. Define o visual semi-realista de uma cidade ensolarada inspirada em Miami, a câmera do jogo (de cima, a 30°), a paleta de `js/visual-palette.js`, as regras técnicas de cada tipo de imagem e as proibições.
+- `catalog.mjs`: a lista de imagens que o jogo precisa, com descrição, escala real (metros por imagem), tamanho final e cores de cada uma.
+  - Chão: asfalto, calçada, gramado, mato, terra, areia, piso de praça, folhagem de cerca viva.
+  - Paredes: reboco, reboco gasto, bloco, tijolo.
+  - Telhados: barro, asfáltica, zinco, laje.
+  - Fachadas: escritório, condomínio, art déco.
+  - Vegetação: coqueiro, palmeira imperial, hibisco, cróton.
+- `prompts.mjs`: monta o prompt completo, valida as opções e estima o custo (tabela oficial de preços).
+- `postprocess.mjs`: deixa cada imagem pronta para o jogo, sem custo e no próprio computador.
+  - Texturas: tira as manchas grandes de luz e emenda as bordas, para repetir sem costura.
+  - Sprites: recorta o fundo magenta e tira o halo rosado.
+  - Por fim, reduz ao tamanho do jogo em WebP.
+- `generate-assets.mjs`: roda tudo e grava em `assets/generated/<execução>/<asset>/` os arquivos `original.png`, `asset.png` (processado), `<asset>.webp` (pronto para o jogo) e `prompt.txt`, mais um `summary.json` por execução.
 
-Nenhuma chamada paga ocorre durante push ou pull request: esses eventos rodam apenas testes gratuitos.
+Itens marcados com `tint` saem neutros e claros, e o jogo pinta por cima com as cores da paleta. Assim, uma textura de reboco serve para todas as casas.
 
-## Quando a imagem sai, mas o GitHub diz que falhou
+## Rodar pelo GitHub Actions (a chave fica no Secret `GEMINI_API_KEY`)
 
-Se o log mostrar **"GitHub Actions is not permitted to create or approve pull requests"**, a geração pode ter terminado corretamente. Abra a execução em **Actions**, desça até **Artifacts** e baixe o arquivo **gemini-<id>-review**. Extraia **asset.png**. Esse erro não exige outra geração nem outra cobrança.
+Teste grátis, que só gera os prompts:
 
-O PR é só uma conveniência, e não é necessário para baixar a imagem. O workflow agora não invalida uma imagem gerada com sucesso caso a abertura opcional de PR seja recusada. Ele mostra o caminho do ZIP e uma alternativa manual no resumo da execução.
+    gh workflow run gemini-assets.yml -f assets=ground-asphalt,ground-lawn -f confirm_spend=false
 
-Para permitir PRs automáticos: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**, caso sua conta permita alterar essa opção. Se estiver desabilitada ou bloqueada, deixe **create_pr = false**, pois o PNG continuará disponível no ZIP.
+Geração paga:
 
-## Como usar uma imagem de referencia
+    gh workflow run gemini-assets.yml -f assets=ground-asphalt,ground-lawn -f size=2K -f confirm_spend=true
 
-Suba sua imagem PNG/JPG/WebP para a pasta **assets/references/** do repositorio.
+Referências de estilo (até 3, já commitadas em `assets/references/`) e pedido extra:
 
-Exemplo: assets/references/morador-urbano.png
+    gh workflow run gemini-assets.yml -f assets=roof-clay -f references=assets/references/miami-1.png -f details="telhas mais desbotadas" -f confirm_spend=true
 
-No campo reference_path do workflow, informe esse caminho exato. O script aceita SOMENTE caminhos dentro da pasta, imagem de no maximo 10 MB. Nao e possivel passar links externos.
+Baixar o resultado:
 
-## Como rodar localmente
+    gh run list --workflow gemini-assets.yml --limit 3
+    gh run download <id> -n gemini-<id>
 
-Precisa de Node.js 22 ou superior. No terminal, dentro da pasta do projeto:
+Também dá para rodar pela página **Actions > Gemini Nano Banana - Gerar imagens do jogo > Run workflow**.
+
+## Custo (Nano Banana 2.1, tabela oficial de out/2026)
+
+| Resolução | Preço por imagem |
+| --- | --- |
+| 1K | US$ 0,034 |
+| 2K | US$ 0,050 |
+
+O teste grátis mostra a estimativa antes de gastar. Uma rodada com o catálogo inteiro (23 imagens) em 2K custa cerca de US$ 1,16.
+
+## Rodar localmente
+
+Precisa do Node.js 22 ou superior. A chave fica numa variável de ambiente e nunca no código.
 
     cd tools/gemini
     npm install
     npm test
-
-No PowerShell, defina a chave como variavel de ambiente NA SUA SESSAO (nao dentro do codigo):
-
-    $env:GEMINI_API_KEY="SUA_CHAVE"
-
-Teste gratuito, sem uso da chave:
-
-    node generate-assets.mjs --type character --name morador-urbano --direction front-left --dry-run true
-
-Geracao paga com referencia:
-
-    node generate-assets.mjs --type character --name morador-urbano --direction front-left --reference assets/references/morador-urbano.png --size 1K --ratio 1:1
-
-Opcoes opcionais:
-- --details "personagem urbano com roupa e postura natural"
-- --model gemini-3.1-flash-image
-- --cutout true (opcional, exige fundo verde de chroma key)
-
-## Saidas
-
-    assets/
-      references/
-        morador-urbano.png
-      generated/
-        character/
-          morador-urbano-<id-da-execucao>/
-            asset.png
-            original.png (ou original.jpg/webp)
-            prompt.txt
-            manifest.json
-
-As imagens geradas sao propostas de arte. A revisao e a integracao ao renderer Canvas 2D devem acontecer APOS aprovar o visual. O script NAO substitui a geometria Canvas automaticamente.
-
-## Custo e seguranca
-
-- A cobranca ocorre na conta Google vinculada a chave quando confirm_spend = true, ou ao rodar localmente sem --dry-run.
-- Padrao 1K, uma chamada, sem lotes nem retries.
-- Se pedir cutout, a geracao solicita fundo verde e o script tenta remover o verde. Se as bordas nao forem verdes o suficiente, o processo falha de forma segura.
-- Configure um limite de gastos em https://aistudio.google.com/spend
-- Consulte precos oficiais em https://ai.google.dev/gemini-api/docs/pricing
-- Nunca compartilhe a chave, inclua em commits ou coloque a chave no JavaScript executado pelo navegador.
-- A chave continua guardada apenas como GitHub Actions Secret; o script nao grava nem exibe sua chave.
+    node generate-assets.mjs --assets ground-asphalt --dry-run true

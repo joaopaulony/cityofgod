@@ -1,0 +1,127 @@
+name: Gemini Nano Banana - Gerar imagens do jogo
+on:
+  pull_request:
+    paths:
+      - 'tools/gemini/**'
+      - '.github/workflows/gemini-assets.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/gemini/**'
+      - '.github/workflows/gemini-assets.yml'
+  workflow_dispatch:
+    inputs:
+      assets:
+        description: 'IDs do catálogo (tools/gemini/catalog.mjs), separados por vírgula; máximo 8'
+        required: true
+        default: ground-asphalt
+        type: string
+      size:
+        description: 'Resolução gerada (2K = mais nítido, o jogo reduz depois)'
+        required: true
+        type: choice
+        options: ['2K', '1K']
+        default: '2K'
+      model:
+        description: 'Modelo (preço por imagem na tabela de tools/gemini/prompts.mjs)'
+        required: true
+        type: choice
+        options: [gemini-nano-banana-2.1, gemini-3.1-flash-image, gemini-3-pro-image, gemini-3.1-flash-lite-image]
+        default: gemini-nano-banana-2.1
+      references:
+        description: 'Opcional: até 3 referências de estilo em assets/references/, separadas por vírgula'
+        required: false
+        type: string
+      details:
+        description: 'Opcional: pedido extra do diretor de arte (vale para todas as imagens desta execução)'
+        required: false
+        type: string
+      confirm_spend:
+        description: 'Cobrar créditos? Desligado = teste GRÁTIS, só gera os prompts'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gemini-assets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Testes grátis (sem chamada ao Gemini)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependências do gerador
+        working-directory: tools/gemini
+        run: npm install --no-audit --no-fund
+      - name: Testes de prompts, recorte, emenda e segurança
+        working-directory: tools/gemini
+        run: npm test
+
+  generate:
+    name: Gerar imagens (uma chamada por imagem, sem repetição)
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependências do gerador
+        working-directory: tools/gemini
+        run: npm install --no-audit --no-fund
+      - name: Conferir a chave antes de gastar
+        if: inputs.confirm_spend
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::Secret GEMINI_API_KEY não encontrado (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+      - name: Gerar (ou teste grátis)
+        working-directory: tools/gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ASSETS: ${{ inputs.assets }}
+          IMAGE_SIZE: ${{ inputs.size }}
+          GEMINI_MODEL: ${{ inputs.model }}
+          REFERENCE_PATHS: ${{ inputs.references }}
+          ASSET_DETAILS: ${{ inputs.details }}
+          DRY_RUN: ${{ !inputs.confirm_spend }}
+        run: npm run generate
+      - name: Enviar imagens para revisão
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-${{ github.run_id }}
+          path: assets/generated/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Resumo
+        if: always()
+        shell: bash
+        env:
+          ASSETS: ${{ inputs.assets }}
+          MODEL: ${{ inputs.model }}
+          SIZE: ${{ inputs.size }}
+          PAID: ${{ inputs.confirm_spend }}
+        run: |
+          {
+            if [ "$PAID" = "true" ]; then echo "## Gemini — imagens geradas"; else echo "## Gemini — teste grátis (só prompts)"; fi
+            echo "Assets: \`$ASSETS\` · $MODEL $SIZE"
+            echo ""
+            echo "Baixe o artifact **gemini-${GITHUB_RUN_ID}** (original.png, asset.png processado, .webp do jogo, prompt.txt, summary.json)."
+            echo "Pelo terminal: \`gh run download ${GITHUB_RUN_ID} -n gemini-${GITHUB_RUN_ID}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

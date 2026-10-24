@@ -1,70 +1,69 @@
-// Image prompts deliberately describe one original, coherent game asset.
-// No prompts imply a perfect sprite sheet or counterfeit licensed source.
-export const assetTypes = Object.freeze(['character', 'prop', 'building']);
-export const directions = Object.freeze([
-  'front-left', 'front-right', 'rear-left', 'rear-right',
-  'front', 'rear', 'left', 'right'
-]);
-export const models = Object.freeze([
-  'gemini-nano-banana-2.1',
-  'gemini-3.1-flash-image',
-  'gemini-3.1-flash-lite-image'
-]);
+// Monta o prompt completo de um item do catálogo e valida as opções de uma execução.
+import { STYLE_BIBLE, PALETTE, KIND_RULES, NEGATIVE, REFERENCE_NOTE } from './style.mjs';
+import { CATALOG, byId } from './catalog.mjs';
+
+export const models = Object.freeze(['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3-pro-image', 'gemini-3.1-flash-lite-image']);
 export const imageSizes = Object.freeze(['1K', '2K']);
 export const ratios = Object.freeze(['1:1', '4:3', '3:4', '16:9']);
+export const MAX_PER_RUN = 8;      // teto duro de imagens (e chamadas pagas) por execução
+export const MAX_REFS = 3;         // referências de estilo por imagem
+
+// US$ por imagem (tabela oficial do Gemini API, out/2026); só p/ estimar o gasto antes de rodar
+export const PRICE_USD = {
+  'gemini-nano-banana-2.1': { '1K': 0.0336, '2K': 0.0504 },
+  'gemini-3.1-flash-image': { '1K': 0.067, '2K': 0.101 },
+  'gemini-3-pro-image': { '1K': 0.134, '2K': 0.134 },
+  'gemini-3.1-flash-lite-image': { '1K': 0.0336, '2K': 0.0336 },
+};
+export const estimateUSD = (model, size, n) => +(PRICE_USD[model][size] * n).toFixed(4);
 
 export function slug(value) {
   return String(value ?? '')
-    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '').slice(0, 56) || 'asset';
 }
 
-export function validate(options) {
-  if (!assetTypes.includes(options.type)) throw Error('Tipo invalido: character, prop ou building');
-  if (!directions.includes(options.direction)) throw Error('Direcao invalida');
-  if (!models.includes(options.model)) throw Error('Modelo do Gemini nao permitido');
-  if (!imageSizes.includes(options.size)) throw Error('Tamanho nao permitido');
-  if (!ratios.includes(options.ratio)) throw Error('Aspect ratio nao permitido');
-  if (!String(options.name || '').trim() || String(options.name).length > 90) {
-    throw Error('Informe nome de 1 a 90 caracteres');
-  }
-  if (String(options.details || '').length > 1800) throw Error('Detalhes longos demais (maximo 1800 caracteres)');
+export function parseAssets(list) {
+  const ids = String(list || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  if (!ids.length) throw Error('Informe ao menos um asset do catálogo (ex.: ground-asphalt)');
+  if (new Set(ids).size !== ids.length) throw Error('Asset repetido na lista');
+  if (ids.length > MAX_PER_RUN) throw Error(`No máximo ${MAX_PER_RUN} imagens por execução`);
+  for (const id of ids) if (!byId(id)) throw Error('Asset fora do catálogo: ' + id);
+  return ids;
 }
 
-const directionsText = {
-  'front-left': 'three-quarter front-left perspective; front bumper and the left side clearly visible',
-  'front-right': 'three-quarter front-right perspective; front bumper and the right side clearly visible',
-  'rear-left': 'three-quarter rear-left perspective; rear bumper and the left side clearly visible',
-  'rear-right': 'three-quarter rear-right perspective; rear bumper and the right side clearly visible',
-  front: 'front-facing subject view, camera elevated consistently',
-  rear: 'rear-facing subject view, camera elevated consistently',
-  left: 'left profile view of subject, consistent elevated camera',
-  right: 'right profile view of subject, consistent elevated camera'
-};
+export function validate(o) {
+  parseAssets(o.assets);
+  if (!models.includes(o.model)) throw Error('Modelo do Gemini não permitido');
+  if (!imageSizes.includes(o.size)) throw Error('Tamanho não permitido (1K ou 2K)');
+  if (String(o.details || '').length > 1200) throw Error('Detalhes longos demais (máximo 1200 caracteres)');
+  if ((o.references || []).length > MAX_REFS) throw Error(`No máximo ${MAX_REFS} referências`);
+}
 
-const specifics = {
-  character: 'Produce exactly one full-body adult character, with coherent human anatomy, expressive face, clothing folds, both hands and both legs, stable feet planted on the ground; silhouette easy to read at in-game scale. No cropped limbs.',
-  prop: 'Produce exactly one realistic urban-world prop with believable texture, construction details and contact shadow, faithfully matching any supplied reference. Small object, clearly readable in an isometric game.',
-  building: 'Produce one complete urban building with coherent roof geometry, realistic windows and doors, foundation and architecture consistent with a lived-in town. No detached facade pieces.'
-};
+const scaleLine = a => a.kind === 'sprite'
+  ? `SCALE: the subject is about ${a.meters} m tall in the real world; keep believable real-world proportions.`
+  : a.kind === 'facade'
+    ? `SCALE: the image shows exactly ${a.meters} m of facade width; keep real-world proportions of glass, frames and slabs.`
+    : `SCALE: the whole image covers exactly ${a.meters} × ${a.meters} m of real surface; size every detail accordingly (do not make stones, blades, leaves or tiles oversized).`;
 
-export function buildPrompt(o) {
-  validate(o);
-  const backdrop = o.cutout
-    ? 'Background MUST be a perfectly uniform solid chroma key green #00FF00 (RGB 0,255,0), absolutely no shadows or green reflections on the background. The subject must NOT contain green materials. The green area must cover the four edges completely.'
-    : 'Use a plain neutral medium-gray studio background, visually separated from the subject; subtle natural contact shadow allowed.';
+export function buildPrompt(a, o = {}) {
+  if (typeof a === 'string') a = byId(a);
+  if (!a) throw Error('Asset desconhecido');
+  const colors = (a.colors || []).map(k => `${k} ${PALETTE[k]}`).join(', ');
   return [
-    'CITY OF GOD / ORIGINAL ISOMETRIC GAME ASSET / one image.',
-    'Art direction: high-end 2D isometric urban survival game art, believable 1990s street-scale realism; precise crisp contour work; richly shaded panels and physically correct materials; stylized hand-painted texture (NOT voxel blocks, NOT wireframe, NOT cheap procedural cuboids).',
-    'Camera: elevated approximately 35 degrees, orthographic/no perspective vanishing points. Orientation: ' + directionsText[o.direction] + '.',
-    'Asset: ' + o.name + '.',
-    specifics[o.type],
-    'Consistent scale and lighting: soft daylight coming from upper-left. Shadows must correspond to the geometry.',
-    'Full silhouette visible, padding around whole subject. One single view, not a collage or sprite sheet.',
-    backdrop,
-    'No typography, watermarks, captions, labels, game menus, UI, people in background or extra objects.',
-    o.details ? 'CUSTOM REQUIREMENTS: ' + o.details : '',
-    'Any supplied image is visual reference; preserve its distinguishing geometry, colors and styling rather than inventing a generic replacement.'
+    `CITY OF GOD — GAME ASSET "${a.id}" (${a.title}). Generate exactly ONE image.`,
+    STYLE_BIBLE,
+    ...KIND_RULES[a.kind],
+    'SUBJECT: ' + a.desc,
+    scaleLine(a),
+    colors ? `PALETTE ANCHORS (stay close to these, natural variation allowed): ${colors}.` : '',
+    a.tint ? 'COLOR NOTE: keep the material NEUTRAL and light (almost unsaturated) so the game can tint it; all the detail must live in the light and shade of the surface, not in the hue.' : '',
+    o.details ? 'EXTRA REQUIREMENTS FROM THE ART DIRECTOR: ' + o.details : '',
+    o.hasRefs ? REFERENCE_NOTE : '',
+    NEGATIVE,
+    'QUALITY BAR: flawless professional game-ready asset, sharp fine detail at full resolution, no blur, no smudges, no AI artifacts, no repeated stamp patterns, no melted or nonsensical shapes.',
   ].filter(Boolean).join('\n');
 }
+
+export { CATALOG };

@@ -1,0 +1,103 @@
+// Pós-processamento local (grátis): deixa cada imagem do Gemini pronta para o jogo.
+//   texturas/paredes/telhados: tira manchas grandes de luz + emenda as bordas (repete sem costura)
+//   fachadas: só emenda as bordas
+//   sprites: recorta o fundo magenta, limpa o halo rosado e corta a sobra
+// As funções puras trabalham em RGBA cru (Uint8Array), testáveis sem o sharp.
+
+const clamp8 = v => v < 0 ? 0 : v > 255 ? 255 : v;
+const smooth = (a, b, t) => { const x = Math.min(1, Math.max(0, (t - a) / (b - a))); return x * x * (3 - 2 * x); };
+
+// iluminação uniforme: divide cada pixel pela média local (grade 12×12 suavizada, amostrada com interpolação bilinear)
+export function flattenLighting(px, w, h, strength = 0.8) {
+  const G = 12, cell = [];
+  const mean = [0, 0, 0];
+  for (let gy = 0; gy < G; gy++) for (let gx = 0; gx < G; gx++) {
+    const x0 = (gx * w / G) | 0, x1 = ((gx + 1) * w / G) | 0, y0 = (gy * h / G) | 0, y1 = ((gy + 1) * h / G) | 0, s = [0, 0, 0];
+    let n = 0;
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const i = (y * w + x) * 4; s[0] += px[i]; s[1] += px[i + 1]; s[2] += px[i + 2]; n++; }
+    cell.push(s.map(v => v / n));
+  }
+  // suaviza a grade (vizinhos com volta nas bordas, porque a textura repete)
+  const sm = cell.map((_, k) => { const gx = k % G, gy = (k / G) | 0, o = [0, 0, 0];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = cell[((gy + dy + G) % G) * G + (gx + dx + G) % G]; for (let j = 0; j < 3; j++) o[j] += c[j] / 9; }
+    return o; });
+  for (const c of sm) for (let j = 0; j < 3; j++) mean[j] += c[j] / sm.length;
+  const out = new Uint8Array(px);
+  for (let y = 0; y < h; y++) {
+    const fy = y / h * G - 0.5, gy0 = Math.floor(fy), ty = fy - gy0;
+    for (let x = 0; x < w; x++) {
+      const fx = x / w * G - 0.5, gx0 = Math.floor(fx), tx = fx - gx0, i = (y * w + x) * 4;
+      const at = (gx, gy) => sm[((gy + G) % G) * G + (gx + G) % G];
+      const a = at(gx0, gy0), b = at(gx0 + 1, gy0), c = at(gx0, gy0 + 1), d = at(gx0 + 1, gy0 + 1);
+      for (let j = 0; j < 3; j++) {
+        const local = (a[j] * (1 - tx) + b[j] * tx) * (1 - ty) + (c[j] * (1 - tx) + d[j] * tx) * ty;
+        const k = local > 1 ? mean[j] / local : 1;
+        out[i + j] = clamp8(px[i + j] * (1 + (k - 1) * strength));
+      }
+    }
+  }
+  return out;
+}
+
+// repete sem costura: mistura a imagem com ela mesma deslocada meia volta; perto das bordas vale a deslocada
+// (que já fecha a volta), no miolo vale a original (que esconde a costura da deslocada)
+export function makeSeamless(px, w, h, { x = true, y = true } = {}) {
+  const out = new Uint8Array(px.length), hw = w >> 1, hh = h >> 1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const dx = x ? Math.min(i, w - 1 - i) / hw : 1, dy = y ? Math.min(j, h - 1 - j) / hh : 1;
+    const m = smooth(0.15, 0.6, Math.min(dx, dy));
+    const si = x ? (i + hw) % w : i, sj = y ? (j + hh) % h : j, a = (j * w + i) * 4, b = (sj * w + si) * 4;
+    for (let c = 0; c < 4; c++) out[a + c] = Math.round(px[a + c] * m + px[b + c] * (1 - m));
+  }
+  return out;
+}
+
+// recorte do fundo magenta #FF00FF com borda suave e sem halo rosa; devolve também a caixa do conteúdo
+export function magentaCutout(px, w, h) {
+  const out = new Uint8Array(px), key = (r, g, b) => Math.min(r, b) - g;   // >0: puxa p/ magenta
+  let edge = 0, n = 0;
+  for (let i = 0; i < w; i += 4) for (const j of [0, h - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
+  for (let j = 0; j < h; j += 4) for (const i of [0, w - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
+  if (edge / n < 0.6) throw Error('Recorte cancelado: as bordas não são magenta uniforme; a imagem precisa ser refeita');
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const k = (j * w + i) * 4, r = px[k], g = px[k + 1], b = px[k + 2], m = key(r, g, b);
+    const alpha = 1 - smooth(40, 120, m);
+    if (alpha < 1 && alpha > 0) {   // borda: tira o rosa que vazou (puxa R e B p/ perto do G)
+      const lim = g + (Math.max(r, b) - g) * alpha;
+      out[k] = Math.min(r, lim); out[k + 2] = Math.min(b, lim);
+    }
+    out[k + 3] = Math.round(px[k + 3] * alpha);
+    if (out[k + 3] === 0) { out[k] = out[k + 1] = out[k + 2] = 0; }
+    else if (out[k + 3] > 16) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+  }
+  if (x1 < 0) throw Error('Recorte cancelado: nada sobrou depois de tirar o fundo');
+  return { px: out, box: [x0, y0, x1, y1] };
+}
+
+// original (PNG/JPEG/WebP) -> { full: PNG processado, game: WebP no tamanho do jogo, info }
+export async function processAsset(bytes, asset) {
+  const { default: sharp } = await import('sharp');
+  const meta = await sharp(bytes).metadata();
+  if (!meta.width || !meta.height || meta.width < 256 || meta.height < 256 || meta.width > 8192 || meta.height > 8192) throw Error('Imagem gerada com dimensões inválidas');
+  const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const w = info.width, h = info.height;
+  let px = new Uint8Array(data.buffer, data.byteOffset, data.length), crop = null;
+  const steps = [];
+  if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') {
+    px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
+    px = makeSeamless(px, w, h); steps.push('seamless');
+  } else if (asset.kind === 'facade') {
+    px = makeSeamless(px, w, h); steps.push('seamless');
+  } else if (asset.kind === 'sprite') {
+    const r = magentaCutout(px, w, h); px = r.px; steps.push('cutout');
+    const pad = 6, [x0, y0, x1, y1] = r.box;
+    crop = { left: Math.max(0, x0 - pad), top: Math.max(0, y0 - pad) }; crop.width = Math.min(w, x1 + pad + 1) - crop.left; crop.height = Math.min(h, y1 + pad + 1) - crop.top;
+  }
+  let img = sharp(Buffer.from(px.buffer, px.byteOffset, px.length), { raw: { width: w, height: h, channels: 4 } });
+  if (crop) img = img.extract(crop);
+  const full = await img.png().toBuffer();
+  const game = await sharp(full).resize({ width: asset.game, height: asset.game, fit: 'inside', kernel: 'lanczos3' }).webp({ quality: 90, alphaQuality: 95 }).toBuffer();
+  const gm = await sharp(game).metadata();
+  return { full, game, info: { width: w, height: h, format: meta.format, steps, gameWidth: gm.width, gameHeight: gm.height, gameBytes: game.length } };
+}

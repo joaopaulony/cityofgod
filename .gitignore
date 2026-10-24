@@ -5,4 +5,5 @@
 **/node_modules/
 .DS_Store
 npm-debug.log*
-# assets/generated NAO ignorado: PRs podem conter imagens aprovaveis
+# saida do gerador Gemini (tools/gemini): revisar e copiar as aprovadas p/ assets/textures/
+assets/generated/
