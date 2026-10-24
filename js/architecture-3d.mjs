@@ -57,8 +57,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    cursor=v;
   }
   box(cursor,L,0,h,.18,color,'wall');
-  box(0,L,0,.11,.205,cut?'#b9ac96':'#b7ab94','trim');
-  if(style.stone){let start=0;for(const o of w.openings.filter(o=>o.kind==='door')){box(start,o.at-o.width/2,0,Math.min(h,.55),.215,'#e8e1d3','stone');start=o.at+o.width/2;}box(start,L,0,Math.min(h,.55),.215,'#e8e1d3','stone');}
+  // rodapé contínuo, mas aberto no vão do portão da garagem
+  {let start=0;for(const o of w.openings.filter(o=>o.kind==='garage')){box(start,o.at-o.width/2,0,.11,.205,cut?'#b9ac96':'#b7ab94','trim');start=o.at+o.width/2;}box(start,L,0,.11,.205,cut?'#b9ac96':'#b7ab94','trim');}
+  if(style.stone){let start=0;for(const o of w.openings.filter(o=>o.kind==='door'||o.kind==='garage')){box(start,o.at-o.width/2,0,Math.min(h,.55),.215,'#e8e1d3','stone');start=o.at+o.width/2;}box(start,L,0,Math.min(h,.55),.215,'#e8e1d3','stone');}
   if(!cut){box(0,L,h-.10,h,.24,'#f0e9da','trim');}
   if(!cut&&style.rural)for(let y=.25;y<h-.15;y+=.26)box(0,L,y,y+.018,.192,'#b9a68b','trim');
  }
@@ -112,17 +113,63 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    for(const xx of [cx-.33,cx+.33]){k.cyl(xx,z+.73,cy,.23,z+.76,'#35403e',16,undefined,'metal');for(let d=-.16;d<=.16;d+=.08)k.box(xx+d-.012,z+.76,cy-.18,xx+d+.012,z+.78,cy+.18,'#adb3ae',0,'metal');}
   }
  }
- function roofWing(k,r,z,color,flat=false,gabled=false){
+ function roofWing(k,r,z,color,flat=false,gabled=false,gableColor='#e1d7c4'){
   const x0=r.x0-.16,x1=r.x1+.16,y0=r.y0-.16,y1=r.y1+.16;
   if(flat){k.box(x0,z,y0,x1,z+.14,y1,'#c7c8bf',0,'concrete');for(const [a,b] of [[[x0,y0],[x1,y0]],[[x1,y0],[x1,y1]],[[x1,y1],[x0,y1]],[[x0,y1],[x0,y0]]]){span(k,a,b,z+.12,z+.40,.15,'#d7d1c4','wall');span(k,a,b,z+.40,z+.45,.22,'#e8e2d6','concrete');}return;}
   const w=x1-x0,d=y1-y0,rise=Math.min(1.65,Math.min(w,d)*.4),inset=Math.min(w,d)*.45,along=w>=d;
   const end=gabled?0:inset,A=[x0,z,y0],B=[x1,z,y0],C=[x1,z,y1],D=[x0,z,y1],P=along?[x0+end,z+rise,(y0+y1)/2]:[(x0+x1)/2,z+rise,y0+end],Q=along?[x1-end,z+rise,(y0+y1)/2]:[(x0+x1)/2,z+rise,y1-end];
-  for(const face of along?[[A,B,Q,P],[B,C,Q],[C,D,P,Q],[D,A,P]]:[[A,B,P],[B,C,Q,P],[C,D,Q],[D,A,P,Q]])quad(k,face,gabled&&face.length===3?'#e1d7c4':color,gabled&&face.length===3?'wall':'roof',1.5);
+  for(const face of along?[[A,B,Q,P],[B,C,Q],[C,D,P,Q],[D,A,P]]:[[A,B,P],[B,C,Q,P],[C,D,Q],[D,A,P,Q]])quad(k,face,gabled&&face.length===3?gableColor:color,gabled&&face.length===3?'wall':'roof',1.5);
   for(const [a,b] of [[[x0,y0],[x1,y0]],[[x1,y0],[x1,y1]],[[x1,y1],[x0,y1]],[[x0,y1],[x0,y0]]])span(k,a,b,z-.07,z+.03,.11,'#e8dfcd','trim');
   // Fascia, soffit and gutters finish every eave; downpipes meet the ground.
   k.box(x0,z-.10,y0,x1,z-.075,y1,'#e1d9c8',0,'wood');
   for(const y of [y0,y1]){k.cylX(x0,x1,z-.015,y,.045,'#acb1a9',8,'metal');k.cyl(x0+.06,.08,y,.034,z,'#c4c8bd',8,undefined,'metal');}
   const ridge=new THREE.CylinderGeometry(.065,.065,Math.hypot(Q[0]-P[0],Q[2]-P[2])+.05,8);ridge.rotateZ(Math.PI/2);if(!along)ridge.rotateY(Math.PI/2);ridge.translate((P[0]+Q[0])/2,z+rise+.025,(P[2]+Q[2])/2);k.raw(ridge,color,'roof');
+ }
+ // Garagem anexa (garages.js): ala do mesmo plano, com as mesmas paredes, rodapé, frisos, venezianas e grade da
+ // casa, telhado de duas águas com a empena virada p/ a rua (calha, testeira e cumeeira iguais), portão
+ // basculante seccionado, arandelas, e por dentro estante, bancada de ferramentas e luminária.
+ function buildGarage(wk,rk,e,H,base,accent,flat){
+  const g=H.garage,A=H.architecture,{x0,x1,y0,y1,h,cu}=g,dw=g.doorW,dh=g.doorH,mansion=A.kind==='mansion',outerL=g.side==='L';
+  const style={shutters:H.style?.shutters,bars:H.style?.bars,stone:mansion};
+  const front={a:[x0,y1],b:[x1,y1],normal:[0,1],ext:true,openings:[{kind:'garage',at:cu-x0,width:dw,height:dh}]};
+  const back={a:[x1,y0],b:[x0,y0],normal:[0,-1],ext:true,openings:[]};
+  const outer=outerL?{a:[x0,y0],b:[x0,y1],normal:[-1,0],ext:true,openings:[{kind:'window',at:(y1-y0)*.5,width:.95,sill:1.3,height:.7}]}
+   :{a:[x1,y1],b:[x1,y0],normal:[1,0],ext:true,openings:[{kind:'window',at:(y1-y0)*.5,width:.95,sill:1.3,height:.7}]};
+  const inner=outerL?{a:[x1,y1],b:[x1,y0],normal:[1,0],ext:true,openings:[]}:{a:[x0,y0],b:[x0,y1],normal:[-1,0],ext:true,openings:[]};
+  for(const w of [front,back,outer,inner])buildWall(wk,w,0,h,base,false,null,e.glass,style,e.windows);
+  // soleira de concreto rente ao portão e friso de topo como o da casa
+  wk.box(cu-dw/2-.05,-.02,y1-.12,cu+dw/2+.05,.03,y1+.16,'#c9c3b6',0,'concrete');
+  // telhado: duas águas, empena (na cor da casa) sobre o portão; laje com platibanda quando a casa é de laje
+  roofWing(rk,{x0,y0,x1,y1},h,H.style?.roofCol||'#ae7153',flat,true,base);
+  // arandelas dos dois lados do portão (vidro acende à noite junto com as janelas)
+  for(const sx of [cu-dw/2-.38,cu+dw/2+.38]){wk.box(sx-.08,1.95,y1+.09,sx+.08,2.25,y1+.13,'#2f3336',.01,'metal');wk.box(sx-.06,1.98,y1+.13,sx+.06,2.2,y1+.21,'#f3dfb0',.01,'glass');wk.box(sx-.08,2.2,y1+.09,sx+.08,2.25,y1+.23,'#2f3336',0,'metal');}
+  // número da casa
+  wk.box(cu+dw/2+.2,1.5,y1+.09,cu+dw/2+.55,1.62,y1+.11,'#e9e3d4',0,'trim');
+  // dentro: estante de aço com caixas, bancada com ferramentas, luminária tubular, régua de tomadas
+  const ix0=x0+.18,ix1=x1-.18,iy0=y0+.18;
+  const sx0=outerL?ix0:ix1-.48,sx1=sx0+.48;
+  for(const yy of [.02,.62,1.22,1.82])wk.box(sx0,yy,iy0+.4,sx1,yy+.035,iy0+2.2,'#7f868c',0,'metal');
+  for(const xx of [sx0,sx1-.04])for(const zz of [iy0+.4,iy0+2.16])wk.box(xx,0,zz,xx+.04,1.9,zz+.04,'#5f666b',0,'metal');
+  const R=(q=>()=>(q=(q*16807)%2147483647)/2147483647)(Math.abs(H.seed|0)%2147483646+1);
+  for(const yy of [.055,.655,1.255])for(let zz=iy0+.5;zz<iy0+2.05;zz+=.42)if(R()<.8){const bh=.2+R()*.3;wk.box(sx0+.04,yy,zz,sx1-.04,yy+bh,zz+.34,['#b58b5c','#a67c4f','#c39b6b','#3c6fa8','#c23b33'][(R()*5)|0],.006,'wood');}
+  const bx0=outerL?ix1-.6:ix0,bx1=bx0+.6;
+  wk.box(bx0,.88,y0+.25,bx1,.93,y0+1.95,'#8a6748',.008,'wood');for(const zz of [y0+.3,y0+1.85])for(const xx of [bx0+.04,bx1-.08])wk.box(xx,0,zz,xx+.04,.88,zz+.04,'#4b5156',0,'metal');
+  wk.box(outerL?ix1-.03:ix0,1.1,y0+.25,outerL?ix1:ix0+.03,1.9,y0+1.95,'#c9b38f',0,'wood');   // painel perfurado de ferramentas
+  for(let zz=y0+.4;zz<y0+1.9;zz+=.28)wk.box(outerL?ix1-.07:ix0+.03,1.3+R()*.35,zz,outerL?ix1-.03:ix0+.07,1.55+R()*.2,zz+.05,'#3a3f44',0,'metal');
+  wk.box(cu-.6,h-.12,(y0+y1)/2-.06,cu+.6,h-.06,(y0+y1)/2+.06,'#f4f1e8',0,'glass');
+  // portão: quatro seções com almofadas em relevo; a de cima com visores em algumas casas; pivô no alto (basculante)
+  const door=new THREE.Group();door.position.set(cu,dh,y1-.05);
+  const dk=Kit(),col=A.palette%3===0?accent:'#f1ede4',secs=4,sh=dh/secs,cols=Math.max(4,Math.round(dw/.62)),pw=dw/cols,lites=(H.seed>>3)%2===0;
+  for(let i=0;i<secs;i++){const yb=-dh+i*sh;
+   dk.box(-dw/2,yb+.006,-.025,dw/2,yb+sh-.006,.018,col,.006,'trim');
+   for(let c=0;c<cols;c++){const xa=-dw/2+c*pw+.06,xb2=-dw/2+(c+1)*pw-.06;
+    if(i===secs-1&&lites)dk.box(xa,yb+.1,.012,xb2,yb+sh-.1,.024,'#a9c2cb',0,'glass');
+    else dk.box(xa,yb+.09,.018,xb2,yb+sh-.09,.03,col,.01,'trim');}
+  }
+  dk.box(-dw/2,-dh,-.03,dw/2,-dh+.04,.03,'#26292b',0,'metal');
+  dk.box(-.18,-dh+.32,.018,.18,-dh+.36,.05,'#9aa0a3',.008,'metal');
+  for(const sx of [-dw/2-.03,dw/2-.012])dk.box(sx,-dh,-.4,sx+.042,0,-.03,'#8c9296',0,'metal');
+  groups(dk,door);e.exterior.add(door);e.garageDoor={object:door,g};
  }
  function wings(level){const hall=level.rooms.find(r=>r.id==='hall'),left=level.rooms.filter(r=>r.x1<=hall.x0+.01),right=level.rooms.filter(r=>r.x0>=hall.x1-.01);return[left,right,[hall]].map(list=>({x0:Math.min(...list.map(r=>r.x0)),y0:Math.min(...list.map(r=>r.y0)),x1:Math.max(...list.map(r=>r.x1)),y1:Math.max(...list.map(r=>r.y1))}));}
  function sign(H,e){
@@ -153,6 +200,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const [i,r] of wings(last).entries())roofWing(roofKit,r,A.levels.length*A.floorHeight,H.style?.roofCol||'#ae7153',flat||i===2||A.family==='garden-wing'&&i===1&&A.kind!=='warehouse',A.family==='cross-gable'||A.kind==='warehouse');
   if(A.kind==='deco'){const r=last.rooms.find(r=>r.id==='front-left'),cx=(r.x0+r.x1)/2,z=A.levels.length*A.floorHeight;for(let i=0;i<3;i++)roofKit.box(cx-1.4+i*.3,z+.2,r.y1-.1,cx+1.4-i*.3,z+.55+i*.26,r.y1+.08,i===2?accent:base,0,'trim');}
   roofServices(roofKit,A,last,base);
+  if(H.garage)buildGarage(wallKit,roofKit,e,H,base,accent,flat);
   // Entry recess stays inside the original envelope and is fully walkable.
   const hall=A.levels[0].rooms.find(r=>r.id==='hall'),x0=hall.x0+.08,x1=hall.x1-.08,y0=hall.y1,y1=A.depth-.05;
   wallKit.box(x0,-.08,y0,x1,0,y1,'#c8bfa9',0,'tile');
@@ -188,6 +236,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    e.exterior.visible=e.roof.visible=!isInside;
    if(isInside){const key=floor+':'+Math.sign(Math.sin(c.ang-A.angle))+':'+Math.sign(Math.cos(c.ang-A.angle));if(e.cutKey!==key)interior(e,floor,key);e.interior.visible=true;}else if(e.interior)e.interior.visible=false;
    for(const d of [...e.doors,...(e.innerDoors||[])]){const open=d.opening.segment?.doorAnim?.open||0;if(d.opening.style==='roller')d.object.position.y=d.baseY+open*d.opening.height;else d.object.rotation.y=d.base+open*1.3;}
+   if(e.garageDoor){const o=e.garageDoor.g.seg?.doorAnim?.open||0,d=e.garageDoor.object;d.rotation.x=o*1.5;d.position.z=e.garageDoor.g.y1-.05-o*.18;}
    updateSashes(e.sashes);if(e.interior?.visible)updateSashes(e.innerSashes);
    e.glass.emissive.set(bridge.world.night&&H.lightOn?'#dfba79':'#000000');e.glass.emissiveIntensity=.55;
    e.glass.envMapIntensity=bridge.world.night?.10:.75;

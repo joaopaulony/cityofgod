@@ -101,6 +101,14 @@ function miaBuilding(S, c, rects, kind) {
   const floorCol = { deco: '#e9e1d2', condo: '#e4e2dc', office: '#d9d8d2', projects: '#b5aea0', warehouse: '#9a9890', shop: '#d8d0c0' }[kind];
   const H = addHouse({ x0, y0, x1, y1, h, roofKind: 'flat', open: { [fk]: { door: doors } }, floors: [{ x0, y0, x1, y1, kind: kind === 'warehouse' ? 'conc' : 'tile', col: floorCol }],
     seed: owSeed(S, kind + x0 + ',' + y0), tall: sp.n > 2, texPPM: sp.ppm, facadeFn: FACADES[kind] });
+  // a fachada (lado fk) tem de olhar p/ a rua: se o giro a deixaria de costas, gira 180° (mesmo terreno, mesmos cantos)
+  let theta = L.theta;
+  if (Number.isFinite(theta) && Math.abs(theta) > 0.005) {
+    const n0 = H.sides[fk].n, c = Math.cos(theta), s = Math.sin(theta), nr = [n0[0] * c - n0[1] * s, n0[0] * s + n0[1] * c];
+    const hcx = (x0 + x1) / 2, hcy = (y0 + y1) / 2, half = (fk === 'S' || fk === 'N' ? y1 - y0 : x1 - x0) / 2 + 2;
+    if (roadDist(hcx + nr[0] * half, hcy + nr[1] * half) > roadDist(hcx - nr[0] * half, hcy - nr[1] * half) + 1) theta += Math.PI;
+  }
+  L.theta = theta;
   orientHouseToRoad(H,L.theta);
   const R2 = mulberry(H.seed + 3), pick = a => a[(R2() * a.length) | 0];
   H.miaKind = kind; H.nFloors = sp.n; H.accent = pick(DECO_ACCENT);
@@ -288,13 +296,18 @@ function miaMansion(S, c, rects) {
   // vão na cerca da frente onde cada acesso a cruza; pilares do portão na própria linha da cerca
   const frontLon = (lcx - fc[0]) * n[0] + (lcy - fc[1]) * n[1] + depthLot / 2;
   const gate = (x, y) => [-1, 1].some(sg => { const dx = x - fc[0] - t[0] * sg * 3.4, dy = y - fc[1] - t[1] * sg * 3.4; return Math.abs(dx * t[0] + dy * t[1]) < 1.9 && dx * n[0] + dy * n[1] > 0; });
-  miaHedgeRect([L.x0, L.y0, L.x1, L.y1], gate);
+  // garagem de duas vagas numa ala lateral (o plano arquitetônico é montado agora p/ a garagem fazer parte dele)
+  if (typeof remodelProperty === 'function') remodelProperty(H);
+  const G = typeof planGarage === 'function' && r() < 0.85 ? planGarage(H, { cars: 2, bounds: S.bounds, rects, pavers: true }) : null;
+  const gate2 = (x, y) => gate(x, y) || !!(G && inGarageZone(G, x, y, 0.9));
+  miaHedgeRect([L.x0, L.y0, L.x1, L.y1], gate2);
   for (const sg of [-1, 1]) for (const sg2 of [-1, 1]) addBox({ x: fc[0] + t[0] * (sg * 3.4 + sg2 * 1.9) + n[0] * frontLon, y: fc[1] + t[1] * (sg * 3.4 + sg2 * 1.9) + n[1] * frontLon, w: 0.6, d: 0.6, h: 2, top: '#f1ede4', side: '#e3ddd0', kind: 'gatepost' });
   // palmeiras imperiais em alas ao longo da frente; coqueiros perto da piscina; canteiros junto às paredes
   for (const sg of [-1, 1]) for (let k = 0; k < 2; k++) { const px = fc[0] + t[0] * sg * (widthLot / 2 - 2) + n[0] * (k * 4.5 - 2), py = fc[1] + t[1] * sg * (widthLot / 2 - 2) + n[1] * (k * 4.5 - 2); if (!miaBlocked(px, py, 0.8)) miaPalm(px, py, 'royal'); }
   for (const sg of [-1, 1]) { const px = bk[0] + t[0] * sg * 9.5, py = bk[1] + t[1] * sg * 9.5; if (!miaBlocked(px, py, 0.8)) miaPalm(px, py, 'coconut'); }
   miaShrubs(H, ['hibiscus', 'bougainvillea', 'croton'], 9, r);
   if (r() < 0.85) miaCar(fc[0] + t[0] * 3.4, fc[1] + t[1] * 3.4, Math.atan2(t[1], t[0]), { col: ['#1d1f22', '#ecebe7', '#c3c6c9', '#35507a'][(r() * 4) | 0] });
+  if (G) { garageClear(G, S.snap); for (const k of [-1, 1]) if (r() < 0.7) { const c = garageCar(G, 'inside', ['#1d1f22', '#ecebe7', '#8c1c22', '#35507a', '#c3c6c9'][(r() * 5) | 0]); if (c) { c.x += G.t[0] * k * 1.35; c.y += G.t[1] * k * 1.35; } } }
   owIndexOwnedLive(S);
   return H;
 }
@@ -338,15 +351,21 @@ function miaHouse(S, c, rects, poor) {
   St.bars = poor || r() < 0.25; if (!poor && r() < 0.45) St.shutters = ['#3f6a8a', '#f4f1ea', '#4f7a5a', '#c66b45'][(r() * 4) | 0];
   H.miaKind = poor ? 'poor' : 'bungalow';
   if(H.architecture)H.architecture.kind=H.miaKind;
+  // garagem anexa (cerca de 60% dos bangalôs), na mesma arquitetura da casa, com entrada de carro até a rua (garages.js)
+  const G = !poor && typeof planGarage === 'function' && r() < 0.62 ? planGarage(H, { cars: 1, bounds: S.bounds, rects, deferDecals: true }) : null;
   // lote: quintal da frente até a calçada
   const n = H.doorN, t = [-n[1], n[0]], hw = (Math.abs(n[0]) ? H.y1 - H.y0 : H.x1 - H.x0) / 2 + 1.5;
   let ext = 0; while (ext < 8 && roadDist(H.doorPt[0] + n[0] * ext, H.doorPt[1] + n[1] * ext) > ROAD_W + SIDE - 0.1) ext += 0.5;
   ext=Math.min(ext,CityStreetLayout.safeFrontDepth(H.doorPt[0],H.doorPt[1],n,hw,ext,roadDist,ROAD_W,SIDE));
   const back = (Math.abs(n[0]) ? H.x1 - H.x0 : H.y1 - H.y0) + 2.5;
-  const q = miaQuad(H.doorPt[0] - n[0] * back, H.doorPt[1] - n[1] * back, n, t, hw, back + ext - 0.3);
+  let hwL = hw, hwR = hw;
+  if (G) for (const c of G.corners) { const s = (c[0] - H.doorPt[0]) * t[0] + (c[1] - H.doorPt[1]) * t[1]; hwL = Math.max(hwL, -s + 0.6); hwR = Math.max(hwR, s + 0.6); }
+  const f0 = [H.doorPt[0] - n[0] * back, H.doorPt[1] - n[1] * back], fl = back + ext - 0.3;
+  const q = [[f0[0] - t[0] * hwL, f0[1] - t[1] * hwL], [f0[0] + t[0] * hwR, f0[1] + t[1] * hwR], [f0[0] + t[0] * hwR + n[0] * fl, f0[1] + t[1] * hwR + n[1] * fl], [f0[0] - t[0] * hwL + n[0] * fl, f0[1] - t[1] * hwL + n[1] * fl]];
   const lot = [Math.min(...q.map(p => p[0])), Math.min(...q.map(p => p[1])), Math.max(...q.map(p => p[0])), Math.max(...q.map(p => p[1]))];
   world.yards.push(lot); rects.push(lot);
   miaDecal(q, poor ? 'dirtyard' : 'lawn', r, { dir: Math.abs(n[0]) ? 1 : 0, ragged: !poor && r() < 0.3 });
+  garagePaint(G);
   const gx = H.doorPt[0] + n[0] * (ext - 0.3), gy = H.doorPt[1] + n[1] * (ext - 0.3);
   const gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.4 || (poor && r() < 0.06);
   if (poor) {
@@ -356,15 +375,14 @@ function miaHouse(S, c, rects, poor) {
     if (r() < 0.35) { const jx = lot[0] + 2.5 + r() * (lot[2] - lot[0] - 5), jy = lot[1] + 2.5 + r() * (lot[3] - lot[1] - 5); if (!(jx > H.x0 - 3 && jx < H.x1 + 3 && jy > H.y0 - 3 && jy < H.y1 + 3)) miaCar(jx, jy, r() * 3, { junk: true, col: ['#8a6a4a', '#6f7a7e', '#9a8a6a', '#7a4a3a'][(r() * 4) | 0] }); }
     for (let i = 0; i < 14; i++) { const lx = lot[0] + r() * (lot[2] - lot[0]), ly = lot[1] + r() * (lot[3] - lot[1]); if (lx > H.x0 && lx < H.x1 && ly > H.y0 && ly < H.y1) continue; const u = r(); urbanLife.litter.push({ kind: u < 0.3 ? 'can' : u < 0.55 ? 'bottle' : u < 0.8 ? 'paper' : 'wrapper', x: lx, y: ly, variant: (r() * 3) | 0, a: r() * TAU, s: 1.3 + r() * 0.5 }); }
   } else {
-    // entrada de carro em concreto ao lado da casa + carro de dono nenhum: só a mancha de óleo
-    const dx = H.doorPt[0] + t[0] * (hw - 1.4), dy = H.doorPt[1] + t[1] * (hw - 1.4);
-    miaDecal(miaQuad(dx - n[0] * 3, dy - n[1] * 3, n, t, 1.3, ext + 3), 'driveway', r);
-    const dgap = (x, y) => gate(x, y) || Math.hypot(x - dx - n[0] * ext, y - dy - n[1] * ext) < 1.8, fc = r();
+    // entrada de carro só quando leva à garagem (o antigo retângulo de concreto solto no gramado saiu)
+    const dgap = (x, y) => gate(x, y) || !!(G && inGarageZone(G, x, y, 0.7)), fc = r();
     if (fc < 0.4) for (const [a, b] of [[q[0], q[1]], [q[1], q[2]], [q[2], q[3]], [q[3], q[0]]]) chainLine(a[0], a[1], b[0], b[1], dgap, { h: 1.1 });
     else if (fc < 0.7) miaHedgeRun(q[2][0], q[2][1], q[3][0], q[3][1], dgap, 0.8);
-    if (ext > 4 && r() < 0.8) miaCar(dx + n[0] * (ext * 0.5 - 0.6), dy + n[1] * (ext * 0.5 - 0.6), Math.atan2(n[1], n[0]));
     { const mx = H.doorPt[0] + n[0] * (ext - 0.5) - t[0] * 1.6, my = H.doorPt[1] + n[1] * (ext - 0.5) - t[1] * 1.6; if (!miaBlocked(mx, my, 0.3)) { addBox({ x: mx, y: my, w: 0.12, d: 0.12, h: 1.05, top: '#e9e5dc', side: '#d6d1c6', kind: 'post' }); addBox({ x: mx, y: my, z: 1.05, w: 0.48, d: 0.24, h: 0.26, rot: Math.atan2(n[1], n[0]), top: ['#2b4f7a', '#1f1f1f', '#e9e5dc'][(r() * 3) | 0], side: '#3a3a3a', kind: 'mailbox', solid: false }); } }
     miaShrubs(H, ['hibiscus', 'croton', 'bougainvillea'], 3 + ((r() * 3) | 0), r);
+    // garagem livre de plantas e cercas; carro guardado lá dentro ou parado na entrada
+    if (G) { garageClear(G, S.snap); const rc = r(), col = MIA_CARS[(r() * MIA_CARS.length) | 0]; if (rc < 0.55) garageCar(G, 'inside', col); else if (rc < 0.8) garageCar(G, 'drive', col); }
     if (r() < 0.6) { const px = H.doorPt[0] - t[0] * (hw - 1.2) + n[0] * (ext - 1.5), py = H.doorPt[1] - t[1] * (hw - 1.2) + n[1] * (ext - 1.5); if (!miaBlocked(px, py, 0.6)) miaPalm(px, py, 'coconut'); }
   }
   owWalk(H);
@@ -1139,6 +1157,42 @@ function paintDecal(g, d) {
     for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(30,30,30,0.45)'; g.beginPath(); g.ellipse(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.04, 0.03, 0, 0, TAU); g.fill(); }
   } else if (d.kind === 'vbcourt') {
     g.strokeStyle = 'rgba(40,90,170,0.75)'; g.lineWidth = 0.06; g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
+  } else if (d.kind === 'drive' || d.kind === 'drivepavers' || d.kind === 'garagefloor') {
+    // entrada de carro e piso da garagem (garages.js), no referencial da entrada: x ao longo (da porta p/ a rua), y através
+    const [ox, oy] = d.origin, hw = d.w / 2, xa = d.kind === 'garagefloor' ? -d.len : 0, xb = d.kind === 'garagefloor' ? 0 : d.len;
+    g.save(); g.translate(ox, oy); g.rotate(Math.atan2(d.ax[1], d.ax[0]));
+    const spot = (x, y, rr, col) => { const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); };
+    if (d.kind === 'drivepavers') {
+      // pedra intertravada em espinha de peixe, com faixa de guia em volta
+      g.fillStyle = '#bba383'; g.fillRect(xa, -hw, xb - xa, hw * 2);
+      for (let x = xa, i = 0; x < xb; x += 0.1, i++) for (let y = -hw + 0.18, j = 0; y < hw - 0.18; y += 0.1, j++) {
+        const hz = ((i >> 1) + (j >> 1)) % 2 === 0, c = 150 + ((r() * 40) | 0);
+        g.fillStyle = `rgb(${c + 30},${c + 8},${c - 22})`; g.fillRect(x + 0.006, y + 0.006, hz ? 0.188 : 0.088, hz ? 0.088 : 0.188);
+      }
+      g.fillStyle = '#d8cdb8'; g.fillRect(xa, -hw, xb - xa, 0.16); g.fillRect(xa, hw - 0.16, xb - xa, 0.16);
+      g.fillStyle = 'rgba(70,55,40,0.35)'; for (let x = xa; x < xb; x += 0.4) { g.fillRect(x, -hw + 0.16, 0.012, 0.01); g.fillRect(x, hw - 0.17, 0.012, 0.01); }
+      for (let i = 0; i < 5; i++) spot(xa + r() * (xb - xa), (r() - 0.5) * hw * 1.4, 0.4 + r() * 0.8, 'rgba(60,50,40,0.12)');
+    } else {
+      const garage = d.kind === 'garagefloor';
+      g.fillStyle = garage ? '#a9a59d' : '#cbc6ba'; g.fillRect(xa, -hw, xb - xa, hw * 2);
+      // concreto vassourado: riscos finos atravessados (no da garagem, alisado e mais liso)
+      if (!garage) for (let x = xa; x < xb; x += 0.025) { g.fillStyle = r() < 0.5 ? `rgba(255,252,244,${0.04 + r() * 0.05})` : `rgba(70,64,56,${0.04 + r() * 0.05})`; g.fillRect(x, -hw, 0.008, hw * 2); }
+      for (let i = 0; i < (xb - xa) * hw * 6; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '60,56,50' : '230,226,215'},${0.06 + r() * 0.08})`; g.fillRect(xa + r() * (xb - xa), (r() - 0.5) * hw * 2, 0.02 + r() * 0.03, 0.02); }
+      for (let i = 0; i < 4; i++) spot(xa + r() * (xb - xa), (r() - 0.5) * hw * 1.6, 0.6 + r() * 1.1, `rgba(${garage ? '40,38,36' : '90,82,70'},0.1)`);
+      // trilhas dos pneus (mais escuras e polidas) e manchas de óleo onde o carro para
+      if (!garage) for (const y of [-0.78, 0.78]) { const gr = g.createLinearGradient(0, y - 0.3, 0, y + 0.3); gr.addColorStop(0, 'rgba(50,46,42,0)'); gr.addColorStop(0.5, 'rgba(50,46,42,0.13)'); gr.addColorStop(1, 'rgba(50,46,42,0)'); g.fillStyle = gr; g.fillRect(xa, y - 0.3, xb - xa, 0.6); }
+      const oilX = garage ? xa * 0.45 : Math.min(xb * 0.4, 3);
+      spot(oilX, 0.05, 0.42, 'rgba(18,16,15,0.42)'); spot(oilX + 0.3, -0.12, 0.25, 'rgba(18,16,15,0.32)'); spot(oilX - 0.6, 0.2, 0.18, 'rgba(18,16,15,0.25)');
+      // juntas de dilatação (a cada ~3 m e no meio das entradas largas), com a borda clara do corte
+      g.lineWidth = 0.014;
+      const jstep = garage ? (xb - xa) / 2 : Math.max(2.4, Math.min(3.2, (xb - xa) / Math.max(1, Math.round((xb - xa) / 3))));
+      for (let x = xa + jstep; x < xb - 0.3; x += jstep) { g.strokeStyle = 'rgba(48,44,40,0.6)'; g.beginPath(); g.moveTo(x, -hw); g.lineTo(x, hw); g.stroke(); g.strokeStyle = 'rgba(255,252,244,0.25)'; g.beginPath(); g.moveTo(x + 0.016, -hw); g.lineTo(x + 0.016, hw); g.stroke(); }
+      if (hw > 1.8) { g.strokeStyle = 'rgba(48,44,40,0.55)'; g.beginPath(); g.moveTo(xa, 0); g.lineTo(xb, 0); g.stroke(); }
+      // trinca fina e borda suja onde encosta na grama
+      if (!garage && r() < 0.6) { let x = xa + r() * (xb - xa), y = -hw; g.strokeStyle = 'rgba(40,36,32,0.45)'; g.lineWidth = 0.008; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += (r() - 0.5) * 0.25; y += hw * 0.2; g.lineTo(x, y); } g.stroke(); }
+      if (!garage) for (const y of [-hw, hw - 0.12]) { const gr = g.createLinearGradient(0, y, 0, y + 0.12); gr.addColorStop(y < 0 ? 0 : 1, 'rgba(70,80,50,0.35)'); gr.addColorStop(y < 0 ? 1 : 0, 'rgba(70,80,50,0)'); g.fillStyle = gr; g.fillRect(xa, y, xb - xa, 0.12); }
+    }
+    g.restore();
   } else if (d.kind === 'towel') {
     if (globalThis.VEG3D) { g.restore(); return; }   // toalha 3D (props-3d.mjs)
     g.fillStyle = d.col; g.fillRect(x0, y0, x1 - x0, y1 - y0);

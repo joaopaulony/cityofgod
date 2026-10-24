@@ -38,7 +38,7 @@ window.cityVehicleBridge={
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
   get gameTime(){return T;},trafficPhase,props3d,ROAD_W,
   get roads(){return world.roads;},
-  curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
+  curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.curbCuts||[]).some(c=>Math.hypot(x-c.x,y-c.y)<c.r)||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,roadDist,
   collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,

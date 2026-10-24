@@ -6,6 +6,13 @@ if(typeof addEventListener==='function'&&new URLSearchParams(location.search).ha
 }
 function remodelProperty(H){
  if(H.architecture||!globalThis.CityArchitecture)return H;
+ // Fachada sempre virada p/ a rua mais próxima (sítios e fazendas ficam como estão).
+ if(typeof roadDist==='function'&&!H.rural&&!H.country){
+  const c=[(H.x0+H.x1)/2,(H.y0+H.y1)/2],N={S:[0,1],N:[0,-1],E:[1,0],W:[-1,0]};
+  const probe=k=>{const half=(k==='E'||k==='W'?H.x1-H.x0:H.y1-H.y0)/2+2,p=[c[0]+N[k][0]*half,c[1]+N[k][1]*half],q=H.toWorld?H.toWorld(...p):p;return roadDist(q[0],q[1]);};
+  const cur=H.frontSide||'S',best=['S','N','E','W'].reduce((a,k)=>probe(k)<probe(a)?k:a,cur);
+  if(best!==cur&&probe(best)<probe(cur)-1.5&&probe(best)<ROAD_W+SIDE+12)H.frontSide=best;
+ }
  const fk=H.frontSide||'S',horizontal=fk==='S'||fk==='N';
  const W=horizontal?H.x1-H.x0:H.y1-H.y0,D=horizontal?H.y1-H.y0:H.x1-H.x0;
  if(W<6||D<6)return H;

@@ -35,14 +35,14 @@ export function createAmbience(THREE, scene, bridge, L) {
   // ---------- neve pousada: o alto dos objetos 3D clareia conforme ENV.snowCover ----------
   const snowU = { snowCover: { value: 0 }, snowUp: { value: new THREE.Vector3(0, 1, 0) } };
   function patch(m) {
-    if (m.userData.snowP || m.isShadowMaterial || m.isMeshBasicMaterial || m.isPointsMaterial || m.colorWrite === false || m.transparent || !(m.isMeshLambertMaterial || m.isMeshPhongMaterial)) return;
+    if (m.userData.snowP || m.isShadowMaterial || m.isMeshBasicMaterial || m.isPointsMaterial || m.colorWrite === false || m.transparent || !(m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial)) return;
     m.userData.snowP = true;
     const kf = m.alphaTest > 0 ? '0.45' : '1.0';   // folhagem recortada (palmeiras): só um pouco de neve
     const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
     m.onBeforeCompile = (shader, r) => {
       prev && prev.call(m, shader, r);
       Object.assign(shader.uniforms, snowU);
-      const inc = shader.fragmentShader.includes('#include <lights_lambert_fragment>') ? '#include <lights_lambert_fragment>' : '#include <lights_phong_fragment>';
+      const inc = ['#include <lights_lambert_fragment>', '#include <lights_phong_fragment>', '#include <lights_physical_fragment>'].find(x => shader.fragmentShader.includes(x)); if (!inc) return;
       shader.fragmentShader = 'uniform float snowCover; uniform vec3 snowUp;\n' + shader.fragmentShader.replace(inc,
         '{ float snUp = dot( normalize( normal ), snowUp ); diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.93, 0.95, 0.98 ), snowCover * ' + kf + ' * smoothstep( 0.2, 0.7, snUp ) ); }\n' + inc);
     };

@@ -316,14 +316,15 @@ export function createProps(THREE, scene, bridge) {
   }
 
   // ======================= meio-fio: degrau entre a rua e a calçada =======================
-  // face de 20 cm (escura embaixo), quina clara e topo; atrás, uma rampa que some aos poucos sobre a calçada
-  // (assim a calçada parece estar no alto do degrau). A sarjeta de concreto é pintada no chão 2D (terrain.js).
+  // A calçada é o nível do chão (objetos e pessoas pisam nela) e a rua fica 17 cm abaixo: o topo do meio-fio fica
+  // rente à calçada, com a quina clara, e a face desce até a sarjeta (mais escura embaixo). Do outro lado da rua a face
+  // fica de costas p/ a câmera e só aparece a quina, como num degrau de verdade. Nas entradas de carro o meio-fio
+  // é rebaixado (bridge.curbBreak). A sarjeta de concreto é pintada no chão 2D (terrain.js).
   const matCurb = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const matRamp = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false });
-  let curbMesh = null, rampMesh = null; const curbSync = { x: 1e9, y: 1e9, n: -1, roads: null };
+  let curbMesh = null; const curbSync = { x: 1e9, y: 1e9, n: -1, roads: null };
   function buildCurbs(cx, cy, R) {
-    const C = { lo: col('#5f5b55'), face: col('#9a958b'), nose: col('#e2dccf'), top: col('#cbc4b6') }, H = 0.2;
-    const pos = [], nor = [], cl = [], idx = [], rp = [], rn = [], rc = [], ri = [], roads = bridge.roads || [], RW = bridge.ROAD_W || 3.5;
+    const C = { lo: col('#4f4b46'), face: col('#a19b90'), nose: col('#e8e2d6'), top: col('#cdc6b8') }, DROP = 0.17;
+    const pos = [], nor = [], cl = [], idx = [], roads = bridge.roads || [], RW = bridge.ROAD_W || 3.5;
     for (const rd of roads) {
       if (rd.cls === 'highway' || !rd.pts || rd.pts.length < 3) continue;
       const o = RW + (rd.off || 0);
@@ -334,25 +335,18 @@ export function createProps(THREE, scene, bridge) {
           const far = (ex - cx) ** 2 + (ey - cy) ** 2 > R * R, gap = far || bridge.curbBreak(ex + nx * 0.15, ey + ny * 0.15, rd.bigId);
           if (gap) { prev = null; continue; }
           const Nf = [-nx, 0, -ny], Nn = [-nx * 0.7, 0.7, -ny * 0.7], Nu = [0, 1, 0];
-          const prof = [[0, 0.003, C.lo, Nf], [0, H - 0.015, C.face, Nf], [0, H - 0.015, C.nose, Nn], [0.02, H, C.nose, Nn], [0.02, H, C.top, Nu], [0.2, H, C.top, Nu]];
+          const prof = [[0, -DROP, C.lo, Nf], [0, -0.014, C.face, Nf], [0, -0.014, C.nose, Nn], [0.018, 0.003, C.nose, Nn], [0.018, 0.003, C.top, Nu], [0.19, 0.003, C.top, Nu]];
           const base = pos.length / 3;
           for (const [d, h, c, n] of prof) { pos.push(ex + nx * d, h, ey + ny * d); nor.push(...n); cl.push(c.r, c.g, c.b); }
-          const rb = rp.length / 3;
-          for (const [d, h, al] of [[0.2, H, 1], [0.85, 0.0, 0]]) { rp.push(ex + nx * d, h, ey + ny * d); rn.push(nx * 0.3, 0.95, ny * 0.3); rc.push(C.top.r, C.top.g, C.top.b, al); }
-          if (prev !== null) {
-            for (const j of [0, 2, 4]) { const A = prev[0] + j, B = base + j; side > 0 ? idx.push(A, B, A + 1, A + 1, B, B + 1) : idx.push(A, A + 1, B, A + 1, B + 1, B); }
-            const A = prev[1], B = rb; side > 0 ? ri.push(A, B, A + 1, A + 1, B, B + 1) : ri.push(A, A + 1, B, A + 1, B + 1, B);
-          }
-          prev = [base, rb];
+          if (prev !== null) for (const j of [0, 2, 4]) { const A = prev + j, B = base + j; side > 0 ? idx.push(A, B, A + 1, A + 1, B, B + 1) : idx.push(A, A + 1, B, A + 1, B + 1, B); }
+          prev = base;
         }
       }
     }
-    for (const m of [curbMesh, rampMesh]) if (m) { scene.remove(m); m.geometry.dispose(); }
-    curbMesh = rampMesh = null;
+    if (curbMesh) { scene.remove(curbMesh); curbMesh.geometry.dispose(); curbMesh = null; }
     if (!idx.length) return;
-    const mk = (P, N, Cc, I, n, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, n)); g.setIndex(I); const m = new THREE.Mesh(g, mat); m.frustumCulled = false; scene.add(m); return m; };
-    curbMesh = mk(pos, nor, cl, idx, 3, matCurb); curbMesh.castShadow = true; curbMesh.receiveShadow = true;
-    rampMesh = mk(rp, rn, rc, ri, 4, matRamp); rampMesh.receiveShadow = true; rampMesh.renderOrder = 1;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3)); g.setIndex(idx);
+    curbMesh = new THREE.Mesh(g, matCurb); curbMesh.frustumCulled = false; curbMesh.receiveShadow = true; scene.add(curbMesh);
   }
 
   // ======================= distribuição =======================

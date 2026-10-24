@@ -176,7 +176,8 @@ function owPlaceAirport(S, q) {
 
 const OW_TRACK = () => [['houses', houses], ['boxes', boxes], ['fences', fences], ['props', world.props], ['circles', world.circles], ['segs', world.segs],
   ['upperSegs', world.upperSegs], ['lamps', world.lamps], ['yards', world.yards], ['litter', urbanLife.litter], ['bins', urbanLife.bins],
-  ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies], ['decals', world.decals]];
+  ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies], ['decals', world.decals],
+  ['garages', world.garages || (world.garages = [])], ['curbCuts', world.curbCuts || (world.curbCuts = [])]];
 function owSnap() { return OW_TRACK().map(([, a]) => a.length); }
 function owCollect(S, snap) {
   for(const H of houses.slice(snap[0]))if(typeof remodelProperty==='function')remodelProperty(H);
