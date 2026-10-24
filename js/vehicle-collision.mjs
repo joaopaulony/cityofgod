@@ -66,9 +66,10 @@ export function carCollision(world,car,options={}){
  }
  // Casa: superficie exata, sem a zona invisivel de 1,5m nem o quintal.
  for(const H of options.houses||[]){
-  if(car.x+radius<H.x0||car.x-radius>H.x1||
-     car.y+radius<H.y0||car.y-radius>H.y1)continue;
-  if(polyHit(verts,[[H.x0,H.y0],[H.x1,H.y0],
+  const bb=H.drawBounds||[H.x0,H.y0,H.x1,H.y1];
+  if(car.x+radius<bb[0]||car.x-radius>bb[2]||
+     car.y+radius<bb[1]||car.y-radius>bb[3])continue;
+  if(polyHit(verts,H.corners||[[H.x0,H.y0],[H.x1,H.y0],
     [H.x1,H.y1],[H.x0,H.y1]]))return record('house',H);
  }
  for(const s of world.segs||[]){
