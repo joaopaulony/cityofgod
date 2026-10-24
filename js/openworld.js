@@ -329,7 +329,7 @@ function* owGenSector(S) {
     const x = x0 + 0.5 + rng() * (S.SP - 1), y = y0 + 0.5 + rng() * (S.SP - 1), pv = pondVal(x, y);
     if (pv < 1.05) continue;
     if (pv < 1.1) { if (rng() < 0.5) world.props.push({ type: 'tuft', x, y, sp: P.reeds[i % 2], phase: rng() * 6, flat: true }); continue; }
-    if (onRoad(x, y) || world.blocked(x, y, 0.2)) continue;
+    if (!CityStreetLayout.verge(x, y, .08, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.2)) continue;
     const d = dd(x, y); if (OW_BARE.has(d) || owAirfield(x, y)) continue;
     if ((d === D_.URBAN || d === D_.TOWN) && rng() < 0.85) continue;   // gramados de Miami são aparados
     world.props.push({ type: 'tuft', x, y, sp: P.tufts[i % P.tufts.length], phase: rng() * 6, flat: true });
@@ -339,9 +339,9 @@ function* owGenSector(S) {
   // --- postes nas vias de áreas habitadas, alternando os lados (braço p/ o asfalto)
   const lamps = [];
   for (const rd of S.roads) for (let i = 10, s = 1; i < rd.pts.length; i += 24, s = -s) {
-    const p = rd.pts[i], x = p.x + p.nx * s * (ROAD_W + rd.off + 0.6), y = p.y + p.ny * s * (ROAD_W + rd.off + 0.6);
+    const p = rd.pts[i], x = p.x + p.nx * s * (ROAD_W + rd.off + SIDE + .55), y = p.y + p.ny * s * (ROAD_W + rd.off + SIDE + .55);
     if (!BUILT.has(dd(x, y)) && !(rd.cls === 'highway' && built > 0.3)) continue;
-    if (x < x0 + 3 || y < y0 + 3 || x > x1 - 3 || y > y1 - 3 || world.blocked(x, y, 0.3) || pondVal(x, y) < 1.1 || lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
+    if (x < x0 + 3 || y < y0 + 3 || x > x1 - 3 || y > y1 - 3 || !CityStreetLayout.verge(x, y, .2, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || pondVal(x, y) < 1.1 || lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
     const l = { x, y, ax: -p.nx * s, ay: -p.ny * s }; lamps.push(l); world.lamps.push(l);
     owAddCircle({ x, y, r: 0.12, kind: 'lamp', h: 4 });
   }
@@ -357,7 +357,7 @@ function* owGenSector(S) {
     }
     for (const H of (S.own.houses || []).filter(H => !H.rural).slice(0, 6)) {
       const nx = H.doorN[0], ny = H.doorN[1], curb = H.walk?.[1] || H.front, x = curb[0] - ny * (0.65 + (H.seed % 3) * 0.23), y = curb[1] + nx * (0.65 + (H.seed % 3) * 0.23);
-      if (!onRoad(x, y) || world.blocked(x, y, 0.35) || urbanLife.bins.some(p => Math.hypot(p.x - x, p.y - y) < 8)) continue;
+      if (!CityStreetLayout.verge(x, y, .4, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.35) || urbanLife.bins.some(p => Math.hypot(p.x - x, p.y - y) < 8)) continue;
       urbanLife.bins.push({ x, y, kind: H.brick ? 'metal' : 'plastic', seed: H.seed });
     }
   }
@@ -461,7 +461,7 @@ function owTryHouse(S, key, c, rects) {
   let k = 0, best = -9;
   for (let q = 0; q < 4; q++) { const dn = [-Math.round(Math.sin(q * Math.PI / 2)), Math.round(Math.cos(q * Math.PI / 2))], d = -(dn[0] * o[0] + dn[1] * o[1]); if (d > best) { best = d; k = q; } }
   const W = k % 2 ? T.d : T.w, Dp = k % 2 ? T.w : T.d, depth = k % 2 ? W : Dp;
-  const dist = ROAD_W + c.off + SIDE + T.setback + depth / 2;
+  const dist = ROAD_W + c.off + SIDE + Math.min(T.setback, .65) + depth / 2;
   const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - Dp / 2);
   const m = T.yard ? 3.2 : 1, box = [x0 - m, y0 - m, x0 + W + m, y0 + Dp + m];
   // o lote inteiro cabe no setor: casas nunca cruzam a fronteira (setores independentes)
@@ -530,11 +530,51 @@ function owStep(S, budget) {
   } finally { world.groundCtx = prevCtx; S.ms += performance.now() - t0; }
   return false;
 }
+// Limpeza aplicada a TODO setor concluído, inclusive os gerados depois do spawn.
+function owCleanStreetSector(S) {
+  const discarded = new Set();
+  const bad = (kind, o) => {
+    if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    if (kind === 'props') return ['tree','bush','rock','tuft'].includes(o.type) &&
+      !CityStreetLayout.verge(o.x,o.y,o.type==='tree'?.3:.12,roadDist,ROAD_W,SIDE);
+    if (kind === 'lamps') return !CityStreetLayout.verge(o.x,o.y,.15,roadDist,ROAD_W,SIDE);
+    if (kind === 'boxes') {
+      if (o.kind === 'vehicle' || o.house) return false;
+      const r = Math.min(.7,Math.max(.15,Math.min(o.w||.4,o.d||.4)/2));
+      if (!CityStreetLayout.edgeFixture(o.x,o.y,r,roadDist,ROAD_W)) return true;
+      if (['bench','planter','trashcan','busstop','bikerack','pallet','dumpster','tire','trashbag'].includes(o.kind))
+        return !CityStreetLayout.verge(o.x,o.y,r,roadDist,ROAD_W,SIDE);
+    }
+    if (kind === 'bins') return !CityStreetLayout.verge(o.x,o.y,.35,roadDist,ROAD_W,SIDE);
+    return false;
+  };
+  for (const name of ['props','lamps','boxes','bins'])
+    for (const o of S.own[name]||[]) if (bad(name,o)) discarded.add(o);
+  const removedTrees=new Set([...discarded].filter(o=>['tree','bush','rock'].includes(o.type)));
+  const removedLamps=[...discarded].filter(o=>'ax' in o&&'ay' in o);
+  for(const c of S.own.circles||[]) {
+    if(c.ref&&removedTrees.has(c.ref)) discarded.add(c);
+    else if(c.kind==='lamp'&&removedLamps.some(l=>Math.hypot(l.x-c.x,l.y-c.y)<.25)) discarded.add(c);
+  }
+  if(discarded.size)for(const [name,arr] of OW_TRACK()){
+    if(!S.own[name])continue;
+    S.own[name]=S.own[name].filter(o=>!discarded.has(o));
+    let n=0;for(const o of arr)if(!discarded.has(o))arr[n++]=o;arr.length=n;
+  }
+  OW.stats.cleaned=(OW.stats.cleaned||0)+discarded.size;
+  return discarded.size;
+}
+function owJudgeStreetSector(S){return CityStreetLayout.judge(S.own,roadDist,ROAD_W,SIDE);}
 function owFinish(S) {
+  owCleanStreetSector(S);
+  owRebuildIndices();
+  S.layoutAudit = owJudgeStreetSector(S);
+  OW.stats.layout = S.layoutAudit;
   S.state = 'done'; S.props = S.own.props || [];
   for (const c of S.own.circles || []) if (c.kind !== 'tree' && c.kind !== 'bush' && c.kind !== 'rock' && c.kind !== 'lamp') OW.place.add(c, c.x - c.r, c.y - c.r, c.x + c.r, c.y + c.r);
   owRebuildRoads(); world.version++;
   OW.stats.genMs = S.ms; OW.stats.last = S.key;
+  if (!S.layoutAudit.passed) console.warn('[Juiz urbano] setor', S.key, S.layoutAudit);
   delete S.it; delete S.snap;
 }
 function owRebuildRoads() {

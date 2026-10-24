@@ -263,7 +263,7 @@ function setCamera(){
   renderer.setSize(w,h,false);
  // Canvas 2D world x/y -> Three x/z, world height -> Three Y.
  // Câmera isometrica exatamente igual a proj(): TILT=.5 e HZ=.866.
- const distance=40,elev=Math.asin(.5),plane=Math.cos(elev)*distance;
+ const distance=40,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
  const a=c.ang;
  viewCamera.position.set(c.x+Math.sin(a)*plane,Math.sin(elev)*distance,
   c.y+Math.cos(a)*plane);

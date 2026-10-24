@@ -86,7 +86,7 @@ function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3) {
 // ---------- prédio (fachada pintada por andar) ----------
 function miaBuilding(S, c, rects, kind) {
   const r = rng, sp = MIA_SPEC[kind](r);
-  const L = miaLot(S, c, rects, sp.w, sp.d, sp.set, kind === 'warehouse' ? 4 : kind === 'shop' ? 1.2 : 2.5);
+  const L = miaLot(S, c, rects, sp.w, sp.d, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .55), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2);
   if (!L) return null;
   rects.push(L.box);
   const { x0, y0, x1, y1, fk, n } = L, len = fk === 'S' || fk === 'N' ? x1 - x0 : y1 - y0, mid = len >> 1;
@@ -490,7 +490,7 @@ function paintCar(g, b) {
   if (b.junk) { g.fillStyle = 'rgba(120,70,30,0.45)'; for (let i = 0; i < 6; i++) { const p = P(-L + (i * 0.73) % (2 * L), -W + ((i * 0.37) % 1) * 2 * W, 0.35 + hb); g.fillRect(p.x, p.y, Z * 0.25, Z * 0.12); } }
 }
 // banco de praça, lixeira, frade (balizador) e floreira
-function miaBench(x, y, rot) { if (!miaBlocked(x, y, 0.8)) addBox({ x, y, w: 1.8, d: 0.6, h: 0.85, rot, top: '#6b4a32', side: '#3a3f44', kind: 'bench', draw: drawBench }); }
+function miaBench(x, y, rot) { if (CityStreetLayout.verge(x, y, .85, roadDist, ROAD_W, SIDE) && !miaBlocked(x, y, 0.8)) addBox({ x, y, w: 1.8, d: 0.6, h: 0.85, rot, top: '#6b4a32', side: '#3a3f44', kind: 'bench', draw: drawBench }); }
 function drawBench(g, b) {
   const c = Math.cos(b.rot), s = Math.sin(b.rot), P = (u, v, z) => proj(b.x + u * c - v * s, b.y + u * s + v * c, z), Z = cam.zoom;
   g.strokeStyle = '#2c3034'; g.lineWidth = Math.max(1.2, Z * 0.05);
@@ -499,14 +499,15 @@ function drawBench(g, b) {
   for (let k = 0; k < 2; k++) poly(g, [P(-0.9, -0.28, 0.58 + k * 0.15), P(0.9, -0.28, 0.58 + k * 0.15), P(0.9, -0.28, 0.69 + k * 0.15), P(-0.9, -0.28, 0.69 + k * 0.15)], '#7a5638', 'rgba(30,20,10,0.5)', 0.8);
 }
 function miaPlanter(x, y) {
-  if (miaBlocked(x, y, 0.9)) return;
+  if (!CityStreetLayout.verge(x, y, .9, roadDist, ROAD_W, SIDE) || miaBlocked(x, y, 0.9)) return;
   addBox({ x, y, w: 1.4, d: 1.4, h: 0.55, top: '#cfc9bd', side: '#b1aa9c', kind: 'planter', seed: (x * 31 + y * 17) | 0, draw: (g, b) => miaCached(g, Object.assign(b, { h: 1.3 }), cg => { drawBox(cg, { x: b.x, y: b.y, z: 0, w: 1.4, d: 1.4, h: 0.55, rot: 0, top: '#5c4632', side: '#b9b2a4' }); paintHedge(cg, { x: b.x, y: b.y, z: 0.55, w: 1.1, d: 1.1, h: 0.0, rot: 0, seed: b.seed, top: '#4a7a34', side: '#2f5a24', _plain: { x: b.x, y: b.y, z: 0.55, w: 1.1, d: 1.1, h: 0.45, rot: 0, top: '#4a7a34', side: '#2f5a24' } }); }) });
 }
-function miaBollard(x, y) { if (!miaBlocked(x, y, 0.3)) addBox({ x, y, w: 0.22, d: 0.22, h: 0.9, top: '#9a9b97', side: '#6f706c', kind: 'bollard' }); }
-function miaCan(x, y) { if (!miaBlocked(x, y, 0.4)) addBox({ x, y, w: 0.6, d: 0.6, h: 0.95, top: '#2d3a2f', side: '#3e4c40', kind: 'trashcan' }); }
+function miaBollard(x, y) { if (CityStreetLayout.edgeFixture(x, y, .3, roadDist, ROAD_W) && !miaBlocked(x, y, 0.3)) addBox({ x, y, w: 0.22, d: 0.22, h: 0.9, top: '#9a9b97', side: '#6f706c', kind: 'bollard' }); }
+function miaCan(x, y) { if (CityStreetLayout.verge(x, y, .4, roadDist, ROAD_W, SIDE) && !miaBlocked(x, y, 0.4)) addBox({ x, y, w: 0.6, d: 0.6, h: 0.95, top: '#2d3a2f', side: '#3e4c40', kind: 'trashcan' }); }
 
 // ---------- palmeiras e arbustos ----------
 function miaPalm(x, y, kind, pit) {
+  if (!CityStreetLayout.verge(x, y, .36, roadDist, ROAD_W, SIDE) || miaBlocked(x, y, .45)) return null;
   const pool = MIA.palms[kind], sp = pool[(rng() * pool.length) | 0];
   const t = { type: 'tree', x, y, sp, hit: 0, phase: rng() * 6, scale: 0.78 + rng() * 0.42 };
   world.props.push(t); owAddCircle({ x, y, r: 0.25, kind: 'tree', ref: t, h: 8 });
@@ -515,6 +516,7 @@ function miaPalm(x, y, kind, pit) {
   return t;
 }
 function miaBush(x, y, kind) {
+  if (!CityStreetLayout.verge(x, y, .3, roadDist, ROAD_W, SIDE)) return null;
   const pool = MIA.bush[kind], s = pool[(rng() * pool.length) | 0];
   world.props.push({ type: 'bush', x, y, sp: s, phase: rng() * 6 });
   owAddCircle({ x, y, r: s.r * 0.6, kind: 'bush', soft: true }); bakeShadow(x, y, s.r, s.r * 0.6, 1);
@@ -745,30 +747,30 @@ function miaStreets(S, zoneAt) {
     for (let i = 14, s = 1; i < rd.pts.length - 6; i += step, s = -s) {
       const p = rd.pts[i];
       for (const sg of rd.cls === 'avenue' ? [1, -1] : [s]) {
-        const x = p.x + p.nx * sg * (ROAD_W + rd.off + 0.85), y = p.y + p.ny * sg * (ROAD_W + rd.off + 0.85), z = zoneAt(x, y);
+        const x = p.x + p.nx * sg * (ROAD_W + rd.off + SIDE + 1.05), y = p.y + p.ny * sg * (ROAD_W + rd.off + SIDE + 1.05), z = zoneAt(x, y);
         if (!z || z === 'works' || z === 'poor' || z === 'projects') continue;
-        if (Math.abs(roadDist(x, y) - (ROAD_W + 0.85)) > 0.3 || pondVal(x, y) < 1.2 || miaBlocked(x, y, 0.6)) continue;
+        if (!CityStreetLayout.verge(x, y, .45, roadDist, ROAD_W, SIDE) || pondVal(x, y) < 1.2 || miaBlocked(x, y, 0.6)) continue;
         if (OW.place.any(x - 3, y - 3, x + 3, y + 3, c => Math.hypot(c.x - x, c.y - y) < 3)) continue;
         miaPalm(x, y, z === 'town' || z === 'bungalow' ? (rng() < 0.5 ? 'royal' : 'coconut') : 'royal', true);
       }
     }
     // hidrantes amarelos junto ao meio-fio
     for (let i = 30; i < rd.pts.length - 4; i += 90) {
-      const p = rd.pts[i], x = p.x + p.nx * (ROAD_W + rd.off + 0.45), y = p.y + p.ny * (ROAD_W + rd.off + 0.45), z = zoneAt(x, y);
-      if (!z || miaBlocked(x, y, 0.4) || pondVal(x, y) < 1.2) continue;
+      const p = rd.pts[i], x = p.x + p.nx * (ROAD_W + rd.off + SIDE - .3), y = p.y + p.ny * (ROAD_W + rd.off + SIDE - .3), z = zoneAt(x, y);
+      if (!z || !CityStreetLayout.edgeFixture(x, y, .28, roadDist, ROAD_W) || miaBlocked(x, y, 0.4) || pondVal(x, y) < 1.2) continue;
       addBox({ x, y, w: 0.3, d: 0.3, h: 0.75, top: '#e7c21e', side: '#d1a90f', kind: 'hydrant', draw: drawHydrant });
     }
     // abrigos de ônibus junto ao meio-fio (de costas p/ os prédios) e bicicletários no centro e na orla
     for (let i = 48, sg = 1; i < rd.pts.length - 8; i += rd.cls === 'avenue' ? 110 : 170, sg = -sg) {
-      const p = rd.pts[i], q = rd.pts[i + 1], off = ROAD_W + rd.off + 1.15, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
+      const p = rd.pts[i], q = rd.pts[i + 1], off = ROAD_W + rd.off + SIDE + 1.05, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
       if (z !== 'brickell' && z !== 'southbeach' && z !== 'bungalow' && z !== 'town') continue;
-      if (Math.abs(roadDist(x, y) - (ROAD_W + 1.15)) > 0.4 || pondVal(x, y) < 1.2 || miaBlocked(x, y, 2)) continue;
+      if (!CityStreetLayout.verge(x, y, 1, roadDist, ROAD_W, SIDE) || pondVal(x, y) < 1.2 || miaBlocked(x, y, 2)) continue;
       addBox({ x, y, w: 3.6, d: 1.3, h: 2.6, rot: Math.atan2(q.y - p.y, q.x - p.x), kind: 'busstop', nx: -p.nx * sg, ny: -p.ny * sg, solid: false, seed: i * 7 + rd.pts.length, draw: drawBusStop });
     }
     for (let i = 36, sg = -1; i < rd.pts.length - 8; i += 64, sg = -sg) {
       const p = rd.pts[i], q = rd.pts[i + 1], off = ROAD_W + rd.off + SIDE - 0.6, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
       if (z !== 'brickell' && z !== 'southbeach') continue;
-      if (Math.abs(roadDist(x, y) - (ROAD_W + SIDE - 0.6)) > 0.4 || pondVal(x, y) < 1.2 || miaBlocked(x, y, 1.6)) continue;
+      if (!CityStreetLayout.verge(x, y, .4, roadDist, ROAD_W, SIDE) || pondVal(x, y) < 1.2 || miaBlocked(x, y, 1.6)) continue;
       addBox({ x, y, w: 3.4, d: 0.5, h: 0.85, rot: Math.atan2(q.y - p.y, q.x - p.x), kind: 'bikerack', solid: false, seed: (x * 13 + y * 7) | 0, draw: drawBikeRack });
     }
   }
@@ -844,7 +846,7 @@ function miaParking(S, zoneAt) {
       miaCar(x, y, rot);
     }
     for (let i = 20; i < rd.pts.length - 10; i += 60) {
-      const p = rd.pts[i], sg = i % 120 ? 1 : -1, off = ROAD_W + rd.off + SIDE - 0.55, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
+      const p = rd.pts[i], sg = i % 120 ? 1 : -1, off = ROAD_W + rd.off + SIDE + 1, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
       if (z !== 'brickell' && z !== 'southbeach' && z !== 'bungalow' && z !== 'town') continue;
       const q = rd.pts[i + 1];
       miaBench(x, y, Math.atan2(q.y - p.y, q.x - p.x) + (sg > 0 ? Math.PI : 0));
@@ -950,6 +952,7 @@ function miaCrosswalks(S) {
       while (i >= 0 && i < rd.pts.length && segDist(rd.pts[i].x, rd.pts[i].y, other.ax, other.ay, other.bx, other.by) < other.off + ROAD_W + SIDE + 1.2) i += dir;
       if (i < 0 || i >= rd.pts.length) continue;
       const q = rd.pts[i], tx = rd.pts[Math.min(rd.pts.length - 1, i + 1)].x - rd.pts[Math.max(0, i - 1)].x, ty = rd.pts[Math.min(rd.pts.length - 1, i + 1)].y - rd.pts[Math.max(0, i - 1)].y, tl = Math.hypot(tx, ty) || 1;
+      if (world.decals.some(d => d.kind === 'zebra' && Math.hypot(d.x - q.x, d.y - q.y) < 12)) continue;
       world.decals.push({ kind: 'zebra', x: q.x, y: q.y, tx: tx / tl * dir, ty: ty / tl * dir, hw: ROAD_W + rd.off, bb: [q.x - 9, q.y - 9, q.x + 9, q.y + 9], paint: paintZebra });
     }
   }

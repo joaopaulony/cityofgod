@@ -1027,9 +1027,9 @@ function buildWorld() {
   }
   // postes ao longo das ruas, alternando os lados, braço virado p/ o asfalto
   for (const r of world.roads) for (let i = 10, s = 1; i < r.pts.length; i += 24, s = -s) {
-    const p = r.pts[i], x = p.x + p.nx * s * (ROAD_W + 0.6), y = p.y + p.ny * s * (ROAD_W + 0.6);
+    const p = r.pts[i], x = p.x + p.nx * s * (ROAD_W + SIDE + .55), y = p.y + p.ny * s * (ROAD_W + SIDE + .55);
     if (x < 1 || y < 1 || x > MAP - 1 || y > MAP - 1 || Math.hypot(p.x - world.junction.x, p.y - world.junction.y) < 9) continue;
-    if (world.blocked(x, y, 0.3) || world.lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
+    if (!CityStreetLayout.verge(x, y, .2, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || world.lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
     world.lamps.push({ x, y, ax: -p.nx * s, ay: -p.ny * s });
   }
   for (const l of world.lamps) world.circles.push({ x: l.x, y: l.y, r: 0.12, kind: 'lamp', h: 4 });

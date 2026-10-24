@@ -23,7 +23,7 @@ const npcs = [
 const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
-let fireCD = 0, last = performance.now(), T = 0, dragX = null;
+let fireCD = 0, last = performance.now(), T = 0, dragX = null, dragY = null;
 const ZOOMS = [22, 28, 34, 42, 52, 64].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
@@ -53,19 +53,23 @@ addEventListener('resize', resize); resize();
 view.addEventListener('mousemove', e => {
   input.mx = e.clientX; input.my = e.clientY;
   if (wmap.drag) { wmap.ox += e.clientX - wmap.drag[0]; wmap.oy += e.clientY - wmap.drag[1]; wmap.drag = [e.clientX, e.clientY]; return; }
-  if (dragX !== null) { cam.tang += (e.clientX - dragX) * 0.008; dragX = e.clientX; }
+  if (dragX !== null) {
+    cam.tang += (e.clientX - dragX) * .008;
+    cam.ttilt = clamp(cam.ttilt - (e.clientY - dragY) * .0025, .34, .84);
+    dragX = e.clientX; dragY = e.clientY;
+  }
 });
 view.addEventListener('mousedown', e => {
   if (wmap.open) { if (e.button === 0) wmap.drag = [e.clientX, e.clientY]; e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
-  if (e.button === 1) { dragX = e.clientX; e.preventDefault(); }
+  if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
 addEventListener('mouseup', e => {
   if (e.button === 0) wmap.drag = null;
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
-  if (e.button === 1) dragX = null;   // câmera livre: solta onde parou
+  if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
 });
 view.addEventListener('wheel', e => { if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
@@ -660,6 +664,8 @@ function tick(dt) {
   // câmera livre: segurar Q/E gira em qualquer ângulo (sem travar de 90 em 90°)
   const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
   if (spin) cam.tang += spin * 1.6 * dt;   // ~90°/s; cam.update suaviza a chegada ao soltar
+  const pitch = (input.down('pageup') ? 1 : 0) - (input.down('pagedown') ? 1 : 0);
+  if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, .34, .84);
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }

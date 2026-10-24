@@ -4,8 +4,8 @@
 // ?quality=performance mantém a renderização antiga em meia resolução.
 const RS = new URLSearchParams(location.search).get('quality') === 'performance' ? 2 : 1;
 const RENDER_SCALE = 2 / RS; // mantém o tamanho visual dos objetos ao mudar a resolução
-const TILT = 0.5;        // achatamento do chão (câmera 3/4, ~30°)
-const HZ = 0.86;         // quanto 1 m de altura sobe na tela
+let TILT = 0.5; // inclinação vertical ajustável
+let HZ = Math.sqrt(1 - TILT * TILT); // sincronizada com câmera 3D
 const INK = VISUAL_REFERENCE.anchors.outline;   // contorno de tinta
 const TAU = Math.PI * 2;
 
@@ -44,12 +44,15 @@ const cam = {
   x: 20, y: 10, ang: Math.PI / 4, zoom: 34,
   tx: 20, ty: 10, tang: Math.PI / 4, tzoom: 34,
   W: 0, H: 0, cos: 1, sin: 0,
+  tilt: .5, ttilt: .5,
   update(dt) {
     const k = 1 - Math.exp(-dt * 6);
     this.x = lerp(this.x, this.tx, k);
     this.y = lerp(this.y, this.ty, k);
     this.ang += angDiff(this.ang, this.tang) * (1 - Math.exp(-dt * 9));
     this.zoom = lerp(this.zoom, this.tzoom, 1 - Math.exp(-dt * 10));
+    this.tilt = lerp(this.tilt, this.ttilt, 1 - Math.exp(-dt * 8));
+    TILT = this.tilt; HZ = Math.sqrt(1 - TILT * TILT);
     this.cos = Math.cos(this.ang); this.sin = Math.sin(this.ang);
   },
   get rotating() { return Math.abs(angDiff(this.ang, this.tang)) > 0.002; },
@@ -95,7 +98,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (!input.keys.has(k)) input.pressed.add(k);
   input.keys.add(k);
-  if (['tab', ' '].includes(k)) e.preventDefault();
+  if (['tab', ' ', 'pageup', 'pagedown'].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => input.keys.delete(e.key.toLowerCase()));
 addEventListener('blur', () => { input.keys.clear(); input.lmb = input.rmb = false; });
