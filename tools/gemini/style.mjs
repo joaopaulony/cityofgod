@@ -55,6 +55,7 @@ export const KIND_RULES = {
     'Camera: orthographic (no perspective), looking down at the subject from 30 degrees above the horizon, exactly like the game camera.',
     'Golden-hour sun from the upper-left; shading on the subject only. Do NOT draw a cast shadow on the ground and do NOT draw ground, grass base, soil disc, pot or pedestal unless the description asks for it: the game draws its own shadows and ground.',
     'Subject centered, complete (nothing cropped), with a clear margin of background on every side. One single view: not a sprite sheet, not a collage, not multiple variations.',
+    'Plants: the trunk/base stands upright at the bottom center of the image; the crown is full and reads well from any side (the game rotates the camera around it), with natural irregular leaf masses, real light falloff inside the foliage and crisp leaf detail. Semi-realistic like a high-end painted game asset: NO ink outlines, NO cartoon, NO flat vector, NO blurry photo.',
   ],
 };
 

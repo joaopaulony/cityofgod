@@ -313,7 +313,7 @@ function* owGenSector(S) {
     if (BUILT.has(db) && rng() < 0.7) { miaBush(x, y, ['hibiscus', 'croton', 'seagrape', 'bougainvillea'][(rng() * 4) | 0]); n++; continue; }
     const s = P.bushes[(rng() * P.bushes.length) | 0]; world.props.push({ type: 'bush', x, y, sp: s, phase: rng() * 6 });
     owAddCircle({ x, y, r: s.r * 0.6, kind: 'bush', soft: true });
-    bakeShadow(x, y, s.r, s.r * 0.6, 1); n++;
+    if (!globalThis.VEG3D) bakeShadow(x, y, s.r, s.r * 0.6, 1); n++;
     if (n % 60 === 0) yield;
   }
   n = 0;
@@ -497,6 +497,7 @@ function owTreeStamp(sp) {
   return (sp._shStamp = { c, R });
 }
 function owTreeShadow(x, y, sp) {
+  if (globalThis.VEG3D) return;   // árvores 3D fazem sombra real
   const st = owTreeStamp(sp);
   world.groundCtx.drawImage(st.c, (x - st.R) * PPM, (y - st.R) * PPM, 2 * st.R * PPM, 2 * st.R * PPM);
 }

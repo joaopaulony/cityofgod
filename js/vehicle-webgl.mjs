@@ -9,6 +9,9 @@ import {createWorldOccluders} from './vehicle-occlusion.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createCharacterSystem} from './character-webgl.mjs';
+import {createVegetation} from './vegetation-3d.mjs';
+import {createProps} from './props-3d.mjs';
+import {createHouse3D} from './house-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -101,6 +104,7 @@ function makeOccluders(){
 // em volta do carro quando o mundo muda (world.version) ou o carro anda 25 m.
 const OCC_RADIUS=90;
 function syncOccluders(force){
+ // centro: a câmera (o jogador a pé ou o carro); as árvores 3D precisam das casas em volta da vista
  const w=bridge.world,open=!!w.open,cx=bridge.cam.x,cy=bridge.cam.y;
  if(!force&&(!open||(w.version===occlusionSync.version&&
    Math.hypot(cx-occlusionSync.x,cy-occlusionSync.y)<25)))return;
@@ -123,13 +127,16 @@ function syncOccluders(force){
  // Os outros objetos possuem profundidade propria: nao usar a cerca
  // como um bloco solido, pois isso corta o capo atraves das ripas.
  occlusionScene?.dispose?.();
- const view=!open?bridge:{...bridge,
-  world:{...w,lamps:(w.lamps||[]).filter(o=>near(o.x,o.y)),
-   trafficSignals:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
-   props:(w.props||[]).filter(o=>o.type!=='tuft'&&near(o.x,o.y)),
-   segs:(w.segs||[]).filter(s=>s.kind==='fence'&&near(s.x1,s.y1))},
-  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)),
-  urbanBins:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
+ // árvores e arbustos 3D têm profundidade própria: sem os troncos/esferas de oclusão das árvores 2D
+ const plant=o=>window.VEG3D&&(o.type==='tree'||o.type==='bush');
+ const in3d=!!window.VEG3D;
+ const view={...bridge,
+  world:{...w,lamps:in3d?[]:(w.lamps||[]).filter(o=>near(o.x,o.y)),
+   trafficSignals:in3d?[]:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
+   props:(w.props||[]).filter(o=>o.type!=='tuft'&&!plant(o)&&near(o.x,o.y)),
+   segs:(w.segs||[]).filter(s=>s.kind==='fence'&&(!in3d||s.chain)&&near(s.x1,s.y1))},
+  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)),
+  urbanBins:in3d?[]:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
  occlusionScene=createWorldOccluders(scene,THREE,view,occlusionMaterial);
  system.occlusionStats=occlusionScene.state;
 }
@@ -146,7 +153,7 @@ function addHouseOccluder(H){
   const walls=[],slopes=[];
   // Separate wall and roof depth. When a vehicle is behind the tiles
   // only the roof fades; masonry stays opaque and solid in every angle.
-  for(const side of Object.values(H.sides||{})){
+  for(const [key,side] of Object.entries(H.sides||{})){
    const a=side.a,b=[a[0]+side.dir[0]*side.len,
                       a[1]+side.dir[1]*side.len];
    // A empena nao e retangulo ate a cumeeira: as laterais reais
@@ -154,8 +161,12 @@ function addHouseOccluder(H){
    // Antes side.Hc enchia com uma parede QUADRADA invisivel acima das
    // telhas, cortando carros em linhas verticais artificiais.
    const h=H.roofKind==='flat'?(side.Hc||H.h):H.h;
-   face([[a[0],a[1],0],[b[0],b[1],0],
-     [b[0],b[1],h],[a[0],a[1],h]],walls);
+   // vão das portas aberto: a folha 3D gira p/ dentro da casa (house-3d.mjs)
+   const gaps=window.VEG3D&&!H.facadeFn?(H.segs||[]).filter(s=>s.ext&&s.door&&s.side===key).map(s=>[s.idx+.1,s.idx+.9]).sort((p,q)=>p[0]-q[0]):[];
+   const P=u=>[a[0]+side.dir[0]*u,a[1]+side.dir[1]*u];
+   const quad=(u0,u1,z0,z1)=>{if(u1-u0<.01)return;const A=P(u0),B=P(u1);face([[A[0],A[1],z0],[B[0],B[1],z0],[B[0],B[1],z1],[A[0],A[1],z1]],walls);};
+   let u=0;for(const [g0,g1] of gaps){quad(u,g0,0,h);quad(g0,g1,2.12,h);u=g1;}
+   quad(u,side.len,0,h);
   }
   const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
   if(roof.flat)
@@ -231,18 +242,20 @@ function initRenderer(){
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
- scene.add(new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95));
+ const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
  sun.position.set(-11,18,15);
  sun.castShadow=true;
- sun.shadow.mapSize.set(1024,1024);
+ // a sombra cobre a vista inteira (árvores 3D), não só o carro
+ sun.shadow.mapSize.set(2048,2048);sun.shadow.normalBias=.04;
  sun.shadow.camera.left=-12;sun.shadow.camera.right=12;
  sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;
  sun.shadow.camera.near=.1;sun.shadow.camera.far=60;
  sun.shadow.bias=-.0003;scene.add(sun);
- scene.userData.sun=sun;
+ scene.userData.sun=sun;system.scene=scene;system.renderer=renderer;   // p/ depuração no console
  const bounce=new THREE.DirectionalLight(0xa8b9df,.62);
  bounce.position.set(7,9,-8);scene.add(bounce);
+ scene.userData.lights=[[hemi,1.95],[sun,2.7],[bounce,.62]];
  // Material ShadowMaterial só mostra sombra real do carro; solo e todo o
  // mapa continuam exatamente como foram desenhados.
  shadowGround=new THREE.Mesh(
@@ -251,10 +264,22 @@ function initRenderer(){
  shadowGround.rotation.x=-Math.PI/2;
  shadowGround.position.y=.008;
  shadowGround.receiveShadow=true;scene.add(shadowGround);
- viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,160);
+ viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
  createCharacterSystem(scene,bridge);
+ // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
+ if(window.VEG3D!==false){
+  try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
+  catch(error){console.error('Vegetação 3D falhou',error);window.VEG3D=false;}
+  // objetos da rua, móveis, postes, semáforos e meio-fio (props-3d.mjs)
+  try{props3d=createProps(THREE,scene,bridge);system.props3d=props3d.state;}
+  catch(error){console.error('Objetos 3D falharam',error);}
+  // janelas, portas, cercas, sebes, toldos e degraus (house-3d.mjs)
+  try{house3d=createHouse3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});system.house3d=house3d.state;}
+  catch(error){console.error('Casas 3D falharam',error);}
+ }
 }
+let vegetation=null,props3d=null,house3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -264,7 +289,7 @@ function setCamera(){
   renderer.setSize(w,h,false);
  // Canvas 2D world x/y -> Three x/z, world height -> Three Y.
  // Câmera isometrica exatamente igual a proj(): TILT=.5 e HZ=.866.
- const distance=40,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
+ const distance=90,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
  const a=c.ang;
  viewCamera.position.set(c.x+Math.sin(a)*plane,Math.sin(elev)*distance,
   c.y+Math.cos(a)*plane);
@@ -272,9 +297,12 @@ function setCamera(){
  viewCamera.left=-w/(2*c.zoom);viewCamera.right=w/(2*c.zoom);
  viewCamera.top=h/(2*c.zoom);viewCamera.bottom=-h/(2*c.zoom);
  viewCamera.updateProjectionMatrix();
- scene.userData.sun.position.set(state.x-11,18,state.y+15);
- scene.userData.sun.target.position.set(state.x,0,state.y);
- scene.userData.sun.target.updateMatrixWorld();
+ // sol na mesma direção das sombras pintadas do jogo 2D (SUN em core.js), centrado na vista
+ const sun=scene.userData.sun,S=window.SUN_DIR||[-.55,-.75,.9],ext=Math.min(60,Math.hypot(w/(2*c.zoom),h/(2*c.zoom)/(c.tilt||.5))+18);
+ sun.position.set(c.x+S[0]*60,S[2]*60,c.y+S[1]*60);
+ sun.target.position.set(c.x,0,c.y);sun.target.updateMatrixWorld();
+ const sc=sun.shadow.camera;
+ if(Math.abs(sc.right-ext)>.5){sc.left=-ext;sc.right=ext;sc.top=ext;sc.bottom=-ext;sc.far=160;sc.updateProjectionMatrix();}
 }
 function moveCar(dt){
  const c=bridge;
@@ -389,6 +417,18 @@ system.render=()=>{
  setCamera();
  if(body){body.position.set(state.x,0,state.y);
  body.rotation.y=-state.angle;}
+ // noite: as luzes da cena acompanham o escurecimento do jogo 2D
+ const night=bridge.world.night?.15:1;
+ for(const [l,k] of scene.userData.lights)l.intensity=k*night;
+ scene.userData.lights[0][0].color.setHex(bridge.world.night?0x8090c0:0xf8ead9);
+ scene.userData.sun.castShadow=!bridge.world.night;   // sem sombra do sol à noite
+ if(vegetation){
+  // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
+  const p=bridge.player,target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:1.7};
+  vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
+ }
+ props3d?.update(performance.now()/1000,bridge.gameTime||0);
+ house3d?.update(performance.now()/1000);
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
@@ -400,7 +440,7 @@ system.render=()=>{
  for(const [H,mesh] of roofOccluders)
   mesh.visible=(system.driver||!H.inside)&&H!==reveal;
  occlusionScene?.updateActors(system.driver,bridge.player);
- if(lampL&&lampR){
+ if(system.ready&&lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
  }
  renderer.render(scene,viewCamera);

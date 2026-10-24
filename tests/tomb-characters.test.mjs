@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createTombRig} from '../js/tomb-rig.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const ctx=vm.createContext({Math,URLSearchParams,location:{search:''},VISUAL_REFERENCE:{anchors:{outline:'#111'}}});
+const ctx=vm.createContext({Math,URLSearchParams,window:{},location:{search:''},VISUAL_REFERENCE:{anchors:{outline:'#111'}}});
 const core=read('js/core.js').split('// ---- entrada ----')[0];
 const body=read('js/character.js').split('const PAL')[0];
 vm.runInContext(core+read('js/skeleton.js')+body+'\nglobalThis.api={makeActor,animate,solveSkeleton};',ctx);

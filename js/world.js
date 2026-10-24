@@ -137,6 +137,7 @@ function bakeShadow(x, y, rx, ry, h) {
 // Sombra orgânica pré-pintada: contato no tronco + luz filtrada entre folhas.
 // Não cria gradientes pesados por quadro, apenas durante a geração do mapa.
 function bakeTreeShadow(x,y,sp) {
+  if (globalThis.VEG3D) return;   // árvores 3D fazem sombra real
   const g=world.groundCtx;
   const h=sp.trunkH+sp.r*.55,sx=x-SUN[0]*h*.32,sy=y-SUN[1]*h*.32;
   const cx=sx*PPM,cy=sy*PPM,rx=sp.r*PPM*.98,ry=sp.r*PPM*.65;
@@ -872,7 +873,7 @@ function makeTuft(c1='#5f8a34',c2='#86ab4a',hmax=17) {
   }
   for(let i=0;i<9;i++)blade(R(8,W-8),R(hmax*.65,hmax*1.07),
     R(-5,5),rng()>.5?'#b9c67f':c2,.72);
-  return {img:c,ax:W/2,ay:H-2};
+  return {img:c,ax:W/2,ay:H-2,reed:hmax>20};
 }
 
 function makeTarget() {
@@ -1050,6 +1051,7 @@ function moveTo(ox, oy, nx, ny, r, floor=0) {
 // desenho de um prop já ordenado por profundidade
 function drawProp(g, p, t, player) {
   if (p.draw) return p.draw(g, p, t);
+  if (globalThis.VEG3D && (p.type === 'tree' || p.type === 'bush' || p.type === 'tuft')) return;   // desenhadas em 3D (vegetation-3d.mjs)
   const sc = cam.zoom / SPR * (p.scale || 1), base = proj(p.x, p.y, 0);
   if (p.type === 'tree') {
     const sp = p.sp;

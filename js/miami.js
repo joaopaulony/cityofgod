@@ -164,7 +164,7 @@ function makeTropicalBush(kind, rnd) {
     const col = rnd() < 0.8 ? [214, 40, 132] : [236, 90, 170], k2 = 0.8 + rnd() * 0.35;
     g.fillStyle = `rgb(${col[0] * k2 | 0},${col[1] * k2 | 0},${col[2] * k2 | 0})`; g.beginPath(); g.ellipse(x, y, S * 0.05, S * 0.04, rnd() * 3, 0, TAU); g.fill();
   }
-  return { img: c, ax: cx, ay: by, r };
+  return { img: c, ax: cx, ay: by, r, vegKind: kind };   // vegKind: espécie p/ a vegetação 3D
 }
 
 // ======================================================================

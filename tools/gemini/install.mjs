@@ -28,6 +28,13 @@ for (const spec of specs) {
     const px = tintLuma(new Uint8Array(data.buffer, data.byteOffset, data.length), hexRgb(tint));
     game = await sharp(Buffer.from(px.buffer), { raw: { width: info.width, height: info.height, channels: 4 } }).webp({ quality: 90 }).toBuffer();
   }
+  if (a.kind === 'sprite') {   // sprites: várias variantes aprovadas do mesmo asset (o jogo reveza), com a altura real
+    const file = out + '-' + ((dir.match(/~v(d+)$/) || [0, 1])[1]) + '.webp';
+    await fs.writeFile(path.join(texDir, file), game);
+    man[out] = { height: a.meters, files: [...new Set([...(man[out]?.files || []), file])], px: [p.info.gameWidth, p.info.gameHeight] };
+    console.log(`${out}: ${file} (${p.info.gameWidth}x${p.info.gameHeight}, ${(game.length / 1024).toFixed(0)} KB)`);
+    continue;
+  }
   await fs.writeFile(path.join(texDir, out + '.webp'), game);
   man[out] = { meters: p.info.coverage, px: p.info.gameWidth, from: path.basename(path.resolve(runDir)) + '/' + dir + (tint ? ' tint ' + tint : ''), ...(rt ? { retouch: rt } : {}) };
   console.log(`${out}: ${p.info.coverage} m em ${p.info.gameWidth} px (${(game.length / 1024).toFixed(0)} KB)${tint ? ' recolorida ' + tint : ''}`);

@@ -84,7 +84,8 @@ export function createWorldOccluders(scene,THREE,bridge,material){
   if((b.house&&!b.exteriorFixture)||b.floor===1)continue;
   if(b.h<.18||b.z>2.6)continue;
   // Peças puramente visuais não geram volumes de oclusão sobre o carro.
-  if(b.solid===false||['canopy','awning','portico','hedge','plant','bush','tree','roof','porchroof'].includes(b.kind))continue;
+  // banhista deitado: esconde a toalha 3D embaixo dele
+  if((b.solid===false&&b.kind!=='bather')||['canopy','awning','portico','hedge','plant','bush','tree','roof','porchroof'].includes(b.kind))continue;
   const obj=make(cube,b.x,b.z+b.h/2,b.y,[b.w,b.h,b.d]);
   obj.rotation.y=-(b.rot||0);
  }

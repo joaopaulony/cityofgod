@@ -106,6 +106,12 @@ function houseTex(H) {
   return H.tex;
 }
 
+// objetos desenhados em 3D na camada WebGL (props-3d.mjs) quando ela está ativa: o 2D não os desenha
+const PROPS3D_KINDS = new Set(['hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
+  'trashbag', 'tire', 'mattress', 'hoop', 'cooler', 'bin', 'porchroof', 'portico', 'deck', 'column', 'gatepost', 'hedge']);   // + house-3d.mjs
+function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || (b.kind === 'post' && (!b.house || b.exteriorFixture)) || (b.kind === 'canopy' && !b.draw) || (b.kind === 'step' && !b.house)); }
+// janelas e portas 3D (house-3d.mjs): casas comuns, com o jogador do lado de fora
+function opening3d(H) { return !!globalThis.VEG3D && !H.inside && !H.facadeFn && !(H.style && H.style.boarded); }
 function addBox(b) {
   b = Object.assign({ z: 0, rot: 0, kind: 'box' }, b);
   boxes.push(b);
@@ -456,6 +462,7 @@ world.paintFloors = (g, M, rect) => {
     if(H.rotation)g.restore();
   }
   for (const s of world.floorNoFences ? [] : fences) {
+    if (globalThis.VEG3D && !s.chain) continue;   // cerca 3D faz sombra real
     if (far(Math.min(s.x1, s.x2), Math.min(s.y1, s.y2), Math.max(s.x1, s.x2), Math.max(s.y1, s.y2), 1)) continue;
     g.fillStyle = 'rgba(20,26,12,0.25)';
     g.fillRect(M(Math.min(s.x1, s.x2) - SUN[0] * 0.4) - 2, M(Math.min(s.y1, s.y2) - SUN[1] * 0.4) - 2, M(Math.abs(s.x2 - s.x1)) + 4, M(Math.abs(s.y2 - s.y1)) + 4);
@@ -499,7 +506,7 @@ function drawDoorway(g, s, zt) {
   const pt = (u, d, z) => proj(s.x1 + dx * u + ix * d, s.y1 + dy * u + iy * d, z);
   poly(g, [pt(0.1, -0.08, 0.02), pt(0.9, -0.08, 0.02), pt(0.9, t, 0.02), pt(0.1, t, 0.02)], '#b9b3a6', 'rgba(30,24,20,0.5)', 1);
   for (const u of [0.1, 0.9]) poly(g, [pt(u, 0, 0), pt(u, t, 0), pt(u, t, zt), pt(u, 0, zt)], tone(H.style.plaster, -0.2), null);
-  if (zt > 0.2) {
+  if (zt > 0.2 && !opening3d(H)) {   // folha 3D quando a camada WebGL está ativa
     // A folha passa de fechada (0 rad) a aberta para dentro (~75 graus).
     const a = 1.30 * (s.doorAnim ? s.doorAnim.open : 1);
     const ox = dx * Math.cos(a) + ix * Math.sin(a), oy = dy * Math.cos(a) + iy * Math.sin(a);
@@ -517,6 +524,7 @@ function drawDoorway(g, s, zt) {
 // A moldura fechada permanece na textura cacheada; a abertura animada é
 // desenhada por cima somente nas janelas cujo angulo mudou.
 function drawWindowLeaves(g, s, exterior) {
+  if (opening3d(s.house)) return;   // janela de guilhotina 3D
   const t = s.windowAnim ? s.windowAnim.open : 0;
   if (t < 0.015) return;
   const big = s.house.brick && s.ext && s.side === s.house.frontSide;
@@ -920,6 +928,7 @@ function houseDrawables(list, px, py) {
        at.y < -extra || at.y > cam.H+extra) continue;
     if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
+    if (props3d(b)) continue;   // desenhado em 3D
     if (b.house && !b.exteriorFixture && !b.house.inside) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
     let d=depthOf(b.x,b.y)+bias;
@@ -933,6 +942,7 @@ function houseDrawables(list, px, py) {
     list.push({d,draw:g=>drawBox(g,b),box:b,house:b.house});
   }
   for(const s of fences){
+    if(globalThis.VEG3D&&!s.chain)continue;   // cercas de madeira em 3D (house-3d.mjs)
     const at=proj((s.x1+s.x2)/2,(s.y1+s.y2)/2,0),m=cam.zoom*2.5;
     if(at.x<-m||at.x>cam.W+m||at.y<-m||at.y>cam.H+m)continue;
     list.push({d:depthOf((s.x1+s.x2)/2,(s.y1+s.y2)/2),

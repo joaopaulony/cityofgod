@@ -41,3 +41,7 @@ Há 22 estados por modelo: repouso, caminhada e corrida desarmados; repouso/mira
 Verificação: build concluído. Suíte geral: 79/80 testes passaram; permanece a falha preexistente de colisão carro/pedra em `vehicle-depth-collision.test.mjs`. Os testes novos validam os dois GLBs, texturas, pesos/esqueletos independentes, todos os clips, ausência de deslocamento horizontal acumulado, braços relaxados e agachamento real, incluindo recarga agachada.
 
 No navegador do mapa principal: os três atores carregaram sem erros; NPCs caminham com braços naturais; disparo 30→29, recarga 29/90→30/89; postura agachada exibida; salto mostrou jump_start e altura positiva; travessia de cerca terminou de (2704.50, 1529.75) em (2704.50, 1531.18) com altura zero. Q/E continua disponível. Captura em `artifacts/mixamo-no-jogo.png`. Não foram feitos testes em aparelho móvel ou multidões. Nenhum commit/push desta integração foi realizado.
+
+## Integração com a main
+
+A pedido do usuário, a base Mixamo foi combinada com a main que já contém casas, vegetação e objetos 3D (24c23fd). O renderer mantém todos esses sistemas, os personagens, a iluminação e oclusão compartilhadas. Conflitos do bundle foram resolvidos reconstruindo a partir dos módulos. O fixture do teste Tomb inclui window para acompanhar SUN_DIR adicionado pela main. Build e os dez testes de personagens passaram após a combinação. A suíte geral continua apenas com a falha preexistente de colisão carro/pedra. No navegador, os três personagens carregaram em estado ready, sem erros de console, junto do cenário atualizado.

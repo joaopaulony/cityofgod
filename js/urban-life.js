@@ -194,13 +194,13 @@ function urbanDrawBin(g,b){
 }
 function urbanDrawables(list,g){
   const pad=cam.zoom*1.2;
-  for(const d of urbanLife.litter){
+  for(const d of globalThis.VEG3D?[]:urbanLife.litter){   // lixo em 3D (props-3d.mjs)
     const p=proj(d.x,d.y,0);
     if(p.x<-pad||p.x>cam.W+pad||p.y<-pad||p.y>cam.H+pad)continue;
     list.push({d:depthOf(d.x,d.y)-.2,urbanLitter:d,
       draw:ctx=>urbanDrawLitter(ctx,d)});
   }
-  for(const b of urbanLife.bins){
+  for(const b of globalThis.VEG3D?[]:urbanLife.bins){   // lixeiras em 3D
     const p=proj(b.x,b.y,0);
     if(p.x<-pad||p.x>cam.W+pad||p.y<-pad||p.y>cam.H+pad)continue;
     list.push({d:depthOf(b.x,b.y)+.04,urbanBin:b,

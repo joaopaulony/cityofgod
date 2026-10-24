@@ -31,7 +31,12 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
 window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
-  urbanBins:urbanLife.bins,
+  get urbanBins(){return urbanLife.bins;},get urbanLitter(){return urbanLife.litter;},
+  get terrainItems(){return terrain.items;},
+  // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
+  get gameTime(){return T;},trafficPhase,props3d,ROAD_W,
+  get roads(){return world.roads;},
+  curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,
   collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
@@ -330,7 +335,7 @@ function render() {
   ecosystemAddDrawables(list, g, T, player);
   houseDrawables(list,player.x,player.y);
   urbanDrawables(list,g);
-  for (const l of world.lamps) {
+  for (const l of globalThis.VEG3D?[]:world.lamps) {   // postes em 3D (props-3d.mjs)
     const pos = proj(l.x,l.y,0),padding=cam.zoom*5;
     if(pos.x < -padding || pos.x > W+padding ||
        pos.y < -padding || pos.y > H+padding) continue;
@@ -338,7 +343,7 @@ function render() {
   }
   // Semaforos gerados junto ao cruzamento principal. Usar a mesma
   // ordenacao de profundidade que postes, casas e personagens.
-  for(const signal of world.trafficSignals||[]){
+  for(const signal of globalThis.VEG3D?[]:world.trafficSignals||[]){   // semáforos em 3D
     const pos=proj(signal.x,signal.y,0),padding=cam.zoom*6;
     if(pos.x<-padding||pos.x>W+padding||
        pos.y<-padding||pos.y>H+padding)continue;

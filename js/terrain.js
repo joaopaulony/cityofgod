@@ -164,15 +164,23 @@ function chunkItemsStep(ci, cj, maxIter) {
   G.i = iEnd;
   if (G.i < n) return false;
   // remendos, rachaduras e manchas no asfalto deste bloco
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 56; i++) {
     const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
     if (rd > ROAD_W - 0.5) continue;
     // direção da rua no ponto = perpendicular ao gradiente da distância
     const gx = rdAt(x + 0.25, y) - rdAt(x - 0.25, y), gy = rdAt(x, y + 0.25) - rdAt(x, y - 0.25);
     const along = Math.atan2(gy, gx) + Math.PI / 2, pick = r();
-    if (pick < 0.4) items.push({ t: 'acrack', x, y, s: 0.5 + r() * 1.2, a: along + (r() - 0.5) * 1.2, seed: (r() * 1e9) | 0 });
-    else if (pick < 0.62 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along });
-    else if (pick < 0.7) items.push({ t: 'patch', x, y, s: 0.7 + r() * 1.1, a: along, k: 0.4 + r() * 0.4 });
+    if (pick < 0.3) items.push({ t: 'acrack', x, y, s: 0.6 + r() * 1.6, a: along + (r() - 0.5) * 1.4, seed: (r() * 1e9) | 0, seal: r() < 0.22 });
+    else if (pick < 0.36) items.push({ t: 'alligator', x, y, s: 0.5 + r() * 0.9, a: along, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.55 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.62) items.push({ t: 'patch', x, y, s: 0.7 + r() * 1.1, a: along, k: 0.4 + r() * 0.4, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.635) items.push({ t: 'pothole', x, y, s: 0.18 + r() * 0.32, a: r() * TAU, seed: (r() * 1e9) | 0, wet: r() < 0.3 });
+  }
+  // sarjeta: folhas secas, bitucas, tampinhas e areia acumulada junto ao meio-fio
+  for (let i = 0; i < 90; i++) {
+    const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
+    if (rd < ROAD_W - 0.36 || rd > ROAD_W - 0.04) continue;
+    items.push({ t: 'gjunk', x, y, k: r(), a: r() * TAU, seed: (r() * 1e9) | 0 });
   }
   // Manchas silvestres em pequenos grupos, com cores que seguem o mesmo bioma.
   // Detalhe assado no bloco: nenhum custo de animacao adicional por quadro.
@@ -363,8 +371,12 @@ function paintRows(ch, rows) {
           let ar = COL.asph[0] * m3 + oil * 4, ag = COL.asph[1] * m3, ab = COL.asph[2] * m3 - oil * 2;
           if (tex && texAt('asphalt', gx0 + px, gy0 + py, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
           if (d3 > 0.8 && rd < ROAD_W - 0.6) { const q = 0.93 + d2 * 0.1; if (tex && GTEX.t.asphalt) { ar *= 0.84; ag *= 0.84; ab *= 0.84; } else { ar = COL.patch[0] * q; ag = COL.patch[1] * q; ab = COL.patch[2] * q; } }
-          const gut = sstep(ROAD_W - 0.4, ROAD_W - 0.05, rd);
-          ar = lerp(ar, COL.gutter[0] * (0.85 + d1 * 0.3), gut); ag = lerp(ag, COL.gutter[1] * (0.85 + d1 * 0.3), gut); ab = lerp(ab, COL.gutter[2] * (0.85 + d1 * 0.3), gut);
+          // sarjeta: faixa de concreto (0,4 m) encardida, junta escura com o asfalto, sujeira escorrida perto do meio-fio
+          const gut = sstep(ROAD_W - 0.415, ROAD_W - 0.395, rd), gm = (0.86 + d1 * 0.22) * (0.94 + d3 * 0.1);
+          const gr0 = lerp(COL.walk[0], COL.gutter[0], 0.42) * gm, gg0 = lerp(COL.walk[1], COL.gutter[1], 0.42) * gm, gb0 = lerp(COL.walk[2], COL.gutter[2], 0.42) * gm;
+          ar = lerp(ar, gr0, gut); ag = lerp(ag, gg0, gut); ab = lerp(ab, gb0, gut);
+          const seam = Math.exp(-(((rd - (ROAD_W - 0.405)) / 0.012) ** 2)), grime = Math.exp(-(ROAD_W - rd) / 0.09) * (0.55 + d2 * 0.6), cs = rd > ROAD_W - 0.03 ? 0.5 : 1;
+          const kd = (1 - seam * 0.45) * (1 - grime * 0.32) * cs; ar *= kd; ag *= kd; ab *= kd * 0.97;
           const aw = 1 - sstep(ROAD_W - 0.01, ROAD_W + 0.015, rd);
           r = lerp(r, ar, aw); gg = lerp(gg, ag, aw); b = lerp(b, ab, aw);
         }
@@ -490,7 +502,7 @@ function paintItems(ch, g, from = 0, to = Infinity) {
     }
     const bk = new Map(), bucket = (k, f) => { if (!bk.has(k)) bk.set(k, []); bk.get(k).push(f); };
     for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
-    const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
+    const order = ['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gjunk', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
     ch._buckets = bk;
     ch._keys = [...bk.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
   }
@@ -534,6 +546,7 @@ function paintItems(ch, g, from = 0, to = Infinity) {
         g.fillStyle = 'rgba(60,40,10,0.6)'; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.006, 0, TAU); g.fill();
       }
     } else if (t === 'wildflower') {
+      if (globalThis.VEG3D) continue;   // flores silvestres em 3D (vegetation-3d.mjs)
       // Cada miolo tem 5 petalas com leve variacao; folhas e caule por baixo.
       // Todos os pontos estao em coordenadas do mundo, sem imagem importada.
       for(const f of its){
@@ -583,19 +596,103 @@ function paintItems(ch, g, from = 0, to = Infinity) {
     } else if (t === 'grit') {
       g.fillStyle = 'rgba(150,145,135,0.6)'; g.beginPath(); for (const c of its) { g.moveTo(c.x + c.s, c.y); g.arc(c.x, c.y, c.s, 0, TAU); } g.fill();
     } else if (t === 'oil') {
-      for (const o of its) { const gr = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.s); gr.addColorStop(0, 'rgba(18,18,22,0.26)'); gr.addColorStop(0.6, 'rgba(25,22,28,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(o.x, o.y, o.s, o.s * 0.6, o.a, 0, TAU); g.fill(); }
-    } else if (t === 'patch') {
-      for (const p of its) { g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = 'rgba(40,41,45,0.45)'; g.fillRect(-p.s / 2, -p.s * p.k / 2, p.s, p.s * p.k); g.strokeStyle = 'rgba(25,25,28,0.4)'; g.lineWidth = 0.02; g.strokeRect(-p.s / 2, -p.s * p.k / 2, p.s, p.s * p.k); g.restore(); }
-    } else if (t === 'acrack') {
-      g.strokeStyle = 'rgba(24,24,27,0.7)'; g.lineWidth = 0.016; g.beginPath();
-      for (const c of its) {
-        const r3 = mulberry(c.seed); let x = c.x, y = c.y, a = c.a;
-        g.moveTo(x, y);
-        for (let k = 0; k < 8; k++) { a += (r3() - 0.5) * 1.1; x += Math.cos(a) * c.s / 8; y += Math.sin(a) * c.s / 8; g.lineTo(x, y); if (r3() < 0.3) { g.lineTo(x + Math.cos(a + 1.3) * 0.12, y + Math.sin(a + 1.3) * 0.12); g.moveTo(x, y); } }
+      // mancha de óleo: várias gotas sobrepostas de borda suave, anel iridescente fraco e respingos
+      for (const o of its) {
+        const r3 = mulberry(o.seed || 7), ca = Math.cos(o.a), sa = Math.sin(o.a);
+        for (let k = 0; k < 6; k++) {
+          const u = (r3() - 0.5) * o.s * 1.6, v = (r3() - 0.5) * o.s * 0.7, cx = o.x + u * ca - v * sa, cy = o.y + u * sa + v * ca, rr = o.s * (0.35 + r3() * 0.6);
+          const gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, 'rgba(14,13,16,' + (0.16 + r3() * 0.12) + ')'); gr.addColorStop(0.7, 'rgba(18,16,20,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rr, rr * (0.6 + r3() * 0.3), o.a + r3(), 0, TAU); g.fill();
+        }
+        g.lineWidth = 0.02; g.strokeStyle = 'rgba(150,100,180,0.05)'; g.beginPath(); g.ellipse(o.x, o.y, o.s * 0.75, o.s * 0.42, o.a, 0, TAU); g.stroke();
+        g.strokeStyle = 'rgba(90,170,150,0.045)'; g.beginPath(); g.ellipse(o.x, o.y, o.s * 0.62, o.s * 0.34, o.a, 0, TAU); g.stroke();
+        g.fillStyle = 'rgba(16,15,18,0.3)'; for (let k = 0; k < 8; k++) { g.beginPath(); g.arc(o.x + (r3() - 0.5) * o.s * 2.4, o.y + (r3() - 0.5) * o.s * 1.4, 0.008 + r3() * 0.015, 0, TAU); g.fill(); }
       }
-      g.stroke();
+    } else if (t === 'patch') {
+      // remendo: asfalto mais novo e escuro, borda irregular selada com piche, agregado aparente
+      for (const p of its) {
+        const r3 = mulberry(p.seed || 11), w = p.s / 2, h = p.s * p.k / 2, pts = [];
+        for (const [u, v] of [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]]) pts.push([u * w + (r3() - 0.5) * 0.08, v * h + (r3() - 0.5) * 0.08]);
+        g.save(); g.translate(p.x, p.y); g.rotate(p.a);
+        g.beginPath(); pts.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+        g.fillStyle = 'rgba(30,30,33,0.5)'; g.fill(); g.globalAlpha = 0.4; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        g.strokeStyle = 'rgba(10,10,12,0.45)'; g.lineWidth = 0.03; g.stroke();
+        g.strokeStyle = 'rgba(160,155,146,0.1)'; g.lineWidth = 0.012; g.stroke();
+        g.restore();
+        if (r3() < 0.5) crackLine(g, p.x + Math.cos(p.a) * w, p.y + Math.sin(p.a) * w, p.a + (r3() - 0.5), 0.3 + r3() * 0.5, r3, 0.012, 1);
+      }
+    } else if (t === 'alligator') {
+      // couro de jacaré: rede de trincas em placas, mais forte no miolo e sumindo na borda, leve afundamento
+      for (const p of its) {
+        const r3 = mulberry(p.seed); g.save(); g.translate(p.x, p.y); g.rotate(p.a);
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, p.s); gr.addColorStop(0, 'rgba(18,18,20,0.2)'); gr.addColorStop(1, 'rgba(18,18,20,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, p.s, p.s * 0.62, 0, 0, TAU); g.fill();
+        const cs = 0.19, n = Math.ceil(p.s / cs) + 1, P = [];
+        for (let i = -n; i <= n; i++) { P[i + n] = []; for (let j = -n; j <= n; j++) P[i + n][j + n] = [i * cs + (r3() - 0.5) * cs * 0.75, j * cs * 0.8 + (r3() - 0.5) * cs * 0.6]; }
+        const edge = (A, B) => { const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, q = Math.hypot(mx / p.s, my / (p.s * 0.62)); if (q > 1) return; const a = (1 - q) * 0.85; g.strokeStyle = 'rgba(115,111,104,' + a * 0.25 + ')'; g.lineWidth = 0.03; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.strokeStyle = 'rgba(14,14,16,' + a + ')'; g.lineWidth = 0.008 + (1 - q) * 0.01; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(mx + (r3() - 0.5) * 0.02, my + (r3() - 0.5) * 0.02); g.lineTo(B[0], B[1]); g.stroke(); };
+        for (let i = 0; i < 2 * n; i++) for (let j = 0; j < 2 * n; j++) { edge(P[i][j], P[i + 1][j]); edge(P[i][j], P[i][j + 1]); }
+        g.restore();
+      }
+    } else if (t === 'pothole') {
+      // buraco: contorno irregular suave, asfalto esfarelado em volta, parede do lado do sol na sombra e a do lado oposto
+      // iluminada, fundo de brita solta (às vezes com água refletindo o céu) e trincas saindo da borda
+      const hl = Math.hypot(SUN[0], SUN[1]) || 1;
+      for (const p of its) {
+        const r3 = mulberry(p.seed), N = 32, pts = [], f1 = r3() * TAU, f2 = r3() * TAU, f3 = r3() * TAU, ca = Math.cos(p.a), sa = Math.sin(p.a);
+        for (let k = 0; k < N; k++) { const a = k / N * TAU, d = p.s * (0.8 + 0.12 * Math.sin(2 * a + f1) + 0.08 * Math.sin(5 * a + f2) + 0.05 * Math.sin(9 * a + f3) + (r3() - 0.5) * 0.06), lx = Math.cos(a) * d, ly = Math.sin(a) * d * 0.78; pts.push([p.x + lx * ca - ly * sa, p.y + lx * sa + ly * ca]); }
+        const add = (sc, ox = 0, oy = 0) => { const P = k => { const A = pts[k % N]; return [p.x + (A[0] - p.x) * sc + ox, p.y + (A[1] - p.y) * sc + oy]; }; let a = P(0), b = P(1); g.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); for (let k = 1; k <= N; k++) { a = P(k); b = P(k + 1); g.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); } g.closePath(); };
+        const path = (sc, ox, oy) => { g.beginPath(); add(sc, ox, oy); };
+        path(1.32); g.fillStyle = 'rgba(96,93,88,0.3)'; g.fill(); g.globalAlpha = 0.55; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        for (let k = 0; k < 16; k++) { const a = r3() * TAU, d = p.s * (1.0 + r3() * 0.45), x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8; g.fillStyle = r3() < 0.5 ? 'rgba(120,116,108,0.6)' : 'rgba(40,38,38,0.6)'; g.beginPath(); g.ellipse(x, y, 0.012 + r3() * 0.02, 0.01 + r3() * 0.012, r3() * 3, 0, TAU); g.fill(); }
+        path(1); const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.s); gr.addColorStop(0, '#2f2c29'); gr.addColorStop(1, '#211f1d'); g.fillStyle = gr; g.fill();
+        g.globalAlpha = 0.3; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        const w = 0.05 + p.s * 0.14, vx = SUN[0] / hl * w, vy = SUN[1] / hl * w;
+        g.save(); path(1); g.clip();
+        g.beginPath(); add(1); add(1, vx * 0.5, vy * 0.5); g.fillStyle = 'rgba(150,145,136,0.38)'; g.fill('evenodd');   // parede de frente p/ o sol
+        g.beginPath(); add(1); add(1, -vx, -vy); g.fillStyle = 'rgba(4,4,6,0.72)'; g.fill('evenodd');                  // sombra da borda do lado do sol
+        for (let k = 0; k < 20 + p.s * 70; k++) { const a = r3() * TAU, d = Math.sqrt(r3()) * p.s * 0.8, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.78, rr = 0.01 + r3() * 0.022; g.fillStyle = ['#4f4b46', '#5f5a53', '#37342f', '#6a655c'][(r3() * 4) | 0]; g.beginPath(); g.ellipse(x, y, rr, rr * 0.8, r3() * 3, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,250,240,0.18)'; g.beginPath(); g.arc(x - rr * 0.3, y - rr * 0.3, rr * 0.35, 0, TAU); g.fill(); }
+        if (p.wet) { path(0.66, -vx * 0.3, -vy * 0.3); const wg = g.createLinearGradient(p.x, p.y - p.s, p.x, p.y + p.s); wg.addColorStop(0, 'rgba(150,175,190,0.85)'); wg.addColorStop(1, 'rgba(60,76,88,0.9)'); g.fillStyle = wg; g.fill(); g.strokeStyle = 'rgba(20,24,28,0.5)'; g.lineWidth = 0.012; g.stroke(); g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.ellipse(p.x - p.s * 0.15, p.y - p.s * 0.12, p.s * 0.22, p.s * 0.05, 0.5, 0, TAU); g.fill(); }
+        g.restore();
+        path(1); g.strokeStyle = 'rgba(22,21,22,0.6)'; g.lineWidth = 0.014; g.stroke();
+        for (let k = 0; k < 3 + ((r3() * 3) | 0); k++) { const A = pts[(r3() * N) | 0], a = Math.atan2(A[1] - p.y, A[0] - p.x) + (r3() - 0.5) * 0.8; crackLine(g, A[0], A[1], a, p.s * (0.5 + r3()), r3, 0.014, 1); }
+      }
+    } else if (t === 'acrack') {
+      // trinca: borda gasta clara, miolo escuro afinando, galhos; algumas seladas com piche (faixa preta brilhante)
+      for (const c of its) {
+        const r3 = mulberry(c.seed);
+        if (c.seal) {
+          const pts = [[c.x, c.y]]; let x = c.x, y = c.y, a = c.a; for (let k = 0; k < 12; k++) { a += (r3() - 0.5) * 0.8; x += Math.cos(a) * c.s / 12; y += Math.sin(a) * c.s / 12; pts.push([x, y]); }
+          const line = (w, st) => { g.strokeStyle = st; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([X, Y], k) => k ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.stroke(); };
+          const w = 0.02 + r3() * 0.022; line(w * 1.5, 'rgba(10,10,12,0.18)'); line(w, 'rgba(12,12,14,0.72)'); line(w * 0.25, 'rgba(255,255,255,0.07)'); g.lineCap = 'butt';
+        } else crackLine(g, c.x, c.y, c.a, c.s, r3, 0.016, 0);
+      }
+    } else if (t === 'gjunk') {
+      // sarjeta: folhas secas, bitucas, tampinhas e areia
+      for (const j of its) {
+        const r3 = mulberry(j.seed);
+        if (j.k < 0.55) { for (let k = 0; k < 3; k++) { const x = j.x + (r3() - 0.5) * 0.25, y = j.y + (r3() - 0.5) * 0.25, a = r3() * TAU, l = 0.03 + r3() * 0.035; g.fillStyle = ['#6b5636', '#8a6a3a', '#5a5a2e', '#7a4a2a', '#9a7a48'][(r3() * 5) | 0]; g.beginPath(); g.ellipse(x, y, l, l * 0.45, a, 0, TAU); g.fill(); g.strokeStyle = 'rgba(40,28,15,0.5)'; g.lineWidth = 0.004; g.beginPath(); g.moveTo(x - Math.cos(a) * l, y - Math.sin(a) * l); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); } }
+        else if (j.k < 0.75) { g.save(); g.translate(j.x, j.y); g.rotate(j.a); g.fillStyle = '#e8e2d4'; g.fillRect(-0.02, -0.004, 0.028, 0.008); g.fillStyle = '#c88a4a'; g.fillRect(0.008, -0.004, 0.012, 0.008); g.restore(); }
+        else if (j.k < 0.85) { g.fillStyle = r3() < 0.5 ? '#b8bcc0' : '#c8302a'; g.beginPath(); g.arc(j.x, j.y, 0.014, 0, TAU); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.003; g.stroke(); }
+        else { const gr = g.createRadialGradient(j.x, j.y, 0, j.x, j.y, 0.3); gr.addColorStop(0, 'rgba(170,150,115,0.28)'); gr.addColorStop(1, 'rgba(170,150,115,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(j.x, j.y, 0.3, 0.12, j.a, 0, TAU); g.fill(); }
+      }
     }
   }
+}
+
+// agregado do asfalto: pontilhado de pedrinhas, 1 px da textura = 1 px do bloco
+let _aggCanvas = null;
+function aggPattern(g) {
+  if (!_aggCanvas) { _aggCanvas = makeCanvas(96, 96); const q = _aggCanvas.getContext('2d'), r = mulberry(77); for (let i = 0; i < 900; i++) { const v = (r() * 120 + 60) | 0; q.fillStyle = 'rgba(' + v + ',' + (v - 3) + ',' + (v - 8) + ',' + (0.25 + r() * 0.5) + ')'; q.fillRect(r() * 96, r() * 96, 1 + r() * 2.2, 1 + r() * 2); } }
+  const p = g.createPattern(_aggCanvas, 'repeat'); if (p.setTransform) p.setTransform(new DOMMatrix().scale(1 / TP)); return p;
+}
+// trinca do asfalto: polilinha que serpenteia, borda clara gasta, miolo escuro afinando e galhos
+function crackLine(g, x, y, a, len, r3, w, depth) {
+  const n = Math.max(4, (len / 0.07) | 0), pts = [[x, y]];
+  for (let k = 0; k < n; k++) { a += (r3() - 0.5) * 0.7; x += Math.cos(a) * len / n; y += Math.sin(a) * len / n; pts.push([x, y]); }
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(122,118,110,0.2)'; g.lineWidth = w * 2.8; g.beginPath(); pts.forEach(([X, Y], k) => k ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.stroke();
+  for (let k = 0; k < n; k++) { g.strokeStyle = 'rgba(14,14,16,0.8)'; g.lineWidth = w * (1 - k / n * 0.75) * (0.7 + r3() * 0.6); g.beginPath(); g.moveTo(pts[k][0], pts[k][1]); g.lineTo(pts[k + 1][0], pts[k + 1][1]); g.stroke(); }
+  if (depth < 2) for (let k = 1; k < n; k++) if (r3() < 0.18) crackLine(g, pts[k][0], pts[k][1], a + (r3() < 0.5 ? 1 : -1) * (0.6 + r3() * 0.8), len * (0.25 + r3() * 0.3), r3, w * 0.6, depth + 1);
+  g.lineCap = 'butt'; g.lineJoin = 'miter';
 }
 
 // Etapa final em passos curtos (antes era um bloco único de 50–80 ms que travava o jogo):

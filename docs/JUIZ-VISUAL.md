@@ -79,3 +79,5 @@ Prints com zoom 34 e câmera em 45°, mais uma vista em outro ângulo, porque a 
 | 3 | 24/10/2026 | asset (6 texturas × 2 variantes) | 8,2 | 6,9 (concreto v1) | Achado do juiz: o Gemini às vezes devolve a textura já repetida dentro da imagem; o pós passa a detectar e recortar um período. |
 | 4 | 24/10/2026 | asset (5 candidatas) | 8,4 | 7,55 (mato) | Calçada cinza aprovada (9,05); a rosa é derivada dela recolorindo o pigmento. |
 | 5 | 24/10/2026 | asset (concreto, mato, terra) | 9,0 | 8,1 (mato, antes do retoque final) | Terra 9,0; concreto 9,0 e mato 9,05 com retoque local nas coordenadas do juiz. Asfalto bloqueado pela API (copyright/recitation) nas versões uniformes; continua procedural. |
+| 6 | 24/10/2026 | asset (8 paredes e telhados) | 7,8 | 6,9 (laje v1) | Tijolo, bloco, telha asfáltica e zinco ficam procedurais (o corte de emenda quebra padrão rígido; o jogo já tem geometria exata). |
+| 7–10 | 24/10/2026 | asset (laje, manta, rebocos) | — | 7,4 (manta) | Laje suja aprovada (9,0) e instalada. Manta branca e os dois rebocos ficam procedurais (o jogo só usa a luz e sombra deles; o retoque não devolvia o grão). |

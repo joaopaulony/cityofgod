@@ -216,7 +216,7 @@ function drawHouseUpper(g,H){
   }
   // Moveis sobem junto com a laje; composicao por profundidade local.
   for(const b of [...H.upper.furniture].sort((a,b)=>
-    depthOf(a.x,a.y)-depthOf(b.x,b.y)))drawBox(g,b);
+    depthOf(a.x,a.y)-depthOf(b.x,b.y)))if(!props3d(b))drawBox(g,b);
   // Escada pode ser vista pelo vao e o corrimao continua no patamar.
   drawHouseStaircase(g,H);
 }
