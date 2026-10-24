@@ -8,6 +8,7 @@
 //   anchor   cor média final da textura (o pós-processamento puxa o tom p/ ela)
 //   pattern  textura com padrão de propósito (piso intertravado): dispensa a regra de superfície isotrópica
 //   desat    fração do croma mantida (tira manchas coloridas: asfalto)
+//   boost    reforça o detalhe fino (passa-alta × boost): reboco liso que viria quase em branco
 //   level    nivela manchas maiores que 30 cm (fração do contraste removida)
 //   despot   apaga pontinhos escuros isolados que viram grade ao repetir (calçadas)
 //   key      fundo de recorte dos sprites (magenta padrão; blue p/ plantas com flor rosa)
@@ -45,9 +46,9 @@ export const CATALOG = [
     desc: 'Dense clipped tropical hedge foliage surface (used for the tops and sides of trimmed hedges): thousands of small glossy oval leaves (2–4 cm) packed tightly, deep shaded gaps between golden sun-lit leaf clusters, natural green variation. Uniform, no branches visible, no flowers.' },
 
   // ---------------- paredes (o jogo tinge as neutras com a cor da casa) ----------------
-  { id: 'wall-stucco', kind: 'wall', group: 'paredes', title: 'Reboco liso pintado', meters: 3, game: 512, tint: true, colors: ['warmWall'], refs: [R.orla, R.centro],
+  { id: 'wall-stucco', kind: 'wall', boost: 2, group: 'paredes', title: 'Reboco liso pintado', meters: 3, game: 512, tint: true, colors: ['warmWall'], refs: [R.orla, R.centro],
     desc: 'Smooth painted exterior stucco wall of a Miami Art Deco building in a NEUTRAL very light warm off-white (the game tints it pastel), subtle hand-troweled texture, very faint hairline cracks and light rain streaks fading downward from the top. Clean and well kept.' },
-  { id: 'wall-stucco-worn', kind: 'wall', group: 'paredes', title: 'Reboco gasto e sujo', meters: 3, game: 512, tint: true, colors: ['warmWall', 'concreteShadow'], refs: [R.gueto, R.esquina, R.guetoP],
+  { id: 'wall-stucco-worn', kind: 'wall', level: 0.5, group: 'paredes', title: 'Reboco gasto e sujo', meters: 3, game: 512, tint: true, colors: ['warmWall', 'concreteShadow'], refs: [R.gueto, R.esquina, R.guetoP],
     desc: 'Old sun-bleached sprayed stucco wall in a NEUTRAL light grey-beige (the game tints it): coarse texture, small patched areas with slightly different texture, dirt and water streaks running down spread evenly across the whole width, grime, small chipped spots showing grey cement. The grimy poor-neighborhood walls of references 02 and 20.' },
   { id: 'wall-block', kind: 'wall', group: 'paredes', title: 'Bloco de concreto pintado', meters: 3, game: 512, tint: true, colors: ['coolWall'], refs: [R.gueto, R.esquina],
     desc: 'Painted concrete masonry block wall (CMU, 40 × 20 cm blocks, running bond) in a NEUTRAL light grey (the game tints it), several coats of paint softening the block texture, mortar joints as shallow grooves, rust-colored drip stains and dirt. Florida public housing.' },
@@ -62,9 +63,9 @@ export const CATALOG = [
 
   // ---------------- telhados ----------------
   { id: 'roof-flat', kind: 'roof', group: 'telhados', title: 'Laje suja (telhado plano)', meters: 4, game: 512, colors: ['concreteShadow', 'sidewalk'], refs: [R.esquina, R.gueto, R.centro],
-    desc: 'Flat roof of an old Miami building, the most common roof in the references: grey-beige sealed concrete / bitumen surface with many small irregular water-pooling marks (20–50 cm) spread evenly, thin cracks with short black tar repairs, soft sun-bleached mottling, fine dirt and a few small leaves. No AC units, no vents, no parapet, no edges (the game adds them).' },
+    desc: 'Flat roof of an old Miami building, the most common roof in the references: grey-beige sealed concrete / bitumen surface seen from directly above, a horizontal roof: NO vertical streaks or drips. Water-pooling marks are faint, irregular, overlapping tide stains with soft edges, NEVER round dots or polka dots. Black tar is applied ONLY as thin glossy bands that follow existing cracks exactly, at most 3–4 short repairs in the whole image; NO separate dashes, NO brush strokes, NO black blobs. Soft sun-bleached mottling, fine dirt and a few small leaves. No AC units, no vents, no parapet, no edges (the game adds them).' },
   { id: 'roof-flat-clean', kind: 'roof', group: 'telhados', title: 'Laje com manta branca', meters: 4, game: 512, colors: ['sidewalk', 'concreteShadow'], refs: [R.centro, R.orla],
-    desc: 'Flat roof of a newer condo / hotel: light grey-white reflective membrane in wide strips with slightly raised heat-welded seams, faint dirt pooling marks, a few small patches. No equipment, no drains, no edges.' },
+    desc: 'Flat roof of a newer condo / hotel: plain light grey-white TPO membrane, ONE continuous surface WITHOUT any seams (the game draws the roll seams), fine matte texture, faint soft dirt pooling marks, a few small rectangular patches. NO vertical streaks, NO sparkles, NO glossy highlights. No equipment, no drains, no edges.' },
   { id: 'roof-shingle', kind: 'roof', group: 'telhados', title: 'Telha asfáltica', meters: 3, game: 512, tint: true, colors: ['roofShadow'], refs: [R.casas, R.esquina],
     desc: 'Asphalt architectural shingles in a NEUTRAL mid grey (the game tints it brown/grey): laminated tabs in horizontal staggered rows, granular mineral surface, subtle shadow lines under each row, mild sun fading, a few darker algae streaks, like the hip roofs of the houses in references 06 and 20.' },
   { id: 'roof-clay', kind: 'roof', group: 'telhados', title: 'Telha de barro (capa e canal)', meters: 3, game: 512, colors: ['terracotta', 'roofShadow'], refs: [R.trem, R.casas],

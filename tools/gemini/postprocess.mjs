@@ -259,6 +259,13 @@ export function cleanestOffset(px, w, h, axis, size, margin) {
   return Math.round(best / N * len);
 }
 
+// reforça o detalhe fino (passa-alta de raio r multiplicado por k): reboco liso que viria quase em branco
+export function boostDetail(px, w, h, r, k) {
+  const B = boxBlur(px, w, h, r), out = new Uint8Array(px);
+  for (let i = 0; i < w * h; i++) for (let c = 0; c < 3; c++) out[i * 4 + c] = clamp8(B[i * 3 + c] + (px[i * 4 + c] - B[i * 3 + c]) * k);
+  return out;
+}
+
 // nivela as formas grandes (manchas de 30 cm para cima) sem mexer no detalhe fino: tira `strength` da diferença
 // entre a luminância desfocada (raio r) e a média geral
 export function levelLarge(px, w, h, r, strength = 0.5) {
@@ -298,6 +305,7 @@ export async function processAsset(bytes, asset, opts = {}) {
     px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
     if (asset.desat != null) { px = desaturate(px, asset.desat); steps.push('desat'); }
     if (asset.anchor) { px = colorMatch(px, hexRgb(asset.anchor)); steps.push('color ' + asset.anchor); }
+    if (asset.boost) { px = boostDetail(px, w, h, 8, asset.boost); steps.push('boost ' + asset.boost); }
     if (asset.level) { px = levelLarge(px, w, h, Math.max(4, Math.round(w * 0.3 / asset.meters)), asset.level); steps.push('level ' + asset.level); }
     if (asset.despot) { const s = removeSpots(px, w, h, asset.despot === true ? {} : asset.despot); px = s.px; steps.push(`spots ${s.count}px`); }
     px = matchEdges(px, w, h); steps.push('edges');
