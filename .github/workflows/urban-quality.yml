@@ -1,0 +1,37 @@
+name: Juiz urbano
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'js/street-layout.js'
+      - 'js/miami-city.js'
+      - 'js/openworld.js'
+      - 'js/terrain.js'
+      - 'js/houses.js'
+      - 'js/world.js'
+      - 'js/vehicle-collision.mjs'
+      - 'js/vehicle-webgl.bundle.js'
+      - 'tests/street-layout.test.cjs'
+      - 'tests/urban-regression.test.cjs'
+      - '.github/workflows/urban-quality.yml'
+  workflow_dispatch:
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar sintaxe
+        run: |
+          node --check js/street-layout.js
+          node --check js/miami-city.js
+          node --check js/openworld.js
+          node --check js/terrain.js
+          node --check js/houses.js
+          node --check js/world.js
+          node --check js/vehicle-collision.mjs
+          node --check js/vehicle-webgl.bundle.js
+      - name: Juiz de ruas, lotes, vegetação e colisão
+        run: node --test tests/street-layout.test.cjs tests/urban-regression.test.cjs

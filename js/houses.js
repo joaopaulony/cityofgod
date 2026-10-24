@@ -92,7 +92,7 @@ function addBox(b) {
     const c = boxCorners(b), hh = b.z + b.h;
     for (let i = 0; i < 4; i++) (b.floor===1?(world.upperSegs=world.upperSegs||[]):world.segs).push({
       x1:c[i][0],y1:c[i][1],x2:c[(i+1)%4][0],
-      y2:c[(i+1)%4][1],h:hh,kind:b.kind,house:b.house,floor:b.floor||0
+      y2:c[(i+1)%4][1],h:hh,kind:b.kind,house:b.house,floor:b.floor||0,sourceBox:b
     });
   }
   return b;
@@ -581,7 +581,8 @@ function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
   const cut = H.inside && (f > 0 || !s.ext);
-  const h = cut ? 0.5 : s.h;
+  // Em prédios altos, ao entrar só o térreo é visível: não renderizar fachadas de 10 andares no interior.
+  const h = cut ? 0.5 : (H.inside ? Math.min(s.h, H.floorHeight || 3.15) : s.h);
   if (s.door) {
     drawWallSlice(g, s, 0, h, 0, 0.1); drawWallSlice(g, s, 0, h, 0.9, 1);
     if (h > 2.12) drawWallSlice(g, s, 2.12, h, 0.1, 0.9);

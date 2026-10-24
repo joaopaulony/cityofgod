@@ -292,7 +292,7 @@ function* owGenSector(S) {
     const x = x0 + rng() * S.SP, y = y0 + rng() * S.SP, f = forest(x, y), di = dd(x, y);
     if (OW_BARE.has(di) || owAirfield(x, y)) continue;
     if (rng() > smooth(clamp((f - 0.46) / 0.24, 0, 1)) * 0.85 + (di === D_.FARM ? 0.0006 : di === D_.RURAL ? 0.003 : BUILT.has(di) ? 0.002 : 0.004)) continue;
-    if (!owFree(S, x, y, 1.2)) continue;
+    if (!owFree(S, x, y, 1.2) || !CityStreetLayout.clearVegetation(x,y,2.5,houses,.6)) continue;
     const tropical = BUILT.has(di) || world.geoCoast(x, y) < 500;
     if (BUILT.has(di) && di !== D_.FAVELA && rng() < 0.75) continue;   // bairro: lotes ocupados, não mata
     if (tropical && rng() < 0.45) { miaPalm(x, y, rng() < 0.7 ? 'coconut' : 'royal'); n++; continue; }
@@ -317,7 +317,7 @@ function* owGenSector(S) {
     if (n % 60 === 0) yield;
   }
   n = 0;
-  for (let i = 0, cap = Math.round(48 * A); i < 2400 * A && n < cap; i++) {
+  for (let i = 0, cap = 0; i < 0 && n < cap; i++) { // pedras decorativas desativadas
     const x = x0 + rng() * S.SP, y = y0 + rng() * S.SP; if (OW_BARE.has(dd(x, y)) || owAirfield(x, y) || !owFree(S, x, y, 0.6)) continue;
     const s = P.rocks[(rng() * P.rocks.length) | 0]; world.props.push({ type: 'rock', x, y, sp: s });
     owAddCircle({ x, y, r: s.r * 0.9, kind: 'rock', h: s.r * 1.4 }); bakeShadow(x, y, s.r, s.r * 0.7, 0.6); n++;
@@ -339,9 +339,9 @@ function* owGenSector(S) {
   // --- postes nas vias de áreas habitadas, alternando os lados (braço p/ o asfalto)
   const lamps = [];
   for (const rd of S.roads) for (let i = 10, s = 1; i < rd.pts.length; i += 24, s = -s) {
-    const p = rd.pts[i], x = p.x + p.nx * s * (ROAD_W + rd.off + SIDE + .55), y = p.y + p.ny * s * (ROAD_W + rd.off + SIDE + .55);
+    const p = rd.pts[i], x = p.x + p.nx * s * (ROAD_W + rd.off + .72), y = p.y + p.ny * s * (ROAD_W + rd.off + .72);
     if (!BUILT.has(dd(x, y)) && !(rd.cls === 'highway' && built > 0.3)) continue;
-    if (x < x0 + 3 || y < y0 + 3 || x > x1 - 3 || y > y1 - 3 || !CityStreetLayout.verge(x, y, .2, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || pondVal(x, y) < 1.1 || lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
+    if (x < x0 + 3 || y < y0 + 3 || x > x1 - 3 || y > y1 - 3 || !CityStreetLayout.curbFixture(x, y, .16, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || pondVal(x, y) < 1.1 || lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
     const l = { x, y, ax: -p.nx * s, ay: -p.ny * s }; lamps.push(l); world.lamps.push(l);
     owAddCircle({ x, y, r: 0.12, kind: 'lamp', h: 4 });
   }
@@ -411,7 +411,7 @@ function* owPaintBase(S) {
   for (const rd of S.roads) line(rd, (ROAD_W + rd.off + SIDE) * 2, `rgb(${C2.walk.join(',')})`);
   for (const rd of S.roads) line(rd, (ROAD_W + rd.off) * 2 + 0.3, `rgb(${C2.curbF.join(',')})`);
   for (const rd of S.roads) line(rd, (ROAD_W + rd.off) * 2, `rgb(${C2.asph.join(',')})`);
-  for (const rd of S.roads) line(rd, 0.3, 'rgba(214,176,62,0.8)');
+  // A sinalização de trânsito é desenhada só pelo pintor de blocos (terrain.js).
   for (const H of S.own.houses || []) { g2.fillStyle = 'rgba(150,140,124,0.9)'; g2.fillRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); }
   // sombras já assadas do setor
   g2.setTransform(1, 0, 0, 1, 0, 0);
@@ -433,11 +433,7 @@ function owDrawBases(affine, g) {
   const C2 = COL, path = rd => { g.beginPath(); for (let i = 0; i < rd.pts.length; i += 2) { const p = rd.pts[i]; i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); } const q = rd.pts[rd.pts.length - 1]; g.lineTo(q.x, q.y); };
   for (const [wk, col] of [[r => (ROAD_W + r.off + SIDE) * 2, `rgb(${C2.walk.join(',')})`], [r => (ROAD_W + r.off) * 2 + 0.4, `rgb(${C2.curbF.join(',')})`], [r => (ROAD_W + r.off) * 2, `rgb(${C2.asph.join(',')})`]])
     for (const rd of pieces) { g.strokeStyle = col; g.lineWidth = wk(rd); path(rd); g.stroke(); }
-  g.strokeStyle = 'rgba(214,176,62,0.85)'; g.lineWidth = 0.1;
-  for (const rd of pieces) for (const o of [-0.12, 0.12]) { g.beginPath(); rd.pts.forEach((p, i) => i % 2 && i !== rd.pts.length - 1 ? 0 : (i ? g.lineTo(p.x + p.nx * o, p.y + p.ny * o) : g.moveTo(p.x + p.nx * o, p.y + p.ny * o))); g.stroke(); }
-  g.setLineDash([3, 3]); g.strokeStyle = 'rgba(232,230,222,0.8)'; g.lineWidth = 0.12;
-  for (const rd of pieces) if (rd.off > 0.5) for (const sgn of [-1, 1]) { const o = sgn * (rd.off + ROAD_W) * 0.5; g.beginPath(); rd.pts.forEach((p, i) => i ? g.lineTo(p.x + p.nx * o, p.y + p.ny * o) : g.moveTo(p.x + p.nx * o, p.y + p.ny * o)); g.stroke(); }
-  g.setLineDash([]);
+  // Sem linhas de trânsito no fallback vetorial: evita rabiscos duplicados nos cruzamentos.
 }
 
 // distritos sem vegetação plantada (pavimento, cais, pista, areia)
@@ -457,11 +453,12 @@ function withSeed(S, n, fn) { return fn(); }
 
 function owTryHouse(S, key, c, rects) {
   const T = TPL[key]; if (!T) return null;
+  if(c.rd&&!CityStreetLayout.alignedFront(c.rd,c.i,T.w))return null;
   const p = c.p, o = [p.nx * c.s, p.ny * c.s], [sx0, sy0, sx1, sy1] = S.bounds;
   let k = 0, best = -9;
   for (let q = 0; q < 4; q++) { const dn = [-Math.round(Math.sin(q * Math.PI / 2)), Math.round(Math.cos(q * Math.PI / 2))], d = -(dn[0] * o[0] + dn[1] * o[1]); if (d > best) { best = d; k = q; } }
   const W = k % 2 ? T.d : T.w, Dp = k % 2 ? T.w : T.d, depth = k % 2 ? W : Dp;
-  const dist = ROAD_W + c.off + SIDE + Math.min(T.setback, .65) + depth / 2;
+  const dist = ROAD_W + c.off + SIDE + Math.min(T.setback, .85) + Math.abs(o[0])*W/2 + Math.abs(o[1])*Dp/2;
   const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - Dp / 2);
   const m = T.yard ? 3.2 : 1, box = [x0 - m, y0 - m, x0 + W + m, y0 + Dp + m];
   // o lote inteiro cabe no setor: casas nunca cruzam a fronteira (setores independentes)
@@ -471,6 +468,8 @@ function owTryHouse(S, key, c, rects) {
     const inHouse = x >= x0 - 0.5 && x <= x0 + W + 0.5 && y >= y0 - 0.5 && y <= y0 + Dp + 0.5;
     if (roadDist(x, y) < ROAD_W + SIDE + (inHouse ? 0.6 : 0.1) || pondVal(x, y) < 1.4) return null;
   }
+  // Verifica o perímetro INTEIRO contra curvas e cruzamentos antes de criar colisores.
+  if(!CityStreetLayout.clearBuilding([x0,y0,x0+W,y0+Dp],roadDist,ROAD_W,SIDE,.8))return null;
   rects.push(box);
   const pal = SIDINGS[(rng() * SIDINGS.length) | 0], rr = rng();
   const roofKind = key === 'SHOP' ? 'flat' : key === 'C' ? (rr < 0.55 ? 'hip' : 'gable') : key === 'D' ? (rr < 0.62 ? 'gable' : 'flat') : key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') : (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
@@ -535,9 +534,9 @@ function owCleanStreetSector(S) {
   const discarded = new Set();
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
-    if (kind === 'props') return ['tree','bush','rock','tuft'].includes(o.type) &&
-      !CityStreetLayout.verge(o.x,o.y,o.type==='tree'?.3:.12,roadDist,ROAD_W,SIDE);
-    if (kind === 'lamps') return !CityStreetLayout.verge(o.x,o.y,.15,roadDist,ROAD_W,SIDE);
+    if (kind === 'props') return o.type==='rock'||(['tree','bush','tuft'].includes(o.type) &&
+      !CityStreetLayout.verge(o.x,o.y,o.type==='tree'?.3:.12,roadDist,ROAD_W,SIDE));
+    if (kind === 'lamps') return !CityStreetLayout.curbFixture(o.x,o.y,.15,roadDist,ROAD_W,SIDE);
     if (kind === 'boxes') {
       if (o.kind === 'vehicle' || o.house) return false;
       const r = Math.min(.7,Math.max(.15,Math.min(o.w||.4,o.d||.4)/2));
@@ -551,9 +550,10 @@ function owCleanStreetSector(S) {
   for (const name of ['props','lamps','boxes','bins'])
     for (const o of S.own[name]||[]) if (bad(name,o)) discarded.add(o);
   const removedTrees=new Set([...discarded].filter(o=>['tree','bush','rock'].includes(o.type)));
+  for(const s of S.own.segs||[]) if(s.sourceBox&&discarded.has(s.sourceBox))discarded.add(s);
   const removedLamps=[...discarded].filter(o=>'ax' in o&&'ay' in o);
   for(const c of S.own.circles||[]) {
-    if(c.ref&&removedTrees.has(c.ref)) discarded.add(c);
+    if(c.kind==='rock'||(c.ref&&removedTrees.has(c.ref))) discarded.add(c);
     else if(c.kind==='lamp'&&removedLamps.some(l=>Math.hypot(l.x-c.x,l.y-c.y)<.25)) discarded.add(c);
   }
   if(discarded.size)for(const [name,arr] of OW_TRACK()){

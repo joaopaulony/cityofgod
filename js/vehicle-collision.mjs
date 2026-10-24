@@ -73,7 +73,8 @@ export function carCollision(world,car,options={}){
  }
  for(const s of world.segs||[]){
   if(s.house)continue; // casas ja cobertas por retangulo, ignore linhas de moveis duplicadas
-  if(s.kind!=='fence'&&!s.kind)continue;
+  // Caixas já são testadas por OBB abaixo; seus quatro segmentos nunca são cercas.
+  if(s.kind!=='fence')continue;
   if(s.door&&s.doorAnim?.open>=.72)continue;
   if(Math.abs(s.x1-car.x)>radius+Math.abs(s.x2-s.x1)||
      Math.abs(s.y1-car.y)>radius+Math.abs(s.y2-s.y1))continue;
@@ -83,13 +84,16 @@ export function carCollision(world,car,options={}){
  // Bancadas, lixeiras e outras caixas fisicas, com orientacao propria.
  for(const b of options.boxes||[]){
   if(b.solid===false||b.floor===1||b.z>1.5||
+     (world.roadDistFn&&world.roadDistFn(b.x,b.y)<3.68 && b.kind!=='vehicle')||
      (b.house&&!b.exteriorFixture))continue;
   if(Math.hypot(b.x-car.x,b.y-car.y)>radius+Math.max(b.w,b.d))continue;
   const obstacle=carFootprint(b.x,b.y,b.rot||0,b.w,b.d,0);
   if(polyHit(verts,obstacle))return record('object',b);
  }
  for(const c of world.circles||[]){
-  if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.kind==='bush')continue;
+  if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.kind==='bush'||c.kind==='rock')continue;
+  // Nunca considerar colisores esquecidos no asfalto após a limpeza procedural.
+  if(world.roadDistFn&&world.roadDistFn(c.x,c.y)<3.68)continue;
   if(Math.abs(c.x-car.x)>radius+c.r||
      Math.abs(c.y-car.y)>radius+c.r)continue;
   if(hitCircle(car,c,margin))return record(c.kind||'circle',c);

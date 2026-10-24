@@ -1001,8 +1001,8 @@ function buildWorld() {
     world.circles.push({ x, y, r: s.r * 0.9, kind: 'rock', h: s.r * 1.4 });
     bakeShadow(x, y, s.r, s.r * 0.7, 0.6);
   };
-  for (let i = 0, n = 0; i < 2400 && n < 48; i++) { const x = R(1, MAP - 1), y = R(1, MAP - 1); if (freeSpot(x, y, 0.6)) { addRock(x, y); n++; } }
-  if (world.pond) for (let i = 0, n = 0; i < 600 && n < 14; i++) {   // pedras na margem do lago
+  for (let i = 0, n = 0; i < 0 && n < 48; i++) { const x = R(1, MAP - 1), y = R(1, MAP - 1); if (freeSpot(x, y, 0.6)) { addRock(x, y); n++; } }
+  if (world.pond) for (let i = 0, n = 0; i < 0 && n < 14; i++) {   // pedras na margem do lago desativadas
     const p = world.pond, a = R(0, TAU), x = p.x + Math.cos(a) * p.rx * R(1.2, 1.5), y = p.y + Math.sin(a) * p.ry * R(1.2, 1.5);
     if (freeSpot(x, y, 0.4)) { addRock(x, y); n++; }
   }
@@ -1027,9 +1027,9 @@ function buildWorld() {
   }
   // postes ao longo das ruas, alternando os lados, braço virado p/ o asfalto
   for (const r of world.roads) for (let i = 10, s = 1; i < r.pts.length; i += 24, s = -s) {
-    const p = r.pts[i], x = p.x + p.nx * s * (ROAD_W + SIDE + .55), y = p.y + p.ny * s * (ROAD_W + SIDE + .55);
+    const p = r.pts[i], x = p.x + p.nx * s * (ROAD_W + .72), y = p.y + p.ny * s * (ROAD_W + .72);
     if (x < 1 || y < 1 || x > MAP - 1 || y > MAP - 1 || Math.hypot(p.x - world.junction.x, p.y - world.junction.y) < 9) continue;
-    if (!CityStreetLayout.verge(x, y, .2, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || world.lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
+    if (!CityStreetLayout.curbFixture(x, y, .16, roadDist, ROAD_W, SIDE) || world.blocked(x, y, 0.3) || world.lamps.some(l => Math.hypot(l.x - x, l.y - y) < 6)) continue;
     world.lamps.push({ x, y, ax: -p.nx * s, ay: -p.ny * s });
   }
   for (const l of world.lamps) world.circles.push({ x: l.x, y: l.y, r: 0.12, kind: 'lamp', h: 4 });

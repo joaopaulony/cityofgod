@@ -22,7 +22,7 @@ test('judge catches street clutter and backwards facades',()=>{
 });
 test('judge approves clear street and correct facade',()=>{
  const result=layout.judge({
-  lamps:[{x:0,y:6.8}],props:[{type:'tree',x:3,y:7.2}],
+  lamps:[{x:0,y:4.25}],props:[{type:'tree',x:3,y:7.2}],
   boxes:[{kind:'hydrant',x:1,y:5.1,w:.3,d:.3}],
   houses:[{doorPt:[2,8],doorN:[0,-1]}]
  },rd,rw,side);

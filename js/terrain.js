@@ -380,6 +380,8 @@ function paintRows(ch, rows) {
 // marcas de rua (em metros, com transformação do bloco)
 function paintRoadVectors(ch, g) {
   const r2 = mulberry(world.seed + ch.ci * 31 + ch.cj * 977), J = world.junction, nearJ = p => !!J && Math.hypot(p.x - J.x, p.y - J.y) < ROAD_W + 3;
+  // Linhas param ANTES dos cruzamentos: um trecho nunca risca sobre outra estrada.
+  const crossing = (rd,p) => !!world.open && CityStreetLayout.nearOtherRoad(p.x,p.y,rd.bigId,{map:OW.roadHash,cell:OW.RC},ROAD_W+5);
   const bx0 = ch.ci * CH - 2, by0 = ch.cj * CH - 2, bx1 = bx0 + CH + 4, by1 = by0 + CH + 4, inB = p => p.x > bx0 - 4 && p.x < bx1 + 4 && p.y > by0 - 4 && p.y < by1 + 4;
   // pistas (mundo grande): marcações das pistas de pouso cruzando este bloco
   if (world.airports) paintRunways(ch, g, inB);
@@ -387,14 +389,14 @@ function paintRoadVectors(ch, g) {
   for (const rd of world.roads) if ((rd.off || 0) > 0.5) for (const o of [-1, 1]) {
     const lane = o * ((rd.off || 0) + ROAD_W) * 0.5;
     for (let i = 0; i < rd.pts.length - 1; i++) {
-      const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || (i % 12) > 5) continue;
+      const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || (i % 12) > 5 || crossing(rd,p)) continue;
       g.strokeStyle = 'rgba(232,230,222,0.8)'; g.lineWidth = 0.12;
       g.beginPath(); g.moveTo(p.x + p.nx * lane, p.y + p.ny * lane); g.lineTo(q.x + q.nx * lane, q.y + q.ny * lane); g.stroke();
     }
   }
   // faixa dupla amarela gasta: segmentos curtos com opacidade variando
   for (const rd of world.roads) for (const o of [-0.12, 0.12]) for (let i = 0; i < rd.pts.length - 1; i++) {
-    const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || nearJ(p)) continue;
+    const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || nearJ(p) || crossing(rd,p)) continue;
     const wear = terrain.n3[((Math.floor(p.y * TP) & 255) << 8) | (Math.floor(p.x * TP) & 255)];
     g.strokeStyle = `rgba(214,176,62,${0.45 + wear * 0.45})`; g.lineWidth = 0.1;
     g.beginPath(); g.moveTo(p.x + p.nx * o, p.y + p.ny * o); g.lineTo(q.x + q.nx * o, q.y + q.ny * o); g.stroke();
@@ -415,7 +417,7 @@ function paintRoadVectors(ch, g) {
   }
   // bueiros junto ao meio-fio
   for (const rd of world.roads) for (let i = 30; i < rd.pts.length; i += 55) {
-    const p = rd.pts[i], s = i % 2 ? 1 : -1; if (!inB(p) || nearJ(p)) continue;
+    const p = rd.pts[i], s = i % 2 ? 1 : -1; if (!inB(p) || nearJ(p) || crossing(rd,p)) continue;
     const off = rd.off || 0; g.save(); g.translate(p.x + p.nx * s * (ROAD_W + off - 0.4), p.y + p.ny * s * (ROAD_W + off - 0.4)); g.rotate(Math.atan2(p.ty, p.tx));
     g.fillStyle = '#7d7a72'; g.fillRect(-0.48, -0.3, 0.96, 0.6);
     g.fillStyle = '#1c1d20'; g.fillRect(-0.4, -0.22, 0.8, 0.44);
@@ -615,7 +617,12 @@ function finishChunk(ch) {
   }
   if (stp === 2) {   // pisos e caminhos das casas (houses.js), em pixels do bloco — uma casa por passo
     // mesma ordem do desenho único: todos os caminhos, depois pisos/sombras, por fim as cercas
-    if (!ch.floorList) ch.floorList = [['decals', null], ...houses.map(H => ['walk', H]), ...houses.map(H => ['floor', H]), ['fences', null]];
+    if (!ch.floorList) {
+      // Somente casas perto deste bloco: não enfileirar todos os edifícios do mapa.
+      const x0=ch.ci*CH,y0=ch.cj*CH,x1=x0+CH,y1=y0+CH;
+      const near=houses.filter(H=>H.x1+18>=x0&&H.x0-18<=x1&&H.y1+18>=y0&&H.y0-18<=y1);
+      ch.floorList=[['decals',null],...near.map(H=>['walk',H]),...near.map(H=>['floor',H]),['fences',null]];
+    }
     const [mode, H] = ch.floorList.shift(), last = !ch.floorList.length;
     if (mode === 'decals') {
       const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
