@@ -31,11 +31,14 @@ export const KIND_RULES = {
     'TECHNICAL FORMAT — SEAMLESS TILEABLE WALL MATERIAL, front elevation view (orthographic, camera exactly perpendicular to the wall, no perspective).',
     'Must tile horizontally AND vertically with NO visible seams. Material surface only: NO windows, NO doors, NO roof, NO ground, NO sky, NO vegetation, NO edges of the wall.',
     'Flat, even, diffuse daylight: NO cast shadows, NO vignetting, NO light gradient across the image.',
+    'Weathering is spread EVENLY over the whole square and made of many small, low-contrast marks: NO single big stain or patch, NO isolated dark dots, NO recognizable shapes (letters, faces, symbols), nothing that would read as a stamp when the wall repeats every few meters.',
+    'Semi-realistic like a photo scan with a light painterly grade: NO ink outlines, NO comic style, NO raised bevels or fake 3D emboss beyond the real relief of the material.',
   ],
   roof: [
     'TECHNICAL FORMAT — SEAMLESS TILEABLE ROOF MATERIAL, viewed straight from above (orthographic, perpendicular to the roof plane).',
     'The slope runs from the TOP of the image (ridge) to the BOTTOM (eave): rows of tiles/shingles are horizontal, overlapping downward. Must tile with NO visible seams in both directions.',
     'Flat, even, diffuse daylight: NO cast shadows from outside objects, NO vignetting, NO light gradient, NO ridge caps, NO gutters, NO chimneys, NO roof edges.',
+    'Weathering is spread EVENLY and made of many small, low-contrast marks: NO single big stain or patch, NO isolated dark dots, NO recognizable shapes. Semi-realistic like a photo scan: NO ink outlines, NO comic style.',
   ],
   facade: [
     'TECHNICAL FORMAT — ONE-STOREY BUILDING FACADE MODULE, front elevation (orthographic, camera perpendicular to the facade, no perspective, no vanishing points).',
