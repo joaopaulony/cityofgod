@@ -65,7 +65,7 @@ addEventListener('mouseup', e => {
   if (e.button === 0) wmap.drag = null;
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
-  if (e.button === 1) { dragX = null; cam.tang = Math.round((cam.tang - Math.PI / 4) / (Math.PI / 2)) * Math.PI / 2 + Math.PI / 4; }
+  if (e.button === 1) dragX = null;   // câmera livre: solta onde parou
 });
 view.addEventListener('wheel', e => { if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
@@ -657,8 +657,9 @@ function frame(now) {
 function tick(dt) {
   T += dt;
   st.clock += dt; hud.msgT -= dt;
-  if (input.hit('q')) cam.tang += Math.PI / 2;
-  if (input.hit('e')) cam.tang -= Math.PI / 2;
+  // câmera livre: segurar Q/E gira em qualquer ângulo (sem travar de 90 em 90°)
+  const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
+  if (spin) cam.tang += spin * 1.6 * dt;   // ~90°/s; cam.update suaviza a chegada ao soltar
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }

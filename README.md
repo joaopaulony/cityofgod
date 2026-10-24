@@ -19,7 +19,7 @@ Abra `http://localhost:4321`. Use `?seed=1234` na URL para repetir um mapa.
 | Andar / correr | WASD / Shift |
 | Atirar / mirar | Clique / botão direito |
 | Recarregar | R |
-| Girar câmera | Q / E (ou arrastar com o botão do meio) |
+| Girar câmera (livre, qualquer ângulo) | segurar Q / E (ou arrastar com o botão do meio) |
 | Zoom | Roda do mouse |
 | Mapa completo (roda = zoom, arrastar = mover) | M |
 | Dia / noite | N |

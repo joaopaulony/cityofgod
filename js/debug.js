@@ -104,7 +104,7 @@ window.demoStep = () => {
   // recarga
   if (Math.abs(t - 5.7) < 0.5 / DEMO_FPS) input.pressed.add('r');
   // gira a câmera com Q e E
-  for (const [c, k] of [[8.4, 'q'], [9.2, 'q'], [10.6, 'e'], [12.9, 'e']]) if (Math.abs(t - c) < 0.5 / DEMO_FPS) input.pressed.add(k);
+  for (const [c, k] of [[8.4, 1], [9.2, 1], [10.6, -1], [12.9, -1]]) if (Math.abs(t - c) < 0.5 / DEMO_FPS) cam.tang += k * Math.PI / 2;
   // corre em direção à casa mais próxima
   if (between(t, 10.4, 12.8)) {
     const H = houses.slice().sort((p, q) => Math.hypot(p.front[0] - sx, p.front[1] - sy) - Math.hypot(q.front[0] - sx, q.front[1] - sy))[0];
