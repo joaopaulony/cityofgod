@@ -52,19 +52,22 @@ addEventListener('resize', resize); resize();
 // ---------- entrada do mouse / câmera ----------
 view.addEventListener('mousemove', e => {
   input.mx = e.clientX; input.my = e.clientY;
+  if (wmap.drag) { wmap.ox += e.clientX - wmap.drag[0]; wmap.oy += e.clientY - wmap.drag[1]; wmap.drag = [e.clientX, e.clientY]; return; }
   if (dragX !== null) { cam.tang += (e.clientX - dragX) * 0.008; dragX = e.clientX; }
 });
 view.addEventListener('mousedown', e => {
+  if (wmap.open) { if (e.button === 0) wmap.drag = [e.clientX, e.clientY]; e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; e.preventDefault(); }
 });
 addEventListener('mouseup', e => {
+  if (e.button === 0) wmap.drag = null;
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
   if (e.button === 1) { dragX = null; cam.tang = Math.round((cam.tang - Math.PI / 4) / (Math.PI / 2)) * Math.PI / 2 + Math.PI / 4; }
 });
-view.addEventListener('wheel', e => { zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
+view.addEventListener('wheel', e => { if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
 // ---------- chat ----------
 const logEl = document.getElementById('log'), say = document.getElementById('say');
@@ -657,6 +660,7 @@ function tick(dt) {
   if (input.hit('q')) cam.tang += Math.PI / 2;
   if (input.hit('e')) cam.tang -= Math.PI / 2;
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
+  if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
   // Veiculo tem prioridade ao entrar/sair; casas preservam F fora dele.
   const interactPressed=input.hit('f');
@@ -701,6 +705,7 @@ function tick(dt) {
   h.save();h.textAlign='left';h.textBaseline='alphabetic';
   window.cityVehicles?.drawHUD(h,hudC.width,hudC.height);
   h.restore();
+  if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
   const prompt=window.cityVehicles?.prompt()||interactionPrompt(player);
   if(prompt&&!player.stairTravel){

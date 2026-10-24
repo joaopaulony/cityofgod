@@ -37,6 +37,7 @@
   }
   #keys div { display: flex; justify-content: space-between; gap: 22px; padding: 3px 10px; }
   #keys kbd { color: #9a928a; font: inherit; }
+  body.map-open #chat, body.map-open #keys { display: none; }
 </style>
 </head>
 <body>
@@ -63,6 +64,7 @@
   <div>Motor / faróis / buzina <kbd>X / L / H</kbd></div>
   <div>Garagem: próximo carro (fora) <kbd>V</kbd></div>
   <div><a href="vehicle-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos modelos 3D</a></div>
+  <div>Mapa <kbd>M</kbd></div>
   <div>Dia / noite <kbd>N</kbd></div>
   <div>Novo mapa <kbd>G</kbd></div>
 </div>
@@ -71,6 +73,7 @@
 <script src="js/worldgen/geo.js"></script>
 <script src="js/worldgen/roads.js"></script>
 <script src="js/worldgen/stream.js"></script>
+<script src="js/worldgen/atlas-paint.js"></script>
 <script src="js/world.js"></script>
 <script src="js/archi.js"></script>
 <script src="js/terrain.js"></script>
@@ -86,6 +89,7 @@
 <script src="js/skeleton.js"></script>
 <script src="js/character.js"></script>
 <script src="js/hud.js"></script>
+<script src="js/worldmap.js"></script>
 <script src="js/ecosystem.js"></script>
 <script src="js/miami.js"></script>
 <script src="js/miami-facades.js"></script>

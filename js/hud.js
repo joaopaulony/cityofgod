@@ -46,19 +46,12 @@ function drawHUD(h, W, H, st) {
   roundRect(h, W - 360, 14, 160, 58, 8, 'rgba(18,16,15,.85)', '#000');
   h.fillStyle = '#fff'; h.font = 'bold 28px "Segoe UI", sans-serif'; h.textAlign = 'center'; h.textBaseline = 'alphabetic';
   h.fillText(`${hh}:${mm}`, W - 280, 46); h.font = '12px "Segoe UI", sans-serif'; h.fillStyle = '#cfc8be'; h.fillText('Qua, 21 Out 2026', W - 280, 63);
-  // minimapa: a mesma textura do chão, girada com a câmera
+  // minimapa girado com a câmera (worldmap.js)
   const mx = W - 186, my = 14, ms = 172;
+  wmapTick();
   roundRect(h, mx - 3, my - 3, ms + 6, ms + 6, 8, '#000');
   h.save(); h.beginPath(); h.roundRect(mx, my, ms, ms, 6); h.clip();
-  h.fillStyle = '#29331f'; h.fillRect(mx, my, ms, ms);
-  const k = 2.6;   // px por metro no mini
-  h.imageSmoothingEnabled = true;
-  const c = Math.cos(cam.ang), s = Math.sin(cam.ang);
-  h.setTransform(c * k / world.groundPPM, s * k / world.groundPPM, -s * k / world.groundPPM, c * k / world.groundPPM, mx + ms / 2 - (c * p.x - s * p.y) * k, my + ms / 2 - (s * p.x + c * p.y) * k);
-  h.drawImage(world.ground, 0, 0);
-  h.setTransform(c * k, s * k, -s * k, c * k, mx + ms / 2 - (c * p.x - s * p.y) * k, my + ms / 2 - (s * p.x + c * p.y) * k);
-  for (const H of houses) { h.fillStyle = H.style ? H.style.roofCol : H.roof; h.strokeStyle = '#000'; h.lineWidth = 0.2; h.fillRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); h.strokeRect(H.x0, H.y0, H.x1 - H.x0, H.y1 - H.y0); }
-  for (const n of st.npcs) { h.fillStyle = '#f2c94c'; h.beginPath(); h.arc(n.x, n.y, 0.8, 0, TAU); h.fill(); }
+  drawMiniMap(h, mx, my, ms, p, st);
   h.restore();
   // seta do jogador + norte
   h.save(); h.translate(mx + ms / 2, my + ms / 2); h.rotate(p.face + cam.ang);
@@ -66,7 +59,7 @@ function drawHUD(h, W, H, st) {
   const north = screenDirOf(0, -1);
   h.fillStyle = '#fff'; h.font = 'bold 12px sans-serif'; h.textAlign = 'center';
   h.fillText('N', mx + ms / 2 + north[0] * (ms / 2 - 10), my + ms / 2 + north[1] * (ms / 2 - 10) + 4);
-  h.fillStyle = '#e8e2d8'; h.font = 'bold 12px sans-serif'; h.fillText('Q / E  gira a câmera', mx + ms / 2, my + ms + 18);
+  h.fillStyle = '#e8e2d8'; h.font = 'bold 12px sans-serif'; h.fillText('Q / E  gira  ·  M  mapa', mx + ms / 2, my + ms + 18);
 
   // hotbar
   const slots = 7, sw = 54, hx = W / 2 - slots * sw / 2, hy = H - 80;

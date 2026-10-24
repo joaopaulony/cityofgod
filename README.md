@@ -21,6 +21,7 @@ Abra `http://localhost:4321`. Use `?seed=1234` na URL para repetir um mapa.
 | Recarregar | R |
 | Girar câmera | Q / E (ou arrastar com o botão do meio) |
 | Zoom | Roda do mouse |
+| Mapa completo (roda = zoom, arrastar = mover) | M |
 | Dia / noite | N |
 | Novo mapa | G |
 | Chat | Enter |
@@ -51,9 +52,10 @@ O jogo começa com o personagem **desembarcando no saguão do aeroporto**, como 
 - `js/skeleton.js` — esqueleto, IK e animação
 - `js/character.js` — pintura do personagem e retrato
 - `js/hud.js` — HUD (retrato, barras, minimapa, hotbar, mira)
+- `js/worldmap.js` — minimapa nítido (vias e prédios vetoriais) e mapa completo na tecla M
 - `js/game.js` — laço principal, tiro, partículas e iluminação noturna
 - `js/debug.js` — cenas de teste (`?scene=...`), carregado só para inspeção
-- `js/worldgen/` — geografia, vias, marcos e streaming do mundo grande
+- `js/worldgen/` — geografia, vias, marcos e streaming do mundo grande; `atlas-paint.js` pinta o mapa usado pelo atlas e pelo jogo
 - `js/openworld.js` — liga o mundo grande ao jogo (setores, campos do terreno, descarga)
 
 
