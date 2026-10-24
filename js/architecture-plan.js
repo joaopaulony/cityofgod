@@ -19,7 +19,8 @@
    const publicFloor=floor===0&&['office','condo','projects','deco','shop','airport','warehouse'].includes(kind);
    const hallW=publicFloor?(kind==='airport'?3.6:kind==='warehouse'?2.8:2.5):count>1?2.15:1.35;
    const left=round(coreX-hallW/2-ox),right=round(left+hallW),rear=round(Math.max(2.8,d*rearFraction));
-   const inset=round(Math.min(1.8,d*.18)),leftEnd=d-(family===2?inset:0),rightEnd=d-(family===1||family===3?inset:0),entry=d-(floor>0?1.65:family===0?inset:inset*.55);
+   const inset=round(Math.min(1.8,d*.18)),wingRecess=count>3&&floor>=Math.ceil(count*.6)?Math.min(1.4,d*.1):0;
+   const leftEnd=Math.max(rear+2.8,d-(family===2?inset:0)-(family%2===0?wingRecess:0)),rightEnd=Math.max(rear+2.8,d-(family===1||family===3?inset:0)-(family%2?wingRecess:0)),entry=d-(floor>0?1.65:family===0?inset:inset*.55);
    let uses;
    if(isHome&&!(floor===0&&['condo','projects'].includes(kind)))uses=floor===0||['condo','projects'].includes(kind)?['bedroom','bathroom','living','kitchen']:['bedroom','bathroom','bedroom','study'];
    else if(kind==='warehouse')uses=['office','bathroom','warehouse','loading'];
@@ -31,7 +32,7 @@
    const rooms=[rect('rear-left',uses[0],0,0,left,rear),rect('rear-right',uses[1],right,0,w,rear),rect('front-left',uses[2],0,rear,left,leftEnd),rect('front-right',uses[3],right,rear,w,rightEnd),rect('hall','circulation',left,0,right,entry)];
    if(kind==='mansion'&&w>=14){const bath=rooms[1];const split=round(rear*.57);bath.y1=split;rooms.push(rect('laundry','laundry',right,split,w,rear));}
    for(const r of rooms){r.x0=round(r.x0+ox);r.x1=round(r.x1+ox);r.y0=round(r.y0+oy);r.y1=round(r.y1+oy);}
-   const level={floor,z:floor*height,rooms,walls:[],furniture:[],entry:[ox+(left+right)/2,oy+entry],setback,
+   const level={floor,kind,wingRecess,z:floor*height,rooms,walls:[],furniture:[],entry:[ox+(left+right)/2,oy+entry],setback,
     outdoor:floor>0?[rect('balcony','balcony',ox+left,oy+entry,ox+right,oy+d)]:[]};
    if(kind==='mansion'&&floor>0)level.outdoor.push({...rect('rear-balcony','balcony',1.3,-2.7,W-1.3,0),rear:true});
    makeWalls(level,seed+floor);furnish(level,seed+floor*71);
@@ -54,7 +55,8 @@
    else if(ext&&owner.id==='hall'&&wall.normal[1]<-.5&&level.outdoor.some(r=>r.rear))wall.openings.push({kind:'door',style:'glazed',at:len/2,width:1.15,height:2.25});
    else if(ext&&owner.use!=='circulation'&&len>=1.8){
     const privacy=owner.use==='bathroom',count=Math.max(1,Math.floor(len/(privacy?3.7:2.6)));
-    for(let i=0;i<count;i++)wall.openings.push({kind:'window',at:len*(i+1)/(count+1),width:privacy?.65:Math.min(1.35,len/(count+1)-.35),sill:privacy?1.6:.85,height:privacy?.55:1.35});
+    const office=level.kind==='office';
+    for(let i=0;i<count;i++)wall.openings.push({kind:'window',at:len*(i+1)/(count+1),width:privacy?.65:Math.min(office?1.75:1.35,len/(count+1)-.35),sill:privacy?1.6:office?.65:.85,height:privacy?.55:office?1.65:1.35});
    }
    if(ext&&owner.use==='loading'&&level.floor===0&&wall.normal[1]>.5&&len>4)wall.openings=[{kind:'door',style:'roller',at:len/2,width:Math.min(3.4,len-1),height:3.6}];
    level.walls.push(wall);

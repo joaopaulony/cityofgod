@@ -37,6 +37,11 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
     box(u+.05,v-.05,sill+o.height*.5,top-.05,.035,'#b6ccd2','glass');
     box(u,v,sill+o.height*.5-.025,sill+o.height*.5+.025,.09,trim,'trim');
     windows.push({opening:o,point:point(u),baseY:z+sill,angle:-Math.atan2(dy,dx)});
+    if(style.commercial){
+     const nx=w.normal[0],ny=w.normal[1];
+     for(const at of [u-.12,v+.12]){const a=point(at);span(k,[a[0]+nx*.03,a[1]+ny*.03],[a[0]+nx*.30,a[1]+ny*.30],z+.1,z+h-.1,.055,style.commercial,'metal');}
+     const a=point(u-.17),b=point(v+.17);span(k,[a[0]+nx*.17,a[1]+ny*.17],[b[0]+nx*.17,b[1]+ny*.17],z+top+.12,z+top+.19,.37,'#d9ded8','concrete');
+    }
     if(w.ext&&!cut&&style.shutters){for(const [a,b] of [[u-.23,u-.07],[v+.07,v+.23]]){box(a,b,sill,top,.10,style.shutters,'wood');for(let y=sill+.08;y<top;y+=.13)box(a,b,y,y+.025,.13,'#566b60','trim');}}
     if(w.ext&&!cut&&style.bars){for(let x=u+.12;x<v-.04;x+=.17)box(x,x+.018,sill,top,.14,'#48504c','metal');box(u,v,sill+.45,sill+.47,.14,'#48504c','metal');}
     const sillFront=point(o.at);const nx=w.normal[0],ny=w.normal[1];
@@ -133,13 +138,13 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
   const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],H};
   const glass=mats.glass.clone();e.materials.push(glass);e.glass=glass;
-  const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
+  const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
   for(const level of A.levels){
-   if(level.floor&&level.setback>A.levels[level.floor-1].setback){const prev=A.levels[level.floor-1];
+   if(level.floor&&(level.setback>A.levels[level.floor-1].setback||level.wingRecess>A.levels[level.floor-1].wingRecess)){const prev=A.levels[level.floor-1];
     for(const r of prev.rooms)wallKit.box(r.x0-.06,level.z-.12,r.y0-.06,r.x1+.06,level.z-.01,r.y1+.06,'#c9cbc2',0,'concrete');
     for(const w of prev.walls)if(w.ext){span(wallKit,w.a,w.b,level.z,level.z+.3,.15,base,'wall');span(wallKit,w.a,w.b,level.z+.3,level.z+.35,.23,'#e7e0d2','concrete');}
    }
-   for(const w of level.walls)if(w.ext)buildWall(wallKit,w,level.z,A.floorHeight,base,false,e.doors,glass,{shutters:H.style?.shutters,bars:H.style?.bars,rural:A.kind==='rural',stone:level.floor===0&&['mansion','office','deco','shop'].includes(A.kind)},e.windows);
+   for(const w of level.walls)if(w.ext)buildWall(wallKit,w,level.z,A.floorHeight,A.kind==='office'&&w.rooms.includes('hall')?'#718c8b':base,false,e.doors,glass,{shutters:A.kind==='office'?null:H.style?.shutters,bars:H.style?.bars,rural:A.kind==='rural',commercial:A.kind==='office'?'#6d8586':null,stone:level.floor===0&&['mansion','office','deco','shop'].includes(A.kind)},e.windows);
    for(const r of wings(level)){wallKit.box(r.x0-.08,level.z-.08,r.y0-.08,r.x1+.08,level.z+.02,r.y1+.08,level.floor?'#d5cbb8':'#b1a58d',0,'trim');}
    for(const r of level.outdoor)balcony(wallKit,r,level.z,accent);
    yield;
@@ -185,6 +190,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    for(const d of [...e.doors,...(e.innerDoors||[])]){const open=d.opening.segment?.doorAnim?.open||0;if(d.opening.style==='roller')d.object.position.y=d.baseY+open*d.opening.height;else d.object.rotation.y=d.base+open*1.3;}
    updateSashes(e.sashes);if(e.interior?.visible)updateSashes(e.innerSashes);
    e.glass.emissive.set(bridge.world.night&&H.lightOn?'#dfba79':'#000000');e.glass.emissiveIntensity=.55;
+   e.glass.envMapIntensity=bridge.world.night?.10:.75;
   }
   for(const [H,e] of entries)if(!seen.has(H)){disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
   for(const [H,job] of builds)if(!seen.has(H)){job.return();builds.delete(H);}
