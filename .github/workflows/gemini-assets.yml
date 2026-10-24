@@ -51,8 +51,10 @@ on:
 permissions:
   contents: read
 
+# cada geração manual tem o próprio grupo (o GitHub guarda só UMA execução pendente por grupo e cancelava a anterior);
+# testes de push/PR continuam agrupados por branch
 concurrency:
-  group: gemini-assets-${{ github.ref }}
+  group: gemini-assets-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'tests' }}
   cancel-in-progress: false
 
 jobs:

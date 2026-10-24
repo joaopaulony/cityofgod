@@ -149,18 +149,43 @@ function boxBlur(px, w, h, r) {
 }
 // apaga pontinhos escuros isolados (chicletes, furos) que viram grade quando a textura repete: o que fica bem mais
 // escuro que a média da vizinhança é trocado por ela, com 2 px de folga e borda suave. Devolve também quantos px.
-export function removeSpots(px, w, h, { thr = 38, radius = 0.012 } = {}) {
+export function removeSpots(px, w, h, { thr = 38, radius = 0.012, strength = 1 } = {}) {
   const r = Math.max(3, Math.round(w * radius)), B = boxBlur(px, w, h, r), lum = (a, o) => 0.299 * a[o] + 0.587 * a[o + 1] + 0.114 * a[o + 2];
   const mask = new Float32Array(w * h);
   for (let k = 0; k < w * h; k++) if (lum(B, k * 3) - lum(px, k * 4) > thr) mask[k] = 1;
   const soft = new Float32Array(w * h); let count = 0;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     let m = 0; for (let dy = -3; dy <= 3 && m < 1; dy++) for (let dx = -3; dx <= 3; dx++) { if (!mask[((j + dy + h) % h) * w + (i + dx + w) % w]) continue; const d = Math.hypot(dx, dy); m = Math.max(m, d <= 2 ? 1 : 1 - (d - 2) / 2.3); }
-    soft[j * w + i] = m; if (mask[j * w + i]) count++;
+    soft[j * w + i] = m * strength; if (mask[j * w + i]) count++;
   }
   const out = new Uint8Array(px);
   for (let k = 0; k < w * h; k++) if (soft[k] > 0) for (let c = 0; c < 3; c++) out[k * 4 + c] = clamp8(px[k * 4 + c] + (B[k * 3 + c] - px[k * 4 + c]) * soft[k]);
   return { px: out, count };
+}
+
+// o Gemini às vezes desenha a textura JÁ repetida (duas metades ou quatro quadrantes iguais). Mede a correlação do
+// detalhe fino (passa-alta numa cópia 256×256) com ele mesmo deslocado meia largura / meia altura; > 0,4 = repetida.
+export function halfRepeat(px, w, h) {
+  const N = 256, g = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {   // média de bloco, só luminância
+    const x0 = (i * w / N) | 0, x1 = Math.max(x0 + 1, ((i + 1) * w / N) | 0), y0 = (j * h / N) | 0, y1 = Math.max(y0 + 1, ((j + 1) * h / N) | 0);
+    let s = 0, n = 0; for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const o = (y * w + x) * 4; s += 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]; n++; }
+    g[j * N + i] = s / n;
+  }
+  const r = 6, hp = new Float32Array(N * N);   // passa-alta: tira a média 13×13 (só o detalhe fino conta)
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { let s = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) s += g[((j + dy + N) % N) * N + (i + dx + N) % N]; hp[j * N + i] = g[j * N + i] - s / ((2 * r + 1) ** 2); }
+  const corr = (sx, sy) => { let a = 0, b = 0, c = 0; for (let k = 0; k < N * N; k++) { const i = k % N, j = (k / N) | 0, v = hp[k], u = hp[((j + sy) % N) * N + (i + sx) % N]; a += v * u; b += v * v; c += u * u; } return a / Math.sqrt(b * c); };
+  return { x: corr(N / 2, 0), y: corr(0, N / 2) };
+}
+
+// nivela as formas grandes (manchas de 30 cm para cima) sem mexer no detalhe fino: tira `strength` da diferença
+// entre a luminância desfocada (raio r) e a média geral
+export function levelLarge(px, w, h, r, strength = 0.5) {
+  const B = boxBlur(px, w, h, r), lum = (a, o) => 0.299 * a[o] + 0.587 * a[o + 1] + 0.114 * a[o + 2];
+  let mean = 0; for (let k = 0; k < w * h; k++) mean += lum(B, k * 3) / (w * h);
+  const out = new Uint8Array(px);
+  for (let k = 0; k < w * h; k++) { const d = (lum(B, k * 3) - mean) * strength; for (let c = 0; c < 3; c++) out[k * 4 + c] = clamp8(px[k * 4 + c] - d); }
+  return out;
 }
 
 // original (PNG/JPEG/WebP) -> { full: PNG processado, game: WebP no tamanho do jogo, info }
@@ -168,18 +193,29 @@ export async function processAsset(bytes, asset) {
   const { default: sharp } = await import('sharp');
   const meta = await sharp(bytes).metadata();
   if (!meta.width || !meta.height || meta.width < 256 || meta.height < 256 || meta.width > 8192 || meta.height > 8192) throw Error('Imagem gerada com dimensões inválidas');
-  // texturas: corta 2% de cada borda antes de emendar (o modelo às vezes desenha um filete claro na beirada)
+  const tex = asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof', steps = [];
+  // texturas: corta 2% de cada borda (o modelo às vezes desenha um filete claro na beirada). Se a textura veio
+  // repetida dentro da imagem (medido no original inteiro, em fase), fica só um período: metade exata do original,
+  // a partir da margem, e as bordas desse período já casam. A escala acompanha (coverage usa a largura final).
   let src = sharp(bytes);
-  if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') { const m = Math.round(Math.min(meta.width, meta.height) * 0.02); src = sharp(await src.extract({ left: m, top: m, width: meta.width - 2 * m, height: meta.height - 2 * m }).toBuffer()); }
+  if (tex) {
+    const full = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const hr = halfRepeat(new Uint8Array(full.data.buffer, full.data.byteOffset, full.data.length), full.info.width, full.info.height), cx = hr.x > 0.4, cy = hr.y > 0.4;
+    const m = Math.round(Math.min(meta.width, meta.height) * 0.02);
+    // o jogo usa textura quadrada: se um eixo repete, os dois ficam com meio original (o corte da costura cuida do outro)
+    const half = cx || cy, cw = half ? Math.round(meta.width / 2) : meta.width - 2 * m, chh = half ? Math.round(meta.height / 2) : meta.height - 2 * m;
+    src = sharp(await src.extract({ left: m, top: m, width: cw, height: chh }).toBuffer());
+    if (cx || cy) steps.push(`period ${cx ? 'x' : ''}${cy ? 'y' : ''} (${hr.x.toFixed(2)}, ${hr.y.toFixed(2)})`);
+  }
   const { data, info } = await src.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let w = info.width, h = info.height;
   let px = new Uint8Array(data.buffer, data.byteOffset, data.length), crop = null;
-  const steps = [];
-  if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') {
+  if (tex) {
     px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
     if (asset.desat != null) { px = desaturate(px, asset.desat); steps.push('desat'); }
     if (asset.anchor) { px = colorMatch(px, hexRgb(asset.anchor)); steps.push('color ' + asset.anchor); }
-    if (asset.despot) { const s = removeSpots(px, w, h); px = s.px; steps.push(`spots ${s.count}px`); }
+    if (asset.level) { px = levelLarge(px, w, h, Math.max(4, Math.round(w * 0.3 / asset.meters)), asset.level); steps.push('level ' + asset.level); }
+    if (asset.despot) { const s = removeSpots(px, w, h, asset.despot === true ? {} : asset.despot); px = s.px; steps.push(`spots ${s.count}px`); }
     px = matchEdges(px, w, h); steps.push('edges');
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'facade') {
@@ -195,6 +231,6 @@ export async function processAsset(bytes, asset) {
   const game = await sharp(full).resize({ width: asset.game, height: asset.game, fit: 'inside', kernel: 'lanczos3' }).webp({ quality: 90, alphaQuality: 95 }).toBuffer();
   const gm = await sharp(game).metadata();
   // largura real coberta pela imagem final (o recorte da beirada e o corte da costura tiram pixels)
-  const coverage = +(asset.meters * w / meta.width).toFixed(3);
+  const coverage = +(asset.meters * w / meta.width).toFixed(3);   // meta.width = original inteiro
   return { full, game, info: { width: w, height: h, format: meta.format, steps, coverage, gameWidth: gm.width, gameHeight: gm.height, gameBytes: game.length } };
 }

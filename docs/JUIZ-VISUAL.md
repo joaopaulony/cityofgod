@@ -74,3 +74,5 @@ Prints com zoom 34 e câmera em 45°, mais uma vista em outro ângulo, porque a 
 
 | Rodada | Data | Estágio | Média | Menor | Observação |
 | --- | --- | --- | --- | --- | --- |
+| 1 | 24/10/2026 | asset (8 texturas de chão) | 6,7 | 5,8 (gramado) | Só a areia passou (9,05). Fantasmas da emenda por transparência, carimbos, escala errada no gramado. |
+| 2 | 24/10/2026 | asset (9 texturas de chão) | 8,0 | 6,7 (pavers) | Gramado 9,1 e areia 9,2 aprovados e instalados. Emenda por corte resolveu os fantasmas; sobram carimbos isolados. Pavers e calçadão passam a ser desenhados pelo jogo. |
