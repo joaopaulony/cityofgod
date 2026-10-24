@@ -59,6 +59,16 @@ export function matchEdges(px, w, h) {
   const o = new Uint8Array(px.length); for (let i = 0; i < o.length; i++) o[i] = clamp8(Math.round(out[i])); return o;
 }
 
+// recolore mantendo só a luz e sombra: cada pixel vira a cor âncora × (brilho dele / brilho médio). Serve para
+// derivar variações do mesmo material (calçada rosa a partir da cinza aprovada)
+export function tintLuma(px, anchor) {
+  const lum = (o) => 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
+  let mean = 0; for (let o = 0; o < px.length; o += 4) mean += lum(o) / (px.length / 4);
+  const out = new Uint8Array(px);
+  for (let o = 0; o < px.length; o += 4) { const k = lum(o) / mean; for (let c = 0; c < 3; c++) out[o + c] = clamp8(anchor[c] * k); }
+  return out;
+}
+
 // cor média puxada p/ a âncora da paleta (o Gemini erra o tom: asfalto marrom, calçada rosa alaranjada);
 // escala cada canal, preservando todo o detalhe de luz e sombra
 export function colorMatch(px, anchor, strength = 0.75) {
@@ -178,6 +188,26 @@ export function halfRepeat(px, w, h) {
   return { x: corr(N / 2, 0), y: corr(0, N / 2) };
 }
 
+// quando só um eixo repete, a janela de meio original pode deslizar no outro: escolhe a posição com menos "defeitos"
+// (variação grande de brilho = manchas, e células bem mais escuras que a vizinhança = pontos/rachaduras),
+// medidos numa grade 128×128 do original. axis 'y' = desliza na vertical. Devolve o deslocamento em px.
+export function cleanestOffset(px, w, h, axis, size, margin) {
+  const N = 128, g = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const x = ((i + 0.5) * w / N) | 0, y = ((j + 0.5) * h / N) | 0, o = (y * w + x) * 4; let s = 0; for (let d = 0; d < 3; d++) s += px[o + d]; g[j * N + i] = s / 3; }
+  const loc = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { let s = 0, n = 0; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const y = j + dy, x = i + dx; if (x < 0 || y < 0 || x >= N || y >= N) continue; s += g[y * N + x]; n++; } loc[j * N + i] = s / n; }
+  const len = axis === 'y' ? h : w, cells = Math.round(size / len * N), lo = Math.ceil(margin / len * N), hi = Math.floor((len - margin) / len * N) - cells;
+  let best = lo, bestScore = Infinity;
+  for (let o = lo; o <= Math.max(lo, hi); o++) {
+    let mean = 0, n = 0; const inW = (i, j) => axis === 'y' ? j >= o && j < o + cells : i >= o && i < o + cells;
+    for (let k = 0; k < N * N; k++) if (inW(k % N, (k / N) | 0)) { mean += loc[k]; n++; }
+    mean /= n; let score = 0;
+    for (let k = 0; k < N * N; k++) if (inW(k % N, (k / N) | 0)) score += Math.abs(loc[k] - mean) + Math.max(0, loc[k] - g[k] - 8) * 3;
+    if (score < bestScore) { bestScore = score; best = o; }
+  }
+  return Math.round(best / N * len);
+}
+
 // nivela as formas grandes (manchas de 30 cm para cima) sem mexer no detalhe fino: tira `strength` da diferença
 // entre a luminância desfocada (raio r) e a média geral
 export function levelLarge(px, w, h, r, strength = 0.5) {
@@ -204,7 +234,10 @@ export async function processAsset(bytes, asset) {
     const m = Math.round(Math.min(meta.width, meta.height) * 0.02);
     // o jogo usa textura quadrada: se um eixo repete, os dois ficam com meio original (o corte da costura cuida do outro)
     const half = cx || cy, cw = half ? Math.round(meta.width / 2) : meta.width - 2 * m, chh = half ? Math.round(meta.height / 2) : meta.height - 2 * m;
-    src = sharp(await src.extract({ left: m, top: m, width: cw, height: chh }).toBuffer());
+    // só um eixo repete: no outro a janela desliza até a posição mais limpa
+    const fpx = new Uint8Array(full.data.buffer, full.data.byteOffset, full.data.length);
+    const left = half && !cx ? cleanestOffset(fpx, meta.width, meta.height, 'x', cw, m) : m, top = half && !cy ? cleanestOffset(fpx, meta.width, meta.height, 'y', chh, m) : m;
+    src = sharp(await src.extract({ left, top, width: cw, height: chh }).toBuffer());
     if (cx || cy) steps.push(`period ${cx ? 'x' : ''}${cy ? 'y' : ''} (${hr.x.toFixed(2)}, ${hr.y.toFixed(2)})`);
   }
   const { data, info } = await src.ensureAlpha().raw().toBuffer({ resolveWithObject: true });

@@ -8,5 +8,15 @@
     "meters": 3.533,
     "px": 512,
     "from": "round2/ground-sand"
+  },
+  "ground-sidewalk": {
+    "meters": 2.65,
+    "px": 512,
+    "from": "round4/ground-sidewalk~v2"
+  },
+  "ground-sidewalk-pink": {
+    "meters": 2.65,
+    "px": 512,
+    "from": "round4/ground-sidewalk~v2 tint #dcaaa0"
   }
 }
