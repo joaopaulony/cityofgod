@@ -52,20 +52,21 @@ export function createBirds(THREE, scene, bridge, opts = {}) {
   const newBird = (name, x, y, mode) => ({ name, x, y, z: mode === 'fly' ? 6 + R() * 6 : 0, vx: 0, vy: 0, vz: 0, h: R() * TAU, mode, t: R() * 3, ph: R() * TAU, peck: 0, hop: 0, land: null, life: 8 + R() * 14 });
   let flockT = 0;
   function populate(cx, cy, rad, night, E) {
-    const want = night ? 0 : Math.round((E.windNow > 0.9 ? 14 : 26) * (E.snow > 0.5 ? 0.5 : 1));
+    // 30% da população original (pedido: 70% menos pássaros)
+    const want = night ? 0 : Math.round((E.windNow > 0.9 ? 4 : 8) * (E.snow > 0.5 ? 0.5 : 1));
     // retira os que ficaram longe (ou todos à noite)
     for (let i = birds.length - 1; i >= 0; i--) { const b = birds[i]; if (night || Math.hypot(b.x - cx, b.y - cy) > rad + 35) birds.splice(i, 1); }
     let tries = 6;
     while (birds.length < want && tries-- > 0) {
       const name = R() < 0.55 ? 'pigeon' : 'gull', p = findSpot(name, cx, cy, rad * 0.25, rad + 12);
       if (!p) continue;
-      const n = 2 + ((R() * 5) | 0);
-      for (let k = 0; k < n && birds.length < want + 4; k++) { const q = [p[0] + (R() - 0.5) * 2.2, p[1] + (R() - 0.5) * 2.2]; if (spotFor(name, q[0], q[1])) birds.push(newBird(name, q[0], q[1], 'ground')); }
+      const n = 1 + ((R() * 3) | 0);
+      for (let k = 0; k < n && birds.length < want; k++) { const q = [p[0] + (R() - 0.5) * 2.2, p[1] + (R() - 0.5) * 2.2]; if (spotFor(name, q[0], q[1])) birds.push(newBird(name, q[0], q[1], 'ground')); }
     }
     // de vez em quando um bando passa voando alto
     if (!night && (flockT -= 1) <= 0) {
-      flockT = 25 + R() * 30;
-      const name = R() < 0.6 ? 'gull' : 'pigeon', a = R() * TAU, n = 4 + ((R() * 6) | 0), h = a + Math.PI + (R() - 0.5) * 0.8;
+      flockT = 85 + R() * 100;
+      const name = R() < 0.6 ? 'gull' : 'pigeon', a = R() * TAU, n = 2 + ((R() * 2) | 0), h = a + Math.PI + (R() - 0.5) * 0.8;
       for (let k = 0; k < n; k++) { const b = newBird(name, cx + Math.cos(a) * (rad + 8) + (R() - 0.5) * 6, cy + Math.sin(a) * (rad + 8) + (R() - 0.5) * 6, 'fly'); b.h = h; b.z = 9 + R() * 5; b.pass = true; b.life = 40; birds.push(b); }
     }
   }
