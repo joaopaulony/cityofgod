@@ -13,6 +13,8 @@ import {createVegetation} from './vegetation-3d.mjs';
 import {createProps} from './props-3d.mjs';
 import {createHouse3D} from './house-3d.mjs';
 import {createArchitecture3D} from './architecture-3d.mjs';
+import {createAmbience} from './ambience-3d.mjs';
+import {createBirds} from './birds-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -180,6 +182,7 @@ function addHouseOccluder(H){
    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
    const mesh=new THREE.Mesh(geometry,invisible);
    mesh.userData.house=H;mesh.frustumCulled=false;
+   mesh.castShadow=!!window.VEG3D;   // a casa faz sombra de verdade, que anda com o sol (env.js)
    scene.add(mesh);return mesh;
   };
   const wallMesh=make(walls),roofMesh=make(slopes);
@@ -248,7 +251,8 @@ function initRenderer(){
  sun.position.set(-11,18,15);
  sun.castShadow=true;
  // a sombra cobre a vista inteira (árvores 3D), não só o carro
- sun.shadow.mapSize.set(2048,2048);sun.shadow.normalBias=.04;
+ const sm=renderer.capabilities.maxTextureSize>=8192?4096:2048;   // sombras nítidas na vista inteira, bordas suaves (PCF com raio)
+ sun.shadow.mapSize.set(sm,sm);sun.shadow.normalBias=.04;sun.shadow.radius=2.5;sun.shadow.blurSamples=12;
  sun.shadow.camera.left=-12;sun.shadow.camera.right=12;
  sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;
  sun.shadow.camera.near=.1;sun.shadow.camera.far=60;
@@ -278,10 +282,15 @@ function initRenderer(){
   // janelas, portas, cercas, sebes, toldos e degraus (house-3d.mjs)
   try{house3d=createHouse3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});system.house3d=house3d.state;}
   catch(error){console.error('Casas 3D falharam',error);}
+  // sol/lua pelas horas, céu, vento, neve (ambience-3d.mjs) e pássaros (birds-3d.mjs)
+  try{const [[hemi],[sun],[bounce]]=scene.userData.lights;ambience=createAmbience(THREE,scene,bridge,{hemi,sun,bounce,ground:vegetation?.ground});system.ambience=ambience.state;}
+  catch(error){console.error('Ambiente 3D falhou',error);}
+  try{birds=createBirds(THREE,scene,bridge,{car:()=>system.driver?{x:state.x,y:state.y,speed:state.speed}:null});system.birds=birds.state;}
+  catch(error){console.error('Pássaros 3D falharam',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
 }
-let vegetation=null,props3d=null,house3d=null,architecture3d=null;
+let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -420,10 +429,13 @@ system.render=()=>{
  if(body){body.position.set(state.x,0,state.y);
  body.rotation.y=-state.angle;}
  // noite: as luzes da cena acompanham o escurecimento do jogo 2D
- const night=bridge.world.night?.15:1;
- for(const [l,k] of scene.userData.lights)l.intensity=k*night;
- scene.userData.lights[0][0].color.setHex(bridge.world.night?0x8090c0:0xf8ead9);
- scene.userData.sun.castShadow=!bridge.world.night;   // sem sombra do sol à noite
+ if(ambience)ambience.update(viewCamera);   // sol/luar na direção do astro, céu do horário, vento e neve
+ else{
+  const night=bridge.world.night?.15:1;
+  for(const [l,k] of scene.userData.lights)l.intensity=k*night;
+  scene.userData.lights[0][0].color.setHex(bridge.world.night?0x8090c0:0xf8ead9);
+  scene.userData.sun.castShadow=!bridge.world.night;   // sem sombra do sol à noite
+ }
  if(vegetation){
   // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
   const p=bridge.player,occupied=bridge.houses.find(H=>H.architecture&&H.inside),indoorRadius=occupied?Math.min(12,Math.hypot(occupied.x1-occupied.x0,occupied.y1-occupied.y0)*.52):1.7;
@@ -433,6 +445,7 @@ system.render=()=>{
  props3d?.update(performance.now()/1000,bridge.gameTime||0);
  architecture3d?.update();
  house3d?.update(performance.now()/1000);
+ birds?.update();
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;

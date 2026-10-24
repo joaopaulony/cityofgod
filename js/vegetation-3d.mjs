@@ -429,7 +429,9 @@ export function createVegetation(THREE, scene, bridge) {
     },
     update(now, camera, renderer, target) {
       const c = bridge.cam, w = bridge.world;
-      time.value = now; windStr.value = 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);
+      // vento do clima (env.js): brisa leve, ventania com rajadas que dobram as palmeiras
+      const E = globalThis.ENV;
+      time.value = now; windStr.value = E ? Math.min(3.2, 0.25 + E.windNow * 2.3) : 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5);
       const R = Math.min(150, Math.hypot(halfW, halfH) + 36);
       const n = (w.props || []).length;

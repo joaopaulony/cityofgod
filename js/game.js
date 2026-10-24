@@ -40,7 +40,7 @@ window.cityVehicleBridge={
   get roads(){return world.roads;},
   curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
   down:k=>input.down(k),hit:k=>input.hit(k),
-  pondVal,
+  pondVal,roadDist,
   collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
@@ -326,6 +326,7 @@ function render() {
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
   drawGround(g,W,H);
+  drawSnowGround(g,W,H);   // neve acumulada no chão (env.js)
   if(st.night)for(const lamp of world.lamps)drawLampBeam(g,lamp,T);
 
   const list = [], margin = 6 * s;
@@ -386,7 +387,8 @@ function render() {
   // O antigo X-ray de personagem nao respeitava a profundidade: parecia
   // flutuar em cima do telhado. A lente redesenha a cena sem a parede
   // que realmente bloqueia a camera, com mascara radial suavizada.
-  if (st.night) drawNight(W,H);
+  drawSkyTint(g,W,H);   // dourado do fim de tarde, lilás do crepúsculo, nuvens
+  if (ENV.dark > 0.02) drawNight(W,H);   // escurece aos poucos com o pôr do sol
   const blocker=occluded();
   window.cityVehicleBridge.visionBlocker=window.cityVehicles?.driver||window.cityCharacters?.has(player)?blocker:null;
   if(blocker)drawPlayerVision(list,blocker,W,H);
@@ -531,7 +533,8 @@ function drawNight(W,H){
   lg.setTransform(1,0,0,1,0,0);
   lg.globalCompositeOperation='source-over';
   lg.clearRect(0,0,W,H);
-  lg.fillStyle='rgba(10,16,31,.78)';lg.fillRect(0,0,W,H);
+  const NA='rgba(10,16,31,'+(.78*ENV.dark).toFixed(3)+')';
+  lg.fillStyle=NA;lg.fillRect(0,0,W,H);
   const radial=(ctx,x,y,r,k,flat=TILT,col='0,0,0')=>{
     ctx.save();ctx.translate(x,y);ctx.scale(1,flat);
     const gr=ctx.createRadialGradient(0,0,0,0,0,r);
@@ -546,7 +549,7 @@ function drawNight(W,H){
     return p.x>-r*Z&&p.x<W+r*Z&&p.y>-r*Z&&p.y<H+r*Z;
   };
   const lamps=[];
-  for(const l of world.lamps){
+  for(const l of st.night?world.lamps:[]){
     const x=l.x+l.ax*1.1,y=l.y+l.ay*1.1,r=5.1;
     if(!visible(x,y,r))continue;
     lamps.push({l,x,y,r,polygon:lightVisibilityFor(l,x,y,r)});
@@ -555,7 +558,7 @@ function drawNight(W,H){
   // A luminaria interior so gera esse brilho se o interruptor estiver ligado.
   const windows=[];
   for(const home of houses){
-    if(!home.lightOn)continue;
+    if(!home.lightOn||!st.night)continue;
     for(const s of home.segs){
       if(!s.ext||!s.window||!s.side)continue;
       const x=(s.x1+s.x2)*.5+s.nx*.24,
@@ -567,7 +570,7 @@ function drawNight(W,H){
   }
   const porch=[];
   for(const home of houses){
-    if(!home.wallLamp||!home.frontSide)continue;
+    if(!home.wallLamp||!home.frontSide||!st.night)continue;
     const sd=home.sides[home.frontSide],
       x=sd.a[0]+sd.dir[0]*home.wallLamp[0]+sd.n[0]*.30,
       y=sd.a[1]+sd.dir[1]*home.wallLamp[0]+sd.n[1]*.30,
@@ -621,7 +624,7 @@ function drawNight(W,H){
   lg.globalCompositeOperation='source-over';
   // Zera a luz projetada sobre fachada e telhado, reinstalando neles SOMENTE
   // o sombreado ambiente. O brilho fisico permanece no solo adjacente.
-  protectBuildingSurfaces(lg,'rgba(10,16,31,.78)');
+  protectBuildingSurfaces(lg,NA);
   g.drawImage(light,0,0);
   // Cor da luz: camada independente, tambem protegida pelas casas. Uma
   // radial quente nao pode ser sobreposta a geometria depois do mascaramento.
@@ -686,6 +689,9 @@ function frame(now) {
 function tick(dt) {
   T += dt;
   st.clock += dt; hud.msgT -= dt;
+  // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
+  envTick(dt, st.clock);
+  if (st.night !== ENV.night) st.night = world.night = ENV.night;
   // câmera livre: segurar Q/E gira em qualquer ângulo (sem travar de 90 em 90°)
   const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
   if (spin) cam.tang += spin * 1.6 * dt;   // ~90°/s; cam.update suaviza a chegada ao soltar
@@ -693,7 +699,9 @@ function tick(dt) {
   if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, .34, .84);
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
-  if (input.hit('n')) { st.night = !st.night; world.night = st.night; st.clock = st.night ? 21 * 60 + 5 : 17 * 60 + 40; }
+  // N pula p/ a manhã ou p/ a noite; K troca o clima (calmo, brisa, ventania, neve)
+  if (input.hit('n')) { st.clock = ENV.night ? 7 * 60 : 21 * 60 + 5; envTick(0, st.clock); st.night = world.night = ENV.night; }
+  if (input.hit('k')) { envSetWeather(ENV.weather + 1); hud.msg = 'Clima: ' + envWeather().name; hud.msgT = 2; }
   // Veiculo tem prioridade ao entrar/sair; casas preservam F fora dele.
   const interactPressed=input.hit('f');
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;

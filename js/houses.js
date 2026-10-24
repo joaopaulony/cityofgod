@@ -434,9 +434,9 @@ world.paintFloors = (g, M, rect) => {
   for (const H of mode === 'walk' ? [] : houses) {
     if (skipH(H) || far(...(H.drawBounds||[H.x0,H.y0,H.x1,H.y1]), Math.max(6, H.h * 0.6 + 2))) continue;   // sombra projetada (prédios: mais longa)
     if(H.rotation){g.save();const cx=(H.x0+H.x1)/2,cy=(H.y0+H.y1)/2;g.translate(M(cx),M(cy));g.rotate(H.rotation);g.translate(-M(cx),-M(cy));}
-    // sombra projetada (na direção oposta ao sol)
+    // sombra projetada (na direção oposta ao sol); com a camada 3D a casa faz sombra real que anda com o sol
     const k = (H.h + (H.roofKind === 'gable' ? 1.2 : 0)) * 0.55, ox = -SUN[0] * k, oy = -SUN[1] * k;
-    g.fillStyle = 'rgba(20,26,12,0.34)';
+    g.fillStyle = globalThis.VEG3D ? 'rgba(0,0,0,0)' : 'rgba(20,26,12,0.34)';
     g.beginPath(); g.moveTo(M(H.x0), M(H.y0)); g.lineTo(M(H.x1), M(H.y0)); g.lineTo(M(H.x1 + ox), M(H.y0 + oy));
     g.lineTo(M(H.x1 + ox), M(H.y1 + oy)); g.lineTo(M(H.x0 + ox), M(H.y1 + oy)); g.lineTo(M(H.x0), M(H.y1)); g.fill();
     for (const f of H.floors) {
@@ -608,6 +608,13 @@ function drawOpeningPortal(g,s){
   if(!door){g.fillStyle='rgba(92,136,157,.20)';g.fill();}
   g.restore();
 }
+// luz do sol na fachada conforme a hora (SUN gira em env.js)
+function wallSun(g, q, nx, ny) {
+  const day = typeof ENV !== 'undefined' ? ENV.day : 1, l = Math.hypot(SUN[0], SUN[1]) || 1, lit = (nx * SUN[0] + ny * SUN[1]) / l;
+  if (day < 0.03) return;
+  g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath();
+  g.fillStyle = lit > 0 ? `rgba(255,226,180,${(lit * 0.13 * day).toFixed(3)})` : `rgba(18,22,42,${(-lit * 0.3 * day).toFixed(3)})`; g.fill();
+}
 function drawWall(g, s) {
   const H = s.house, f = facingCam(s.nx, s.ny);
   const outside = s.ext && f > 0;
@@ -628,6 +635,7 @@ function drawWall(g, s) {
     }
     if (s.window) drawWindowLeaves(g, s, outside);
   }
+  if (outside) wallSun(g, wallQuad(s, 0, h), s.nx, s.ny);
   // espessura da parede vista de cima + arestas discretas
   const t = 0.14, a = proj(s.x1, s.y1, h), b = proj(s.x2, s.y2, h);
   const a2 = proj(s.x1 - s.nx * t, s.y1 - s.ny * t, h), b2 = proj(s.x2 - s.nx * t, s.y2 - s.ny * t, h);

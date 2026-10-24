@@ -46,6 +46,10 @@ function drawHUD(h, W, H, st) {
   roundRect(h, W - 360, 14, 160, 58, 8, 'rgba(18,16,15,.85)', '#000');
   h.fillStyle = '#fff'; h.font = 'bold 28px "Segoe UI", sans-serif'; h.textAlign = 'center'; h.textBaseline = 'alphabetic';
   h.fillText(`${hh}:${mm}`, W - 280, 46); h.font = '12px "Segoe UI", sans-serif'; h.fillStyle = '#cfc8be'; h.fillText('Qua, 21 Out 2026', W - 280, 63);
+  // clima atual (env.js) logo abaixo do relógio
+  const wl = envWeather().name + (ENV.snowCover > 0.05 ? ' · neve no chão' : '');
+  h.font = '11px "Segoe UI", sans-serif'; const ww = h.measureText(wl).width + 16;
+  roundRect(h, W - 280 - ww / 2, 76, ww, 18, 9, 'rgba(18,16,15,.7)', null); h.fillStyle = '#e8e2d8'; h.fillText(wl, W - 280, 89);
   // minimapa girado com a câmera (worldmap.js)
   const mx = W - 186, my = 14, ms = 172;
   wmapTick();

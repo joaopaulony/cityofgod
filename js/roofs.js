@@ -114,6 +114,7 @@ function drawPitched(g, H) {
     // origem da textura = canto (amin, bmax): x cresce ao longo do beiral, y desce a água
     const o = V.add(V.add(f.p[0], V.mul(f.e1, f.amin)), V.mul(f.e2, f.bmax));
     texPlane(g, f.tex, o, f.e1, V.mul(f.e2, -1), RTEX, pts);
+    if (typeof ENV !== 'undefined') { shadeOverlay(g, pts, f.n, 0.75 * ENV.day); envSnowPoly(g, pts, clamp(f.n[2] * 1.4, 0, 1)); }   // sol da hora e neve
     g.strokeStyle = 'rgba(25,18,14,0.7)'; g.lineWidth = 1;
     g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.stroke();
   }
@@ -163,6 +164,7 @@ function drawFlatRoof(g, H) {
   const sp=slab.map(q=>{const p=worldPt(q[0],q[1]);return proj(p[0],p[1],q[2]);});
   const origin=worldPt(H.x0,H.y0),ang=H.rotation||0;
   texPlane(g, H.slabTex, [origin[0],origin[1],z], [Math.cos(ang),Math.sin(ang),0],[-Math.sin(ang),Math.cos(ang),0], RTEX, sp);
+  if (typeof ENV !== 'undefined') envSnowPoly(g, sp, 1);   // neve na laje
   // faces internas da platibanda (as do fundo, viradas p/ a câmera)
   for (const k of ['N', 'S', 'W', 'E']) {
     const sd = H.sides[k], n = sd.n;

@@ -374,6 +374,7 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
       const k = b.kind; if (!FIX.has(k)) continue;
       if ((b.x - cx) ** 2 + (b.y - cy) ** 2 > R2 || !(bridge.props3d && bridge.props3d(b))) continue;
       const H = b.house, hc = H ? [(H.x0 + H.x1) / 2, (H.y0 + H.y1) / 2] : null, z = b.z || 0;
+      if (H && H.inside && (k === 'canopy' || k === 'porchroof')) continue;   // por dentro da casa o toldo só atrapalha a vista
       if (k === 'hedge') { hedges.push(b); continue; }
       if (k === 'post') { frame(b.x, z, b.y, 1, 0, Math.min(1.4, b.w / 0.14), (b.h || 2.42) / 2.42, Math.min(1.4, b.d / 0.14)); put(porchPost, M4, col(b.side || '#ece6da')); nx++; continue; }
       if (k === 'column') { frame(b.x, z, b.y, 1, 0, b.w / 0.44, (b.h || 3.4) / 3.4, b.d / 0.44); put(columnKind, M4, col(b.side || '#f4f2ec')); nx++; continue; }
