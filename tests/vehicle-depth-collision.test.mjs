@@ -39,7 +39,7 @@ test('soft bushes, painted tufts and curbs are not phantom walls',()=>{
  w.yards=[[4,4,20,20]];
  assert.equal(carCollision(w,car(10,10),options()),null);
 });
-test('lamps, stones and solid street bins have tight contact',()=>{
+test('lamps and solid bins have tight contact while decorative stones remain passable',()=>{
  const w=empty();w.circles=[
   {x:10,y:10,r:.12,kind:'lamp'},
   {x:20,y:20,r:.4,kind:'rock'}];
@@ -48,7 +48,9 @@ test('lamps, stones and solid street bins have tight contact',()=>{
  assert.equal(carCollision(w,car(7.52,10),o),null);
  assert.equal(carCollision(w,car(7.66,10),o)?.kind,'lamp');
  assert.equal(carCollision(w,car(17.2,20),o),null);
- assert.equal(carCollision(w,car(17.7,20),o)?.kind,'rock');
+ // The urban cleanup (e19e8bd) deliberately made decorative rocks passable.
+ assert.equal(carCollision(w,car(17.7,20),o),null);
+ assert.equal(carCollision(w,car(20,20),o),null);
  assert.equal(carCollision(w,car(27.35,30),o),null);
  assert.equal(carCollision(w,car(27.48,30),o)?.kind,'object');
 });

@@ -8,3 +8,5 @@ npm-debug.log*
 # saida do gerador Gemini (tools/gemini): revisar e copiar as aprovadas p/ assets/textures/
 assets/generated/
 .mixamo-source/
+dist/
+.vercel/

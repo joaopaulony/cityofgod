@@ -1,4 +1,4 @@
-﻿# Remodelação dos imóveis em 3D
+# Remodelação dos imóveis em 3D
 
 ## Direção e plano
 
@@ -62,10 +62,14 @@ Branch de origem: codex/imoveis-organicos. Revisão local: http://127.0.0.1:4322
 - Auditoria: 2.100 plantas, 6.450 pavimentos, 32.850 cômodos, zero inválidos. É uma auditoria semântica; não produz nota estética.
 - No navegador: mansão, janela em estados intermediário/aberto/fechando, segundo piso, sacadas frontal/traseira, torre de dez pavimentos de dia/noite; nenhum erro gráfico observado. Há avisos antigos de geometria já não indexada e do juiz urbano.
 - Na mansão carregada: aproximadamente 57–60 FPS. Na região de torres, cerca de 45 FPS em uma captura diurna, com quedas durante troca de setores. Não equivale a benchmark em celular ou garantia de FPS.
-- Capturas em `artifacts/architecture/`; resultado completo dos testes em `tests-current.txt`. A falha geral preexistente de colisão carro/pedra permanece fora desta revisão.
+- Capturas em `artifacts/architecture/`; resultado completo dos testes em `tests-current.txt`. A suíte completa passou: 99/99. O teste antigo de pedra foi alinhado à regra já vigente na main (pedras decorativas não bloqueiam carros); a colisão de postes e lixeiras continua coberta.
 
-### Situação de liberação
+### Integração e publicação
 
-Revisão disponível para teste na branch `codex/imoveis-organicos`. A pasta da main contém alterações locais em `game.js`, `house-3d.mjs`, `props-3d.mjs`, `terrain.js`, `vegetation-3d.mjs` e no bundle, observadas durante esta execução; não foram sobrescritas ou incluídas no commit desta branch. A integração precisa preservar esse trabalho.
+As otimizações de streaming da main (6810526) foram integradas na branch codex/imoveis-organicos, preservando a antecipação do terreno e os limites de reconstrução. O bundle foi recompilado depois da integração. O trabalho local de clima/dia-noite está sendo feito pelo Claude e não deve ser incluído nem sobrescrito nesta publicação, conforme orientação do usuário.
 
-A avaliação estética maior que 9 continua sem aprovação final: fachadas das torres ainda repetem muito o mesmo ritmo e o vidro usa um tratamento simplificado. Não confundir os testes funcionais aprovados com o atendimento integral da referência visual.
+Torres receberam recuos assimétricos nas alas superiores, coberturas dos terraços, brises e janelas comerciais mais amplas. O vidro usa um mapa compartilhado de céu/horizonte, com intensidade diurna/noturna; não é reflexão dinâmica da cena. Inspeção do pacote estático no navegador: renderizador pronto, zero erros de console. Não foi atribuída nota estética acima de 9; a publicação solicitada entrega a revisão atual, sem afirmar atendimento integral da referência visual.
+
+O deploy anterior da main no Vercel falhou com STATIC_BUILD_NO_OUT_DIR: esperava public, mas o build apenas gerava o bundle. vercel.json agora configura npm ci, npm run build:site e saída dist. tools/build-site.mjs copia o runtime, valida scripts e texturas, e exclui ferramentas/importações brutas. A pasta dist é gerada, não versionada. O workflow game-build.yml executa os 99 testes e o mesmo build estático em pushes à main e pull requests.
+
+Verificação local: npm run build:site concluído; 99 testes aprovados. O resultado remoto deve ser conferido no deployment do SHA publicado, não inferido apenas do build local.
