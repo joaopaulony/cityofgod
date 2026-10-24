@@ -39,17 +39,48 @@ export function flattenLighting(px, w, h, strength = 0.8) {
   return out;
 }
 
-// repete sem costura: mistura a imagem com ela mesma deslocada meia volta; perto das bordas vale a deslocada
-// (que já fecha a volta), no miolo vale a original (que esconde a costura da deslocada)
-export function makeSeamless(px, w, h, { x = true, y = true } = {}) {
-  const out = new Uint8Array(px.length), hw = w >> 1, hh = h >> 1;
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const dx = x ? Math.min(i, w - 1 - i) / hw : 1, dy = y ? Math.min(j, h - 1 - j) / hh : 1;
-    const m = smooth(0.15, 0.6, Math.min(dx, dy));
-    const si = x ? (i + hw) % w : i, sj = y ? (j + hh) % h : j, a = (j * w + i) * 4, b = (sj * w + si) * 4;
-    for (let c = 0; c < 4; c++) out[a + c] = Math.round(px[a + c] * m + px[b + c] * (1 - m));
+// cor média puxada p/ a âncora da paleta (o Gemini erra o tom: asfalto marrom, calçada rosa alaranjada);
+// escala cada canal, preservando todo o detalhe de luz e sombra
+export function colorMatch(px, anchor, strength = 0.75) {
+  const n = px.length / 4, mean = [0, 0, 0];
+  for (let i = 0; i < px.length; i += 4) for (let c = 0; c < 3; c++) mean[c] += px[i + c] / n;
+  const k = mean.map((m, c) => 1 + (anchor[c] / Math.max(1, m) - 1) * strength), out = new Uint8Array(px);
+  for (let i = 0; i < px.length; i += 4) for (let c = 0; c < 3; c++) out[i + c] = clamp8(px[i + c] * k[c]);
+  return out;
+}
+export const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+// repete sem costura por CORTE (como "image quilting"): as últimas `band` colunas da imagem sobrepõem as primeiras e,
+// em cada linha, um caminho de menor diferença entre as duas camadas decide onde uma termina e a outra começa
+// (2 px de transição, sem mistura por transparência e sem fantasmas). Depois o mesmo nas linhas. A imagem perde
+// `band` px por eixo; fora da faixa ela é a original.
+function cutX(px, w, h, b) {
+  const W = w - b, out = new Uint8Array(W * h * 4), cost = new Float32Array(b * h), from = new Int8Array(b * h);
+  const diff = (i, j) => { const a = (j * w + i) * 4, c = (j * w + W + i) * 4; let s = 0; for (let k = 0; k < 3; k++) { const d = px[a + k] - px[c + k]; s += d * d; } return s; };
+  // programação dinâmica de cima p/ baixo: o corte anda no máximo 1 px por linha; perto das pontas da faixa custa caro
+  // (assim a coluna 0 é sempre a cópia da direita e a coluna b-1 é sempre a original)
+  for (let j = 0; j < h; j++) for (let i = 0; i < b; i++) {
+    const edge = i < 2 || i > b - 3 ? 1e9 : 0;
+    let best = 0, bi = 0;
+    if (j) { best = Infinity; for (let d = -1; d <= 1; d++) { const q = i + d; if (q >= 0 && q < b && cost[(j - 1) * b + q] < best) { best = cost[(j - 1) * b + q]; bi = d; } } }
+    cost[j * b + i] = best + diff(i, j) + edge; from[j * b + i] = bi;
+  }
+  const cut = new Int32Array(h);
+  let ci = 0; for (let i = 1; i < b; i++) if (cost[(h - 1) * b + i] < cost[(h - 1) * b + ci]) ci = i;
+  for (let j = h - 1; j >= 0; j--) { cut[j] = ci; ci += from[j * b + ci]; }
+  for (let j = 0; j < h; j++) for (let i = 0; i < W; i++) {
+    const a = (j * w + i) * 4, o = (j * W + i) * 4;
+    if (i >= b) { for (let k = 0; k < 4; k++) out[o + k] = px[a + k]; continue; }
+    const t = Math.min(1, Math.max(0, (i - cut[j] + 1) / 2)), c = (j * w + W + i) * 4;   // 0 = cópia da direita, 1 = original
+    for (let k = 0; k < 4; k++) out[o + k] = Math.round(px[c + k] + (px[a + k] - px[c + k]) * t);
   }
   return out;
+}
+function transpose(px, w, h) { const out = new Uint8Array(px.length); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = (j * w + i) * 4, o = (i * h + j) * 4; for (let k = 0; k < 4; k++) out[o + k] = px[a + k]; } return out; }
+export function makeSeamless(px, w, h, { x = true, y = true, band = 0.08 } = {}) {
+  if (x) { const b = Math.max(6, Math.round(w * band)); px = cutX(px, w, h, b); w -= b; }
+  if (y) { const b = Math.max(6, Math.round(h * band)); px = transpose(cutX(transpose(px, w, h), h, w, b), h - b, w); h -= b; }
+  return { px, w, h };
 }
 
 // recorte do fundo de cor-chave (magenta #FF00FF ou azul #0000FF) com borda suave e sem halo; devolve também a caixa do conteúdo
@@ -82,14 +113,15 @@ export async function processAsset(bytes, asset) {
   const meta = await sharp(bytes).metadata();
   if (!meta.width || !meta.height || meta.width < 256 || meta.height < 256 || meta.width > 8192 || meta.height > 8192) throw Error('Imagem gerada com dimensões inválidas');
   const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const w = info.width, h = info.height;
+  let w = info.width, h = info.height;
   let px = new Uint8Array(data.buffer, data.byteOffset, data.length), crop = null;
   const steps = [];
   if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') {
     px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
-    px = makeSeamless(px, w, h); steps.push('seamless');
+    if (asset.anchor) { px = colorMatch(px, hexRgb(asset.anchor)); steps.push('color ' + asset.anchor); }
+    ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'facade') {
-    px = makeSeamless(px, w, h); steps.push('seamless');
+    ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'sprite') {
     const r = magentaCutout(px, w, h, asset.key || 'magenta'); px = r.px; steps.push('cutout-' + (asset.key || 'magenta'));
     const pad = 6, [x0, y0, x1, y1] = r.box;

@@ -45,7 +45,7 @@ const scaleLine = a => a.kind === 'sprite'
   ? `SCALE: the subject is about ${a.meters} m tall in the real world; keep believable real-world proportions.`
   : a.kind === 'facade' || a.kind === 'mural'
     ? `SCALE: the image shows exactly ${a.meters} m of wall width; keep real-world proportions.`
-    : `SCALE: the whole image covers exactly ${a.meters} × ${a.meters} m of real surface; size every detail accordingly (do not make stones, blades, leaves or tiles oversized).`;
+    : `SCALE: the whole image covers exactly ${a.meters} × ${a.meters} m of real surface, so at 2048 px 1 m = ${Math.round(2048 / a.meters)} px and 1 cm = ${(2048 / a.meters / 100).toFixed(1)} px; size every detail accordingly (do not make stones, blades, leaves or tiles oversized).`;
 
 export function buildPrompt(a, o = {}) {
   if (typeof a === 'string') a = byId(a);
@@ -54,7 +54,7 @@ export function buildPrompt(a, o = {}) {
   return [
     `CITY OF GOD — GAME ASSET "${a.id}" (${a.title}). Generate exactly ONE image.`,
     STYLE_BIBLE,
-    ...KIND_RULES[a.kind],
+    ...KIND_RULES[a.kind].filter(r => !(a.pattern && r.startsWith('ISOTROPIC'))),
     a.kind === 'sprite' ? keyRule(KEYS[a.key || 'magenta']) : '',
     'SUBJECT: ' + a.desc,
     scaleLine(a),

@@ -25,7 +25,7 @@ test('todo prompt traz estilo, regras do tipo, escala, cores, proibições e bar
   for (const a of CATALOG) {
     const p = buildPrompt(a);
     assert.match(p, /City of God/i); assert.match(p, /SEMI-REALISTIC/); assert.match(p, /SCALE:/); assert.match(p, /Never include/); assert.match(p, /QUALITY BAR/);
-    for (const rule of KIND_RULES[a.kind]) assert.ok(p.includes(rule), a.id);
+    for (const rule of KIND_RULES[a.kind]) assert.equal(p.includes(rule), !(a.pattern && rule.startsWith('ISOTROPIC')), a.id);
     if (a.kind === 'sprite') assert.match(p, a.key === 'blue' ? /#0000FF/ : /#FF00FF/); else assert.doesNotMatch(p, /#FF00FF|#0000FF/);
     if (a.graffiti) assert.match(p, /do NOT spell any real word/); else assert.match(p, /Never include: text/);
     if (['texture', 'wall', 'roof', 'facade'].includes(a.kind)) assert.match(p, /seam/i);
@@ -73,10 +73,13 @@ test('referências só de assets/references', async () => {
 function noisy(w, h) { const px = new Uint8Array(w * h * 4); for (let i = 0; i < w * h; i++) { const x = i % w, y = (i / w) | 0; px[i * 4] = (x * 255 / w) | 0; px[i * 4 + 1] = (y * 255 / h) | 0; px[i * 4 + 2] = (128 + 100 * Math.sin(x * 0.11 + y * 0.07)) | 0; px[i * 4 + 3] = 255; } return px; }
 const diff = (px, w, h, a, b) => { let d = 0; for (let k = 0; k < (a === 'x' ? h : w); k++) { const i = a === 'x' ? (k * w) * 4 : k * 4, j = a === 'x' ? (k * w + w - 1) * 4 : ((h - 1) * w + k) * 4; for (let c = 0; c < 3; c++) d += Math.abs(px[i + c] - px[j + c]); } return d / ((a === 'x' ? h : w) * 3); };
 test('emenda: bordas opostas passam a casar (repete sem costura)', () => {
-  const w = 64, h = 48, px = noisy(w, h), out = makeSeamless(px, w, h);
+  const w = 64, h = 48, px = noisy(w, h), s = makeSeamless(px, w, h);
   assert.ok(diff(px, w, h, 'x') > 50);
-  assert.ok(diff(out, w, h, 'x') < 12, 'esquerda x direita');
-  assert.ok(diff(out, w, h, 'y') < 12, 'topo x base');
+  assert.ok(s.w < w && s.h < h);
+  assert.ok(diff(s.px, s.w, s.h, 'x') < 12, 'esquerda x direita');
+  assert.ok(diff(s.px, s.w, s.h, 'y') < 12, 'topo x base');
+  // miolo intacto (sem fantasma): fora da faixa a imagem é a original
+  assert.equal(s.px[(20 * s.w + 30) * 4], px[(20 * w + 30) * 4]);
 });
 test('luz uniforme: tira o degradê grande e mantém a média', () => {
   const w = 96, h = 96, px = new Uint8Array(w * h * 4);
