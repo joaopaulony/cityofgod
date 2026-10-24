@@ -420,6 +420,13 @@ export function createVegetation(THREE, scene, bridge) {
   }
   return {
     state, ground,
+    // aplica o mesmo vazado em volta do jogador a outro material (toldos, sebes, cercas: house-3d.mjs)
+    seeThrough(m) {
+      const prev = m.onBeforeCompile;
+      m.onBeforeCompile = (shader, r) => { prev && prev.call(m, shader, r); Object.assign(shader.uniforms, { vegSeeP: seeP, vegSeeR: seeR }); shader.fragmentShader = 'uniform vec3 vegSeeP; uniform float vegSeeR;\n' + shader.fragmentShader.replace('#include <alphatest_fragment>', '#include <alphatest_fragment>' + seeThrough); };
+      m.customProgramCacheKey = () => 'see-' + m.type + (m.map ? 'm' : '') + (m.side === THREE.DoubleSide ? 'd' : '');
+      return m;
+    },
     update(now, camera, renderer, target) {
       const c = bridge.cam, w = bridge.world;
       time.value = now; windStr.value = 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);

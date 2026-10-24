@@ -31,7 +31,7 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
 window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
-  urbanBins:urbanLife.bins,
+  get urbanBins(){return urbanLife.bins;},get urbanLitter(){return urbanLife.litter;},
   get terrainItems(){return terrain.items;},
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
   get gameTime(){return T;},trafficPhase,props3d,ROAD_W,

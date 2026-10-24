@@ -4,7 +4,7 @@
 // (cozinha, banheiro, sala e quarto completos). Cada modelo é montado com caixas arredondadas, cilindros e esferas
 // com cor por vértice, gerado uma vez e desenhado com InstancedMesh. Móveis aparecem só com o jogador dentro da casa
 // (e no andar em que ele está), virados p/ o centro do cômodo.
-import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {makeKit} from './kit-3d.mjs';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const TAU = Math.PI * 2;
@@ -13,40 +13,7 @@ const hash2 = (x, y, k = 0) => { let h = Math.imul((x * 73856093) ^ (y * 1934966
 export function createProps(THREE, scene, bridge) {
   const col = hex => new THREE.Color().setStyle(hex, THREE.SRGBColorSpace);
 
-  // ======================= modelagem =======================
-  // um "Kit" junta peças coloridas e devolve as geometrias mescladas (corpo, brilho, vidro)
-  function Kit() {
-    const sets = { body: [], glow: [], glass: [] };
-    const add = (g, c, set = 'body') => {
-      g = g.index ? g.toNonIndexed() : g; const n = g.attributes.position.count, a = new Float32Array(n * 3), cc = typeof c === 'string' ? col(c) : c;
-      for (let i = 0; i < n; i++) a.set([cc.r, cc.g, cc.b], i * 3);
-      g.setAttribute('color', new THREE.BufferAttribute(a, 3)); sets[set].push(g); return g;
-    };
-    const k = {
-      // caixa de (x0,y0,z0) a (x1,y1,z1); r = raio do arredondamento
-      box(x0, y0, z0, x1, y1, z1, c, r = 0, set) {
-        const w = Math.abs(x1 - x0), h = Math.abs(y1 - y0), d = Math.abs(z1 - z0), rr = Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001);
-        const g = rr > 0.004 ? new RoundedBoxGeometry(w, h, d, 2, rr) : new THREE.BoxGeometry(w, h, d);
-        g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); return add(g, c, set);
-      },
-      // cilindro vertical de y0 a y1 (rTop opcional: cone)
-      cyl(x, y0, z, r, y1, c, seg = 14, rTop = r, set) { const g = new THREE.CylinderGeometry(rTop, r, y1 - y0, seg); g.translate(x, (y0 + y1) / 2, z); return add(g, c, set); },
-      // cilindro deitado ao longo de x ou z
-      cylX(x0, x1, y, z, r, c, seg = 12, set) { const g = new THREE.CylinderGeometry(r, r, x1 - x0, seg); g.rotateZ(Math.PI / 2); g.translate((x0 + x1) / 2, y, z); return add(g, c, set); },
-      cylZ(x, y, z0, z1, r, c, seg = 12, set) { const g = new THREE.CylinderGeometry(r, r, z1 - z0, seg); g.rotateX(Math.PI / 2); g.translate(x, y, (z0 + z1) / 2); return add(g, c, set); },
-      sph(x, y, z, r, c, sy = 1, set, sx = 1, sz = 1) { const g = new THREE.SphereGeometry(r, 14, 10); g.scale(sx, sy, sz); g.translate(x, y, z); return add(g, c, set); },
-      // guarda-sol listrado: cone com gomos alternados
-      umbrella(x, y, z, r, h, c1, c2) {
-        const g = new THREE.ConeGeometry(r, h, 12, 1, true).toNonIndexed(); g.translate(x, y + h / 2, z);
-        const n = g.attributes.position.count, a = new Float32Array(n * 3), A = col(c1), B = col(c2), p = g.attributes.position;
-        for (let i = 0; i < n; i += 3) { let ax = 0, az = 0; for (let j = 0; j < 3; j++) { ax += p.getX(i + j) - x; az += p.getZ(i + j) - z; } const s = Math.floor((Math.atan2(az, ax) + Math.PI) / TAU * 12) % 2 ? A : B; for (let j = 0; j < 3; j++) a.set([s.r, s.g, s.b], (i + j) * 3); }
-        g.setAttribute('color', new THREE.BufferAttribute(a, 3)); sets.body.push(g);
-      },
-      raw(g, c, set) { return add(g, c, set); },
-      done() { const out = {}; for (const [s, list] of Object.entries(sets)) if (list.length) out[s] = mergeGeometries(list); return out; },
-    };
-    return k;
-  }
+  const Kit = makeKit(THREE);
 
   // ======================= modelos (frente = +z, centro na base, medidas nominais) =======================
   const CHROME = '#c9ced2', DARK = '#2b2d30', WHITE = '#ecebe6', WOOD = '#8a6446', WOODL = '#b08a62';
@@ -96,6 +63,78 @@ export function createProps(THREE, scene, bridge) {
     k.cyl(0, 1.0, 0, 0.025, 2.2, '#e9e5dc', 6); k.umbrella(0, 2.0, 0, 1.15, 0.45, '#d63a2f', '#f7f5ef');
   } };
   M.couch = { dims: [2.0, 0.75, 0.9], tinted: true, make(k, c) { sofaModel(k, c || '#7a5a48', 2.0, 0.9, true); } };
+  // ---------- lixo dos bairros pobres ----------
+  // saco de lixo: esfera amassada (rugas por ruído), base achatada, nó com as duas orelhas; plástico brilhante
+  M.trashbag = { dims: [0.6, 0.55, 0.6], tinted: true, shiny: true, pick: b => ['#1b1c1f', '#1b1c1f', '#1b1c1f', '#26332a', '#d9d7d0', '#2a3550'][(hash2(b.x * 10 | 0, b.y * 10 | 0, 5) * 6) | 0],
+    make(k, c) {
+      const body = c || '#1b1c1f', g = new THREE.SphereGeometry(0.27, 22, 16), p = g.attributes.position, sd = hash2(3, 7, (c || '').length);
+      for (let i = 0; i < p.count; i++) {
+        let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        const w = 1 + 0.07 * Math.sin(x * 31 + y * 17 + sd * 9) * Math.cos(z * 27 - y * 11) + 0.05 * Math.sin(y * 45 + x * 13);
+        x *= w * 1.05; z *= w * 1.05; y = y * 0.82 * w;
+        if (y < -0.17) y = -0.17 + (y + 0.17) * 0.15;   // assenta no chão
+        if (y > 0.12) { const t = (y - 0.12) / 0.1; x *= 1 - t * 0.55; z *= 1 - t * 0.55; }   // afunila até o nó
+        p.setXYZ(i, x, y + 0.2, z);
+      }
+      g.computeVertexNormals(); k.raw(g, body, 'shiny');
+      k.cyl(0, 0.4, 0, 0.05, 0.47, body, 8, 0.025, 'shiny');
+      for (const s of [-1, 1]) { const e = k.box(-0.035, 0, -0.01, 0.035, 0.12, 0.01, body, 0.008, 'shiny'); e.rotateZ(s * 0.7); e.translate(s * 0.03, 0.46, 0); }
+    } };
+  M.tire = { dims: [0.7, 0.22, 0.7], make(k) {
+    const t = new THREE.TorusGeometry(0.25, 0.1, 10, 26); t.rotateX(Math.PI / 2); t.scale(1, 1.05, 1); t.translate(0, 0.105, 0); k.raw(t, '#1d1d1f');
+    for (let i = 0; i < 26; i++) { const a = i / 26 * TAU, g = k.box(-0.012, 0.02, -0.03, 0.012, 0.19, 0.03, '#141416'); g.rotateY(-a); g.translate(Math.cos(a) * 0.345, 0, Math.sin(a) * 0.345); }
+    k.cyl(0, 0.03, 0, 0.17, 0.05, '#5a4a36', 18);
+  } };
+  M.mattress = { dims: [1.9, 0.2, 1.4], make(k) {
+    k.box(-0.95, 0, -0.7, 0.95, 0.2, 0.7, '#cdbfa4', 0.06);
+    for (let x = -0.75; x <= 0.76; x += 0.3) for (let z = -0.5; z <= 0.51; z += 0.33) k.cyl(x, 0.195, z, 0.018, 0.205, '#a89a80', 6);
+    for (const [x, z, r] of [[0.3, 0.1, 0.32], [-0.5, -0.25, 0.2], [0.65, -0.4, 0.15]]) k.cyl(x, 0.2, z, r, 0.204, '#9c8562', 16);
+    k.box(-0.95, 0.07, 0.69, 0.95, 0.13, 0.705, '#8e7d62');
+  } };
+  // ---------- quadra de basquete: poste, tabela, aro e rede (frente = lado da quadra) ----------
+  M.hoop = { dims: [0.3, 3.05, 0.3], make(k) {
+    k.box(-0.2, 0, -0.2, 0.2, 0.06, 0.2, '#7d7a72'); k.cyl(0, 0.06, 0, 0.065, 3.25, '#3e4246', 12);
+    k.box(-0.11, 0.06, -0.11, 0.11, 1.8, 0.11, '#1f3b6e', 0.03);   // proteção acolchoada
+    k.box(-0.04, 2.95, 0, 0.04, 3.05, 0.5, '#3e4246'); k.box(-0.04, 3.2, 0, 0.04, 3.28, 0.5, '#3e4246');
+    k.box(-0.9, 2.9, 0.5, 0.9, 3.95, 0.53, '#f4f4f0', 0.01); k.box(-0.93, 2.87, 0.49, 0.93, 3.98, 0.5, '#2a2a2c');
+    for (const [x0, y0, x1, y1] of [[-0.3, 3.0, 0.3, 3.04], [-0.3, 3.41, 0.3, 3.45], [-0.3, 3.0, -0.26, 3.45], [0.26, 3.0, 0.3, 3.45]]) k.box(x0, y0, 0.53, x1, y1, 0.536, '#c0392b');
+    k.box(-0.08, 2.98, 0.53, 0.08, 3.06, 0.56, '#d8642a');
+    const rim = new THREE.TorusGeometry(0.23, 0.012, 6, 28); rim.rotateX(Math.PI / 2); rim.translate(0, 3.05, 0.79); k.raw(rim, '#e0672b');
+    const net = new THREE.CylinderGeometry(0.225, 0.14, 0.42, 18, 1, true); net.translate(0, 2.84, 0.79); k.raw(net, '#f2f2ee', 'net');
+  } };
+  // ---------- praia ----------
+  M.cooler = { dims: [0.6, 0.4, 0.4], tinted: true, make(k, c) {
+    const body = c || '#2b6fb8';
+    k.box(-0.3, 0, -0.2, 0.3, 0.3, 0.2, body, 0.035); k.box(-0.31, 0.29, -0.21, 0.31, 0.38, 0.21, '#f2f0ea', 0.035);
+    k.box(-0.2, 0.38, -0.025, 0.2, 0.4, 0.025, '#f2f0ea', 0.01); for (const s of [-1, 1]) k.box(s * 0.31 - 0.015, 0.16, -0.08, s * 0.31 + 0.015, 0.22, 0.08, '#d8d4cc', 0.008);
+    k.box(-0.08, 0.24, 0.2, 0.08, 0.3, 0.215, '#d8d4cc');
+  } };
+  // toalha estendida: pano com rugas leves, listras brancas e bainha
+  M.towel = { dims: [1.0, 0.012, 1.8], tinted: true, make(k, c) {
+    const base = k.col(c || '#e8364f'), white = new THREE.Color(0.96, 0.95, 0.92), hem = base.clone().multiplyScalar(0.8);
+    const g = new THREE.PlaneGeometry(1, 1.8, 20, 36).toNonIndexed(); g.rotateX(-Math.PI / 2);
+    const p = g.attributes.position, cl = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i += 3) {
+      let cx = 0, cz = 0; for (let j = 0; j < 3; j++) { cx += p.getX(i + j) / 3; cz += p.getZ(i + j) / 3; }
+      const stripe = ((cx + 0.5) % 0.4) > 0.2 && ((cx + 0.5) % 0.4) < 0.35, edge = Math.abs(cz) > 0.84, cc = edge ? hem : stripe ? white : base;
+      for (let j = 0; j < 3; j++) cl.set([cc.r, cc.g, cc.b], (i + j) * 3);
+    }
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, 0.006 + 0.006 * Math.sin(x * 9 + z * 3) * Math.cos(z * 7 - x * 2) + (Math.abs(x) > 0.46 ? 0.004 : 0)); }
+    g.computeVertexNormals(); g.setAttribute('color', new THREE.BufferAttribute(cl, 3)); k.colored(g);
+  } };
+  // ---------- lixo espalhado na rua (latas, garrafas, papel amassado, embalagens, jornal, copos) ----------
+  const LIT = { can: ['#c8302a', '#c9ced2', '#2f7a3a'], bottle: ['#6b3a12', '#2f6a3a', '#b8d8d0'], paper: ['#efece4', '#e6dcc0', '#f4f2ec'], wrapper: ['#d63a2f', '#e8b51e', '#2b5fa8'], newspaper: ['#d8d4ca', '#cfcabd', '#e0dcd2'], cup: ['#f4f2ec', '#c8302a', '#2b6fb8'] };
+  M.can = { dims: [0.07, 0.07, 0.12], tinted: true, shiny: true, make(k, c) { k.cylZ(0, 0.033, -0.06, 0.05, 0.033, c, 12, 'shiny'); k.cylZ(0, 0.033, 0.05, 0.06, 0.03, '#d6dadd', 12, 'shiny'); k.box(-0.034, 0.03, -0.02, 0.034, 0.04, 0.01, '#f4f2ec', 0, 'shiny'); } };
+  M.bottle = { dims: [0.07, 0.07, 0.26], tinted: true, shiny: true, make(k, c) { k.cylZ(0, 0.035, -0.13, 0.04, 0.035, c, 12, 'shiny'); const n = new THREE.CylinderGeometry(0.014, 0.035, 0.07, 10); n.rotateX(Math.PI / 2); n.translate(0, 0.035, 0.075); k.raw(n, c, 'shiny'); k.cylZ(0, 0.035, 0.11, 0.13, 0.015, '#c8a03a', 8, 'shiny'); k.cylZ(0, 0.035, -0.06, 0.0, 0.036, '#efe8d8', 12); } };
+  M.paper = { dims: [0.1, 0.09, 0.1], tinted: true, make(k, c) { const g = new THREE.IcosahedronGeometry(0.05, 1), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const f = 0.75 + 0.45 * Math.abs(Math.sin(Math.round(p.getX(i) * 400) * 12.9898 + Math.round(p.getY(i) * 400) * 78.233 + Math.round(p.getZ(i) * 400) * 37.719) * 43758.5453 % 1); p.setXYZ(i, p.getX(i) * f, p.getY(i) * f * 0.85 + 0.042, p.getZ(i) * f); } g.computeVertexNormals(); k.raw(g, c); } };
+  M.wrapper = { dims: [0.15, 0.02, 0.1], tinted: true, shiny: true, make(k, c) { const g = new THREE.PlaneGeometry(0.15, 0.1, 6, 4); g.rotateX(-Math.PI / 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, 0.004 + 0.008 * Math.abs(Math.sin(p.getX(i) * 70 + p.getZ(i) * 40))); g.computeVertexNormals(); k.raw(g, c, 'shiny'); const b = g.clone(); b.rotateX(Math.PI); b.translate(0, 0.008, 0); k.raw(b, '#c9ced2', 'shiny'); } };
+  M.newspaper = { dims: [0.32, 0.02, 0.22], tinted: true, make(k, c) {
+    const a = k.box(-0.16, 0, -0.11, 0.16, 0.012, 0.11, c); a.rotateY(0.04);
+    const b = k.box(-0.15, 0.012, -0.1, 0.13, 0.02, 0.1, c); b.rotateY(-0.12);
+    for (let i = 0; i < 6; i++) k.box(-0.12, 0.0205, -0.08 + i * 0.03, -0.12 + (i % 3 ? 0.2 : 0.1), 0.0215, -0.07 + i * 0.03, '#6a6862');
+    k.box(-0.12, 0.0205, -0.095, 0.08, 0.022, -0.085, '#2a2a2c');
+  } };
+  M.cup = { dims: [0.09, 0.09, 0.11], tinted: true, make(k, c) { const g = new THREE.CylinderGeometry(0.045, 0.032, 0.11, 14, 1, true); g.rotateX(Math.PI / 2); g.translate(0, 0.04, 0); k.raw(g, c); const l = new THREE.CylinderGeometry(0.047, 0.047, 0.012, 14); l.rotateX(Math.PI / 2); l.translate(0, 0.045, 0.058); k.raw(l, '#f4f2ec'); k.cylZ(0.02, 0.07, 0.05, 0.12, 0.004, '#e8e2d0', 5); } };
   // ---------- móveis ----------
   M.fridge = { dims: [0.72, 1.8, 0.7], face: 'any', make(k) {
     k.box(-0.36, 0.04, -0.35, 0.36, 1.8, 0.35, '#e8e6e0', 0.035); k.box(-0.34, 0, -0.32, 0.34, 0.06, 0.3, DARK);
@@ -210,16 +249,20 @@ export function createProps(THREE, scene, bridge) {
   // ======================= materiais e malhas instanciadas =======================
   const matBody = new THREE.MeshLambertMaterial({ vertexColors: true });
   const matGlass = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false });
+  const matShiny = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 70, specular: 0x555555 });   // plástico, lata, vidro
+  // rede da cesta: losangos pintados num canvas, recorte por alphaTest
+  const netTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.strokeStyle = '#fff'; g.lineWidth = 3; for (let i = -64; i < 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 64, 64); g.moveTo(i + 64, 0); g.lineTo(i, 64); g.stroke(); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 2); return t; })();
+  const matNet = new THREE.MeshLambertMaterial({ vertexColors: true, map: netTex, alphaTest: 0.5, side: THREE.DoubleSide });
   const kinds = new Map();   // chave (tipo|cor) -> { def, meshes, list }
-  const CAP = { hydrant: 1500, trashcan: 900, bin: 400, post: 800, mailbox: 400, newsbox: 400, dumpster: 200, cart: 120, couch: 200 };
+  const CAP = { hydrant: 1500, trashcan: 900, bin: 900, post: 800, mailbox: 400, newsbox: 400, dumpster: 200, cart: 120, couch: 200, trashbag: 900, tire: 400, can: 400, bottle: 400, paper: 400, wrapper: 400, newspaper: 400, cup: 400, towel: 300, cooler: 300, hoop: 120 };
   function kindOf(name, color) {
     const def = M[name], key = def.tinted && color ? name + '|' + color : name;
     if (kinds.has(key)) return kinds.get(key);
     if (def.tinted && color && [...kinds.keys()].filter(k => k.startsWith(name + '|')).length >= 8) return kindOf(name, null);
     const kit = Kit(); def.make(kit, def.tinted ? color : undefined); const geos = kit.done(), cap = CAP[name] || 300, meshes = [];
     for (const [set, geo] of Object.entries(geos)) {
-      const m = new THREE.InstancedMesh(geo, set === 'glass' ? matGlass : matBody, cap);
-      m.castShadow = set !== 'glass'; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const m = new THREE.InstancedMesh(geo, { glass: matGlass, shiny: matShiny, net: matNet }[set] || matBody, cap);
+      m.castShadow = set !== 'glass' && set !== 'net' && name !== 'towel'; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       scene.add(m); meshes.push(m);
     }
     const k = { def, meshes, list: [], cap }; kinds.set(key, k); return k;
@@ -271,12 +314,15 @@ export function createProps(THREE, scene, bridge) {
     lm('ped|stop').color.set(ph.pedestrian !== 'walk' && (ph.pedestrian === 'stop' || Math.floor(T * 2) % 2) ? col(LIGHT.stop) : new THREE.Color(off));
   }
 
-  // ======================= meio-fio + sarjeta ao longo das vias =======================
+  // ======================= meio-fio: degrau entre a rua e a calçada =======================
+  // face de 20 cm (escura embaixo), quina clara e topo; atrás, uma rampa que some aos poucos sobre a calçada
+  // (assim a calçada parece estar no alto do degrau). A sarjeta de concreto é pintada no chão 2D (terrain.js).
   const matCurb = new THREE.MeshLambertMaterial({ vertexColors: true });
-  let curbMesh = null; const curbSync = { x: 1e9, y: 1e9, n: -1, roads: null };
+  const matRamp = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false });
+  let curbMesh = null, rampMesh = null; const curbSync = { x: 1e9, y: 1e9, n: -1, roads: null };
   function buildCurbs(cx, cy, R) {
-    const pos = [], nor = [], cl = [], idx = [], roads = bridge.roads || [], RW = bridge.ROAD_W || 3.5;
-    const C = { gut: col('#8e8a82'), face: col('#a39d92'), top: col('#cdc6b8'), back: col('#b7b0a2') };
+    const C = { lo: col('#5f5b55'), face: col('#9a958b'), nose: col('#e2dccf'), top: col('#cbc4b6') }, H = 0.2;
+    const pos = [], nor = [], cl = [], idx = [], rp = [], rn = [], rc = [], ri = [], roads = bridge.roads || [], RW = bridge.ROAD_W || 3.5;
     for (const rd of roads) {
       if (rd.cls === 'highway' || !rd.pts || rd.pts.length < 3) continue;
       const o = RW + (rd.off || 0);
@@ -286,21 +332,26 @@ export function createProps(THREE, scene, bridge) {
           const p = rd.pts[i], nx = p.nx * side, ny = p.ny * side, ex = p.x + nx * o, ey = p.y + ny * o;
           const far = (ex - cx) ** 2 + (ey - cy) ** 2 > R * R, gap = far || bridge.curbBreak(ex + nx * 0.15, ey + ny * 0.15, rd.bigId);
           if (gap) { prev = null; continue; }
-          // perfil (offsets na normal, altura): sarjeta 0,4 m no asfalto, face, topo, encosto até a calçada
-          const prof = [[-0.42, 0.006], [0, 0.006], [0, 0.006], [0, 0.15], [0, 0.15], [0.17, 0.15], [0.17, 0.15], [0.3, 0.02]];
-          const nrm = [[0, 1, 0], [0, 1, 0], [-nx, 0, -ny], [-nx, 0, -ny], [0, 1, 0], [0, 1, 0], [nx * 0.6, 0.8, ny * 0.6], [nx * 0.6, 0.8, ny * 0.6]];
-          const cc = [C.gut, C.gut, C.face, C.face, C.top, C.top, C.back, C.back];
+          const Nf = [-nx, 0, -ny], Nn = [-nx * 0.7, 0.7, -ny * 0.7], Nu = [0, 1, 0];
+          const prof = [[0, 0.003, C.lo, Nf], [0, H - 0.015, C.face, Nf], [0, H - 0.015, C.nose, Nn], [0.02, H, C.nose, Nn], [0.02, H, C.top, Nu], [0.2, H, C.top, Nu]];
           const base = pos.length / 3;
-          prof.forEach(([d, h], j) => { pos.push(ex + nx * d, h, ey + ny * d); nor.push(...nrm[j]); cl.push(cc[j].r, cc[j].g, cc[j].b); });
-          if (prev !== null) for (let j = 0; j < 8; j += 2) { const a = prev + j, b = base + j; side > 0 ? idx.push(a, b, a + 1, a + 1, b, b + 1) : idx.push(a, a + 1, b, a + 1, b + 1, b); }
-          prev = base;
+          for (const [d, h, c, n] of prof) { pos.push(ex + nx * d, h, ey + ny * d); nor.push(...n); cl.push(c.r, c.g, c.b); }
+          const rb = rp.length / 3;
+          for (const [d, h, al] of [[0.2, H, 1], [0.85, 0.0, 0]]) { rp.push(ex + nx * d, h, ey + ny * d); rn.push(nx * 0.3, 0.95, ny * 0.3); rc.push(C.top.r, C.top.g, C.top.b, al); }
+          if (prev !== null) {
+            for (const j of [0, 2, 4]) { const A = prev[0] + j, B = base + j; side > 0 ? idx.push(A, B, A + 1, A + 1, B, B + 1) : idx.push(A, A + 1, B, A + 1, B + 1, B); }
+            const A = prev[1], B = rb; side > 0 ? ri.push(A, B, A + 1, A + 1, B, B + 1) : ri.push(A, A + 1, B, A + 1, B + 1, B);
+          }
+          prev = [base, rb];
         }
       }
     }
-    if (curbMesh) { scene.remove(curbMesh); curbMesh.geometry.dispose(); curbMesh = null; }
+    for (const m of [curbMesh, rampMesh]) if (m) { scene.remove(m); m.geometry.dispose(); }
+    curbMesh = rampMesh = null;
     if (!idx.length) return;
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3)); g.setIndex(idx);
-    curbMesh = new THREE.Mesh(g, matCurb); curbMesh.castShadow = true; curbMesh.receiveShadow = true; curbMesh.frustumCulled = false; scene.add(curbMesh);
+    const mk = (P, N, Cc, I, n, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, n)); g.setIndex(I); const m = new THREE.Mesh(g, mat); m.frustumCulled = false; scene.add(m); return m; };
+    curbMesh = mk(pos, nor, cl, idx, 3, matCurb); curbMesh.castShadow = true; curbMesh.receiveShadow = true;
+    rampMesh = mk(rp, rn, rc, ri, 4, matRamp); rampMesh.receiveShadow = true; rampMesh.renderOrder = 1;
   }
 
   // ======================= distribuição =======================
@@ -318,14 +369,23 @@ export function createProps(THREE, scene, bridge) {
       const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
       const H = b.house;
       if (H && !b.exteriorFixture) { if (!H.inside || ((b.floor === 1) !== !!upstairsIn(H))) continue; furniture++; } else objects++;
-      const color = M[b.kind].tinted ? b.top : null, k = kindOf(b.kind, color);
+      const def = M[b.kind], color = def.tinted ? (def.pick ? def.pick(b) : b.kind === 'cooler' ? b.side : b.top) : null, k = kindOf(b.kind, color);
       if (k.list.length < k.cap) k.list.push(b);
     }
     for (const bin of bridge.urbanBins || []) { const dx = bin.x - cx, dy = bin.y - cy; if (dx * dx + dy * dy > R * R) continue; const k = kindOf('bin', bin.kind === 'metal' ? '#697c82' : '#3b6554'); if (k.list.length < k.cap) k.list.push({ x: bin.x, y: bin.y, z: 0, w: 0.6, d: 0.65, h: 1, rot: (bin.seed || 0) % 6.28, kind: 'bin' }); objects++; }
+    for (const d of bridge.urbanLitter || []) {
+      const dx = d.x - cx, dy = d.y - cy; if (dx * dx + dy * dy > R * R || !LIT[d.kind]) continue;
+      const k = kindOf(d.kind, LIT[d.kind][(d.variant || 0) % 3]), [W, Hn, D] = M[d.kind].dims; if (k.list.length < k.cap) k.list.push({ x: d.x, y: d.y, z: 0, w: W * 1.35, d: D * 1.35, h: Hn * 1.35, rot: d.a || 0, kind: d.kind });   // um pouco maior que o real p/ ler de longe objects++;
+    }
+    for (const d of bridge.world.decals || []) {
+      if (d.kind !== 'towel' || !d.q) continue;
+      const q = d.q, x = (q[0][0] + q[2][0]) / 2, y = (q[0][1] + q[2][1]) / 2, dx = x - cx, dy = y - cy; if (dx * dx + dy * dy > R * R) continue;
+      const k = kindOf('towel', d.col); if (k.list.length < k.cap) k.list.push({ x, y, z: 0, w: Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]), d: Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]), h: 0.012, rot: Math.atan2(q[1][1] - q[0][1], q[1][0] - q[0][0]), kind: 'towel' }); objects++;
+    }
     for (const k of kinds.values()) {
       const [W, Hn, D] = k.def.dims;
       k.list.forEach((b, i) => {
-        let rot = -(b.rot || 0), sx = b.w / W, sz = b.d / D;
+        let rot = b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0), sx = b.w / W, sz = b.d / D;
         const H = b.house, face = k.def.face;
         if (H && face) {   // vira a frente (+z) p/ o centro do cômodo
           const hx = (H.x0 + H.x1) / 2 - b.x, hy = (H.y0 + H.y1) / 2 - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);

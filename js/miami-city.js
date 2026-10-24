@@ -1139,6 +1139,7 @@ function paintDecal(g, d) {
   } else if (d.kind === 'vbcourt') {
     g.strokeStyle = 'rgba(40,90,170,0.75)'; g.lineWidth = 0.06; g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
   } else if (d.kind === 'towel') {
+    if (globalThis.VEG3D) { g.restore(); return; }   // toalha 3D (props-3d.mjs)
     g.fillStyle = d.col; g.fillRect(x0, y0, x1 - x0, y1 - y0);
     g.fillStyle = 'rgba(255,255,255,0.55)'; for (let x = x0 + 0.2; x < x1; x += 0.4) g.fillRect(x, y0, 0.15, y1 - y0);
     g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x0, y1 - 0.08, x1 - x0, 0.08);
