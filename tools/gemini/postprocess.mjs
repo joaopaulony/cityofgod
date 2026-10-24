@@ -1,6 +1,6 @@
 // Pós-processamento local (grátis): deixa cada imagem do Gemini pronta para o jogo.
 //   texturas/paredes/telhados: tira manchas grandes de luz + emenda as bordas (repete sem costura)
-//   fachadas: só emenda as bordas
+//   fachadas: só emenda as bordas; murais: ficam como vieram (só reduz)
 //   sprites: recorta o fundo magenta, limpa o halo rosado e corta a sobra
 // As funções puras trabalham em RGBA cru (Uint8Array), testáveis sem o sharp.
 
@@ -52,20 +52,21 @@ export function makeSeamless(px, w, h, { x = true, y = true } = {}) {
   return out;
 }
 
-// recorte do fundo magenta #FF00FF com borda suave e sem halo rosa; devolve também a caixa do conteúdo
-export function magentaCutout(px, w, h) {
-  const out = new Uint8Array(px), key = (r, g, b) => Math.min(r, b) - g;   // >0: puxa p/ magenta
+// recorte do fundo de cor-chave (magenta #FF00FF ou azul #0000FF) com borda suave e sem halo; devolve também a caixa do conteúdo
+const KEYF = { magenta: (r, g, b) => Math.min(r, b) - g, blue: (r, g, b) => b - Math.max(r, g) };   // >0: puxa p/ a cor-chave
+export function magentaCutout(px, w, h, keyName = 'magenta') {
+  const out = new Uint8Array(px), key = KEYF[keyName];
   let edge = 0, n = 0;
   for (let i = 0; i < w; i += 4) for (const j of [0, h - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
   for (let j = 0; j < h; j += 4) for (const i of [0, w - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
-  if (edge / n < 0.6) throw Error('Recorte cancelado: as bordas não são magenta uniforme; a imagem precisa ser refeita');
+  if (edge / n < 0.6) throw Error(`Recorte cancelado: as bordas não são ${keyName} uniforme; a imagem precisa ser refeita`);
   let x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const k = (j * w + i) * 4, r = px[k], g = px[k + 1], b = px[k + 2], m = key(r, g, b);
     const alpha = 1 - smooth(40, 120, m);
-    if (alpha < 1 && alpha > 0) {   // borda: tira o rosa que vazou (puxa R e B p/ perto do G)
-      const lim = g + (Math.max(r, b) - g) * alpha;
-      out[k] = Math.min(r, lim); out[k + 2] = Math.min(b, lim);
+    if (alpha < 1 && alpha > 0) {   // borda: tira a cor-chave que vazou
+      if (keyName === 'blue') out[k + 2] = Math.min(b, Math.max(r, g) + (b - Math.max(r, g)) * alpha);
+      else { const lim = g + (Math.max(r, b) - g) * alpha; out[k] = Math.min(r, lim); out[k + 2] = Math.min(b, lim); }
     }
     out[k + 3] = Math.round(px[k + 3] * alpha);
     if (out[k + 3] === 0) { out[k] = out[k + 1] = out[k + 2] = 0; }
@@ -90,7 +91,7 @@ export async function processAsset(bytes, asset) {
   } else if (asset.kind === 'facade') {
     px = makeSeamless(px, w, h); steps.push('seamless');
   } else if (asset.kind === 'sprite') {
-    const r = magentaCutout(px, w, h); px = r.px; steps.push('cutout');
+    const r = magentaCutout(px, w, h, asset.key || 'magenta'); px = r.px; steps.push('cutout-' + (asset.key || 'magenta'));
     const pad = 6, [x0, y0, x1, y1] = r.box;
     crop = { left: Math.max(0, x0 - pad), top: Math.max(0, y0 - pad) }; crop.width = Math.min(w, x1 + pad + 1) - crop.left; crop.height = Math.min(h, y1 + pad + 1) - crop.top;
   }

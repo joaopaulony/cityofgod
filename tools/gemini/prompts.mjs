@@ -1,5 +1,5 @@
 // Monta o prompt completo de um item do catálogo e valida as opções de uma execução.
-import { STYLE_BIBLE, PALETTE, KIND_RULES, NEGATIVE, REFERENCE_NOTE } from './style.mjs';
+import { STYLE_BIBLE, PALETTE, KIND_RULES, KEYS, keyRule, NEGATIVE, NEGATIVE_GRAFFITI, REFERENCE_NOTE } from './style.mjs';
 import { CATALOG, byId } from './catalog.mjs';
 
 export const models = Object.freeze(['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3-pro-image', 'gemini-3.1-flash-lite-image']);
@@ -43,8 +43,8 @@ export function validate(o) {
 
 const scaleLine = a => a.kind === 'sprite'
   ? `SCALE: the subject is about ${a.meters} m tall in the real world; keep believable real-world proportions.`
-  : a.kind === 'facade'
-    ? `SCALE: the image shows exactly ${a.meters} m of facade width; keep real-world proportions of glass, frames and slabs.`
+  : a.kind === 'facade' || a.kind === 'mural'
+    ? `SCALE: the image shows exactly ${a.meters} m of wall width; keep real-world proportions.`
     : `SCALE: the whole image covers exactly ${a.meters} × ${a.meters} m of real surface; size every detail accordingly (do not make stones, blades, leaves or tiles oversized).`;
 
 export function buildPrompt(a, o = {}) {
@@ -55,13 +55,14 @@ export function buildPrompt(a, o = {}) {
     `CITY OF GOD — GAME ASSET "${a.id}" (${a.title}). Generate exactly ONE image.`,
     STYLE_BIBLE,
     ...KIND_RULES[a.kind],
+    a.kind === 'sprite' ? keyRule(KEYS[a.key || 'magenta']) : '',
     'SUBJECT: ' + a.desc,
     scaleLine(a),
     colors ? `PALETTE ANCHORS (stay close to these, natural variation allowed): ${colors}.` : '',
     a.tint ? 'COLOR NOTE: keep the material NEUTRAL and light (almost unsaturated) so the game can tint it; all the detail must live in the light and shade of the surface, not in the hue.' : '',
     o.details ? 'EXTRA REQUIREMENTS FROM THE ART DIRECTOR: ' + o.details : '',
     o.hasRefs ? REFERENCE_NOTE : '',
-    NEGATIVE,
+    a.graffiti ? NEGATIVE_GRAFFITI : NEGATIVE,
     'QUALITY BAR: flawless professional game-ready asset, sharp fine detail at full resolution, no blur, no smudges, no AI artifacts, no repeated stamp patterns, no melted or nonsensical shapes.',
   ].filter(Boolean).join('\n');
 }

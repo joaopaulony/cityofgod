@@ -26,15 +26,22 @@ test('todo prompt traz estilo, regras do tipo, escala, cores, proibições e bar
     const p = buildPrompt(a);
     assert.match(p, /City of God/i); assert.match(p, /SEMI-REALISTIC/); assert.match(p, /SCALE:/); assert.match(p, /Never include/); assert.match(p, /QUALITY BAR/);
     for (const rule of KIND_RULES[a.kind]) assert.ok(p.includes(rule), a.id);
-    if (a.kind === 'sprite') assert.match(p, /#FF00FF/); else assert.doesNotMatch(p, /#FF00FF/);
+    if (a.kind === 'sprite') assert.match(p, a.key === 'blue' ? /#0000FF/ : /#FF00FF/); else assert.doesNotMatch(p, /#FF00FF|#0000FF/);
+    if (a.graffiti) assert.match(p, /do NOT spell any real word/); else assert.match(p, /Never include: text/);
     if (['texture', 'wall', 'roof', 'facade'].includes(a.kind)) assert.match(p, /seam/i);
     if (a.tint) assert.match(p, /NEUTRAL/);
   }
   assert.match(buildPrompt(CATALOG[0], { hasRefs: true }), /STYLE references/);
   assert.match(buildPrompt(CATALOG[0], { details: 'mais sujo' }), /mais sujo/);
 });
-test('sprites não pedem nada magenta/rosa que o recorte apagaria', () => {
-  for (const a of CATALOG.filter(a => a.kind === 'sprite')) assert.doesNotMatch(a.desc.replace(/no pink/gi, ''), /pink|magenta|purple/i, a.id);
+test('sprites com fundo magenta não pedem nada magenta/rosa que o recorte apagaria', () => {
+  for (const a of CATALOG.filter(a => a.kind === 'sprite' && (a.key || 'magenta') === 'magenta')) assert.doesNotMatch(a.desc.replace(/no pink/gi, ''), /pink|magenta|purple/i, a.id);
+});
+test('referências de cada item existem e não passam de 3', () => {
+  for (const a of CATALOG) {
+    assert.ok((a.refs || []).length <= 3, a.id);
+    for (const f of a.refs || []) assert.ok(fs.existsSync(path.resolve(dir, '../../assets/references', f)), a.id + ' -> ' + f);
+  }
 });
 test('lista de assets: valida catálogo, repetição e teto por execução', () => {
   assert.deepEqual(parseAssets('ground-asphalt, ground-lawn'), ['ground-asphalt', 'ground-lawn']);
@@ -83,6 +90,8 @@ test('recorte magenta: fundo some, objeto fica, sem halo rosa; recusa fundo erra
   const { px: out, box } = magentaCutout(px, w, h);
   assert.equal(out[3], 0); assert.equal(out[(20 * w + 20) * 4 + 3], 255);
   assert.deepEqual(box, [13, 11, 27, 29]);
+  const blue = px.map((v, i) => i % 4 === 3 ? 255 : (i % 4 === 2 ? (v === 255 && px[i - 1] === 0 ? 255 : v) : (px[i - (i % 4)] === 255 && px[i - (i % 4) + 1] === 0 ? 0 : v)));
+  assert.equal(magentaCutout(blue, w, h, 'blue').px[3], 0);
   const gray = new Uint8Array(w * h * 4).fill(128);
   assert.throws(() => magentaCutout(gray, w, h), /magenta/);
 });

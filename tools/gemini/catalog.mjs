@@ -1,66 +1,96 @@
 // Catálogo das imagens do jogo. Cada item vira UM prompt completo (style.mjs + regras do tipo + descrição + escala + cores).
-//   kind     texture | wall | roof | facade | sprite  (regras em style.mjs)
-//   meters   largura real coberta pela imagem (textura) ou altura do objeto (sprite): dá a escala dos detalhes
-//   game     tamanho final no jogo (px do lado maior), gerado a partir do original 2K
+//   kind     texture | wall | roof | facade | mural | sprite  (regras em style.mjs)
+//   meters   largura real coberta pela imagem (textura/fachada/mural) ou altura do objeto (sprite): dá a escala dos detalhes
+//   game     tamanho final no jogo (px do lado maior), reduzido a partir do original 2K
 //   tint     true = material neutro claro, o jogo pinta por cima com as cores de reboco/telha da paleta
 //   colors   chaves de PALETTE (style.mjs) citadas no prompt
+//   refs     referências de estilo (assets/references/) anexadas a ESTE item; --refs na execução substitui
+//   key      fundo de recorte dos sprites (magenta padrão; blue p/ plantas com flor rosa)
+//   graffiti true = permite letras de grafite abstratas (sem palavras legíveis)
 // Ordem = ordem de prioridade (o que mais aparece na tela primeiro).
+// Referências: 01 orla South Beach · 02 gueto/quadra · 03 gueto painel · 04 favela de tijolo · 05 chinatown · 06 bairro de casas
+// 07 lojas · 08 porto · 09 indústria · 10 centro comercial · 11 viadutos · 12 bombeiros · 13 polícia · 14 hospital
+// 15 aeroporto · 16 estação de trem · 17 fazendas · 18 esquina do centro · 19 praia/estacionamento · 20 esquina do gueto
+
+const R = {
+  orla: '01-southbeach-orla.webp', gueto: '02-gueto-quadra.webp', guetoP: '03-gueto-painel.webp', favela: '04-favela-tijolo.webp',
+  casas: '06-bairro-casas.webp', lojas: '07-comercio-lojas.webp', industria: '09-centro-industrial.png', comercial: '10-centro-comercial.png',
+  trem: '16-estacao-trem.png', centro: '18-centro-esquina.webp', praia: '19-praia-estacionamento.webp', esquina: '20-gueto-esquina.webp',
+};
 
 export const CATALOG = [
   // ---------------- chão ----------------
-  { id: 'ground-asphalt', kind: 'texture', group: 'chão', title: 'Asfalto de rua', meters: 4, game: 512, colors: ['asphalt', 'roadPatch'],
-    desc: 'Aged city street asphalt in a warm charcoal tone. Fine dense aggregate (2–8 mm stones) slightly polished by traffic, a few faint darker oil drips, one or two thin sealed tar crack lines that wander naturally, very subtle lighter tire-worn areas. NO lane markings, NO manholes, NO curbs, NO debris.' },
-  { id: 'ground-sidewalk', kind: 'texture', group: 'chão', title: 'Calçada de concreto', meters: 3, game: 512, colors: ['sidewalk', 'concreteShadow'],
-    desc: 'Light beige broom-finished poured concrete sidewalk. Exactly 2 × 2 square slabs fill the image (each slab 1.5 m), separated by straight, thin, slightly darker tooled expansion joints that run edge to edge so the grid continues when tiled. Faint fine broom texture, a few tiny pores, soft sun-bleached stains, one small hairline crack. Clean, not dirty.' },
-  { id: 'ground-lawn', kind: 'texture', group: 'chão', title: 'Gramado cuidado', meters: 4, game: 512, colors: ['grass', 'grassSun'],
-    desc: 'Manicured Florida St. Augustine grass lawn seen from above: dense broad blades (about 5–8 mm wide, 6–10 cm long), healthy natural green with gentle variation between sun-warmed yellow-green tufts and slightly deeper green patches. Very subtle mowing texture, no stripes, no flowers, no bare soil, no objects.' },
-  { id: 'ground-weeds', kind: 'texture', group: 'chão', title: 'Terreno com mato ralo', meters: 4, game: 512, colors: ['grass', 'dirt', 'sand'],
-    desc: 'Neglected vacant-lot ground: patchy dry and green grass clumps and small weeds over sandy light-brown soil, about 40% bare soil, scattered tiny pebbles and a few dry leaves. Natural irregular clumps, no trash, no objects, no paths.' },
-  { id: 'ground-dirt', kind: 'texture', group: 'chão', title: 'Terra batida', meters: 4, game: 512, colors: ['dirt'],
+  { id: 'ground-asphalt', kind: 'texture', group: 'chão', title: 'Asfalto de rua', meters: 4, game: 512, colors: ['asphalt', 'roadPatch'], refs: [R.centro, R.esquina, R.orla],
+    desc: 'Aged Miami city street asphalt in a warm dark charcoal-grey tone, exactly like the streets in the references. Fine dense aggregate (2–8 mm stones) slightly polished by traffic, a few faint darker oil drips, one or two thin sealed tar crack lines that wander naturally, one irregular slightly darker repaired patch, very subtle lighter tire-worn areas. NO lane markings, NO manholes, NO curbs, NO debris.' },
+  { id: 'ground-sidewalk', kind: 'texture', group: 'chão', title: 'Calçada de concreto', meters: 3, game: 512, colors: ['sidewalk', 'concreteShadow'], refs: [R.centro, R.casas],
+    desc: 'Light warm-grey broom-finished poured concrete sidewalk. Exactly 2 × 2 square slabs fill the image (each slab 1.5 m), separated by straight, thin, slightly darker tooled expansion joints that run edge to edge so the grid continues when tiled. Faint fine broom texture, tiny pores, soft sun-bleached stains, a few dark gum spots, one small hairline crack.' },
+  { id: 'ground-sidewalk-pink', kind: 'texture', group: 'chão', title: 'Calçada rosa (South Beach)', meters: 3, game: 512, colors: ['sidewalk'], refs: [R.orla, R.centro],
+    desc: 'Miami Beach tinted concrete sidewalk in a sun-faded salmon / flamingo pink, exactly like Ocean Drive in the references. 2 × 2 square slabs (1.5 m each) with thin darker tooled joints running edge to edge, fine broom texture, soft lighter sun-bleached zones, a few dark gum spots and faint stains.' },
+  { id: 'ground-promenade', kind: 'texture', group: 'chão', title: 'Calçadão ondulado colorido', meters: 6, game: 1024, colors: ['sidewalk'], refs: [R.orla],
+    desc: 'Beachfront promenade paving with large flowing WAVE bands (each band 0.6–1.2 m wide) in polished terrazzo / stone of four soft colors: dusty pink, cream, warm grey and muted mauve, separated by thin brass-like divider strips, exactly like the curvy multicolor promenade in reference 01. Light wear and faint sand dust. The waves must continue seamlessly across all edges.' },
+  { id: 'ground-concrete-worn', kind: 'texture', group: 'chão', title: 'Concreto gasto (lotes e estacionamentos)', meters: 4, game: 512, colors: ['concreteShadow', 'asphalt'], refs: [R.esquina, R.gueto],
+    desc: 'Worn grey concrete slab of a poor-neighborhood parking lot / yard: large slab joints, long cracks with tiny weeds, black oil stains, tire marks, rust drips, sun-bleached patches and grime. Gritty and used, like the lots in references 20 and 02. No painted lines, no objects.' },
+  { id: 'ground-lawn', kind: 'texture', group: 'chão', title: 'Gramado cuidado', meters: 4, game: 512, colors: ['grass', 'grassSun'], refs: [R.casas, R.praia],
+    desc: 'Florida St. Augustine grass lawn seen from above: dense broad blades (5–8 mm wide, 6–10 cm long), healthy green warmed by golden light, gentle variation between sun-warmed yellow-green tufts and deeper green patches, a few slightly dry spots. No stripes, no flowers, no bare soil, no objects.' },
+  { id: 'ground-weeds', kind: 'texture', group: 'chão', title: 'Terreno com mato ralo', meters: 4, game: 512, colors: ['grass', 'dirt', 'sand'], refs: [R.esquina, R.gueto],
+    desc: 'Neglected vacant-lot / curb-strip ground: patchy dry yellowed and green grass clumps and small weeds over sandy light-brown soil, about 40% bare soil, scattered tiny pebbles and a few dry leaves. Natural irregular clumps, no trash, no objects, no paths.' },
+  { id: 'ground-dirt', kind: 'texture', group: 'chão', title: 'Terra batida', meters: 4, game: 512, colors: ['dirt'], refs: [R.favela, R.guetoP],
     desc: 'Packed dry reddish-brown dirt yard trodden by people: compacted soil with fine cracks, small pebbles (5–20 mm), faint footprint and tire impressions, slight dust. No grass, no puddles, no objects.' },
-  { id: 'ground-sand', kind: 'texture', group: 'chão', title: 'Areia de praia', meters: 4, game: 512, colors: ['sand'],
-    desc: 'Fine pale coral beach sand, dry, softly rippled by wind, scattered faint footprints and a few tiny shell fragments. Warm cream color with gentle variation. No water, no wet sand line, no objects, no seaweed.' },
-  { id: 'ground-pavers', kind: 'texture', group: 'chão', title: 'Praça de piso intertravado', meters: 3, game: 512, colors: ['sidewalk', 'warmWall'],
-    desc: 'Upscale Miami plaza paving: rectangular concrete pavers (20 × 10 cm) in a herringbone pattern, two close warm tones of sand and light terracotta-beige, thin fine-sand joints, very light wear. The pattern must align so it continues seamlessly across all edges.' },
-  { id: 'ground-hedge', kind: 'texture', group: 'chão', title: 'Folhagem de cerca viva', meters: 2, game: 512, colors: ['leafDeep', 'leafMid', 'leafSun'],
-    desc: 'Dense clipped ficus hedge foliage surface (used for the tops and sides of trimmed hedges): thousands of small glossy oval leaves (2–4 cm) packed tightly, deep shaded gaps between sun-lit leaf clusters, natural green variation. Uniform, no branches visible, no flowers.' },
+  { id: 'ground-sand', kind: 'texture', group: 'chão', title: 'Areia de praia', meters: 4, game: 512, colors: ['sand'], refs: [R.praia, R.orla],
+    desc: 'Fine pale cream coral beach sand, dry, softly rippled by wind, scattered faint footprints and a few tiny shell fragments, exactly the warm cream sand of references 19 and 01. No water, no wet sand line, no objects, no seaweed.' },
+  { id: 'ground-pavers', kind: 'texture', group: 'chão', title: 'Praça de piso intertravado', meters: 3, game: 512, colors: ['sidewalk', 'warmWall'], refs: [R.centro],
+    desc: 'Upscale Miami plaza paving: rectangular concrete pavers (20 × 10 cm) in a herringbone pattern, two close warm tones of sand and light terracotta-pink, thin fine-sand joints, very light wear. The pattern must align so it continues seamlessly across all edges.' },
+  { id: 'ground-hedge', kind: 'texture', group: 'chão', title: 'Folhagem de cerca viva', meters: 2, game: 512, colors: ['leafDeep', 'leafMid', 'leafSun'], refs: [R.praia, R.orla],
+    desc: 'Dense clipped tropical hedge foliage surface (used for the tops and sides of trimmed hedges): thousands of small glossy oval leaves (2–4 cm) packed tightly, deep shaded gaps between golden sun-lit leaf clusters, natural green variation. Uniform, no branches visible, no flowers.' },
 
-  // ---------------- paredes (o jogo tinge com a cor da casa) ----------------
-  { id: 'wall-stucco', kind: 'wall', group: 'paredes', title: 'Reboco liso pintado', meters: 3, game: 512, tint: true, colors: ['warmWall'],
-    desc: 'Smooth painted exterior stucco wall in a NEUTRAL very light warm off-white (the game tints it), with subtle hand-troweled texture, very faint hairline cracks and light rain streaks fading downward from the top. Even, clean, well-kept Miami house wall.' },
-  { id: 'wall-stucco-worn', kind: 'wall', group: 'paredes', title: 'Reboco gasto', meters: 3, game: 512, tint: true, colors: ['warmWall', 'concreteShadow'],
-    desc: 'Old rough sprayed stucco wall in a NEUTRAL light grey-beige (the game tints it): coarse texture, patched areas with slightly different texture, dirt and water stains near the bottom, a few small chipped spots showing grey cement. Poor neighborhood, weathered but standing.' },
-  { id: 'wall-block', kind: 'wall', group: 'paredes', title: 'Bloco de concreto pintado', meters: 3, game: 512, tint: true, colors: ['coolWall'],
-    desc: 'Painted concrete masonry block wall (CMU, 40 × 20 cm blocks, running bond) in a NEUTRAL light grey (the game tints it), several coats of paint softening the block texture, mortar joints visible as shallow grooves, mild weathering stains. Typical Florida public housing.' },
-  { id: 'wall-brick', kind: 'wall', group: 'paredes', title: 'Tijolo de galpão', meters: 3, game: 512, colors: ['terracotta', 'roofShadow'],
-    desc: 'Industrial red-brown brick wall (standard bricks 22 × 7 cm, running bond) with slightly recessed grey mortar joints, natural color variation between bricks, faint efflorescence and soot. Warehouse district, old but solid.' },
+  // ---------------- paredes (o jogo tinge as neutras com a cor da casa) ----------------
+  { id: 'wall-stucco', kind: 'wall', group: 'paredes', title: 'Reboco liso pintado', meters: 3, game: 512, tint: true, colors: ['warmWall'], refs: [R.orla, R.centro],
+    desc: 'Smooth painted exterior stucco wall of a Miami Art Deco building in a NEUTRAL very light warm off-white (the game tints it pastel), subtle hand-troweled texture, very faint hairline cracks and light rain streaks fading downward from the top. Clean and well kept.' },
+  { id: 'wall-stucco-worn', kind: 'wall', group: 'paredes', title: 'Reboco gasto e sujo', meters: 3, game: 512, tint: true, colors: ['warmWall', 'concreteShadow'], refs: [R.gueto, R.esquina, R.guetoP],
+    desc: 'Old sun-bleached sprayed stucco wall in a NEUTRAL light grey-beige (the game tints it): coarse texture, patched areas with slightly different texture, heavy dirt and dark water stains running down, grime near the bottom, small chipped spots showing grey cement, faint ghost marks of painted-over graffiti. The grimy poor-neighborhood walls of references 02 and 20.' },
+  { id: 'wall-block', kind: 'wall', group: 'paredes', title: 'Bloco de concreto pintado', meters: 3, game: 512, tint: true, colors: ['coolWall'], refs: [R.gueto, R.esquina],
+    desc: 'Painted concrete masonry block wall (CMU, 40 × 20 cm blocks, running bond) in a NEUTRAL light grey (the game tints it), several coats of paint softening the block texture, mortar joints as shallow grooves, rust-colored drip stains and dirt. Florida public housing.' },
+  { id: 'wall-brick', kind: 'wall', group: 'paredes', title: 'Tijolo aparente', meters: 3, game: 512, colors: ['terracotta', 'roofShadow'], refs: [R.favela, R.industria],
+    desc: 'Exposed orange-red clay brick wall (bricks 22 × 7 cm, running bond) with rough grey mortar joints, natural color variation between bricks, some chipped bricks, dark soot and dirt stains, faint efflorescence. Like the brick houses of reference 04 and the old warehouses of reference 09.' },
+  { id: 'wall-graffiti', kind: 'wall', group: 'paredes', title: 'Muro grafitado', meters: 4, game: 1024, graffiti: true, colors: ['concreteShadow'], refs: [R.gueto, R.esquina, R.guetoP],
+    desc: 'Weathered grey concrete perimeter wall densely covered with colorful layered street graffiti: abstract wildstyle tags and throw-ups in teal, yellow, orange, purple, white and black outlines, overlapping and partly faded by the sun, drips, dirt at the bottom, exactly the graffiti walls of references 02 and 20. Must tile horizontally and vertically.' },
+  { id: 'mural-woman', kind: 'mural', group: 'paredes', title: 'Mural: mulher e palmeiras', meters: 6, game: 1024, ratio: '4:3', graffiti: true, colors: ['sunlight'], refs: [R.esquina, R.orla],
+    desc: 'Large vibrant street-art mural: an original stylized portrait of a young Latina woman with flowing hair, framed by palm silhouettes and a sunset sky in hot pink, orange, turquoise and purple, bold painterly strokes, in the spirit of the mural in reference 20 (create an original face, do not copy). Faded by sun, small cracks of the wall showing.' },
+  { id: 'mural-man', kind: 'mural', group: 'paredes', title: 'Mural: homem de óculos escuros', meters: 6, game: 1024, ratio: '4:3', graffiti: true, colors: ['sunlight'], refs: [R.gueto, R.guetoP],
+    desc: 'Large vibrant street-art mural: an original stylized portrait of a young Black man with sunglasses and a golden crown above his head, on a bright pink and yellow background with abstract graffiti shapes around, bold painterly strokes, in the spirit of the murals in references 02 and 03 (original face, do not copy). Faded by sun, cracks of the wall showing.' },
 
   // ---------------- telhados ----------------
-  { id: 'roof-clay', kind: 'roof', group: 'telhados', title: 'Telha de barro (capa e canal)', meters: 3, game: 512, colors: ['terracotta', 'roofShadow'],
-    desc: 'Spanish/Mission barrel clay roof tiles, the classic Miami Mediterranean roof: alternating convex and concave terracotta tiles forming vertical channels, horizontal rows overlapping downward, warm sun-faded terracotta with natural tile-to-tile variation and light dark weathering in the channels.' },
-  { id: 'roof-shingle', kind: 'roof', group: 'telhados', title: 'Telha asfáltica', meters: 3, game: 512, tint: true, colors: ['roofShadow'],
-    desc: 'Asphalt architectural shingles in a NEUTRAL mid grey (the game tints it): laminated tabs in horizontal staggered rows, granular mineral surface, subtle shadow lines under each row, mild sun fading.' },
-  { id: 'roof-metal', kind: 'roof', group: 'telhados', title: 'Telha de zinco enferrujada', meters: 3, game: 512, colors: ['roofShadow', 'dirt'],
+  { id: 'roof-flat', kind: 'roof', group: 'telhados', title: 'Laje suja (telhado plano)', meters: 4, game: 512, colors: ['concreteShadow', 'sidewalk'], refs: [R.esquina, R.gueto, R.centro],
+    desc: 'Flat roof of an old Miami building, the most common roof in the references: grey-beige sealed concrete / bitumen surface with large irregular dark water-pooling stains, cracks with black tar repairs, sun-bleached patches, dirt and a few small leaves. No AC units, no vents, no parapet, no edges (the game adds them).' },
+  { id: 'roof-flat-clean', kind: 'roof', group: 'telhados', title: 'Laje com manta branca', meters: 4, game: 512, colors: ['sidewalk', 'concreteShadow'], refs: [R.centro, R.orla],
+    desc: 'Flat roof of a newer condo / hotel: light grey-white reflective membrane in wide strips with slightly raised heat-welded seams, faint dirt pooling marks, a few small patches. No equipment, no drains, no edges.' },
+  { id: 'roof-shingle', kind: 'roof', group: 'telhados', title: 'Telha asfáltica', meters: 3, game: 512, tint: true, colors: ['roofShadow'], refs: [R.casas, R.esquina],
+    desc: 'Asphalt architectural shingles in a NEUTRAL mid grey (the game tints it brown/grey): laminated tabs in horizontal staggered rows, granular mineral surface, subtle shadow lines under each row, mild sun fading, a few darker algae streaks, like the hip roofs of the houses in references 06 and 20.' },
+  { id: 'roof-clay', kind: 'roof', group: 'telhados', title: 'Telha de barro (capa e canal)', meters: 3, game: 512, colors: ['terracotta', 'roofShadow'], refs: [R.trem, R.casas],
+    desc: 'Spanish/Mission barrel clay roof tiles, the classic Miami Mediterranean roof: alternating convex and concave terracotta tiles forming vertical channels, horizontal rows overlapping downward, warm sun-faded terracotta with natural tile-to-tile variation and dark weathering in the channels.' },
+  { id: 'roof-metal', kind: 'roof', group: 'telhados', title: 'Telha de zinco enferrujada', meters: 3, game: 512, colors: ['roofShadow', 'dirt'], refs: [R.favela, R.guetoP],
     desc: 'Corrugated galvanized metal roofing sheets, ribs running vertically (ridge at top, eave at bottom), overlapping sheet joints, patchy orange-brown rust, dirt streaks along the ribs, a few nail heads in rows. Poor neighborhood roof.' },
-  { id: 'roof-flat', kind: 'roof', group: 'telhados', title: 'Laje com manta', meters: 4, game: 512, colors: ['sidewalk', 'concreteShadow'],
-    desc: 'Flat commercial roof: light grey-white reflective membrane in wide strips with slightly raised heat-welded seams, faint dirt pooling marks, a few small patches. No equipment, no drains, no edges.' },
 
   // ---------------- fachadas (um andar, empilhável) ----------------
-  { id: 'facade-office', kind: 'facade', group: 'fachadas', title: 'Torre de escritórios (vidro azul)', meters: 6, game: 1024, ratio: '16:9', colors: ['outline'],
-    desc: 'Modern Brickell office tower facade, one floor (3.4 m tall) by 6 m wide: blue-green tinted reflective curtain-wall glass with slim dark aluminum mullions every 1.5 m, a thin grey spandrel band at the floor slab, soft sky and cloud reflection, a few interior blinds half lowered.' },
-  { id: 'facade-condo', kind: 'facade', group: 'fachadas', title: 'Condomínio com varandas', meters: 6, game: 1024, ratio: '16:9', colors: ['warmWall', 'outline'],
-    desc: 'Miami luxury condo facade, one floor (3.2 m tall) by 6 m wide: white concrete slab edge, full-width balcony with frameless glass railing, floor-to-ceiling sliding glass doors with light blue reflections, a thin white sun-shade fin between units.' },
-  { id: 'facade-deco', kind: 'facade', group: 'fachadas', title: 'Hotel art déco (South Beach)', meters: 6, game: 1024, ratio: '16:9', tint: true, colors: ['warmWall', 'sunlight'],
-    desc: 'Art Deco hotel facade, one floor (3.2 m tall) by 6 m wide, Ocean Drive style: smooth stucco in a NEUTRAL light off-white (the game tints it pastel), two square windows with "eyebrow" sun-shade ledges above them, thin horizontal racing-stripe grooves, a small vertical decorative relief between windows.' },
+  { id: 'facade-office', kind: 'facade', group: 'fachadas', title: 'Torre de escritórios (vidro)', meters: 6, game: 1024, ratio: '16:9', colors: ['outline'], refs: [R.comercial, R.centro],
+    desc: 'Modern Brickell office tower facade, one floor (3.4 m tall) by 6 m wide: teal-green tinted reflective curtain-wall glass with slim dark aluminum mullions every 1.5 m, a thin grey spandrel band at the floor slab, warm golden sky reflection, a few interior blinds half lowered.' },
+  { id: 'facade-condo', kind: 'facade', group: 'fachadas', title: 'Condomínio com varandas', meters: 6, game: 1024, ratio: '16:9', colors: ['warmWall', 'outline'], refs: [R.centro],
+    desc: 'Miami luxury condo tower facade, one floor (3.2 m tall) by 6 m wide, like the white tower in reference 18: white concrete slab edge, full-width balcony with frameless glass railing, floor-to-ceiling sliding glass doors with teal reflections, a thin white sun-shade fin between units.' },
+  { id: 'facade-deco', kind: 'facade', group: 'fachadas', title: 'Hotel art déco (South Beach)', meters: 6, game: 1024, ratio: '16:9', tint: true, colors: ['warmWall', 'sunlight'], refs: [R.orla, R.praia],
+    desc: 'Art Deco hotel facade, one floor (3.2 m tall) by 6 m wide, Ocean Drive style like references 01 and 19: smooth stucco in a NEUTRAL light off-white (the game tints it pastel), two square windows with "eyebrow" sun-shade ledges above them, thin horizontal racing-stripe grooves, a small vertical decorative relief between windows.' },
 
-  // ---------------- vegetação e objetos (recorte em magenta) ----------------
-  { id: 'tree-coconut', kind: 'sprite', group: 'vegetação', title: 'Coqueiro', meters: 9, game: 512, ratio: '3:4', colors: ['leafDeep', 'leafMid', 'leafSun'],
-    desc: 'One tall coconut palm (9 m): slender slightly curved grey-brown ringed trunk, a full crown of long arching feathery fronds radiating in all directions (some drooping, a few dry brown ones underneath), a small cluster of green coconuts under the crown.' },
-  { id: 'tree-royal', kind: 'sprite', group: 'vegetação', title: 'Palmeira imperial', meters: 11, game: 512, ratio: '3:4', colors: ['leafDeep', 'leafMid', 'leafSun'],
-    desc: 'One Florida royal palm (11 m): smooth straight pale grey concrete-like trunk slightly swollen at the base, a bright green glossy crownshaft at the top, and a symmetrical crown of long arching pinnate fronds.' },
-  { id: 'bush-hibiscus', kind: 'sprite', group: 'vegetação', title: 'Arbusto de hibisco', meters: 1.4, game: 256, colors: ['leafDeep', 'leafMid', 'leafSun'],
+  // ---------------- vegetação (recorte do fundo) ----------------
+  { id: 'tree-coconut', kind: 'sprite', group: 'vegetação', title: 'Coqueiro', meters: 9, game: 512, ratio: '3:4', colors: ['leafDeep', 'leafMid', 'leafSun'], refs: [R.orla, R.praia],
+    desc: 'One tall coconut palm (9 m), exactly the palms of references 01 and 19: slender slightly curved grey-brown ringed trunk, a full crown of long arching feathery fronds radiating in all directions, sunlit fronds glowing yellow-green in golden light and deeper green underneath, a few dry brown fronds hanging, a small cluster of green coconuts under the crown.' },
+  { id: 'tree-royal', kind: 'sprite', group: 'vegetação', title: 'Palmeira imperial', meters: 11, game: 512, ratio: '3:4', colors: ['leafDeep', 'leafMid', 'leafSun'], refs: [R.centro, R.trem],
+    desc: 'One Florida royal palm (11 m): smooth straight pale grey concrete-like trunk slightly swollen at the base, a bright green glossy crownshaft at the top, and a symmetrical crown of long arching pinnate fronds lit by golden sun.' },
+  { id: 'bush-bougainvillea', kind: 'sprite', group: 'vegetação', title: 'Buganvília', meters: 1.8, game: 384, key: 'blue', colors: ['leafMid'], refs: [R.orla, R.praia],
+    desc: 'One loose mounded bougainvillea shrub (1.8 m tall, 2 m wide) covered in vivid magenta-pink papery bracts over green leaves, airy irregular silhouette with a few arching stems, like the flowering bushes on Ocean Drive in reference 01.' },
+  { id: 'bush-hibiscus', kind: 'sprite', group: 'vegetação', title: 'Arbusto de hibisco', meters: 1.4, game: 256, colors: ['leafDeep', 'leafMid', 'leafSun'], refs: [R.praia],
     desc: 'One rounded hibiscus shrub (1.4 m tall, 1.6 m wide): dense glossy dark-green leaves with several large scarlet-red and a few orange hibiscus flowers (no pink) on the outer surface.' },
-  { id: 'bush-croton', kind: 'sprite', group: 'vegetação', title: 'Arbusto de cróton', meters: 1, game: 256, colors: ['leafDeep', 'leafSun'],
+  { id: 'bush-seagrape', kind: 'sprite', group: 'vegetação', title: 'Uva-da-praia (duna)', meters: 1.5, game: 256, colors: ['leafMid', 'leafSun'], refs: [R.praia, R.orla],
+    desc: 'One low sprawling sea grape and dune shrub clump (1.5 m tall, 2.5 m wide): large round leathery leaves (10–20 cm) in olive and yellow-green with a few reddish veins, mixed with tufts of sea oats grass, like the dune vegetation of reference 19.' },
+  { id: 'bush-croton', kind: 'sprite', group: 'vegetação', title: 'Arbusto de cróton', meters: 1, game: 256, colors: ['leafDeep', 'leafSun'], refs: [R.praia],
     desc: 'One compact croton shrub (1 m tall): thick leathery leaves variegated in green, yellow, orange and deep red, upright bushy shape.' },
 ];
 

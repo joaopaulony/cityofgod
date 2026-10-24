@@ -66,13 +66,20 @@ function imageBlock(interaction) {
 export async function run(o = optionsFromEnvironment()) {
   validate(o);
   if (o.references.length > MAX_REFS) throw Error('Referencias demais');
-  const ids = parseAssets(o.assets), refs = [];
+  const ids = parseAssets(o.assets), cliRefs = [], refCache = new Map();
   if (!o.dryRun && !process.env.GEMINI_API_KEY) throw Error('GEMINI_API_KEY nao esta definida: configure o Secret no GitHub');
-  for (const r of o.references) refs.push(await loadReference(r));
+  for (const r of o.references) cliRefs.push(await loadReference(r));
+  // referências de cada item (catalog.mjs) ou as da execução, se informadas
+  const refsFor = async a => {
+    if (cliRefs.length) return cliRefs;
+    const out = [];
+    for (const f of a.refs || []) { const rel = 'assets/references/' + f; if (!refCache.has(rel)) refCache.set(rel, await loadReference(rel)); out.push(refCache.get(rel)); }
+    return out;
+  };
   const runDir = path.join(outputBase, o.runId);
   if (!inside(outputBase, runDir)) throw Error('Caminho de saida invalido');
   await fs.mkdir(runDir, { recursive: true });
-  const summary = { run: o.runId, status: o.dryRun ? 'dry-run' : 'generated', model: o.model, size: o.size, references: refs.map(r => r.relative),
+  const summary = { run: o.runId, status: o.dryRun ? 'dry-run' : 'generated', model: o.model, size: o.size, references: cliRefs.length ? cliRefs.map(r => r.relative) : 'por item (catalog.mjs)',
     estimatedUSD: o.dryRun ? 0 : estimateUSD(o.model, o.size, ids.length), plannedUSD: estimateUSD(o.model, o.size, ids.length), assets: [] };
   console.log(`${o.dryRun ? 'DRY RUN (sem chamada e sem custo)' : 'GERANDO'}: ${ids.length} imagem(ns), ${o.model} ${o.size}, estimativa US$ ${summary.plannedUSD}`);
   let ai = null;
@@ -81,10 +88,10 @@ export async function run(o = optionsFromEnvironment()) {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
   for (const id of ids) {
-    const a = byId(id), dir = path.join(runDir, id), prompt = buildPrompt(a, { details: o.details, hasRefs: refs.length > 0 });
+    const a = byId(id), dir = path.join(runDir, id), refs = await refsFor(a), prompt = buildPrompt(a, { details: o.details, hasRefs: refs.length > 0 });
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, 'prompt.txt'), prompt, 'utf8');
-    const item = { id, kind: a.kind, title: a.title, ratio: a.ratio || '1:1', status: o.dryRun ? 'dry-run' : 'pending' };
+    const item = { id, kind: a.kind, title: a.title, ratio: a.ratio || '1:1', refs: refs.map(r => r.relative), status: o.dryRun ? 'dry-run' : 'pending' };
     summary.assets.push(item);
     if (o.dryRun) continue;
     try {
