@@ -51,7 +51,9 @@ test('lista de assets: valida catálogo, repetição e teto por execução', () 
   assert.throws(() => parseAssets(catalogIds.slice(0, MAX_PER_RUN + 1).join(',')), /No máximo/);
 });
 test('rejeita modelo, tamanho, detalhes longos e referências demais', () => {
-  for (const o of [{ model: 'hack' }, { size: '8K' }, { details: 'x'.repeat(1201) }, { references: ['a', 'b', 'c', 'd'] }]) assert.throws(() => validate(opts(o)));
+  for (const o of [{ model: 'hack' }, { size: '8K' }, { details: 'x'.repeat(1201) }, { references: ['a', 'b', 'c', 'd'] }, { variants: 4 }, { variants: 0 },
+    { assets: catalogIds.slice(0, 5).join(','), variants: 2 }]) assert.throws(() => validate(opts(o)));
+  assert.doesNotThrow(() => validate(opts({ assets: catalogIds.slice(0, 4).join(','), variants: 2 })));
   assert.doesNotThrow(() => validate(opts()));
 });
 test('estimativa de custo usa a tabela de preços', () => {

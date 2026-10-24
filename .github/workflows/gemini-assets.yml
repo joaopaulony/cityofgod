@@ -16,6 +16,12 @@ on:
         required: true
         default: ground-asphalt
         type: string
+      variants:
+        description: 'Candidatas por asset (1 a 3); assets × variantes ≤ 8'
+        required: true
+        type: choice
+        options: ['1', '2', '3']
+        default: '1'
       size:
         description: 'Resolução gerada (2K = mais nítido, o jogo reduz depois)'
         required: true
@@ -95,6 +101,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ASSETS: ${{ inputs.assets }}
+          VARIANTS: ${{ inputs.variants }}
           IMAGE_SIZE: ${{ inputs.size }}
           GEMINI_MODEL: ${{ inputs.model }}
           REFERENCE_PATHS: ${{ inputs.references }}

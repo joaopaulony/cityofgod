@@ -39,6 +39,26 @@ export function flattenLighting(px, w, h, strength = 0.8) {
   return out;
 }
 
+// casa o brilho médio das bordas opostas: em cada linha compara as faixas de 8% da esquerda e da direita
+// (diferença suavizada entre linhas vizinhas, só a parte de baixa frequência) e espalha uma rampa suave
+// pela largura; depois o mesmo nas colunas. Sem isso o corte da costura expõe o degradê do original.
+export function matchEdges(px, w, h) {
+  const out = new Float32Array(px), band = Math.max(4, Math.round(Math.min(w, h) * 0.08));
+  const pass = (n, m, at) => {   // n linhas de m pixels; at(linha, pos) -> índice do pixel
+    const d = new Float32Array(n * 3);
+    for (let r = 0; r < n; r++) for (let c = 0; c < 3; c++) {
+      let a = 0, b = 0; for (let k = 0; k < band; k++) { a += out[at(r, k) + c]; b += out[at(r, m - 1 - k) + c]; }
+      d[r * 3 + c] = (b - a) / band;
+    }
+    const win = Math.max(4, Math.round(n * 0.06)), sm = new Float32Array(n * 3);
+    for (let r = 0; r < n; r++) for (let c = 0; c < 3; c++) { let s = 0, q = 0; for (let k = -win; k <= win; k++) { const rr = r + k; if (rr < 0 || rr >= n) continue; s += d[rr * 3 + c]; q++; } sm[r * 3 + c] = s / q; }
+    for (let r = 0; r < n; r++) for (let p = 0; p < m; p++) { const t = p / (m - 1) - 0.5, i = at(r, p); for (let c = 0; c < 3; c++) out[i + c] -= sm[r * 3 + c] * t; }
+  };
+  pass(h, w, (r, p) => (r * w + p) * 4);
+  pass(w, h, (r, p) => (p * w + r) * 4);
+  const o = new Uint8Array(px.length); for (let i = 0; i < o.length; i++) o[i] = clamp8(Math.round(out[i])); return o;
+}
+
 // cor média puxada p/ a âncora da paleta (o Gemini erra o tom: asfalto marrom, calçada rosa alaranjada);
 // escala cada canal, preservando todo o detalhe de luz e sombra
 export function colorMatch(px, anchor, strength = 0.75) {
@@ -107,18 +127,60 @@ export function magentaCutout(px, w, h, keyName = 'magenta') {
   return { px: out, box: [x0, y0, x1, y1] };
 }
 
+// tira a saturação (keep = fração do croma que fica): some com manchas marrons/avermelhadas do asfalto
+export function desaturate(px, keep) {
+  const out = new Uint8Array(px);
+  for (let i = 0; i < px.length; i += 4) { const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]; for (let c = 0; c < 3; c++) out[i + c] = clamp8(l + (px[i + c] - l) * keep); }
+  return out;
+}
+
+// caixa-média com volta (a textura repete), raio r, nos 3 canais
+function boxBlur(px, w, h, r) {
+  const tmp = new Float32Array(w * h * 3), out = new Float32Array(w * h * 3), n = 2 * r + 1;
+  for (let j = 0; j < h; j++) for (let c = 0; c < 3; c++) {
+    let s = 0; for (let k = -r; k <= r; k++) s += px[(j * w + ((k + w) % w)) * 4 + c];
+    for (let i = 0; i < w; i++) { tmp[(j * w + i) * 3 + c] = s / n; s += px[(j * w + (i + r + 1) % w) * 4 + c] - px[(j * w + (i - r + w) % w) * 4 + c]; }
+  }
+  for (let i = 0; i < w; i++) for (let c = 0; c < 3; c++) {
+    let s = 0; for (let k = -r; k <= r; k++) s += tmp[(((k + h) % h) * w + i) * 3 + c];
+    for (let j = 0; j < h; j++) { out[(j * w + i) * 3 + c] = s / n; s += tmp[(((j + r + 1) % h) * w + i) * 3 + c] - tmp[(((j - r + h) % h) * w + i) * 3 + c]; }
+  }
+  return out;
+}
+// apaga pontinhos escuros isolados (chicletes, furos) que viram grade quando a textura repete: o que fica bem mais
+// escuro que a média da vizinhança é trocado por ela, com 2 px de folga e borda suave. Devolve também quantos px.
+export function removeSpots(px, w, h, { thr = 38, radius = 0.012 } = {}) {
+  const r = Math.max(3, Math.round(w * radius)), B = boxBlur(px, w, h, r), lum = (a, o) => 0.299 * a[o] + 0.587 * a[o + 1] + 0.114 * a[o + 2];
+  const mask = new Float32Array(w * h);
+  for (let k = 0; k < w * h; k++) if (lum(B, k * 3) - lum(px, k * 4) > thr) mask[k] = 1;
+  const soft = new Float32Array(w * h); let count = 0;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    let m = 0; for (let dy = -3; dy <= 3 && m < 1; dy++) for (let dx = -3; dx <= 3; dx++) { if (!mask[((j + dy + h) % h) * w + (i + dx + w) % w]) continue; const d = Math.hypot(dx, dy); m = Math.max(m, d <= 2 ? 1 : 1 - (d - 2) / 2.3); }
+    soft[j * w + i] = m; if (mask[j * w + i]) count++;
+  }
+  const out = new Uint8Array(px);
+  for (let k = 0; k < w * h; k++) if (soft[k] > 0) for (let c = 0; c < 3; c++) out[k * 4 + c] = clamp8(px[k * 4 + c] + (B[k * 3 + c] - px[k * 4 + c]) * soft[k]);
+  return { px: out, count };
+}
+
 // original (PNG/JPEG/WebP) -> { full: PNG processado, game: WebP no tamanho do jogo, info }
 export async function processAsset(bytes, asset) {
   const { default: sharp } = await import('sharp');
   const meta = await sharp(bytes).metadata();
   if (!meta.width || !meta.height || meta.width < 256 || meta.height < 256 || meta.width > 8192 || meta.height > 8192) throw Error('Imagem gerada com dimensões inválidas');
-  const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  // texturas: corta 2% de cada borda antes de emendar (o modelo às vezes desenha um filete claro na beirada)
+  let src = sharp(bytes);
+  if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') { const m = Math.round(Math.min(meta.width, meta.height) * 0.02); src = sharp(await src.extract({ left: m, top: m, width: meta.width - 2 * m, height: meta.height - 2 * m }).toBuffer()); }
+  const { data, info } = await src.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let w = info.width, h = info.height;
   let px = new Uint8Array(data.buffer, data.byteOffset, data.length), crop = null;
   const steps = [];
   if (asset.kind === 'texture' || asset.kind === 'wall' || asset.kind === 'roof') {
     px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
+    if (asset.desat != null) { px = desaturate(px, asset.desat); steps.push('desat'); }
     if (asset.anchor) { px = colorMatch(px, hexRgb(asset.anchor)); steps.push('color ' + asset.anchor); }
+    if (asset.despot) { const s = removeSpots(px, w, h); px = s.px; steps.push(`spots ${s.count}px`); }
+    px = matchEdges(px, w, h); steps.push('edges');
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'facade') {
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
@@ -132,5 +194,7 @@ export async function processAsset(bytes, asset) {
   const full = await img.png().toBuffer();
   const game = await sharp(full).resize({ width: asset.game, height: asset.game, fit: 'inside', kernel: 'lanczos3' }).webp({ quality: 90, alphaQuality: 95 }).toBuffer();
   const gm = await sharp(game).metadata();
-  return { full, game, info: { width: w, height: h, format: meta.format, steps, gameWidth: gm.width, gameHeight: gm.height, gameBytes: game.length } };
+  // largura real coberta pela imagem final (o recorte da beirada e o corte da costura tiram pixels)
+  const coverage = +(asset.meters * w / meta.width).toFixed(3);
+  return { full, game, info: { width: w, height: h, format: meta.format, steps, coverage, gameWidth: gm.width, gameHeight: gm.height, gameBytes: game.length } };
 }

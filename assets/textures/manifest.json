@@ -1,0 +1,12 @@
+{
+  "ground-lawn": {
+    "meters": 3.533,
+    "px": 512,
+    "from": "round2/ground-lawn"
+  },
+  "ground-sand": {
+    "meters": 3.533,
+    "px": 512,
+    "from": "round2/ground-sand"
+  }
+}

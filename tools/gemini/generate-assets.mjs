@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // Geração manual e com custo controlado das imagens do City of God (catalog.mjs).
 // O jogo NUNCA importa este script nem recebe a chave do Gemini.
-//   node generate-assets.mjs --assets ground-asphalt,ground-lawn [--size 2K] [--model ...] [--refs assets/references/a.png] [--details "..."] [--dry-run true]
-// Cada asset = UMA chamada paga, sem repetição automática; no máximo MAX_PER_RUN por execução.
+//   node generate-assets.mjs --assets ground-asphalt,ground-lawn [--variants 2] [--size 2K] [--model ...] [--refs assets/references/a.png] [--details "..."] [--dry-run true]
+// Cada imagem = UMA chamada paga, sem repetição automática; no máximo MAX_PER_RUN imagens (assets × variantes) por execução.
+// Com --variants N, cada asset sai em N candidatas (<asset>~v1, ~v2...) e a folha.jpg ajuda a escolher a melhor.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPrompt, validate, parseAssets, slug, models, estimateUSD, MAX_REFS } from './prompts.mjs';
 import { byId } from './catalog.mjs';
 import { processAsset } from './postprocess.mjs';
+import { contactSheet } from './sheet.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -31,6 +33,7 @@ const mimeFromPath = file => ({ '.png': 'image/png', '.jpg': 'image/jpeg', '.jpe
 export function optionsFromEnvironment() {
   return {
     assets: chosen('assets', 'ASSETS', ''),
+    variants: +chosen('variants', 'VARIANTS', 1) || 1,
     model: chosen('model', 'GEMINI_MODEL', models[0]),
     size: chosen('size', 'IMAGE_SIZE', '2K'),
     details: chosen('details', 'ASSET_DETAILS', ''),
@@ -79,19 +82,20 @@ export async function run(o = optionsFromEnvironment()) {
   const runDir = path.join(outputBase, o.runId);
   if (!inside(outputBase, runDir)) throw Error('Caminho de saida invalido');
   await fs.mkdir(runDir, { recursive: true });
-  const summary = { run: o.runId, status: o.dryRun ? 'dry-run' : 'generated', model: o.model, size: o.size, references: cliRefs.length ? cliRefs.map(r => r.relative) : 'por item (catalog.mjs)',
-    estimatedUSD: o.dryRun ? 0 : estimateUSD(o.model, o.size, ids.length), plannedUSD: estimateUSD(o.model, o.size, ids.length), assets: [] };
-  console.log(`${o.dryRun ? 'DRY RUN (sem chamada e sem custo)' : 'GERANDO'}: ${ids.length} imagem(ns), ${o.model} ${o.size}, estimativa US$ ${summary.plannedUSD}`);
+  const V = o.variants, jobs = ids.flatMap(id => Array.from({ length: V }, (_, k) => ({ id, dir: V > 1 ? `${id}~v${k + 1}` : id })));
+  const summary = { run: o.runId, status: o.dryRun ? 'dry-run' : 'generated', model: o.model, size: o.size, variants: V, references: cliRefs.length ? cliRefs.map(r => r.relative) : 'por item (catalog.mjs)',
+    estimatedUSD: o.dryRun ? 0 : estimateUSD(o.model, o.size, jobs.length), plannedUSD: estimateUSD(o.model, o.size, jobs.length), assets: [] };
+  console.log(`${o.dryRun ? 'DRY RUN (sem chamada e sem custo)' : 'GERANDO'}: ${jobs.length} imagem(ns), ${o.model} ${o.size}, estimativa US$ ${summary.plannedUSD}`);
   let ai = null;
   if (!o.dryRun) {
     const { GoogleGenAI } = await import('@google/genai');
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
-  for (const id of ids) {
-    const a = byId(id), dir = path.join(runDir, id), refs = await refsFor(a), prompt = buildPrompt(a, { details: o.details, hasRefs: refs.length > 0 });
+  for (const { id, dir: name } of jobs) {
+    const a = byId(id), dir = path.join(runDir, name), refs = await refsFor(a), prompt = buildPrompt(a, { details: o.details, hasRefs: refs.length > 0 });
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, 'prompt.txt'), prompt, 'utf8');
-    const item = { id, kind: a.kind, title: a.title, ratio: a.ratio || '1:1', refs: refs.map(r => r.relative), status: o.dryRun ? 'dry-run' : 'pending' };
+    const item = { id, dir: name, kind: a.kind, title: a.title, ratio: a.ratio || '1:1', refs: refs.map(r => r.relative), status: o.dryRun ? 'dry-run' : 'pending' };
     summary.assets.push(item);
     if (o.dryRun) continue;
     try {
@@ -106,15 +110,16 @@ export async function run(o = optionsFromEnvironment()) {
       await fs.writeFile(path.join(dir, 'asset.png'), p.full);
       await fs.writeFile(path.join(dir, `${id}.webp`), p.game);
       Object.assign(item, p.info, { status: 'ok' });
-      console.log(`  ok  ${id}: ${p.info.width}x${p.info.height} -> ${p.info.gameWidth}x${p.info.gameHeight} webp (${(p.info.gameBytes / 1024).toFixed(0)} KB) [${p.info.steps.join(', ')}]`);
+      console.log(`  ok  ${name}: ${p.info.width}x${p.info.height} -> ${p.info.gameWidth}x${p.info.gameHeight} webp (${(p.info.gameBytes / 1024).toFixed(0)} KB) [${p.info.steps.join(', ')}]`);
     } catch (error) {
       const key = process.env.GEMINI_API_KEY || '\0';
       item.error = String(error?.message || error).replaceAll(key, '[REDACTED]').slice(0, 400);
       if (item.status !== 'paid') item.status = 'failed';
-      console.error(`  ERRO ${id}: ${item.error}`);
+      console.error(`  ERRO ${name}: ${item.error}`);
     }
   }
   await fs.writeFile(path.join(runDir, 'summary.json'), JSON.stringify(summary, null, 2));
+  if (!o.dryRun) { try { const sheet = await contactSheet(runDir); if (sheet) console.log('Folha de contato: ' + sheet); } catch (e) { console.error('folha de contato falhou: ' + e.message); } }
   if (summary.assets.some(a => a.error)) process.exitCode = 1;
   console.log('Saida: ' + runDir);
   return summary;

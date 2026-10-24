@@ -24,6 +24,7 @@ export const KIND_RULES = {
     'Flat, even, diffuse light with the warm golden color grade of the references: NO cast shadows from outside objects, NO vignetting, NO light gradient or hotspot across the image, NO perspective, NO horizon, NO depth of field.',
     'Uniform detail density over the whole square: no single focal object, no border, no frame, no objects cut in half at a single spot that would repeat obviously; avoid strong unique landmarks that reveal the repetition.',
     'ISOTROPIC: the surface must look the same in every direction (the game rotates it freely and lays it under curved streets): NO parallel streaks, bands, stripes, tracks or rows, NO grid of joints, NO single big patch, hole or dark spot.',
+    'ALL detail is small, low-contrast and spread randomly and evenly like noise: nothing larger than 30 cm stands out, no isolated dark dots, no recognizable shapes (letters, symbols, footprints), no bands or alignments.',
     'This is a HORIZONTAL surface: NO vertical drips, rain streaks or rust runs (those only happen on walls). Semi-realistic rendering: NO ink outlines, NO black contour lines, NO comic or cartoon style, NO painterly smudges or brush strokes, NO raised bevels or 3D emboss.',
   ],
   wall: [

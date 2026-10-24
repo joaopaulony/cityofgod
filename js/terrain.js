@@ -208,6 +208,8 @@ function chunkFields(ch) {
     for (const key in F) F[key][k] = o[key];
   }
   ch.F = F; ch.img = ch.g.createImageData(CSZ, CSZ);
+  const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
+  ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
 }
 const TC = h => hexToRgb(h);
 // Cada pixel do solo continua procedural; apenas as cores de mistura
@@ -218,6 +220,8 @@ function paintRows(ch, rows) {
   const { F, img } = ch, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
   const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo, Fdi = F.di, Ffa = F.fa, Ffc = F.fc;
   const open = world.open, CROP = terrain.crops;
+  const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
+  const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
   const gx0 = ch.ci * CPX - PAD, gy0 = ch.cj * CPX - PAD, inv = 1 / (TP * GSTEP);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
   const end = Math.min(CSZ, ch.row + rows);
@@ -239,13 +243,20 @@ function paintRows(ch, rows) {
       // --- grama: tom por ruído + tufos + grão com pontas claras/escuras
       const dk = sstep(0.42, 0.72, dry), tone = 0.82 + (gt - 0.5) * 0.55 + (d1 - 0.5) * 0.3;
       const grain = d2 > 0.86 ? 1.2 : d2 < 0.14 ? 0.78 : 0.95 + d2 * 0.1;
-      r = lerp(COL.lush[0], COL.dry[0], dk) * tone * grain; gg = lerp(COL.lush[1], COL.dry[1], dk) * tone * grain; b = lerp(COL.lush[2], COL.dry[2], dk) * tone * grain;
+      if (tex && texAt('lawn', gx0 + px, gy0 + py, tA) && texAt('weeds', gx0 + px, gy0 + py, tB)) {
+        // gramado -> mato ralo pelo campo de secura; o detalhe fino vem da textura, do campo só a variação grande
+        const tn = 0.93 + (gt - 0.5) * 0.3;
+        r = lerp(tA[0], tB[0], dk) * tn; gg = lerp(tA[1], tB[1], dk) * tn; b = lerp(tA[2], tB[2], dk) * tn;
+      } else { r = lerp(COL.lush[0], COL.dry[0], dk) * tone * grain; gg = lerp(COL.lush[1], COL.dry[1], dk) * tone * grain; b = lerp(COL.lush[2], COL.dry[2], dk) * tone * grain; }
       // --- chão de mata: musgo + serrapilheira
       const fw = sstep(0.55, 0.69, fo) * 0.85;
       if (fw > 0) { const t = d3, m = 0.8 + d1 * 0.35; r = lerp(r, lerp(COL.moss[0], COL.litter[0], t) * m, fw); gg = lerp(gg, lerp(COL.moss[1], COL.litter[1], t) * m, fw); b = lerp(b, lerp(COL.moss[2], COL.litter[2], t) * m, fw); }
       // --- terra batida
       const dw = sstep(0.66, 0.72, dirt + (d1 - 0.5) * 0.08);
-      if (dw > 0) { const m = (0.84 + d1 * 0.26) * (d2 > 0.92 ? 1.18 : 1); r = lerp(r, COL.dirt[0] * m, dw); gg = lerp(gg, COL.dirt[1] * m, dw); b = lerp(b, COL.dirt[2] * m, dw); }
+      if (dw > 0) {
+        if (tex && texAt('dirt', gx0 + px, gy0 + py, tA)) { const m = 0.95 + d1 * 0.08; r = lerp(r, tA[0] * m, dw); gg = lerp(gg, tA[1] * m, dw); b = lerp(b, tA[2] * m, dw); }
+        else { const m = (0.84 + d1 * 0.26) * (d2 > 0.92 ? 1.18 : 1); r = lerp(r, COL.dirt[0] * m, dw); gg = lerp(gg, COL.dirt[1] * m, dw); b = lerp(b, COL.dirt[2] * m, dw); }
+      }
       // --- lama (perto do lago e na terra úmida) com brilho molhado e poças
       const mw = Math.max(sstep(1.65, 1.15, pv) * sstep(0.45, 0.65, wet), dw * sstep(0.62, 0.7, wet));
       if (mw > 0) {
@@ -279,20 +290,26 @@ function paintRows(ch, rows) {
           const joint = (jx > 0.485 || jy > 0.485) ? 0.78 : 1, stain = d3 > 0.72 ? 0.86 : 1, m = (0.9 + d2 * 0.12) * joint * stain * (0.95 + d1 * 0.08);
           const base = wc > wi ? COL.walk : COL.curbF;
           const ww2 = Math.min(1, wc + wi) * 0.96;
-          r = lerp(r, base[0] * m * 1.02, ww2); gg = lerp(gg, base[1] * m, ww2); b = lerp(b, base[2] * m * 0.98, ww2);
+          if (tex && texAt(wc > wi ? 'walk' : 'concrete', gx0 + px, gy0 + py, tA)) { const mj = joint * (0.97 + d1 * 0.05); r = lerp(r, tA[0] * mj, ww2); gg = lerp(gg, tA[1] * mj, ww2); b = lerp(b, tA[2] * mj, ww2); }
+          else { r = lerp(r, base[0] * m * 1.02, ww2); gg = lerp(gg, base[1] * m, ww2); b = lerp(b, base[2] * m * 0.98, ww2); }
           quay = Math.min(1, wOf(7) + wc * 0.6);
         }
         // favela: terra batida e pisada com manchas de cimento; conjunto: grama gasta e terra
         const wv = wOf(4), wg = wOf(5);
         if (wv + wg > 0) {
           const cem = d3 > 0.86 && wv > 0 ? 0.55 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
-          const cr = lerp(COL.dirt[0] * m, COL.curbF[0] * 1.1, cem), cg = lerp(COL.dirt[1] * m, COL.curbF[1] * 1.1, cem), cb = lerp(COL.dirt[2] * m, COL.curbF[2] * 1.1, cem);
+          const dt = tex && texAt('dirt', gx0 + px, gy0 + py, tA), dm = 0.95 + d1 * 0.08;
+          const dr = dt ? tA[0] * dm : COL.dirt[0] * m, dg = dt ? tA[1] * dm : COL.dirt[1] * m, db = dt ? tA[2] * dm : COL.dirt[2] * m;
+          const cr = lerp(dr, COL.curbF[0] * 1.1, cem), cg = lerp(dg, COL.curbF[1] * 1.1, cem), cb = lerp(db, COL.curbF[2] * 1.1, cem);
           const ww3 = wv * 0.9 + wg * 0.45 * sstep(0.4, 0.7, d3);
           r = lerp(r, cr, ww3); gg = lerp(gg, cg, ww3); b = lerp(b, cb, ww3);
         }
         // praia: areia seca em todo o distrito (a molhada perto da água vem do campo da costa)
         const wb = wOf(1);
-        if (wb > 0) { const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12); r = lerp(r, COL.sand[0] * m, wb); gg = lerp(gg, COL.sand[1] * m, wb); b = lerp(b, COL.sand[2] * m, wb); }
+        if (wb > 0) {
+          if (tex && texAt('sand', gx0 + px, gy0 + py, tA)) { const m = 0.97 + d1 * 0.05; r = lerp(r, tA[0] * m, wb); gg = lerp(gg, tA[1] * m, wb); b = lerp(b, tA[2] * m, wb); }
+          else { const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12); r = lerp(r, COL.sand[0] * m, wb); gg = lerp(gg, COL.sand[1] * m, wb); b = lerp(b, COL.sand[2] * m, wb); }
+        }
         // aeroporto: grama aparada mais clara entre as pistas
         const wa = wOf(11);
         if (wa > 0) { const m = 1.06 + (Math.sin(wx * 0.5) > 0 ? 0.04 : -0.02); r = lerp(r, r * m, wa); gg = lerp(gg, gg * m, wa); b = lerp(b, b * m * 0.98, wa); }
@@ -300,8 +317,14 @@ function paintRows(ch, rows) {
       // --- areia seca -> areia molhada na beira (no porto e no centro vira cais de concreto)
       const sw = (1 - sstep(1.12, 1.26, pv + (d1 - 0.5) * 0.04)) * (1 - quay);
       if (sw > 0) {
-        const ws = 1 - sstep(1.0, 1.075, pv + (d3 - 0.5) * 0.03), m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12);
-        r = lerp(r, lerp(COL.sand[0], COL.wsand[0], ws) * m, sw); gg = lerp(gg, lerp(COL.sand[1], COL.wsand[1], ws) * m, sw); b = lerp(b, lerp(COL.sand[2], COL.wsand[2], ws) * m, sw);
+        const ws = 1 - sstep(1.0, 1.075, pv + (d3 - 0.5) * 0.03);
+        if (tex && texAt('sand', gx0 + px, gy0 + py, tA)) {   // areia pintada; a molhada escurece a própria textura
+          const m = (0.97 + d1 * 0.05) * (1 - ws * 0.38);
+          r = lerp(r, lerp(tA[0], COL.wsand[0], ws * 0.55) * m, sw); gg = lerp(gg, lerp(tA[1], COL.wsand[1], ws * 0.55) * m, sw); b = lerp(b, lerp(tA[2], COL.wsand[2], ws * 0.55) * m, sw);
+        } else {
+          const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12);
+          r = lerp(r, lerp(COL.sand[0], COL.wsand[0], ws) * m, sw); gg = lerp(gg, lerp(COL.sand[1], COL.wsand[1], ws) * m, sw); b = lerp(b, lerp(COL.sand[2], COL.wsand[2], ws) * m, sw);
+        }
       }
       // --- água: rasa esverdeada -> funda, com ondulação e espuma na margem
       if (pv < 1.02) {
@@ -322,7 +345,9 @@ function paintRows(ch, rows) {
       if (rd < s1 + 0.06) {
         const swk = 1 - sstep(s1 - 0.02, s1 + 0.04, rd);
         const m = (0.92 + d3 * 0.13) * (0.93 + d2 * 0.12) * (d1 < 0.22 ? 0.9 : 1), edge = sstep(s1 - 0.25, s1, rd) * 0.35;
-        const cr = lerp(COL.walk[0] * m, COL.dirt[0], edge), cg = lerp(COL.walk[1] * m, COL.dirt[1], edge), cb = lerp(COL.walk[2] * m, COL.dirt[2], edge);
+        const wt = tex && texAt(walkKey, gx0 + px, gy0 + py, tA), wm = 0.97 + d3 * 0.05;
+        const wr = wt ? tA[0] * wm : COL.walk[0] * m, wg2 = wt ? tA[1] * wm : COL.walk[1] * m, wb2 = wt ? tA[2] * wm : COL.walk[2] * m;
+        const cr = lerp(wr, COL.dirt[0], edge), cg = lerp(wg2, COL.dirt[1], edge), cb = lerp(wb2, COL.dirt[2], edge);
         r = lerp(r, cr, swk); gg = lerp(gg, cg, swk); b = lerp(b, cb, swk);
         if (rd < s0 + 0.01) {   // meio-fio: face escura + topo claro chanfrado
           const t = (rd - ROAD_W) / 0.2, top = t > 0.3, m2 = 0.92 + d2 * 0.12;
@@ -336,7 +361,8 @@ function paintRows(ch, rows) {
           const agg = d2 > 0.93 ? 1.4 : 0.8 + d2 * 0.36;
           let m3 = lerp(agg, 0.97, tracks * 0.5) * (1 - tracks * 0.07) * (1 - oil * 0.1) * (0.95 + d3 * 0.1);
           let ar = COL.asph[0] * m3 + oil * 4, ag = COL.asph[1] * m3, ab = COL.asph[2] * m3 - oil * 2;
-          if (d3 > 0.8 && rd < ROAD_W - 0.6) { const q = 0.93 + d2 * 0.1; ar = COL.patch[0] * q; ag = COL.patch[1] * q; ab = COL.patch[2] * q; }
+          if (tex && texAt('asphalt', gx0 + px, gy0 + py, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
+          if (d3 > 0.8 && rd < ROAD_W - 0.6) { const q = 0.93 + d2 * 0.1; if (tex && GTEX.t.asphalt) { ar *= 0.84; ag *= 0.84; ab *= 0.84; } else { ar = COL.patch[0] * q; ag = COL.patch[1] * q; ab = COL.patch[2] * q; } }
           const gut = sstep(ROAD_W - 0.4, ROAD_W - 0.05, rd);
           ar = lerp(ar, COL.gutter[0] * (0.85 + d1 * 0.3), gut); ag = lerp(ag, COL.gutter[1] * (0.85 + d1 * 0.3), gut); ab = lerp(ab, COL.gutter[2] * (0.85 + d1 * 0.3), gut);
           const aw = 1 - sstep(ROAD_W - 0.01, ROAD_W + 0.015, rd);

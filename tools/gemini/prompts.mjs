@@ -34,7 +34,9 @@ export function parseAssets(list) {
 }
 
 export function validate(o) {
-  parseAssets(o.assets);
+  const ids = parseAssets(o.assets), v = o.variants ?? 1;
+  if (!Number.isInteger(v) || v < 1 || v > 3) throw Error('Variantes: 1 a 3');
+  if (ids.length * v > MAX_PER_RUN) throw Error(`No máximo ${MAX_PER_RUN} imagens por execução (assets × variantes)`);
   if (!models.includes(o.model)) throw Error('Modelo do Gemini não permitido');
   if (!imageSizes.includes(o.size)) throw Error('Tamanho não permitido (1K ou 2K)');
   if (String(o.details || '').length > 1200) throw Error('Detalhes longos demais (máximo 1200 caracteres)');
