@@ -182,7 +182,6 @@ export function magentaCutout(px, w, h, keyName = 'magenta') {
   for (let i = 0; i < w; i += 4) for (const j of [0, h - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
   for (let j = 0; j < h; j += 4) for (const i of [0, w - 1]) { const k = (j * w + i) * 4; edge += key(px[k], px[k + 1], px[k + 2]) > 90 ? 1 : 0; n++; }
   if (edge / n < 0.6) throw Error(`Recorte cancelado: as bordas não são ${keyName} uniforme; a imagem precisa ser refeita`);
-  let x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const k = (j * w + i) * 4, r = px[k], g = px[k + 1], b = px[k + 2], m = key(r, g, b);
     const alpha = 1 - smooth(40, 120, m);
@@ -191,8 +190,29 @@ export function magentaCutout(px, w, h, keyName = 'magenta') {
       else { const lim = g + (Math.max(r, b) - g) * alpha; out[k] = Math.min(r, lim); out[k + 2] = Math.min(b, lim); }
     }
     out[k + 3] = Math.round(px[k + 3] * alpha);
+    // reflexo da cor-chave em toda a planta (folhas com franja roxa): puxa o excesso de magenta p/ o verde
+    if (keyName === 'magenta' && out[k + 3] && m > 0) { out[k] = Math.max(0, out[k] - m * 0.85); out[k + 2] = Math.max(0, out[k + 2] - m * 0.85); }
     if (out[k + 3] === 0) { out[k] = out[k + 1] = out[k + 2] = 0; }
-    else if (out[k + 3] > 16) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+  }
+  // pedaços soltos (folhagem cortada na beirada da imagem, respingos): fica só o que está ligado à planta principal
+  // (só pixels bem opacos ligam pedaços: franjas quase transparentes não contam como ponte)
+  const OP = 64, lab = new Int32Array(w * h), sizes = [0], atEdge = [false], stack = [];
+  for (let s = 0; s < w * h; s++) {
+    if (lab[s] || out[s * 4 + 3] <= OP) continue;
+    const id = sizes.length; let n = 0, onEdge = false; lab[s] = id; stack.push(s);
+    while (stack.length) { const q = stack.pop(); n++; const qx = q % w, qy = (q / w) | 0; if (qx < 2 || qy < 2 || qx > w - 3 || qy > h - 3) onEdge = true;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = qx + dx, ny = qy + dy, t = ny * w + nx; if (nx < 0 || ny < 0 || nx >= w || ny >= h || lab[t] || out[t * 4 + 3] <= OP) continue; lab[t] = id; stack.push(t); } }
+    sizes.push(n); atEdge.push(onEdge);
+  }
+  // fica a planta principal e pedaços grandes dela; some o que é pequeno ou encosta na beirada (veio cortado)
+  const big = Math.max(0, ...sizes), keep = sizes.map((n, i) => n === big || (n >= big * 0.12 && !atEdge[i]));
+  // franja semitransparente só fica se estiver colada num pedaço mantido
+  const nearKept = (i, j) => { for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = i + dx, y = j + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const l = lab[y * w + x]; if (l && keep[l]) return true; } return false; };
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const s = j * w + i, k = s * 4;
+    if ((lab[s] && !keep[lab[s]]) || (!lab[s] && out[k + 3] && !nearKept(i, j))) { out[k] = out[k + 1] = out[k + 2] = out[k + 3] = 0; continue; }
+    if (out[k + 3] > 16) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
   }
   if (x1 < 0) throw Error('Recorte cancelado: nada sobrou depois de tirar o fundo');
   return { px: out, box: [x0, y0, x1, y1] };
