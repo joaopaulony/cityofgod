@@ -34,6 +34,8 @@ window.cityVehicleBridge={
   urbanBins:urbanLife.bins,
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,
+  collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
 };
 
@@ -127,7 +129,7 @@ function impact(hit, z) {
 }
 
 function fire(J) {
-  const R = J.rifle, m = R.muzzle, aim = unproj(input.mx / RS, input.my / RS, m[2]);
+  const R = J.rifle, m = window.cityCharacters?.muzzle(player)||R.muzzle, aim = unproj(input.mx / RS, input.my / RS, m[2]);
   let dx = aim[0] - m[0], dy = aim[1] - m[1];
   const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
   const spread = (1 - player.aimV) * 0.08 + (player.speed > 0.1 ? 0.03 : 0.008), a = Math.atan2(dy, dx) + rnd(-spread, spread);
@@ -147,6 +149,8 @@ function fire(J) {
 // ---------- atualização ----------
 function updatePlayer(dt) {
   const p = player;
+  const traversing=window.cityCharacters?.move(dt);
+  if(traversing){p.aiming=false;p.wantShot=false;p.running=false;return;}
   if(window.cityVehicles?.driver){
     p.speed=0;p.aiming=false;p.wantShot=false;p.running=false;
     p.aimHold=0;return;
@@ -154,13 +158,14 @@ function updatePlayer(dt) {
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
-  p.running = input.down('shift') && !p.aiming;
+  p.running = input.down('shift') && !p.aiming && !p.crouching;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
     spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 3.7 : 1.75;
+    if(p.crouching)spd=Math.min(spd,.75);
     if (p.reloadT >= 0) spd = Math.min(spd, 1.3);
     const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28, p.floor||0);
     const moved = Math.hypot(nx - p.x, ny - p.y);
@@ -175,7 +180,7 @@ function updatePlayer(dt) {
 
   fireCD -= dt;
   // clique curto fica na fila: o fuzil sobe (antecipação) e o tiro sai quando a mira assenta
-  if ((input.lmb || p.wantShot) && p.reloadT < 0) {
+  if ((input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump) {
     p.aimHold = 1.3;
     if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
     else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = 0.12; p.wantShot = false; }
@@ -350,7 +355,12 @@ function render() {
     list.push({d:above,draw:ctx=>{
       ctx.save();
       if(a.floorZ)ctx.translate(0,-a.floorZ*cam.zoom*HZ);
-      drawActor(ctx,a,a.J,a.pal);
+      if(!window.cityCharacters?.has(a))drawActor(ctx,a,a.J,a.pal);
+      else{
+        const shadow=proj(a.x,a.y,0);
+        ctx.fillStyle='rgba(15,20,8,0.25)';ctx.beginPath();
+        ctx.ellipse(shadow.x,shadow.y,.25*cam.zoom,.12*cam.zoom,0,0,TAU);ctx.fill();
+      }
       ctx.restore();
     },actor:a});
   }
@@ -371,7 +381,7 @@ function render() {
   // que realmente bloqueia a camera, com mascara radial suavizada.
   if (st.night) drawNight(W,H);
   const blocker=occluded();
-  window.cityVehicleBridge.visionBlocker=window.cityVehicles?.driver?blocker:null;
+  window.cityVehicleBridge.visionBlocker=window.cityVehicles?.driver||window.cityCharacters?.has(player)?blocker:null;
   if(blocker)drawPlayerVision(list,blocker,W,H);
   drawMuzzleFlash(g,player,st.night);
   // balões de fala
@@ -441,9 +451,10 @@ function occluded(){
 // pequenos raios acompanham exatamente a boca da arma em qualquer camera.
 function drawMuzzleFlash(ctx,actor,night=false){
   if(!actor.J||!(actor.flash>0))return;
-  const m=proj(...actor.J.rifle.muzzle);
-  const tip=proj(...V.add(actor.J.rifle.muzzle,
-    V.mul(V.norm(V.sub(actor.J.rifle.muzzle,actor.J.rifle.hg1)),.36)));
+  const liveMuzzle=window.cityCharacters?.muzzle(actor),origin=liveMuzzle||actor.J.rifle.muzzle;
+  const m=proj(...origin);
+  const forward=liveMuzzle?[Math.cos(actor.face),Math.sin(actor.face),0]:V.norm(V.sub(origin,actor.J.rifle.hg1));
+  const tip=proj(...V.add(origin,V.mul(forward,.36)));
   const k=clamp(actor.flash/.11,0,1),size=cam.zoom;
   ctx.save();ctx.globalCompositeOperation='screen';
   const radius=size*(night?.74:.42);
@@ -692,6 +703,7 @@ function tick(dt) {
   for (const n of npcs) updateNPC(n, dt);
   updateHouseOpenings(dt, actors, st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
+  window.cityCharacters?.update(dt);
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);
   spawnAmbientLeaves(dt);

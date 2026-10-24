@@ -1,0 +1,4 @@
+Ara 3D Gen code: MIT, https://github.com/olatunde85/3d-gen
+MakeHuman character assets: CC0 1.0, Data Collection AB, Joel Palmius, Jonas Hauquier.
+Walk, Run and Strafe motion: CMU Graphics Lab Motion Capture Database (NSF EIA-0196217). Commercial and non-commercial products allowed; motion data may not be resold alone.
+City of God: custom low vault and crouch walk clips; 1024px maximum textures.

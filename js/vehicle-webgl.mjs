@@ -8,6 +8,7 @@ import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
+import {createCharacterSystem} from './character-webgl.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -100,7 +101,7 @@ function makeOccluders(){
 // em volta do carro quando o mundo muda (world.version) ou o carro anda 25 m.
 const OCC_RADIUS=90;
 function syncOccluders(force){
- const w=bridge.world,open=!!w.open,cx=state.x,cy=state.y;
+ const w=bridge.world,open=!!w.open,cx=bridge.cam.x,cy=bridge.cam.y;
  if(!force&&(!open||(w.version===occlusionSync.version&&
    Math.hypot(cx-occlusionSync.x,cy-occlusionSync.y)<25)))return;
  Object.assign(occlusionSync,{version:w.version,x:cx,y:cy});
@@ -228,7 +229,7 @@ function initRenderer(){
  renderer.toneMappingExposure=1.38;
  renderer.setClearColor(0x000000,0);
  renderer.shadowMap.enabled=true;
- renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
  scene.add(new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95));
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
@@ -252,6 +253,7 @@ function initRenderer(){
  shadowGround.receiveShadow=true;scene.add(shadowGround);
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,160);
  makeOccluders();
+ createCharacterSystem(scene,bridge);
 }
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
@@ -382,18 +384,18 @@ system.prompt=()=>system.ready&&!system.driver&&
  Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
  ?'F — entrar no '+activeModel.name:null;
 system.render=()=>{
- if(!system.ready||!renderer)return;
+ if(!renderer)return;
  const c=bridge.cam;
  setCamera();
- body.position.set(state.x,0,state.y);
- body.rotation.y=-state.angle;
+ if(body){body.position.set(state.x,0,state.y);
+ body.rotation.y=-state.angle;}
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  syncOccluders(false);
  // Nunca esconder telhados porque o condutor está dentro de um imóvel.
  // Só a superfície escolhida pela lente de visão fica sem oclusão.
- const reveal=system.driver?bridge.visionBlocker:null;
+ const reveal=system.driver||window.cityCharacters?.has(bridge.player)?bridge.visionBlocker:null;
  for(const o of occluders)o.visible=(system.driver||!o.userData.house.inside)&&o.userData.house!==reveal;
  for(const [H,mesh] of roofOccluders)
   mesh.visible=(system.driver||!H.inside)&&H!==reveal;

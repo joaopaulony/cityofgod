@@ -115,6 +115,8 @@ function animate(a, dt) {
     if (a.reloadT >= RELOAD.dur) a.reloadT = -1;
   }
   if (!a.armed) p = Object.assign({}, p, { lhHG: 0 });
+  if(a.crouching){p.crouch+=.34;p.lean+=.1;p.bz-=.24;}
+  if(a.traversal){const w=Math.sin(Math.PI*a.traversal.t/a.traversal.duration);p.lean+=.3*w;p.crouch+=.1*w;}
   return p;
 }
 
@@ -169,6 +171,7 @@ function solveSkeleton(a, p) {
     if (u < 0.5) { s = L / 4 * (1 - 4 * u); h = 0; }
     else { const v = (u - 0.5) * 2; s = -L / 4 + L / 2 * smooth(v); h = Math.sin(Math.PI * v) * lift; }
     s *= a.walkW; h *= a.walkW;
+    if(a.jump||a.traversal){const action=a.traversal||a.jump,w=Math.sin(Math.PI*clamp(action.t/action.duration,0,1));h+=w*(side==='L'?.25:.16);s+=w*(side==='L'?.12:-.12);}
     const stance = (1 - a.walkW) * a.aimV;   // postura de tiro quando parado mirando
     const lat = (side === 'L' ? 1 : -1) * (0.11 + stance * 0.05);
     const stag = stance * (side === 'L' ? 0.12 : -0.09);

@@ -100,7 +100,7 @@ export function createWorldOccluders(scene,THREE,bridge,material){
  function updateActors(driver,player){
   for(const entry of dynamic){
    const a=entry.a;
-   const visible=!(driver&&a===player)&&Number.isFinite(a.x)&&
+   const visible=!window.cityCharacters?.has(a)&&!(driver&&a===player)&&Number.isFinite(a.x)&&
     Number.isFinite(a.y);
    entry.torso.visible=entry.head.visible=visible;
    if(!visible)continue;

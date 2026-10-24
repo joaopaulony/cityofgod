@@ -94,6 +94,7 @@ const input = {
   endFrame() { this.pressed.clear(); this.wheel = 0; },
 };
 addEventListener('keydown', e => {
+  if(window.cityCharacterEditorOpen)return;
   if (document.activeElement && document.activeElement.id === 'say') return;
   const k = e.key.toLowerCase();
   if (!input.keys.has(k)) input.pressed.add(k);

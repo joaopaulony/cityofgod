@@ -49,7 +49,7 @@ test('no full roof transparency or green empty interior while driving behind hou
  assert.doesNotMatch(webgl,/selectVehicleRoofCutaways|vehicleRoofFade/);
  const game=read('game.js');
  assert.doesNotMatch(game,/window\.cityVehicles\?\.prepareScene/);
- assert.match(webgl,/mesh\.visible=!H\.inside/);
+ assert.match(webgl,/mesh\.visible=\(system\.driver\|\|!H\.inside\)&&H!==reveal/);
 });
 test('GLB has independent wall and tile depth so edges match exact roof shape',()=>{
  assert.match(webgl,/const walls=\[\],slopes=\[\]/);

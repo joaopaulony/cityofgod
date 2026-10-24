@@ -1,0 +1,400 @@
+{
+  "provider": "mixamo",
+  "models": [
+    {
+      "id": "david",
+      "file": "david.glb",
+      "bytes": 3810992,
+      "triangles": 47866,
+      "bones": 58,
+      "materials": {
+        "david_Ch28_body": {
+          "map": "textures/david_Ch28_body_map.webp",
+          "normalMap": "textures/david_Ch28_body_normalMap.webp",
+          "alphaTest": 0
+        },
+        "david_Ch28_hair": {
+          "map": "textures/david_Ch28_hair_map.webp",
+          "normalMap": "textures/david_Ch28_hair_normalMap.webp",
+          "alphaTest": 0.45
+        }
+      },
+      "clips": {
+        "idle": {
+          "name": "idle",
+          "duration": 8.333333015441895,
+          "speed": 0,
+          "loop": true,
+          "source": "locomotion/idle",
+          "layered": false
+        },
+        "walk": {
+          "name": "walk",
+          "duration": 1.0333333015441895,
+          "speed": 1.5991802919324167,
+          "loop": true,
+          "source": "locomotion/walking",
+          "layered": false
+        },
+        "run": {
+          "name": "run",
+          "duration": 0.699999988079071,
+          "speed": 4.194559164860182,
+          "loop": true,
+          "source": "locomotion/running",
+          "layered": false
+        },
+        "rifle_idle": {
+          "name": "rifle_idle",
+          "duration": 2.0999999046325684,
+          "speed": 2.024077815834445e-8,
+          "loop": true,
+          "source": "rifle8/idle",
+          "layered": false
+        },
+        "rifle_aim": {
+          "name": "rifle_aim",
+          "duration": 2.0999999046325684,
+          "speed": 1.2234119642280069e-8,
+          "loop": true,
+          "source": "rifle8/idle aiming",
+          "layered": false
+        },
+        "rifle_walk": {
+          "name": "rifle_walk",
+          "duration": 1,
+          "speed": 1.8546648646290647,
+          "loop": true,
+          "source": "rifle8/walk forward",
+          "layered": false
+        },
+        "rifle_run": {
+          "name": "rifle_run",
+          "duration": 0.5,
+          "speed": 4.6366628067858375,
+          "loop": true,
+          "source": "rifle8/run forward",
+          "layered": false
+        },
+        "rifle_walk_back": {
+          "name": "rifle_walk_back",
+          "duration": 1,
+          "speed": 1.8546653485248796,
+          "loop": true,
+          "source": "rifle8/walk backward",
+          "layered": false
+        },
+        "rifle_strafe_left": {
+          "name": "rifle_strafe_left",
+          "duration": 1,
+          "speed": 1.8546652479669803,
+          "loop": true,
+          "source": "rifle8/walk left",
+          "layered": false
+        },
+        "rifle_strafe_right": {
+          "name": "rifle_strafe_right",
+          "duration": 1,
+          "speed": 1.854665490983935,
+          "loop": true,
+          "source": "rifle8/walk right",
+          "layered": false
+        },
+        "rifle_fire": {
+          "name": "rifle_fire",
+          "duration": 0.2666666805744171,
+          "speed": 0.000022724384950275115,
+          "loop": false,
+          "source": "firing rifle",
+          "layered": false
+        },
+        "rifle_reload": {
+          "name": "rifle_reload",
+          "duration": 3.299999952316284,
+          "speed": 8.816763917659893e-7,
+          "loop": false,
+          "source": "reloading",
+          "layered": false
+        },
+        "jump_start": {
+          "name": "jump_start",
+          "duration": 0.5333333611488342,
+          "speed": 0.012173998420230628,
+          "loop": false,
+          "source": "rifle8/jump up",
+          "layered": false
+        },
+        "jump_air": {
+          "name": "jump_air",
+          "duration": 1,
+          "speed": 0.0000015244557019848195,
+          "loop": true,
+          "source": "rifle8/jump loop",
+          "layered": false
+        },
+        "jump_land": {
+          "name": "jump_land",
+          "duration": 0.6666666865348816,
+          "speed": 0.00974078875596035,
+          "loop": false,
+          "source": "rifle8/jump down",
+          "layered": false
+        },
+        "vault_low": {
+          "name": "vault_low",
+          "duration": 1.533333420753479,
+          "speed": 1.7285686631973924,
+          "loop": false,
+          "source": "vault",
+          "layered": false
+        },
+        "crouch": {
+          "name": "crouch",
+          "duration": 2.0999999046325684,
+          "speed": 3.6242189241519514e-7,
+          "loop": true,
+          "source": "rifle8/idle crouching",
+          "layered": true
+        },
+        "crouch_walk": {
+          "name": "crouch_walk",
+          "duration": 1,
+          "speed": 1.968394440612154,
+          "loop": true,
+          "source": "rifle8/walk crouching forward",
+          "layered": true
+        },
+        "rifle_crouch_aim": {
+          "name": "rifle_crouch_aim",
+          "duration": 2.0999999046325684,
+          "speed": 4.281312616664886e-7,
+          "loop": true,
+          "source": "rifle8/idle crouching aiming",
+          "layered": false
+        },
+        "rifle_crouch_walk": {
+          "name": "rifle_crouch_walk",
+          "duration": 1,
+          "speed": 1.968394440612154,
+          "loop": true,
+          "source": "rifle8/walk crouching forward",
+          "layered": false
+        },
+        "rifle_crouch_fire": {
+          "name": "rifle_crouch_fire",
+          "duration": 0.2666666805744171,
+          "speed": 0.0000028540721243060317,
+          "loop": false,
+          "source": "firing rifle",
+          "layered": true
+        },
+        "rifle_crouch_reload": {
+          "name": "rifle_crouch_reload",
+          "duration": 3.299999952316284,
+          "speed": 2.3063210621395773e-7,
+          "loop": false,
+          "source": "reloading",
+          "layered": true
+        }
+      }
+    },
+    {
+      "id": "megan",
+      "file": "megan.glb",
+      "bytes": 3707268,
+      "triangles": 54883,
+      "bones": 61,
+      "materials": {
+        "megan_Ch22_body": {
+          "map": "textures/megan_Ch22_body_map.webp",
+          "normalMap": "textures/megan_Ch22_body_normalMap.webp",
+          "alphaTest": 0
+        },
+        "megan_Ch22_hair": {
+          "map": "textures/megan_Ch22_hair_map.webp",
+          "normalMap": "textures/megan_Ch22_hair_normalMap.webp",
+          "alphaTest": 0.45
+        }
+      },
+      "clips": {
+        "idle": {
+          "name": "idle",
+          "duration": 8.333333015441895,
+          "speed": 0,
+          "loop": true,
+          "source": "locomotion/idle",
+          "layered": false
+        },
+        "walk": {
+          "name": "walk",
+          "duration": 1.0333333015441895,
+          "speed": 1.6661979253657007,
+          "loop": true,
+          "source": "locomotion/walking",
+          "layered": false
+        },
+        "run": {
+          "name": "run",
+          "duration": 0.699999988079071,
+          "speed": 4.37034261463315,
+          "loop": true,
+          "source": "locomotion/running",
+          "layered": false
+        },
+        "rifle_idle": {
+          "name": "rifle_idle",
+          "duration": 2.0999999046325684,
+          "speed": 2.1089018383579585e-8,
+          "loop": true,
+          "source": "rifle8/idle",
+          "layered": false
+        },
+        "rifle_aim": {
+          "name": "rifle_aim",
+          "duration": 2.0999999046325684,
+          "speed": 1.2746820899106156e-8,
+          "loop": true,
+          "source": "rifle8/idle aiming",
+          "layered": false
+        },
+        "rifle_walk": {
+          "name": "rifle_walk",
+          "duration": 1,
+          "speed": 1.9323892154520137,
+          "loop": true,
+          "source": "rifle8/walk forward",
+          "layered": false
+        },
+        "rifle_run": {
+          "name": "rifle_run",
+          "duration": 0.5,
+          "speed": 4.830973710882476,
+          "loop": true,
+          "source": "rifle8/run forward",
+          "layered": false
+        },
+        "rifle_walk_back": {
+          "name": "rifle_walk_back",
+          "duration": 1,
+          "speed": 1.9323897196266882,
+          "loop": true,
+          "source": "rifle8/walk backward",
+          "layered": false
+        },
+        "rifle_strafe_left": {
+          "name": "rifle_strafe_left",
+          "duration": 1,
+          "speed": 1.9323896148546595,
+          "loop": true,
+          "source": "rifle8/walk left",
+          "layered": false
+        },
+        "rifle_strafe_right": {
+          "name": "rifle_strafe_right",
+          "duration": 1,
+          "speed": 1.9323898680558451,
+          "loop": true,
+          "source": "rifle8/walk right",
+          "layered": false
+        },
+        "rifle_fire": {
+          "name": "rifle_fire",
+          "duration": 0.2666666805744171,
+          "speed": 0.00002367670690438954,
+          "loop": false,
+          "source": "firing rifle",
+          "layered": false
+        },
+        "rifle_reload": {
+          "name": "rifle_reload",
+          "duration": 3.299999952316284,
+          "speed": 9.186252370764529e-7,
+          "loop": false,
+          "source": "reloading",
+          "layered": false
+        },
+        "jump_start": {
+          "name": "jump_start",
+          "duration": 0.5333333611488342,
+          "speed": 0.01268418014749448,
+          "loop": false,
+          "source": "rifle8/jump up",
+          "layered": false
+        },
+        "jump_air": {
+          "name": "jump_air",
+          "duration": 1,
+          "speed": 0.0000015883418153494628,
+          "loop": true,
+          "source": "rifle8/jump loop",
+          "layered": false
+        },
+        "jump_land": {
+          "name": "jump_land",
+          "duration": 0.6666666865348816,
+          "speed": 0.010149000771510621,
+          "loop": false,
+          "source": "rifle8/jump down",
+          "layered": false
+        },
+        "vault_low": {
+          "name": "vault_low",
+          "duration": 1.533333420753479,
+          "speed": 1.8010086386140727,
+          "loop": false,
+          "source": "vault",
+          "layered": false
+        },
+        "crouch": {
+          "name": "crouch",
+          "duration": 2.0999999046325684,
+          "speed": 3.7761008455126036e-7,
+          "loop": true,
+          "source": "rifle8/idle crouching",
+          "layered": true
+        },
+        "crouch_walk": {
+          "name": "crouch_walk",
+          "duration": 1,
+          "speed": 2.050884912598682,
+          "loop": true,
+          "source": "rifle8/walk crouching forward",
+          "layered": true
+        },
+        "rifle_crouch_aim": {
+          "name": "rifle_crouch_aim",
+          "duration": 2.0999999046325684,
+          "speed": 4.4607316859245675e-7,
+          "loop": true,
+          "source": "rifle8/idle crouching aiming",
+          "layered": false
+        },
+        "rifle_crouch_walk": {
+          "name": "rifle_crouch_walk",
+          "duration": 1,
+          "speed": 2.050884912598682,
+          "loop": true,
+          "source": "rifle8/walk crouching forward",
+          "layered": false
+        },
+        "rifle_crouch_fire": {
+          "name": "rifle_crouch_fire",
+          "duration": 0.2666666805744171,
+          "speed": 0.0000029736791257078337,
+          "loop": false,
+          "source": "firing rifle",
+          "layered": true
+        },
+        "rifle_crouch_reload": {
+          "name": "rifle_crouch_reload",
+          "duration": 3.299999952316284,
+          "speed": 2.402973190921854e-7,
+          "loop": false,
+          "source": "reloading",
+          "layered": true
+        }
+      }
+    }
+  ],
+  "notes": "Native Mixamo clips; crouched combat overlays the original shooting/reload upper body on the crouched legs. World translation and jump height are controlled by game collision."
+}
