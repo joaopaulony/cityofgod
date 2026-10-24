@@ -8,6 +8,7 @@ import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
+import {createVegetation} from './vegetation-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -100,7 +101,8 @@ function makeOccluders(){
 // em volta do carro quando o mundo muda (world.version) ou o carro anda 25 m.
 const OCC_RADIUS=90;
 function syncOccluders(force){
- const w=bridge.world,open=!!w.open,cx=state.x,cy=state.y;
+ // centro: a câmera (o jogador a pé ou o carro); as árvores 3D precisam das casas em volta da vista
+ const w=bridge.world,open=!!w.open,cx=bridge.cam.x,cy=bridge.cam.y;
  if(!force&&(!open||(w.version===occlusionSync.version&&
    Math.hypot(cx-occlusionSync.x,cy-occlusionSync.y)<25)))return;
  Object.assign(occlusionSync,{version:w.version,x:cx,y:cy});
@@ -122,10 +124,12 @@ function syncOccluders(force){
  // Os outros objetos possuem profundidade propria: nao usar a cerca
  // como um bloco solido, pois isso corta o capo atraves das ripas.
  occlusionScene?.dispose?.();
- const view=!open?bridge:{...bridge,
+ // árvores e arbustos 3D têm profundidade própria: sem os troncos/esferas de oclusão das árvores 2D
+ const plant=o=>window.VEG3D&&(o.type==='tree'||o.type==='bush');
+ const view={...bridge,
   world:{...w,lamps:(w.lamps||[]).filter(o=>near(o.x,o.y)),
    trafficSignals:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
-   props:(w.props||[]).filter(o=>o.type!=='tuft'&&near(o.x,o.y)),
+   props:(w.props||[]).filter(o=>o.type!=='tuft'&&!plant(o)&&near(o.x,o.y)),
    segs:(w.segs||[]).filter(s=>s.kind==='fence'&&near(s.x1,s.y1))},
   boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)),
   urbanBins:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
@@ -230,11 +234,12 @@ function initRenderer(){
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  scene=new THREE.Scene();
- scene.add(new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95));
+ const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
  sun.position.set(-11,18,15);
  sun.castShadow=true;
- sun.shadow.mapSize.set(1024,1024);
+ // a sombra cobre a vista inteira (árvores 3D), não só o carro
+ sun.shadow.mapSize.set(2048,2048);sun.shadow.normalBias=.04;
  sun.shadow.camera.left=-12;sun.shadow.camera.right=12;
  sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;
  sun.shadow.camera.near=.1;sun.shadow.camera.far=60;
@@ -242,6 +247,7 @@ function initRenderer(){
  scene.userData.sun=sun;
  const bounce=new THREE.DirectionalLight(0xa8b9df,.62);
  bounce.position.set(7,9,-8);scene.add(bounce);
+ scene.userData.lights=[[hemi,1.95],[sun,2.7],[bounce,.62]];
  // Material ShadowMaterial só mostra sombra real do carro; solo e todo o
  // mapa continuam exatamente como foram desenhados.
  shadowGround=new THREE.Mesh(
@@ -250,9 +256,15 @@ function initRenderer(){
  shadowGround.rotation.x=-Math.PI/2;
  shadowGround.position.y=.008;
  shadowGround.receiveShadow=true;scene.add(shadowGround);
- viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,160);
+ viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
+ // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
+ if(window.VEG3D!==false){
+  try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
+  catch(error){console.error('Vegetação 3D falhou',error);window.VEG3D=false;}
+ }
 }
+let vegetation=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -262,7 +274,7 @@ function setCamera(){
   renderer.setSize(w,h,false);
  // Canvas 2D world x/y -> Three x/z, world height -> Three Y.
  // Câmera isometrica exatamente igual a proj(): TILT=.5 e HZ=.866.
- const distance=40,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
+ const distance=90,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
  const a=c.ang;
  viewCamera.position.set(c.x+Math.sin(a)*plane,Math.sin(elev)*distance,
   c.y+Math.cos(a)*plane);
@@ -270,9 +282,12 @@ function setCamera(){
  viewCamera.left=-w/(2*c.zoom);viewCamera.right=w/(2*c.zoom);
  viewCamera.top=h/(2*c.zoom);viewCamera.bottom=-h/(2*c.zoom);
  viewCamera.updateProjectionMatrix();
- scene.userData.sun.position.set(state.x-11,18,state.y+15);
- scene.userData.sun.target.position.set(state.x,0,state.y);
- scene.userData.sun.target.updateMatrixWorld();
+ // sol na mesma direção das sombras pintadas do jogo 2D (SUN em core.js), centrado na vista
+ const sun=scene.userData.sun,S=window.SUN_DIR||[-.55,-.75,.9],ext=Math.min(60,Math.hypot(w/(2*c.zoom),h/(2*c.zoom)/(c.tilt||.5))+18);
+ sun.position.set(c.x+S[0]*60,S[2]*60,c.y+S[1]*60);
+ sun.target.position.set(c.x,0,c.y);sun.target.updateMatrixWorld();
+ const sc=sun.shadow.camera;
+ if(Math.abs(sc.right-ext)>.5){sc.left=-ext;sc.right=ext;sc.top=ext;sc.bottom=-ext;sc.far=160;sc.updateProjectionMatrix();}
 }
 function moveCar(dt){
  const c=bridge;
@@ -382,11 +397,15 @@ system.prompt=()=>system.ready&&!system.driver&&
  Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
  ?'F — entrar no '+activeModel.name:null;
 system.render=()=>{
- if(!system.ready||!renderer)return;
+ if(!renderer||(!system.ready&&!vegetation))return;
  const c=bridge.cam;
  setCamera();
- body.position.set(state.x,0,state.y);
- body.rotation.y=-state.angle;
+ if(body){body.position.set(state.x,0,state.y);
+ body.rotation.y=-state.angle;}
+ // noite: as luzes da cena acompanham o escurecimento do jogo 2D
+ const night=bridge.world.night?.3:1;
+ for(const [l,k] of scene.userData.lights)l.intensity=k*night;
+ if(vegetation){vegetation.update(performance.now()/1000);shadowGround.visible=false;}
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
@@ -398,7 +417,7 @@ system.render=()=>{
  for(const [H,mesh] of roofOccluders)
   mesh.visible=(system.driver||!H.inside)&&H!==reveal;
  occlusionScene?.updateActors(system.driver,bridge.player);
- if(lampL&&lampR){
+ if(system.ready&&lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
  }
  renderer.render(scene,viewCamera);

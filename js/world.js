@@ -137,6 +137,7 @@ function bakeShadow(x, y, rx, ry, h) {
 // Sombra orgânica pré-pintada: contato no tronco + luz filtrada entre folhas.
 // Não cria gradientes pesados por quadro, apenas durante a geração do mapa.
 function bakeTreeShadow(x,y,sp) {
+  if (globalThis.VEG3D) return;   // árvores 3D fazem sombra real
   const g=world.groundCtx;
   const h=sp.trunkH+sp.r*.55,sx=x-SUN[0]*h*.32,sy=y-SUN[1]*h*.32;
   const cx=sx*PPM,cy=sy*PPM,rx=sp.r*PPM*.98,ry=sp.r*PPM*.65;
@@ -1050,8 +1051,8 @@ function moveTo(ox, oy, nx, ny, r, floor=0) {
 // desenho de um prop já ordenado por profundidade
 function drawProp(g, p, t, player) {
   if (p.draw) return p.draw(g, p, t);
-  // sprites pintados (vegetation.js) vêm em resolução maior: res = múltiplo de SPR
-  const sc = cam.zoom / (SPR * (p.sp && p.sp.res || 1)) * (p.scale || 1), base = proj(p.x, p.y, 0);
+  if (globalThis.VEG3D && (p.type === 'tree' || p.type === 'bush')) return;   // desenhadas em 3D (vegetation-3d.mjs)
+  const sc = cam.zoom / SPR * (p.scale || 1), base = proj(p.x, p.y, 0);
   if (p.type === 'tree') {
     const sp = p.sp;
     g.save(); g.setTransform(sc, 0, 0, sc, base.x, base.y); g.drawImage(sp.trunk, -sp.tax, -sp.tay); g.restore();

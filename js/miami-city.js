@@ -535,7 +535,7 @@ function miaBush(x, y, kind) {
   if (!CityStreetLayout.verge(x, y, .3, roadDist, ROAD_W, SIDE)) return null;
   const pool = MIA.bush[kind], s = pool[(rng() * pool.length) | 0];
   world.props.push({ type: 'bush', x, y, sp: s, phase: rng() * 6 });
-  owAddCircle({ x, y, r: s.r * 0.6, kind: 'bush', soft: true }); bakeShadow(x, y, s.r, s.r * 0.6, 1);
+  owAddCircle({ x, y, r: s.r * 0.6, kind: 'bush', soft: true }); if (!globalThis.VEG3D) bakeShadow(x, y, s.r, s.r * 0.6, 1);
 }
 // canteiros junto às paredes da casa (menos na frente da porta)
 function miaShrubs(H, kinds, n, r) {

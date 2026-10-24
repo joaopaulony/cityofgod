@@ -84,6 +84,7 @@ function facingCam(nx, ny) { return cam.sin * nx + cam.cos * ny; }
 
 // ---- luz do sol (fixa no mundo: gira junto com o mapa) ----
 const SUN = V.norm([-0.55, -0.75, 0.9]);
+window.SUN_DIR = SUN;   // a camada 3D (vehicle-webgl.mjs) usa a mesma direção do sol
 function shadeOf(nx, ny, nz = 0) { return clamp(V.dot(V.norm([nx, ny, nz]), SUN), -1, 1); }
 
 // ---- entrada ----

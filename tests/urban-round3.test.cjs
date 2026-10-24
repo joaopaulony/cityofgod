@@ -48,8 +48,9 @@ test('car rooftop occlusion uses the real rotated roof in source and browser bun
  assert.match(moduleSrc,/H\.corners\|\|/);
  assert.match(moduleSrc,/system\.driver\|\|!H\.inside/);
  assert.match(moduleSrc,/bridge\.visionBlocker/);
- assert.match(bundle,/r\.corners\|\|/);
- assert.match(bundle,/Ze\.visionBlocker/);
+ // nomes minificados mudam a cada build: aceita qualquer identificador
+ assert.match(bundle,/\w+\.corners\|\|/);
+ assert.match(bundle,/\w+\.visionBlocker/);
  assert.match(collision,/H\.corners\|\|/);
  assert.match(bundle,/\.corners\|\|/);
 });
