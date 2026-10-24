@@ -76,3 +76,6 @@ Prints com zoom 34 e câmera em 45°, mais uma vista em outro ângulo, porque a 
 | --- | --- | --- | --- | --- | --- |
 | 1 | 24/10/2026 | asset (8 texturas de chão) | 6,7 | 5,8 (gramado) | Só a areia passou (9,05). Fantasmas da emenda por transparência, carimbos, escala errada no gramado. |
 | 2 | 24/10/2026 | asset (9 texturas de chão) | 8,0 | 6,7 (pavers) | Gramado 9,1 e areia 9,2 aprovados e instalados. Emenda por corte resolveu os fantasmas; sobram carimbos isolados. Pavers e calçadão passam a ser desenhados pelo jogo. |
+| 3 | 24/10/2026 | asset (6 texturas × 2 variantes) | 8,2 | 6,9 (concreto v1) | Achado do juiz: o Gemini às vezes devolve a textura já repetida dentro da imagem; o pós passa a detectar e recortar um período. |
+| 4 | 24/10/2026 | asset (5 candidatas) | 8,4 | 7,55 (mato) | Calçada cinza aprovada (9,05); a rosa é derivada dela recolorindo o pigmento. |
+| 5 | 24/10/2026 | asset (concreto, mato, terra) | 9,0 | 8,1 (mato, antes do retoque final) | Terra 9,0; concreto 9,0 e mato 9,05 com retoque local nas coordenadas do juiz. Asfalto bloqueado pela API (copyright/recitation) nas versões uniformes; continua procedural. |

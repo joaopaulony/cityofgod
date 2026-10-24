@@ -66,20 +66,44 @@ export function matchEdges(px, w, h) {
 export function retouch(px, w, h, rects, feather = 20) {
   const out = new Uint8Array(px), lum = o => 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
   const at = (x, y) => ((((y % h) + h) % h) * w + (((x % w) + w) % w)) * 4;
-  for (const [fx0, fy0, fx1, fy1] of rects) {
+  // retângulo: [x0,y0,x1,y1] escolhe a origem sozinho; [x0,y0,x1,y1, sx0,sy0,sx1,sy1] copia de uma área limpa indicada
+  // (se ela for menor que o defeito, é repetida para cobrir)
+  for (const [fx0, fy0, fx1, fy1, ...src] of rects) {
     const x0 = Math.round(fx0 * w), y0 = Math.round(fy0 * h), x1 = Math.round(fx1 * w), y1 = Math.round(fy1 * h), rw = x1 - x0, rh = y1 - y0;
-    const meanOf = (ax, ay, bw, bh) => { let s = 0, n = 0; for (let y = ay; y < ay + bh; y += 3) for (let x = ax; x < ax + bw; x += 3) { s += lum(at(x, y)); n++; } return s / n; };
-    // brilho do anel em volta do defeito
-    const ring = (meanOf(x0 - feather, y0 - feather, rw + 2 * feather, feather) + meanOf(x0 - feather, y1, rw + 2 * feather, feather)) / 2;
-    let best = null, bd = Infinity;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
-      const sx = x0 + dx * (rw + 2 * feather + 8), sy = y0 + dy * (rh + 2 * feather + 8), d = Math.abs(meanOf(sx, sy, rw, rh) - ring);
-      if (d < bd) { bd = d; best = [sx - x0, sy - y0]; }
+    const stat = (ax, ay, bw, bh) => { let s = 0, n = 0; const v = []; for (let y = ay; y < ay + bh; y += 3) for (let x = ax; x < ax + bw; x += 3) { const l = lum(at(x, y)); v.push(l); s += l; n++; } return { mean: s / n, v }; };
+    let from;   // (x, y) do defeito -> pixel de origem
+    if (src[0] === 'clean') {
+      // varre a imagem inteira atrás da janela do mesmo tamanho SEM pontos muito escuros (tufos, gravetos), mas com o
+      // mesmo "grão" do entorno (desvio padrão parecido): copiar chão liso demais vira um quadrado vazio que se nota
+      const sdOf = st => Math.sqrt(st.v.reduce((a, l) => a + (l - st.mean) ** 2, 0) / st.v.length);
+      const ringSd = (sdOf(stat(x0 - feather, y0 - feather, rw + 2 * feather, feather)) + sdOf(stat(x0 - feather, y1, rw + 2 * feather, feather))) / 2;
+      let best = null, bd = Infinity;
+      const stepX = Math.max(8, rw >> 1), stepY = Math.max(8, rh >> 1);
+      for (let sy = 0; sy < h; sy += stepY) for (let sx = 0; sx < w; sx += stepX) {
+        if (Math.abs(sx - x0) < rw + feather && Math.abs(sy - y0) < rh + feather) continue;
+        const st = stat(sx, sy, rw, rh), sd = sdOf(st);
+        const dark = st.v.filter(l => l < st.mean - 45).length / st.v.length, d = dark * 400 + Math.abs(sd / ringSd - 1) * 60;
+        if (d < bd) { bd = d; best = [sx - x0, sy - y0]; }
+      }
+      from = (x, y) => at(x + best[0], y + best[1]);
+    } else if (src.length === 4) {
+      const sx0 = Math.round(src[0] * w), sy0 = Math.round(src[1] * h), sw = Math.max(4, Math.round(src[2] * w) - sx0), sh = Math.max(4, Math.round(src[3] * h) - sy0);
+      from = (x, y) => at(sx0 + ((((x - x0 + feather) % sw) + sw) % sw), sy0 + ((((y - y0 + feather) % sh) + sh) % sh));
+    } else {
+      // brilho do anel em volta do defeito; entre 8 vizinhos, a origem com brilho parecido e SEM pontos bem mais escuros
+      const ring = (stat(x0 - feather, y0 - feather, rw + 2 * feather, feather).mean + stat(x0 - feather, y1, rw + 2 * feather, feather).mean) / 2;
+      let best = null, bd = Infinity;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+        const sx = x0 + dx * (rw + 2 * feather + 8), sy = y0 + dy * (rh + 2 * feather + 8), st = stat(sx, sy, rw, rh);
+        const dark = st.v.filter(l => l < ring - 40).length / st.v.length, d = Math.abs(st.mean - ring) + dark * 400;
+        if (d < bd) { bd = d; best = [sx - x0, sy - y0]; }
+      }
+      from = (x, y) => at(x + best[0], y + best[1]);
     }
     for (let y = y0 - feather; y < y1 + feather; y++) for (let x = x0 - feather; x < x1 + feather; x++) {
       const ex = Math.max(x0 - x, x - (x1 - 1), 0), ey = Math.max(y0 - y, y - (y1 - 1), 0), t = 1 - Math.min(1, Math.hypot(ex, ey) / feather);
       if (t <= 0) continue;
-      const k = t * t * (3 - 2 * t), d = at(x, y), s = at(x + best[0], y + best[1]);
+      const k = t * t * (3 - 2 * t), d = at(x, y), s = from(x, y);
       for (let c = 0; c < 3; c++) out[d + c] = Math.round(out[d + c] + (px[s + c] - out[d + c]) * k);
     }
   }
@@ -278,7 +302,9 @@ export async function processAsset(bytes, asset, opts = {}) {
     if (asset.despot) { const s = removeSpots(px, w, h, asset.despot === true ? {} : asset.despot); px = s.px; steps.push(`spots ${s.count}px`); }
     px = matchEdges(px, w, h); steps.push('edges');
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
-    if (opts.retouch?.length) { px = retouch(px, w, h, opts.retouch); steps.push(`retouch ${opts.retouch.length}`); }
+    // retouch.json: [retângulos] ou { feather, rects }
+    const rt = opts.retouch && (Array.isArray(opts.retouch) ? { rects: opts.retouch } : opts.retouch);
+    if (rt?.rects?.length) { px = retouch(px, w, h, rt.rects, rt.feather || 20); steps.push(`retouch ${rt.rects.length}`); }
   } else if (asset.kind === 'facade') {
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'sprite') {
