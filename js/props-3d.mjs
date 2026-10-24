@@ -265,7 +265,8 @@ export function createProps(THREE, scene, bridge) {
       m.castShadow = set !== 'glass' && set !== 'net' && name !== 'towel'; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       scene.add(m); meshes.push(m);
     }
-    const k = { def, meshes, list: [], cap }; kinds.set(key, k); return k;
+    const bounds=new THREE.Box3();for(const geo of Object.values(geos)){geo.computeBoundingBox();bounds.union(geo.boundingBox);}
+    const k = { def, meshes, list: [], cap, bounds }; kinds.set(key, k); return k;
   }
 
   // poste de luz: modelo próprio em metros (braço ao longo de +x), lente que acende à noite
@@ -368,7 +369,7 @@ export function createProps(THREE, scene, bridge) {
       if (!handles(b)) continue;
       const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
       const H = b.house;
-      if (H && !b.exteriorFixture) { if (!H.inside || ((b.floor === 1) !== !!upstairsIn(H))) continue; furniture++; } else objects++;
+      if (H && !b.exteriorFixture) { if (!H.inside || (H.architecture?(b.floor||0)!==(bridge.player.stairTravel?.to??bridge.player.floor??0):((b.floor === 1) !== !!upstairsIn(H)))) continue; furniture++; } else objects++;
       const def = M[b.kind], color = def.tinted ? (def.pick ? def.pick(b) : b.kind === 'cooler' ? b.side : b.top) : null, k = kindOf(b.kind, color);
       if (k.list.length < k.cap) k.list.push(b);
     }
@@ -388,13 +389,19 @@ export function createProps(THREE, scene, bridge) {
         let rot = b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0), sx = b.w / W, sz = b.d / D;
         const H = b.house, face = k.def.face;
         if (H && face) {   // vira a frente (+z) p/ o centro do cômodo
-          const hx = (H.x0 + H.x1) / 2 - b.x, hy = (H.y0 + H.y1) / 2 - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);
+          const hx = (b.roomCenter?.[0]??(H.x0 + H.x1) / 2) - b.x, hy = (b.roomCenter?.[1]??(H.y0 + H.y1) / 2) - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);
           const cand = [[0, -s, c], [1, -c, -s], [2, s, -c], [3, c, s]].filter(([qq]) => face === 'any' ? true : face === 'short' ? (b.w >= b.d ? qq % 2 === 0 : qq % 2 === 1) : (b.w >= b.d ? qq % 2 === 1 : qq % 2 === 0));
           let best = cand[0], bd = -Infinity; for (const cd of cand) { const d = cd[1] * hx + cd[2] * hy; if (d > bd) { bd = d; best = cd; } }
           rot -= best[0] * Math.PI / 2; if (best[0] % 2) { sx = b.d / W; sz = b.w / D; }
         }
         // só ajuste leve de proporção (as caixas antigas às vezes reservam espaço a mais em volta do objeto)
-        const lim = H ? [0.65, 1.5] : [0.7, 1.4]; sx = Math.min(lim[1], Math.max(lim[0], sx)); sz = Math.min(lim[1], Math.max(lim[0], sz));
+        const lim = b.architecture?[.1,8]:H ? [0.65, 1.5] : [0.7, 1.4]; sx = Math.min(lim[1], Math.max(lim[0], sx)); sz = Math.min(lim[1], Math.max(lim[0], sz));
+        if(b.architecture){
+          const size=k.bounds.getSize(new THREE.Vector3()),center=k.bounds.getCenter(new THREE.Vector3()),odd=Math.abs(Math.round((rot+(b.rot||0))/(Math.PI/2)))%2;
+          sx=(odd?b.d:b.w)/size.x;sz=(odd?b.w:b.d)/size.z;
+          const ox=Math.cos(rot)*center.x*sx+Math.sin(rot)*center.z*sz,oy=-Math.sin(rot)*center.x*sx+Math.cos(rot)*center.z*sz;
+          place(k,i,b.x-ox,b.y-oy,b.z||0,rot,sx,Math.min(1.5,Math.max(.6,(b.h||Hn)/Hn)),sz);return;
+        }
         place(k, i, b.x, b.y, b.z || 0, rot, sx, Math.min(1.5, Math.max(0.6, (b.h || Hn) / Hn)), sz);
       });
       for (const m of k.meshes) { m.count = k.list.length; m.instanceMatrix.needsUpdate = true; }
@@ -411,7 +418,7 @@ export function createProps(THREE, scene, bridge) {
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(140, Math.hypot(halfW, halfH) + 12);
-      const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + (upstairsIn(H) ? 'u' : '')).join(',');
+      const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 6 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
       const roads = bridge.roads;

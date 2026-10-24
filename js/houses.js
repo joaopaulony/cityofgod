@@ -117,7 +117,7 @@ function addBox(b) {
   boxes.push(b);
   if (b.solid !== false) {
     const c = boxCorners(b), hh = b.z + b.h;
-    for (let i = 0; i < 4; i++) (b.floor===1?(world.upperSegs=world.upperSegs||[]):world.segs).push({
+    for (let i = 0; i < 4; i++) (b.floor>0?(world.upperSegs=world.upperSegs||[]):world.segs).push({
       x1:c[i][0],y1:c[i][1],x2:c[(i+1)%4][0],
       y2:c[(i+1)%4][1],h:hh,kind:b.kind,house:b.house,floor:b.floor||0,sourceBox:b
     });
@@ -558,22 +558,22 @@ function drawWindowLeaves(g, s, exterior) {
 // de forma deterministica para cada casa, e fecham preferencialmente a noite.
 function updateHouseOpenings(dt, residents, night) {
   for (const H of houses) {
-    for (const s of H.segs) {
+    for (const s of H.architecture?H.architecture.openingSegments:H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
-      if(s.ext)s.doorAnim.target = residents.some(a => Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      if(s.ext&&!s.doorAnim.manual)s.doorAnim.target = residents.some(a => (a.floor||0)===(s.floor||0)&&Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
       // As portas internas agora usam F; os moradores nao as abrem so ao passar.
       s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
       if (Math.abs(s.doorAnim.target - s.doorAnim.open) < 0.005) s.doorAnim.open = s.doorAnim.target;
     }
     if (s.windowAnim) {
       const w = s.windowAnim;
-      w.timer -= dt;
+      if(!w.manual){w.timer -= dt;
       if (w.timer <= 0) {
         w.timer = 18 + w.rand() * 35;
         w.target = night ? 0 : (w.rand() < 0.36 ? 0.35 + w.rand() * 0.65 : 0);
       }
-      if (night) w.target = 0;
+      if (night) w.target = 0;}
       w.open += (w.target - w.open) * (1 - Math.exp(-dt * 1.65));
       if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
     }
@@ -889,10 +889,11 @@ function houseDrawables(list, px, py) {
       H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
-    H.inside = H.contains ? H.contains(px,py) : px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
+    H.inside = H.contains ? H.contains(px,py,player.floor||0) : px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
     // A visibilidade do interior depende de entrar na casa, e nunca de
     // dirigir atras de um telhado. Evita revelar o vazio verde da casa.
     H.fade=false;
+    if(H.architecture&&globalThis.cityArchitecture3D?.ready)continue;
     H.visionOpenings=H.inside?[]:houseVisibleOpenings(H,px,py);
     let maxD = -1e9;
     const showIn=H.inside;

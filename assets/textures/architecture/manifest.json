@@ -1,0 +1,20 @@
+{
+  "author": "City of God",
+  "license": "Project-original procedural textures",
+  "tileMetres": 2,
+  "resolution": 512,
+  "materials": [
+    "plaster",
+    "stone",
+    "concrete",
+    "tile",
+    "wood",
+    "roof"
+  ],
+  "maps": [
+    "color",
+    "normal",
+    "roughness"
+  ],
+  "generator": "tools/build-property-materials.mjs"
+}

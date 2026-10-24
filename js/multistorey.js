@@ -122,8 +122,8 @@ function initUpperFloor(H,T,L,k){
   });
 }
 function upstairsHouseAt(x,y){
-  return houses.find(H=>H.stair&&x>H.x0+.15&&x<H.x1-.15&&
-    y>H.y0+.15&&y<H.y1-.15)||null;
+  return houses.find(H=>H.stair&&(H.architecture?H.contains(x,y):x>H.x0+.15&&x<H.x1-.15&&
+    y>H.y0+.15&&y<H.y1-.15))||null;
 }
 function updateHouseStairs(p,dt,activate){
   if(p.stairTravel){
@@ -141,6 +141,14 @@ function updateHouseStairs(p,dt,activate){
   }
   if(!activate)return false;
   const H=upstairsHouseAt(p.x,p.y);
+  if(H?.architecture){
+    const floor=p.floor||0,level=H.architecture.levels[floor],s=level.stair;
+    const down=floor>0&&Math.hypot(p.x-s.top[0],p.y-s.top[1])<1.1;
+    const up=floor<H.architecture.levels.length-1&&Math.hypot(p.x-s.bottom[0],p.y-s.bottom[1])<1.1;
+    if(!down&&!up)return false;
+    const to=floor+(down?-1:1),target=down?s.bottom:s.top;
+    p.stairTravel={to,start:p.floorZ||0,end:to*H.floorHeight,fromX:p.x,fromY:p.y,toX:target[0],toY:target[1],t:0};return true;
+  }
   if(!H||Math.hypot(p.x-H.stair.x,p.y-H.stair.y)>1.05)return false;
   const to=p.floor===1?0:1;
   p.stairTravel={to,start:p.floorZ||0,

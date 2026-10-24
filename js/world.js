@@ -1253,14 +1253,14 @@ function collide(x, y, r, floor=0) {
   for (let it = 0; it < 3; it++) {
     const cell = clamp(Math.floor(y / COLL_CELL), 0, n - 1) * n + clamp(Math.floor(x / COLL_CELL), 0, n - 1);
     const Cc = G.circ.get(cell) || NO_CELL, Cs = G.segs.get(cell) || NO_CELL, Cu = G.up.get(cell) || NO_CELL;
-    if (floor !== 1) {
+    if (floor === 0) {
       for (const c of Cc) { const q = pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
       for (const c of G.dyn) { const vb = vehicleBox(c), q = vb ? pushOutBox(vb, x, y, r) : pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
       for (const s of Cs) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     } else {
       // andar de cima: paredes externas, cercas soltas e as paredes do pavimento superior
-      for (const s of Cs) { if (!(s.ext || (!s.house && s.kind === 'fence'))) continue; const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
-      for (const s of Cu) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of Cs) { if (s.architecture||!(s.ext || (!s.house && s.kind === 'fence'))) continue; const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const s of Cu) { if((s.floor||1)!==floor)continue;const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     }
   }
   return [clamp(x, 0.5, MAP - 0.5), clamp(y, 0.5, MAP - 0.5)];

@@ -10,6 +10,8 @@ const buildingShade=makeCanvas(1,1),sg=buildingShade.getContext('2d');
 const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 
 buildWorld();
+if(typeof remodelProperty==='function')for(const H of houses)remodelProperty(H);
+for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn=[...H.front];break;}
 
 const player = makeActor({ x: world.spawn[0], y: world.spawn[1], face: world.aimDir, pal: PAL.hero, ammo: 30, reserve: 90 });
 ecosystemInit();
@@ -444,7 +446,7 @@ function occluded(){
   const target=v?.driver?{x:v.car.x,y:v.car.y,floorZ:0}:player;
   let candidate=null,coverage=.80;
   for(const H of houses){
-    if(H.inside)continue;
+    if(H.inside||H.architecture)continue;
     if(target.x<H.x0-10||target.x>H.x1+10||
        target.y<H.y0-10||target.y>H.y1+10)continue;
     const amount=houseBodyCoverage(H,target);
@@ -720,7 +722,9 @@ function tick(dt) {
     lx = clamp((a[0] - player.x) * 0.25, -3, 3) * player.aimV; ly = clamp((a[1] - player.y) * 0.25, -3, 3) * player.aimV;
   }
   if(!window.cityVehicles?.driver){
-    cam.tx = player.x + lx;cam.ty=player.y+ly;
+    const floorFocus=(player.floorZ||0)*HZ/TILT;
+    cam.tx = player.x + lx-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly-Math.cos(cam.ang)*floorFocus;
+    if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
   cam.update(dt);
   st.shake = Math.max(0, st.shake - dt);
@@ -764,6 +768,6 @@ function warmIdle() {
   } catch (e) { console.warn('warmHouse', e); best._warm = true; return; }
   warmRoof(best);   // detalhes restantes (rápido: as texturas já existem)
 }
-for (const H of houses) if (Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y) < 45) { houseTex(H); warmRoof(H); }
+for (const H of houses) if (!H.architecture&&Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y) < 45) { houseTex(H); warmRoof(H); }
 requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };

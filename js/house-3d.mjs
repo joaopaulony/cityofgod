@@ -6,6 +6,7 @@
 // da parede, então somem sozinhas quando a parede está de costas p/ a câmera. Com o jogador dentro de uma casa,
 // as aberturas dela voltam a ser desenhadas pelo 2D (as paredes são cortadas).
 import {makeKit} from './kit-3d.mjs';
+import {architecturalTexture} from './architecture-materials.mjs';
 import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 
 const TAU = Math.PI * 2;
@@ -49,6 +50,7 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
 
   // ======================= materiais =======================
   const matBody = see(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const matPortico=see(new THREE.MeshStandardMaterial({vertexColors:true,map:architecturalTexture(THREE,'concrete','color'),normalMap:architecturalTexture(THREE,'concrete','normal'),normalScale:new THREE.Vector2(.25,.25),roughnessMap:architecturalTexture(THREE,'concrete','roughness'),roughness:1}));
   const matFlat = new THREE.MeshLambertMaterial({ vertexColors: true });   // rente à parede: sem vazado
   const matGlass = new THREE.MeshPhongMaterial({ map: glassTex, vertexColors: true, transparent: true, opacity: 0.62, shininess: 90, specular: 0x777777, depthWrite: false });
   const matCloth = see(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
@@ -244,7 +246,9 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
   const porticoKind = kind('portico', k => {
     k.box(-0.5, 0, -0.5, 0.5, 0.25, 0.5, '#ffffff'); k.box(-0.51, 0.25, -0.51, 0.51, 0.31, 0.51, '#f4f2ec'); k.box(-0.52, 0.31, -0.52, 0.52, 0.4, 0.52, '#ffffff');
     k.box(-0.5, -0.03, -0.5, 0.5, 0, 0.5, '#e8e4da');
-  }, 200, { body: matBody }, { tint: ['body'] });
+    k.box(-.47,.401,-.47,.47,.415,.47,'#c9c9bd');
+    for(const p of [-.25,0,.25])k.box(p-.001,.416,-.46,p+.001,.418,.46,'#a7aaa0');
+  }, 200, { body: matPortico }, { tint: ['body'] });
   const gatepostKind = kind('gatepost', k => {
     k.box(-0.3, 0, -0.3, 0.3, 0.15, 0.3, '#e8e4da', 0.01); k.box(-0.26, 0.15, -0.26, 0.26, 1.85, 0.26, '#ffffff', 0.01);
     for (let y = 0.45; y < 1.8; y += 0.35) k.box(-0.265, y, -0.265, 0.265, y + 0.02, 0.265, '#e2ddd2');
@@ -301,7 +305,7 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
   let anims = [], doors = [], holes = [];
   const upperAnim = new WeakMap();
   const tmpC = new THREE.Color(), WHITE = new THREE.Color(1, 1, 1);
-  const handled = H => !H.facadeFn && !(H.style && H.style.boarded);
+  const handled = H => !H.architecture && !H.facadeFn && !(H.style && H.style.boarded);
   // eixo "para fora" de uma caixa: o lado curto/largo que aponta p/ longe da casa (centro de referência)
   function outward(b, cx, cy) {
     const c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0), bx = -s, by = c;

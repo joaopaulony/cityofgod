@@ -15,6 +15,7 @@ function wallOccluders(x,y,radius,floor=0){
   const ret=[];
   for(const H of houses){
     if(H.x1<x-radius||H.x0>x+radius||H.y1<y-radius||H.y0>y+radius)continue;
+    if(H.architecture){for(const s of H.architecture.levels[floor]?.segments||[])if(!s.door||s.doorAnim?.open<.72)ret.push(s);continue;}
     // Todas as paredes bloqueiam o halo, internas ou externas.
     // Aberturas sao analisadas separadamente no sistema de visao.
     if(floor===1&&H.upper){
@@ -50,6 +51,7 @@ function lightIsVisible(x,y,targetX,targetY,ignore){
   return true;
 }
 function houseVisibleOpenings(H,x,y){
+  if(H.architecture)return [];
   if(H.contains?H.contains(x,y):x>H.x0&&x<H.x1&&y>H.y0&&y<H.y1)return [];
   const result=[];
   for(const s of H.segs){
@@ -104,6 +106,7 @@ function exteriorLightCone(x,y,radius,nx,ny,spread=Math.PI*.36,floor=0){
 // E todas as aguas do telhado (poligonos inclinados), mesmo nas quinas.
 function paintBuildingLightMask(ctx){
   for(const H of houses){
+    if(H.architecture)continue;
     const cx=(H.x0+H.x1)*.5,cy=(H.y0+H.y1)*.5;
     const p=proj(cx,cy,0),margin=cam.zoom*(Math.hypot(H.x1-H.x0,H.y1-H.y0)+3);
     if(p.x<-margin||p.x>cam.W+margin||p.y<-margin||p.y>cam.H+margin)continue;

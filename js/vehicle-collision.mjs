@@ -69,6 +69,7 @@ export function carCollision(world,car,options={}){
   const bb=H.drawBounds||[H.x0,H.y0,H.x1,H.y1];
   if(car.x+radius<bb[0]||car.x-radius>bb[2]||
      car.y+radius<bb[1]||car.y-radius>bb[3])continue;
+  if(H.solidFootprints){if(H.solidFootprints.some(poly=>polyHit(verts,poly)))return record('house',H);continue;}
   if(polyHit(verts,H.corners||[[H.x0,H.y0],[H.x1,H.y0],
     [H.x1,H.y1],[H.x0,H.y1]]))return record('house',H);
  }

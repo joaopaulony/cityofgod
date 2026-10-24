@@ -12,6 +12,7 @@ import {createCharacterSystem} from './character-webgl.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
 import {createProps} from './props-3d.mjs';
 import {createHouse3D} from './house-3d.mjs';
+import {createArchitecture3D} from './architecture-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -110,7 +111,7 @@ function syncOccluders(force){
    Math.hypot(cx-occlusionSync.x,cy-occlusionSync.y)<25)))return;
  Object.assign(occlusionSync,{version:w.version,x:cx,y:cy});
  const near=(x,y)=>!open||Math.hypot(x-cx,y-cy)<OCC_RADIUS;
- const want=new Set(bridge.houses.filter(H=>near((H.x0+H.x1)/2,(H.y0+H.y1)/2)));
+ const want=new Set(bridge.houses.filter(H=>!H.architecture&&near((H.x0+H.x1)/2,(H.y0+H.y1)/2)));
  for(let i=occluders.length-1;i>=0;i--){
   const o=occluders[i];
   if(want.has(o.userData.house))continue;
@@ -278,8 +279,9 @@ function initRenderer(){
   try{house3d=createHouse3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});system.house3d=house3d.state;}
   catch(error){console.error('Casas 3D falharam',error);}
  }
+ architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
 }
-let vegetation=null,props3d=null,house3d=null;
+let vegetation=null,props3d=null,house3d=null,architecture3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -424,10 +426,12 @@ system.render=()=>{
  scene.userData.sun.castShadow=!bridge.world.night;   // sem sombra do sol à noite
  if(vegetation){
   // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
-  const p=bridge.player,target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:1.7};
+  const p=bridge.player,occupied=bridge.houses.find(H=>H.architecture&&H.inside),indoorRadius=occupied?Math.min(12,Math.hypot(occupied.x1-occupied.x0,occupied.y1-occupied.y0)*.52):1.7;
+  const target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:indoorRadius};
   vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
  }
  props3d?.update(performance.now()/1000,bridge.gameTime||0);
+ architecture3d?.update();
  house3d?.update(performance.now()/1000);
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.

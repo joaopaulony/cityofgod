@@ -84,13 +84,14 @@ function decorateHouse(H,T,L,k){
 function findHouseInteraction(p){
   if(p.stairTravel)return null;
   const floor=p.floor||0;
-  const H=houses.find(h=>p.x>h.x0&&p.x<h.x1&&p.y>h.y0&&p.y<h.y1);
+  const H=houses.find(h=>h.contains?h.contains(p.x,p.y,floor):p.x>h.x0&&p.x<h.x1&&p.y>h.y0&&p.y<h.y1)||houses.find(h=>h.architecture?.levels[floor]?.segments.some(s=>(s.door||s.window)&&Math.hypot((s.x1+s.x2)/2-p.x,(s.y1+s.y2)/2-p.y)<1.3));
   if(!H)return null;
   let selected=null,best=Infinity;
   const consider=(obj,kind,range=1.28)=>{
     const d=Math.hypot(obj.x-p.x,obj.y-p.y);
     if(d<=range&&d<best){best=d;selected={obj,kind,house:H};}
   };
+  if(H.architecture)for(const s of H.architecture.levels[floor]?.segments||[])if(s.door||s.window)consider({x:(s.x1+s.x2)/2,y:(s.y1+s.y2)/2,seg:s},s.door?'door':'window',1.28);
   for(const s of H.segs){
     if(s.ext||!s.door||floor!==0)continue;
     const m={x:(s.x1+s.x2)/2,y:(s.y1+s.y2)/2};
@@ -112,6 +113,7 @@ function findHouseInteraction(p){
 }
 function interactionPrompt(p){
   const o=findHouseInteraction(p);
+  if(o&&(o.kind==='door'||o.kind==='window')){const a=o.obj.seg[o.kind==='door'?'doorAnim':'windowAnim'];return 'F · '+(a?.target>.5?'Fechar ':'Abrir ')+(o.kind==='door'?'porta':'janela');}
   return o?'F  ·  '+(INTERIOR_LABELS[o.kind]||o.kind):'';
 }
 function useHouseInteraction(p,st,time){
@@ -119,10 +121,11 @@ function useHouseInteraction(p,st,time){
   if(!found)return false;
   const {obj,kind,house:H}=found;
   let message='';
-  if(kind==='door'){
-    const a=obj.seg.doorAnim||(obj.seg.doorAnim={open:0,target:0});
+  if(kind==='door'||kind==='window'){
+    const key=kind==='door'?'doorAnim':'windowAnim';
+    const a=obj.seg[key]||(obj.seg[key]={open:0,target:0});a.manual=true;
     a.target=a.target>.5?0:1;
-    message=a.target?'Porta aberta':'Porta fechada';
+    message=(kind==='door'?'Porta':'Janela')+(a.target?' aberta':' fechada');
   }else if(kind==='switch'){
     H.lightOn=!H.lightOn;
     message=H.lightOn?'Luzes acesas':'Luzes apagadas';

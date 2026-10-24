@@ -275,7 +275,7 @@ function miaMansion(S, c, rects) {
   // loggia dos fundos: colunata em pé-direito duplo e varanda com guarda-corpo no andar de cima
   const bw = [hcx - n[0] * (HD / 2), hcy - n[1] * (HD / 2)];
   for (let u = -HW / 2 + 2; u <= HW / 2 - 2; u += (HW - 4) / 4) addBox({ x: bw[0] - n[0] * 2.4 + t[0] * u, y: bw[1] - n[1] * 2.4 + t[1] * u, w: 0.4, d: 0.4, h: H.h - 0.3, top: '#fbfaf6', side: '#ebe7de', kind: 'column' });
-  addBox({ x: bw[0] - n[0] * 1.3, y: bw[1] - n[1] * 1.3, z: 3.0, w: ax ? 2.7 : HW - 2.6, d: ax ? HW - 2.6 : 2.7, h: 0.22, top: '#efe9dc', side: '#fbfaf6', kind: 'balcony', solid: false, rail: true, draw: drawBalcony, nx: -n[0], ny: -n[1] });
+  // The architectural plan supplies this balcony, its door and solid rails.
   addBox({ x: bw[0] - n[0] * 1.3, y: bw[1] - n[1] * 1.3, z: H.h - 0.3, w: ax ? 2.9 : HW - 2.4, d: ax ? HW - 2.4 : 2.9, h: 0.35, top: '#f1ede4', side: '#fbfaf6', kind: 'portico', solid: false });
   miaDecal(miaQuad(bw[0], bw[1], [-n[0], -n[1]], t, HW / 2 - 1, 3), 'terrazzo', r);
   // piscina com deque nos fundos + espreguiçadeiras e guarda-sol
@@ -337,6 +337,7 @@ function miaHouse(S, c, rects, poor) {
   if (H.roofKind !== 'flat') { St.roofMat = poor ? 'metal' : r() < 0.6 ? 'ceramic' : 'shingle'; St.roofCol = pal[1]; }
   St.bars = poor || r() < 0.25; if (!poor && r() < 0.45) St.shutters = ['#3f6a8a', '#f4f1ea', '#4f7a5a', '#c66b45'][(r() * 4) | 0];
   H.miaKind = poor ? 'poor' : 'bungalow';
+  if(H.architecture)H.architecture.kind=H.miaKind;
   // lote: quintal da frente até a calçada
   const n = H.doorN, t = [-n[1], n[0]], hw = (Math.abs(n[0]) ? H.y1 - H.y0 : H.x1 - H.x0) / 2 + 1.5;
   let ext = 0; while (ext < 8 && roadDist(H.doorPt[0] + n[0] * ext, H.doorPt[1] + n[1] * ext) > ROAD_W + SIDE - 0.1) ext += 0.5;
