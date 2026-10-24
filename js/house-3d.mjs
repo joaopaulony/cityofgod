@@ -425,10 +425,10 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
     state,
     update(now) {
       const c = bridge.cam, w = bridge.world, night = !!w.night, dt = Math.min(0.1, Math.max(0, now - lastT)); lastT = now;
-      const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(130, Math.hypot(halfW, halfH) + 14);
+      const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(140, Math.hypot(halfW, halfH) + 24);
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => H.seed | 0).join(',');
       const n = (bridge.boxes || []).length, nh = (bridge.houses || []).length;
-      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 8 || n !== sync.n || nh !== sync.nh || w.version !== sync.v || inside !== sync.inside || night !== sync.night) {
+      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 16 || n !== sync.n || nh !== sync.nh || w.version !== sync.v || inside !== sync.inside || night !== sync.night) {
         Object.assign(sync, { x: c.x, y: c.y, n, nh, v: w.version, inside, night }); rebuild(c.x, c.y, R, night);
       }
       // luzes das casas acendem/apagam ao longo da noite

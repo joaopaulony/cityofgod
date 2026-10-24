@@ -410,10 +410,10 @@ export function createProps(THREE, scene, bridge) {
     state,
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
-      const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(140, Math.hypot(halfW, halfH) + 12);
+      const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(150, Math.hypot(halfW, halfH) + 22);
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + (upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;
-      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 6 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
+      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
       const roads = bridge.roads;
       if (Math.hypot(c.x - curbSync.x, c.y - curbSync.y) > 40 || roads !== curbSync.roads || (roads || []).length !== curbSync.n) { Object.assign(curbSync, { x: c.x, y: c.y, roads, n: (roads || []).length }); buildCurbs(c.x, c.y, 130); state.curbs = curbMesh ? curbMesh.geometry.index.count / 3 : 0; }
       matGlow.color.setScalar(night ? 1.6 : 0.55);

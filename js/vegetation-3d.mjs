@@ -431,9 +431,9 @@ export function createVegetation(THREE, scene, bridge) {
       const c = bridge.cam, w = bridge.world;
       time.value = now; windStr.value = 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5);
-      const R = Math.min(140, Math.hypot(halfW, halfH) + 28);
+      const R = Math.min(150, Math.hypot(halfW, halfH) + 36);
       const n = (w.props || []).length;
-      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 6 || n !== sync.n || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
+      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
         Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, zoom: c.zoom }); rebuild(c.x, c.y, R);
       }
       updateSeeThrough(camera, renderer, target);
