@@ -8,7 +8,7 @@ import { slug, validate, buildPrompt, parseAssets, models, estimateUSD, MAX_PER_
 import { CATALOG, catalogIds } from '../catalog.mjs';
 import { KIND_RULES, PALETTE } from '../style.mjs';
 import { loadReference } from '../generate-assets.mjs';
-import { makeSeamless, magentaCutout, flattenLighting } from '../postprocess.mjs';
+import { makeSeamless, magentaCutout, flattenLighting, retouch } from '../postprocess.mjs';
 
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const opts = (o = {}) => ({ assets: 'ground-asphalt', model: models[0], size: '2K', details: '', references: [], ...o });
@@ -99,6 +99,14 @@ test('recorte magenta: fundo some, objeto fica, sem halo rosa; recusa fundo erra
   assert.equal(magentaCutout(blue, w, h, 'blue').px[3], 0);
   const gray = new Uint8Array(w * h * 4).fill(128);
   assert.throws(() => magentaCutout(gray, w, h), /magenta/);
+});
+test('retoque local cobre o defeito com a textura vizinha e não mexe longe dele', () => {
+  const w = 80, h = 80, px = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) { const v = 150 + ((i * 7) % 11); px.set([v, v, v, 255], i * 4); }
+  for (let y = 30; y < 36; y++) for (let x = 30; x < 36; x++) px.set([10, 10, 10, 255], (y * w + x) * 4);   // graveto escuro
+  const out = retouch(px, w, h, [[30 / w, 30 / h, 36 / w, 36 / h]], 4);
+  assert.ok(out[(33 * w + 33) * 4] > 120);
+  assert.equal(out[(5 * w + 5) * 4], px[(5 * w + 5) * 4]);
 });
 test('dry run não precisa da chave nem chama o Gemini', () => {
   const env = { ...process.env, GEMINI_API_KEY: '', DRY_RUN: 'true', ASSETS: 'ground-asphalt,tree-coconut', GITHUB_RUN_ID: 'ci-dry-run' };

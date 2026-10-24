@@ -59,6 +59,33 @@ export function matchEdges(px, w, h) {
   const o = new Uint8Array(px.length); for (let i = 0; i < o.length; i++) o[i] = clamp8(Math.round(out[i])); return o;
 }
 
+// retoque local (para defeitos que o juiz aponta e o automático não pega: gravetos, "olhos", manchas):
+// cada retângulo [x0,y0,x1,y1] em fração da imagem é coberto por um pedaço da própria textura vindo de perto
+// (com volta, a textura repete), escolhido entre 8 vizinhos pelo brilho mais parecido com o entorno, com borda
+// suave de `feather` px.
+export function retouch(px, w, h, rects, feather = 20) {
+  const out = new Uint8Array(px), lum = o => 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
+  const at = (x, y) => ((((y % h) + h) % h) * w + (((x % w) + w) % w)) * 4;
+  for (const [fx0, fy0, fx1, fy1] of rects) {
+    const x0 = Math.round(fx0 * w), y0 = Math.round(fy0 * h), x1 = Math.round(fx1 * w), y1 = Math.round(fy1 * h), rw = x1 - x0, rh = y1 - y0;
+    const meanOf = (ax, ay, bw, bh) => { let s = 0, n = 0; for (let y = ay; y < ay + bh; y += 3) for (let x = ax; x < ax + bw; x += 3) { s += lum(at(x, y)); n++; } return s / n; };
+    // brilho do anel em volta do defeito
+    const ring = (meanOf(x0 - feather, y0 - feather, rw + 2 * feather, feather) + meanOf(x0 - feather, y1, rw + 2 * feather, feather)) / 2;
+    let best = null, bd = Infinity;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const sx = x0 + dx * (rw + 2 * feather + 8), sy = y0 + dy * (rh + 2 * feather + 8), d = Math.abs(meanOf(sx, sy, rw, rh) - ring);
+      if (d < bd) { bd = d; best = [sx - x0, sy - y0]; }
+    }
+    for (let y = y0 - feather; y < y1 + feather; y++) for (let x = x0 - feather; x < x1 + feather; x++) {
+      const ex = Math.max(x0 - x, x - (x1 - 1), 0), ey = Math.max(y0 - y, y - (y1 - 1), 0), t = 1 - Math.min(1, Math.hypot(ex, ey) / feather);
+      if (t <= 0) continue;
+      const k = t * t * (3 - 2 * t), d = at(x, y), s = at(x + best[0], y + best[1]);
+      for (let c = 0; c < 3; c++) out[d + c] = Math.round(out[d + c] + (px[s + c] - out[d + c]) * k);
+    }
+  }
+  return out;
+}
+
 // recolore mantendo só a luz e sombra: cada pixel vira a cor âncora × (brilho dele / brilho médio). Serve para
 // derivar variações do mesmo material (calçada rosa a partir da cinza aprovada)
 export function tintLuma(px, anchor) {
@@ -219,7 +246,7 @@ export function levelLarge(px, w, h, r, strength = 0.5) {
 }
 
 // original (PNG/JPEG/WebP) -> { full: PNG processado, game: WebP no tamanho do jogo, info }
-export async function processAsset(bytes, asset) {
+export async function processAsset(bytes, asset, opts = {}) {
   const { default: sharp } = await import('sharp');
   const meta = await sharp(bytes).metadata();
   if (!meta.width || !meta.height || meta.width < 256 || meta.height < 256 || meta.width > 8192 || meta.height > 8192) throw Error('Imagem gerada com dimensões inválidas');
@@ -251,6 +278,7 @@ export async function processAsset(bytes, asset) {
     if (asset.despot) { const s = removeSpots(px, w, h, asset.despot === true ? {} : asset.despot); px = s.px; steps.push(`spots ${s.count}px`); }
     px = matchEdges(px, w, h); steps.push('edges');
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
+    if (opts.retouch?.length) { px = retouch(px, w, h, opts.retouch); steps.push(`retouch ${opts.retouch.length}`); }
   } else if (asset.kind === 'facade') {
     ({ px, w, h } = makeSeamless(px, w, h)); steps.push('seamless');
   } else if (asset.kind === 'sprite') {

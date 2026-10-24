@@ -20,7 +20,8 @@ const { default: sharp } = await import('sharp');
 for (const spec of specs) {
   const [dir, target, tint] = spec.split(':'), id = assetIdOf(dir), a = byId(id), out = target || id;
   if (!a || !byId(out)) throw Error('asset fora do catálogo: ' + (a ? out : id));
-  const p = await processAsset(await fs.readFile(path.resolve(runDir, dir, 'original.png')), a);
+  let rt = null; try { rt = JSON.parse(await fs.readFile(path.resolve(runDir, dir, 'retouch.json'), 'utf8')); } catch { }   // retoques do juiz
+  const p = await processAsset(await fs.readFile(path.resolve(runDir, dir, 'original.png')), a, { retouch: rt });
   let game = p.game;
   if (tint) {   // variação de cor do mesmo material
     const { data, info } = await sharp(game).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -28,7 +29,7 @@ for (const spec of specs) {
     game = await sharp(Buffer.from(px.buffer), { raw: { width: info.width, height: info.height, channels: 4 } }).webp({ quality: 90 }).toBuffer();
   }
   await fs.writeFile(path.join(texDir, out + '.webp'), game);
-  man[out] = { meters: p.info.coverage, px: p.info.gameWidth, from: path.basename(path.resolve(runDir)) + '/' + dir + (tint ? ' tint ' + tint : '') };
+  man[out] = { meters: p.info.coverage, px: p.info.gameWidth, from: path.basename(path.resolve(runDir)) + '/' + dir + (tint ? ' tint ' + tint : ''), ...(rt ? { retouch: rt } : {}) };
   console.log(`${out}: ${p.info.coverage} m em ${p.info.gameWidth} px (${(game.length / 1024).toFixed(0)} KB)${tint ? ' recolorida ' + tint : ''}`);
 }
 await fs.writeFile(manFile, JSON.stringify(man, null, 2) + '\n');

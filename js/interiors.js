@@ -101,7 +101,8 @@ function findHouseInteraction(p){
     consider({x:(s.x1+s.x2)/2,y:(s.y1+s.y2)/2,seg:s},
       'door',1.12);
   }
-  for(const b of H.interactables){
+  // prédios Miami (miami-city.js) não passam por decorateHouse: sem móveis interativos
+  for(const b of H.interactables||[]){
     if((b.floor||0)!==floor||!INTERIOR_LABELS[b.kind]||b.kind==='mirror')continue;
     consider(b,b.kind,1.30);
   }
