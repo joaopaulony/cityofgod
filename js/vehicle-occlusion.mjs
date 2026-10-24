@@ -65,8 +65,8 @@ export function createWorldOccluders(scene,THREE,bridge,material){
   if(p.type==='tree'){
    const ht=p.sp?.trunkH||2.8,r=p.sp?.r||1.6;
    make(cylinder,p.x,ht*.48,p.y,[.16,ht*.96,.16]);
-   make(sphere,p.x,ht+r*.26,p.y,
-    [Math.max(.7,r*.78),Math.max(.7,r*.70),Math.max(.7,r*.78)]);
+   // Copas ficam na camada Canvas; esferas invisíveis de profundidade
+   // apagavam metade do carro mesmo atrás das palmeiras.
    state.trees++;
   }else if(p.type==='bush'){
    const r=p.sp?.r||.6;
@@ -83,6 +83,8 @@ export function createWorldOccluders(scene,THREE,bridge,material){
  for(const b of bridge.boxes||[]){
   if((b.house&&!b.exteriorFixture)||b.floor===1)continue;
   if(b.h<.18||b.z>2.6)continue;
+  // Peças puramente visuais não geram volumes de oclusão sobre o carro.
+  if(b.solid===false||['canopy','awning','portico','hedge','plant','bush','tree','roof','porchroof'].includes(b.kind))continue;
   const obj=make(cube,b.x,b.z+b.h/2,b.y,[b.w,b.h,b.d]);
   obj.rotation.y=-(b.rot||0);
  }

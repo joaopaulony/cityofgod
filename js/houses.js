@@ -55,6 +55,27 @@ function addHouse(def) {
   return H;
 }
 
+// Prédios planos podem girar livremente com a rua; paredes, portas e colisores
+// compartilham a MESMA geometria (não apenas a fachada desenhada).
+function orientHouseToRoad(H,angle){
+ if(H.roofKind!=='flat'||!Number.isFinite(angle)||Math.abs(angle)<.005)return H;
+ const cx=(H.x0+H.x1)/2,cy=(H.y0+H.y1)/2;
+ const pt=(x,y)=>CityStreetLayout.orientPoint(x,y,cx,cy,angle),c=Math.cos(angle),sn=Math.sin(angle);
+ const vec=(x,y)=>[x*c-y*sn,x*sn+y*c];
+ H.rotation=angle;H.toWorld=pt;
+ H.corners=CityStreetLayout.orientedCorners(H.x0,H.y0,H.x1,H.y1,angle);
+ H.contains=(x,y)=>CityStreetLayout.polygonContains(H.corners,x,y);
+ const xs=H.corners.map(p=>p[0]),ys=H.corners.map(p=>p[1]);
+ H.drawBounds=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+ for(const sd of Object.values(H.sides)){
+  sd.a=pt(...sd.a);sd.dir=vec(...sd.dir);sd.n=vec(...sd.n);
+ }
+ for(const seg of H.segs){
+  const p=pt(seg.x1,seg.y1),q=pt(seg.x2,seg.y2),n=vec(seg.nx,seg.ny);
+  [seg.x1,seg.y1,seg.x2,seg.y2,seg.nx,seg.ny]=[...p,...q,...n];
+ }
+ return H;
+}
 // texturas da casa, pintadas uma vez na primeira vez que aparecem
 // Texturas da casa. houseTexStep pinta UMA peça por chamada (p/ pré-pintar sem travar);
 // houseTex termina o que faltar de uma vez. A ordem de consumo do rnd é a mesma nos dois casos.
@@ -381,7 +402,7 @@ function buildHouses() {
 world.buildHouses = buildHouses;
 
 world.blocked = (x, y, r) => {
-  for (const H of houses) if (x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5) return true;
+  for (const H of houses) {const b=H.drawBounds||[H.x0,H.y0,H.x1,H.y1];if (x > b[0] - r - 1.5 && x < b[2] + r + 1.5 && y > b[1] - r - 1.5 && y < b[3] + r + 1.5) return true;}
   for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
   for (const b of boxes) if(Math.hypot(b.x-x,b.y-y)<
       Math.max(b.w,b.d)/2+r+.6)return true;
@@ -405,7 +426,8 @@ world.paintFloors = (g, M, rect) => {
     for (let t = 0.6; t < n; t += 0.6) { const x = H.walk[0][0] + H.doorN[0] * t, y = H.walk[0][1] + H.doorN[1] * t; g.beginPath(); g.moveTo(M(x - H.doorN[1] * 0.55), M(y + H.doorN[0] * 0.55)); g.lineTo(M(x + H.doorN[1] * 0.55), M(y - H.doorN[0] * 0.55)); g.stroke(); }
   }
   for (const H of mode === 'walk' ? [] : houses) {
-    if (skipH(H) || far(H.x0, H.y0, H.x1, H.y1, Math.max(6, H.h * 0.6 + 2))) continue;   // sombra projetada (prédios: mais longa)
+    if (skipH(H) || far(...(H.drawBounds||[H.x0,H.y0,H.x1,H.y1]), Math.max(6, H.h * 0.6 + 2))) continue;   // sombra projetada (prédios: mais longa)
+    if(H.rotation){g.save();const cx=(H.x0+H.x1)/2,cy=(H.y0+H.y1)/2;g.translate(M(cx),M(cy));g.rotate(H.rotation);g.translate(-M(cx),-M(cy));}
     // sombra projetada (na direção oposta ao sol)
     const k = (H.h + (H.roofKind === 'gable' ? 1.2 : 0)) * 0.55, ox = -SUN[0] * k, oy = -SUN[1] * k;
     g.fillStyle = 'rgba(20,26,12,0.34)';
@@ -431,6 +453,7 @@ world.paintFloors = (g, M, rect) => {
     }
     g.fillStyle = 'rgba(0,0,0,.25)';
     g.fillRect(M(H.x0), M(H.y0), M(H.x1 - H.x0), 4); g.fillRect(M(H.x0), M(H.y0), 4, M(H.y1 - H.y0));
+    if(H.rotation)g.restore();
   }
   for (const s of world.floorNoFences ? [] : fences) {
     if (far(Math.min(s.x1, s.x2), Math.min(s.y1, s.y2), Math.max(s.x1, s.x2), Math.max(s.y1, s.y2), 1)) continue;
@@ -858,7 +881,7 @@ function houseDrawables(list, px, py) {
       H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
-    H.inside = px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
+    H.inside = H.contains ? H.contains(px,py) : px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
     // A visibilidade do interior depende de entrar na casa, e nunca de
     // dirigir atras de um telhado. Evita revelar o vazio verde da casa.
     H.fade=false;

@@ -8,11 +8,17 @@ on:
       - 'js/openworld.js'
       - 'js/terrain.js'
       - 'js/houses.js'
+      - 'js/roofs.js'
+      - 'js/vision-light.js'
+      - 'js/vehicle-webgl.mjs'
+      - 'js/vehicle-occlusion.mjs'
+      - 'js/game.js'
       - 'js/world.js'
       - 'js/vehicle-collision.mjs'
       - 'js/vehicle-webgl.bundle.js'
       - 'tests/street-layout.test.cjs'
       - 'tests/urban-regression.test.cjs'
+      - 'tests/urban-round3.test.cjs'
       - '.github/workflows/urban-quality.yml'
   workflow_dispatch:
 jobs:
@@ -31,7 +37,12 @@ jobs:
           node --check js/terrain.js
           node --check js/houses.js
           node --check js/world.js
+          node --check js/roofs.js
+          node --check js/vision-light.js
+          node --check js/game.js
+          node --check js/vehicle-webgl.mjs
+          node --check js/vehicle-occlusion.mjs
           node --check js/vehicle-collision.mjs
           node --check js/vehicle-webgl.bundle.js
       - name: Juiz de ruas, lotes, vegetação e colisão
-        run: node --test tests/street-layout.test.cjs tests/urban-regression.test.cjs
+        run: node --test tests/street-layout.test.cjs tests/urban-regression.test.cjs tests/urban-round3.test.cjs

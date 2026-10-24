@@ -158,11 +158,13 @@ function drawFlatRoof(g, H) {
   const S = H.style, z = H.h, t = PAR_T, P = PARAPET;
   ensureSlabTex(H);
   const slab = [[H.x0 + t, H.y1 - t, z], [H.x1 - t, H.y1 - t, z], [H.x1 - t, H.y0 + t, z], [H.x0 + t, H.y0 + t, z]];
-  const sp = slab.map(q => proj(...q));
-  texPlane(g, H.slabTex, [H.x0, H.y0, z], [1, 0, 0], [0, 1, 0], RTEX, sp);
+  const worldPt=(x,y)=>H.toWorld?H.toWorld(x,y):[x,y];
+  const sp=slab.map(q=>{const p=worldPt(q[0],q[1]);return proj(p[0],p[1],q[2]);});
+  const origin=worldPt(H.x0,H.y0),ang=H.rotation||0;
+  texPlane(g, H.slabTex, [origin[0],origin[1],z], [Math.cos(ang),Math.sin(ang),0],[-Math.sin(ang),Math.cos(ang),0], RTEX, sp);
   // faces internas da platibanda (as do fundo, viradas p/ a câmera)
   for (const k of ['N', 'S', 'W', 'E']) {
-    const sd = H.sides[k], n = LOCAL_SIDES[k].n;
+    const sd = H.sides[k], n = sd.n;
     if (facingCam(n[0], n[1]) >= 0) continue;
     const a = [sd.a[0] - n[0] * t, sd.a[1] - n[1] * t], b = [a[0] + sd.dir[0] * sd.len, a[1] + sd.dir[1] * sd.len];
     const q = [proj(a[0], a[1], z), proj(b[0], b[1], z), proj(b[0], b[1], z + P), proj(a[0], a[1], z + P)];
@@ -199,7 +201,7 @@ function drawFlatRoof(g, H) {
   for (const s of H.segs) if (s.ext && facingCam(s.nx, s.ny) > 0) drawWallSlice(g, s, z, z + P, 0, 1, true);
   // capas de concreto no topo
   for (const k of ['N', 'S', 'W', 'E']) {
-    const sd = H.sides[k], n = LOCAL_SIDES[k].n, a = sd.a, b = [a[0] + sd.dir[0] * sd.len, a[1] + sd.dir[1] * sd.len];
+    const sd = H.sides[k], n = sd.n, a = sd.a, b = [a[0] + sd.dir[0] * sd.len, a[1] + sd.dir[1] * sd.len];
     const q = [proj(a[0], a[1], z + P), proj(b[0], b[1], z + P), proj(b[0] - n[0] * t, b[1] - n[1] * t, z + P), proj(a[0] - n[0] * t, a[1] - n[1] * t, z + P)];
     poly(g, q, '#c4bfb3', 'rgba(30,24,20,0.6)', 1);
   }
@@ -210,8 +212,9 @@ function drawFlatRoof(g, H) {
 const roofScratch = makeCanvas(1, 1), rsg = roofScratch.getContext('2d');
 function roofScreenBounds(H, W, Hh) {
   const border = Math.max(ROOF_O, ROOF_RAKE) + 0.45, padding = Math.max(14, cam.zoom * 0.55);
-  const x0 = H.x0 - border, x1 = H.x1 + border;
-  const y0 = H.y0 - border, y1 = H.y1 + border;
+  const bounds=H.drawBounds||[H.x0,H.y0,H.x1,H.y1];
+  const x0 = bounds[0] - border, x1 = bounds[2] + border;
+  const y0 = bounds[1] - border, y1 = bounds[3] + border;
   const z0 = H.h - 0.5;
   const z1 = H.roofKind === 'flat'
     ? H.h + 1.85

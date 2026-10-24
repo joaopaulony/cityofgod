@@ -188,7 +188,7 @@ function owCollect(S, snap) {
 // índices de ocupação (casas, quintais, caixas) e de espaçamento (árvores, pedras, postes)
 function owIndexOwned(S, from) {
   const F = from || {};
-  for (const H of (S.own.houses || []).slice(F.houses || 0)) OW.blk.add({ t: 'h', o: H }, H.x0 - 1.5, H.y0 - 1.5, H.x1 + 1.5, H.y1 + 1.5);
+  for (const H of (S.own.houses || []).slice(F.houses || 0)) OW.blk.add({ t: 'h', o: H }, (H.drawBounds||[H.x0,H.y0,H.x1,H.y1])[0]-1.5, (H.drawBounds||[H.x0,H.y0,H.x1,H.y1])[1]-1.5, (H.drawBounds||[H.x0,H.y0,H.x1,H.y1])[2]+1.5, (H.drawBounds||[H.x0,H.y0,H.x1,H.y1])[3]+1.5);
   for (const Y of (S.own.yards || []).slice(F.yards || 0)) OW.blk.add({ t: 'y', o: Y }, Y[0], Y[1], Y[2], Y[3]);
   for (const b of (S.own.boxes || []).slice(F.boxes || 0)) { const r = Math.max(b.w, b.d) / 2 + 0.6; OW.blk.add({ t: 'b', o: b }, b.x - r, b.y - r, b.x + r, b.y + r); }
 }
@@ -569,6 +569,10 @@ function owFinish(S) {
   owCleanStreetSector(S);
   owRebuildIndices();
   S.layoutAudit = owJudgeStreetSector(S);
+  // Julgador urbano reprova implantação de quadras sobre asfalto ou outras construções.
+  S.layoutAudit.sports=(S.sports||[]).map(p=>({sport:p.sport,x:p.x,y:p.y}));
+  S.layoutAudit.sportOverlap=(S.sports||[]).filter(p=>!CityStreetLayout.clearBuilding([p.x0,p.y0,p.x1,p.y1],roadDist,ROAD_W,SIDE,.3)).length;
+  S.layoutAudit.passed=S.layoutAudit.passed&&!S.layoutAudit.sportOverlap;
   OW.stats.layout = S.layoutAudit;
   S.state = 'done'; S.props = S.own.props || [];
   for (const c of S.own.circles || []) if (c.kind !== 'tree' && c.kind !== 'bush' && c.kind !== 'rock' && c.kind !== 'lamp') OW.place.add(c, c.x - c.r, c.y - c.r, c.x + c.r, c.y + c.r);
@@ -665,6 +669,7 @@ function buildOpenWorld() {
   for (const sp of [...OW.pools.oaks, ...OW.pools.pines]) owTreeStamp(sp);
   world.geoCoast = (x, y) => OW.geo.coastDist(x, y);
   miaInit();
+  miaPlanSports(); // quadro global e determinístico, antes da geração dos imóveis
   urbanLife.litter = []; urbanLife.bins = []; urbanLife.sprites = URBAN_KINDS.map(kind => Array.from({ length: 3 }, (_, v) => urbanSprite(kind, v)));
   ecosystemInit();   // sprites das flores antes dos setores (o game.js chama de novo e ignora)
 

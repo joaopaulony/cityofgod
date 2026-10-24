@@ -158,8 +158,7 @@ function addHouseOccluder(H){
   }
   const roof=H.roofGeom||(H.roofGeom=bridge.buildRoofGeom(H));
   if(roof.flat)
-   face([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
-    [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]],slopes);
+   face((H.corners||[[H.x0,H.y0],[H.x1,H.y0],[H.x1,H.y1],[H.x0,H.y1]]).map(p=>[p[0],p[1],H.h]),slopes);
   else for(const f of roof.faces)
    face(f.p,f.gable?walls:slopes);
   const make=(vertices)=>{
@@ -392,9 +391,12 @@ system.render=()=>{
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
  syncOccluders(false);
- for(const o of occluders)o.visible=!o.userData.house.inside;
+ // Nunca esconder telhados porque o condutor está dentro de um imóvel.
+ // Só a superfície escolhida pela lente de visão fica sem oclusão.
+ const reveal=system.driver?bridge.visionBlocker:null;
+ for(const o of occluders)o.visible=(system.driver||!o.userData.house.inside)&&o.userData.house!==reveal;
  for(const [H,mesh] of roofOccluders)
-  mesh.visible=!H.inside;
+  mesh.visible=(system.driver||!H.inside)&&H!==reveal;
  occlusionScene?.updateActors(system.driver,bridge.player);
  if(lampL&&lampR){
   lampL.intensity=lampR.intensity=system.headlights?12:0;
@@ -404,7 +406,7 @@ system.render=()=>{
  system.lastScreenPosition={
   // GLB em tempo real usa exatamente a mesma projecao ortografica.
   x:c.W/2+(c.cos*(state.x-c.x)-c.sin*(state.y-c.y))*c.zoom,
-  y:c.H/2+(c.sin*(state.x-c.x)+c.cos*(state.y-c.y))*.5*c.zoom
+  y:c.H/2+(c.sin*(state.x-c.x)+c.cos*(state.y-c.y))*(c.tilt||.5)*c.zoom
  };
 };
 setupCar();

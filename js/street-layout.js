@@ -79,8 +79,37 @@ function safeFrontDepth(x,y,n,half,maxDepth,distance,roadWidth,sidewalkWidth){
  }
  return safe;
 }
+function orientPoint(x,y,cx,cy,theta){
+ const dx=x-cx,dy=y-cy,c=Math.cos(theta),sn=Math.sin(theta);
+ return [cx+dx*c-dy*sn,cy+dx*sn+dy*c];
+}
+function orientedCorners(x0,y0,x1,y1,theta){
+ const cx=(x0+x1)/2,cy=(y0+y1)/2;
+ return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]].map(p=>orientPoint(p[0],p[1],cx,cy,theta));
+}
+function clearPolygon(points,distance,roadWidth,sidewalkWidth,margin=.5){
+ const limit=roadWidth+sidewalkWidth+margin;
+ for(let i=0;i<points.length;i++){
+  const a=points[i],b=points[(i+1)%points.length],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  for(let k=0;k<=Math.ceil(len/.5);k++){
+   const t=k/Math.max(1,Math.ceil(len/.5));
+   if(distance(a[0]*(1-t)+b[0]*t,a[1]*(1-t)+b[1]*t)<limit)return false;
+  }
+ }
+ const cx=points.reduce((v,p)=>v+p[0],0)/points.length;
+ const cy=points.reduce((v,p)=>v+p[1],0)/points.length;
+ return distance(cx,cy)>=limit;
+}
+function polygonContains(points,x,y){
+ let inside=false;
+ for(let i=0,j=points.length-1;i<points.length;j=i++){
+  const a=points[i],b=points[j];
+  if(((a[1]>y)!==(b[1]>y))&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;
+ }
+ return inside;
+}
 function judge(owned,distance,roadWidth,sidewalkWidth){
- const result={checked:0,roadHazards:0,blockedSidewalks:0,wrongFacades:0,examples:[]};
+ const result={checked:0,roadHazards:0,blockedSidewalks:0,wrongFacades:0,buildingRoadOverlap:0,rotatedBuildings:0,examples:[]};
  const fail=(key,kind,x,y)=>{result[key]++;if(result.examples.length<12)result.examples.push({kind,x:+x.toFixed(1),y:+y.toFixed(1),issue:key});};
  for(const l of owned.lamps||[]){
    result.checked++;
@@ -104,13 +133,15 @@ function judge(owned,distance,roadWidth,sidewalkWidth){
  for(const h of owned.houses||[]){
    if(!h.doorPt||!h.doorN||h.country||h.rural)continue;
    result.checked++;
+   if(h.rotation&&h.corners){result.rotatedBuildings++;
+     if(!clearPolygon(h.corners,distance,roadWidth,sidewalkWidth,.12))fail('buildingRoadOverlap',h.miaKind||'rotated building',h.doorPt[0],h.doorPt[1]);}
    const d0=distance(h.doorPt[0],h.doorPt[1]);
    const d1=distance(h.doorPt[0]+h.doorN[0]*2,h.doorPt[1]+h.doorN[1]*2);
    if(d1>d0+.3)fail('wrongFacades',h.miaKind||'building',h.doorPt[0],h.doorPt[1]);
  }
- result.passed=result.roadHazards===0&&result.blockedSidewalks===0&&result.wrongFacades===0;
+ result.passed=result.roadHazards===0&&result.blockedSidewalks===0&&result.wrongFacades===0&&result.buildingRoadOverlap===0;
  return result;
 }
-root.CityStreetLayout={footprintClear,verge,edgeFixture,alignedFront,clearBuilding,clearVegetation,curbFixture,nearOtherRoad,safeFrontDepth,judge};
+root.CityStreetLayout={footprintClear,verge,edgeFixture,alignedFront,clearBuilding,clearVegetation,curbFixture,nearOtherRoad,safeFrontDepth,orientPoint,orientedCorners,clearPolygon,polygonContains,judge};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.CityStreetLayout;
 })(globalThis);

@@ -371,6 +371,7 @@ function render() {
   // que realmente bloqueia a camera, com mascara radial suavizada.
   if (st.night) drawNight(W,H);
   const blocker=occluded();
+  window.cityVehicleBridge.visionBlocker=window.cityVehicles?.driver?blocker:null;
   if(blocker)drawPlayerVision(list,blocker,W,H);
   drawMuzzleFlash(g,player,st.night);
   // balões de fala
@@ -390,8 +391,8 @@ function render() {
 // somente a posicao dos pes: minimo 80% dos 15 pontos deve estar atras
 // da superficie, reduzindo circulos disparados por beiradas de telhado.
 function houseBodyCoverage(H,actor){
-  if(H.inside||actor.x>H.x0-.15&&actor.x<H.x1+.15&&
-       actor.y>H.y0-.15&&actor.y<H.y1+.15)return 0;
+  if(H.inside||(H.contains?H.contains(actor.x,actor.y):
+    actor.x>H.x0-.15&&actor.x<H.x1+.15&&actor.y>H.y0-.15&&actor.y<H.y1+.15))return 0;
   const cx=actor.x,cy=actor.y;
   const surfaces=[];
   for(const side of Object.values(H.sides)){
@@ -405,8 +406,8 @@ function houseBodyCoverage(H,actor){
   }
   const roof=H.roofGeom||(H.roofGeom=buildRoofGeom(H));
   if(roof.flat){
-    surfaces.push({poly:[[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
-      [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]].map(p=>proj(...p)),
+    surfaces.push({poly:(H.corners||[[H.x0,H.y0],[H.x1,H.y0],
+      [H.x1,H.y1],[H.x0,H.y1]]).map(p=>proj(p[0],p[1],H.h)),
       depth:depthOf((H.x0+H.x1)/2,(H.y0+H.y1)/2)});
   }else for(const face of roof.faces){
     surfaces.push({poly:face.p.map(p=>proj(...p)),
@@ -424,12 +425,14 @@ function houseBodyCoverage(H,actor){
   return hidden/total;
 }
 function occluded(){
+  const v=window.cityVehicles;
+  const target=v?.driver?{x:v.car.x,y:v.car.y,floorZ:0}:player;
   let candidate=null,coverage=.80;
   for(const H of houses){
     if(H.inside)continue;
-    if(player.x<H.x0-10||player.x>H.x1+10||
-       player.y<H.y0-10||player.y>H.y1+10)continue;
-    const amount=houseBodyCoverage(H,player);
+    if(target.x<H.x0-10||target.x>H.x1+10||
+       target.y<H.y0-10||target.y>H.y1+10)continue;
+    const amount=houseBodyCoverage(H,target);
     if(amount>=coverage){coverage=amount;candidate=H;}
   }
   return candidate;
@@ -468,8 +471,10 @@ function drawMuzzleFlash(ctx,actor,night=false){
 // Replica a cena no pequeno circulo, sem desenhar paredes/telhado do
 // obstaculo e SEM revelar mobilia interna a um jogador que esteja fora.
 function drawPlayerVision(list,blocker,W,H){
-  const point=proj(player.x,player.y,1.05+(player.floorZ||0));
-  const radius=clamp(cam.zoom*1.33,42,83);
+  const vehicle=window.cityVehicles;
+  const driving=!!vehicle?.driver;
+  const point=driving?proj(vehicle.car.x,vehicle.car.y,1.05):proj(player.x,player.y,1.05+(player.floorZ||0));
+  const radius=clamp(cam.zoom*(driving?Math.max(1.6,(vehicle.carLength||4)*.48):1.33),42,120);
   const cx=point.x,cy=point.y+cam.zoom*.17;
   if(cx+radius<0||cy+radius<0||cx-radius>W||cy-radius>H)return;
   fg.setTransform(1,0,0,1,0,0);

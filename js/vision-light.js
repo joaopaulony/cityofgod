@@ -50,7 +50,7 @@ function lightIsVisible(x,y,targetX,targetY,ignore){
   return true;
 }
 function houseVisibleOpenings(H,x,y){
-  if(x>H.x0&&x<H.x1&&y>H.y0&&y<H.y1)return [];
+  if(H.contains?H.contains(x,y):x>H.x0&&x<H.x1&&y>H.y0&&y<H.y1)return [];
   const result=[];
   for(const s of H.segs){
     if(!s.ext||(!s.window&&!s.door))continue;
@@ -127,8 +127,7 @@ function paintBuildingLightMask(ctx){
     if(!H.inside){
       const roof=H.roofGeom||(H.roofGeom=buildRoofGeom(H));
       if(roof.flat){
-        polygon([[H.x0,H.y0,H.h],[H.x1,H.y0,H.h],
-          [H.x1,H.y1,H.h],[H.x0,H.y1,H.h]]);
+        polygon((H.corners||[[H.x0,H.y0],[H.x1,H.y0],[H.x1,H.y1],[H.x0,H.y1]]).map(p=>[p[0],p[1],H.h]));
       }else for(const face of roof.faces)polygon(face.p);
     }
   }

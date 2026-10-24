@@ -28,7 +28,7 @@ const MIA_POOR = [['#a89c78', '#7b7f80'], ['#8fa092', '#80786c'], ['#b0916e', '#
 function miaBlocked(x, y, r) {
   return OW.blk.any(x - r, y - r, x + r, y + r, e => {
     if (e.t === 'y') return false;
-    if (e.t === 'h') { const H = e.o; return x > H.x0 - r - 0.3 && x < H.x1 + r + 0.3 && y > H.y0 - r - 0.3 && y < H.y1 + r + 0.3; }
+    if (e.t === 'h') { const H = e.o,bb=H.drawBounds||[H.x0,H.y0,H.x1,H.y1]; return x>bb[0]-r-.3&&x<bb[2]+r+.3&&y>bb[1]-r-.3&&y<bb[3]+r+.3; }
     const b = e.o; return Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.2;
   }) || OW.place.any(x - r - 1, y - r - 1, x + r + 1, y + r + 1, c => Math.hypot(c.x - x, c.y - y) < c.r + r);
 }
@@ -62,8 +62,10 @@ function miaInit() {
 
 // ---------- lote genérico de frente p/ a via ----------
 // devolve {x0,y0,x1,y1,fk,n} com a fachada `fk` virada p/ a rua, ou null se não couber
-function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3) {
-  if(c.rd&&!CityStreetLayout.alignedFront(c.rd,c.i,front))return null;
+function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3, rotateBuilding = false) {
+  // Prédios planos agora giram com a tangente real da rua; casas de telha
+  // permanecem nos trechos próximos dos eixos até terem cobertura rotativa.
+  if(c.rd&&!CityStreetLayout.alignedFront(c.rd,c.i,front,rotateBuilding?.20:.995))return null;
   const p = c.p, o = [p.nx * c.s, p.ny * c.s], [sx0, sy0, sx1, sy1] = S.bounds;
   const fk = Math.abs(o[0]) > Math.abs(o[1]) ? (o[0] > 0 ? 'W' : 'E') : (o[1] > 0 ? 'N' : 'S');
   const n = { S: [0, 1], N: [0, -1], W: [-1, 0], E: [1, 0] }[fk];
@@ -71,24 +73,26 @@ function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3) {
   // via em diagonal: recua pelo canto mais próximo (meias-medidas projetadas na normal real da via)
   const dist = ROAD_W + c.off + SIDE + set + Math.abs(o[0]) * W / 2 + Math.abs(o[1]) * D / 2;
   const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - D / 2), x1 = x0 + W, y1 = y0 + D;
-  const m = margin, box = [x0 - m, y0 - m, x1 + m, y1 + m];
+  const theta=rotateBuilding?Math.atan2(n[0]*o[1]-n[1]*o[0],n[0]*o[0]+n[1]*o[1]):0;
+  const corners=CityStreetLayout.orientedCorners(x0,y0,x1,y1,theta),xx=corners.map(p=>p[0]),yy=corners.map(p=>p[1]);
+  const m = margin, box = [Math.min(...xx)-m,Math.min(...yy)-m,Math.max(...xx)+m,Math.max(...yy)+m];
   const F = MIA.fail || (MIA.fail = {}), no = k => { F[k] = (F[k] || 0) + 1; return null; };
   if (box[0] < sx0 + 1 || box[1] < sy0 + 1 || box[2] > sx1 - 1 || box[3] > sy1 - 1) return no('sector');
   if (rects.some(b => box[0] < b[2] + 2 && box[2] > b[0] - 2 && box[1] < b[3] + 2 && box[3] > b[1] - 2)) return no('rect');
-  if (!CityStreetLayout.clearBuilding([x0,y0,x1,y1],roadDist,ROAD_W,SIDE,.65)) return no('curveOrSidewalk');
+  if (!CityStreetLayout.clearPolygon(corners,roadDist,ROAD_W,SIDE,.65)) return no('curveOrSidewalk');
   for (let y = box[1]; y <= box[3]; y += 1) for (let x = box[0]; x <= box[2]; x += 1) {
-    const inB = x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    const inB = CityStreetLayout.polygonContains(corners,x,y);
     // construção fora da calçada; a margem do lote só não pode cair no asfalto
     if (roadDist(x, y) < (inB ? ROAD_W + SIDE + 0.15 : ROAD_W + keepRoad)) return no(inB ? 'roadB' : 'roadM');
     if (pondVal(x, y) < 1.4) return no('water');
   }
-  return { x0, y0, x1, y1, fk, n, box };
+  return { x0, y0, x1, y1, fk, n, box, theta, corners };
 }
 
 // ---------- prédio (fachada pintada por andar) ----------
 function miaBuilding(S, c, rects, kind) {
   const r = rng, sp = MIA_SPEC[kind](r);
-  const L = miaLot(S, c, rects, sp.w, sp.d, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .55), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2);
+  const L = miaLot(S, c, rects, sp.w, sp.d, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .55), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2, .3, true);
   if (!L) return null;
   rects.push(L.box);
   const { x0, y0, x1, y1, fk, n } = L, len = fk === 'S' || fk === 'N' ? x1 - x0 : y1 - y0, mid = len >> 1;
@@ -97,6 +101,7 @@ function miaBuilding(S, c, rects, kind) {
   const floorCol = { deco: '#e9e1d2', condo: '#e4e2dc', office: '#d9d8d2', projects: '#b5aea0', warehouse: '#9a9890', shop: '#d8d0c0' }[kind];
   const H = addHouse({ x0, y0, x1, y1, h, roofKind: 'flat', open: { [fk]: { door: doors } }, floors: [{ x0, y0, x1, y1, kind: kind === 'warehouse' ? 'conc' : 'tile', col: floorCol }],
     seed: owSeed(S, kind + x0 + ',' + y0), tall: sp.n > 2, texPPM: sp.ppm, facadeFn: FACADES[kind] });
+  orientHouseToRoad(H,L.theta);
   const R2 = mulberry(H.seed + 3), pick = a => a[(R2() * a.length) | 0];
   H.miaKind = kind; H.nFloors = sp.n; H.accent = pick(DECO_ACCENT);
   H.hotelName = pick(HOTEL_NAMES); H.bName = kind === 'warehouse' ? pick(['DADE FREIGHT', 'BISCAYNE COLD STORAGE', 'PORT SUPPLY CO.', 'GULF IMPORTS', 'SUNSHINE MOVERS', 'TROPIC PRODUCE'])
@@ -111,8 +116,9 @@ function miaBuilding(S, c, rects, kind) {
   S2.aging = H.poor || c.zone === 'poor' ? 0.95 : kind === 'warehouse' ? 0.7 : 0.3; S2.interior = '#e6e1d6'; S2.roofCol = kind === 'warehouse' ? '#a8aaa6' : '#d9d6ce';
   const sd = H.sides[fk];
   H.doorPt = [sd.a[0] + sd.dir[0] * (doors.length > 1 ? mid : mid + 0.5), sd.a[1] + sd.dir[1] * (doors.length > 1 ? mid : mid + 0.5)];
-  H.doorN = n; H.front = [H.doorPt[0] + n[0] * 2, H.doorPt[1] + n[1] * 2]; H.frontSide = fk;
+  H.doorN = H.sides[fk].n; H.front = [H.doorPt[0] + H.doorN[0] * 2, H.doorPt[1] + H.doorN[1] * 2]; H.frontSide = fk;
   H.roofItems = miaRoofItems(H, kind, R2);
+  if(H.toWorld)for(const it of H.roofItems){const p=H.toWorld(it.x,it.y);it.x=p[0];it.y=p[1];}
   miaBuildingSurround(S, H, kind, L, R2);
   owIndexOwnedLive(S);
   return H;
@@ -176,7 +182,7 @@ function drawMarquee(g, b) {
 
 // arredores de cada prédio: calçadão/praça, palmeiras em canteiro, docas, estacionamento, quadra
 function miaBuildingSurround(S, H, kind, L, r) {
-  const n = H.doorN, t = [-n[1], n[0]], cx = (H.x0 + H.x1) / 2, cy = (H.y0 + H.y1) / 2, half = (Math.abs(t[0]) ? H.x1 - H.x0 : H.y1 - H.y0) / 2;
+  const n = H.doorN, t = [-n[1], n[0]], cx = (H.x0 + H.x1) / 2, cy = (H.y0 + H.y1) / 2, half = (H.frontSide==='N'||H.frontSide==='S'?H.x1-H.x0:H.y1-H.y0) / 2;
   const fx = H.doorPt[0], fy = H.doorPt[1];
   if (kind === 'condo' || kind === 'office' || kind === 'deco') {
     // praça de pedra portuguesa entre o prédio e a calçada + palmeiras imperiais em canteiros
@@ -212,7 +218,7 @@ function miaBuildingSurround(S, H, kind, L, r) {
     ext = Math.min(ext,CityStreetLayout.safeFrontDepth(fx,fy,n,half,ext,roadDist,ROAD_W,SIDE));
     miaDecal(miaQuad(fx, fy, n, t, half, ext), 'dirtyard', r);
     const bx = cx - n[0] * ((Math.abs(n[0]) ? H.x1 - H.x0 : H.y1 - H.y0) / 2 + 9), by = cy - n[1] * ((Math.abs(n[0]) ? H.x1 - H.x0 : H.y1 - H.y0) / 2 + 9);
-    miaCourt(S, bx, by, Math.abs(n[0]) > 0 ? 'y' : 'x');
+    miaCourt(S, bx, by, Math.abs(n[0]) > 0 ? 'y' : 'x', ['basketball','soccer','volleyball','tennis'][(H.seed>>>2)%4]);
   } else if (kind === 'shop') {
     let ext = 0.5; while (ext < 6 && roadDist(fx + n[0] * ext, fy + n[1] * ext) > ROAD_W + SIDE) ext += 0.5;
     ext = Math.min(ext,CityStreetLayout.safeFrontDepth(fx,fy,n,half,ext,roadDist,ROAD_W,SIDE));
@@ -542,17 +548,86 @@ function miaShrubs(H, kinds, n, r) {
 }
 
 // ---------- quadra de basquete com alambrado ----------
-function miaCourt(S, cx, cy, along) {
-  const L = 26, Wd = 15, w = along === 'x' ? L : Wd, d = along === 'x' ? Wd : L, x0 = Math.round(cx - w / 2), y0 = Math.round(cy - d / 2), x1 = x0 + w, y1 = y0 + d;
+function miaCourt(S, cx, cy, along, sport='basketball') {
+  const dims={basketball:[26,15],volleyball:[20,12],tennis:[26,13],soccer:[38,22]};
+  const [L,Wd]=dims[sport]||dims.basketball, w = along === 'x' ? L : Wd, d = along === 'x' ? Wd : L, x0 = Math.round(cx - w / 2), y0 = Math.round(cy - d / 2), x1 = x0 + w, y1 = y0 + d;
   const [sx0, sy0, sx1, sy1] = S.bounds;
   if (x0 < sx0 + 2 || y0 < sy0 + 2 || x1 > sx1 - 2 || y1 > sy1 - 2) return false;
   for (let y = y0 - 1; y <= y1 + 1; y += 2) for (let x = x0 - 1; x <= x1 + 1; x += 2) if (onRoad(x, y) || pondVal(x, y) < 1.3 || miaBlocked(x, y, 0.3)) return false;
   world.yards.push([x0, y0, x1, y1]);
-  miaDecal([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], 'court', null, { along });
+  miaDecal([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], 'court', null, { along, sport });
   const gate = (x, y) => Math.hypot(x - (along === 'x' ? cx : x0), y - (along === 'x' ? y1 : cy)) < 1.2;
   chainLine(x0, y0, x1, y0, gate, { h: 3.2 }); chainLine(x0, y1, x1, y1, gate, { h: 3.2 }); chainLine(x0, y0, x0, y1, gate, { h: 3.2 }); chainLine(x1, y0, x1, y1, gate, { h: 3.2 });
-  for (const s of [-1, 1]) { const hx = along === 'x' ? cx + s * (L / 2 - 1.2) : cx, hy = along === 'x' ? cy : cy + s * (L / 2 - 1.2); addBox({ x: hx, y: hy, w: 0.3, d: 0.3, h: 3.05, top: '#56595c', side: '#3e4144', kind: 'hoop', draw: drawHoop, face: along === 'x' ? [-s, 0] : [0, -s] }); }
+  if(sport==='basketball')for (const s of [-1, 1]) { const hx = along === 'x' ? cx + s * (L / 2 - 1.2) : cx, hy = along === 'x' ? cy : cy + s * (L / 2 - 1.2); addBox({ x: hx, y: hy, w: 0.3, d: 0.3, h: 3.05, top: '#56595c', side: '#3e4144', kind: 'hoop', draw: drawHoop, face: along === 'x' ? [-s, 0] : [0, -s] }); }
+  if(sport==='tennis'||sport==='volleyball')addBox({x:cx,y:cy,w:along==='x'?.08:Wd,d:along==='x'?Wd:.08,h:sport==='tennis'?.94:2.4,kind:'sport-net',solid:false,along,draw:drawSportNet});
+  if(sport==='soccer')for(const q of [-1,1])addBox({x:along==='x'?cx+q*(L/2-1.2):cx,y:along==='x'?cy:cy+q*(L/2-1.2),w:.2,d:.2,h:2.45,kind:'sport-goal',solid:false,along,draw:drawSportGoal});
+  (S.sports||(S.sports=[])).push({x:cx,y:cy,x0,y0,x1,y1,sport,along});
   return true;
+}
+function drawSportNet(g,b){
+  const a=b.along==='x',span=a?b.d:b.w,cx=b.x,cy=b.y;
+  const p=(u,z)=>proj(cx+(a?0:u),cy+(a?u:0),z);
+  const z=b.h;g.strokeStyle='#c9d2cd';g.lineWidth=Math.max(1,cam.zoom*.028);
+  const t0=p(-span/2,z),t1=p(span/2,z),b0=p(-span/2,.05),b1=p(span/2,.05);
+  g.beginPath();g.moveTo(t0.x,t0.y);g.lineTo(t1.x,t1.y);g.moveTo(b0.x,b0.y);g.lineTo(b1.x,b1.y);g.stroke();
+  g.strokeStyle='rgba(227,235,228,.55)';g.lineWidth=.65;
+  for(let u=-span/2;u<=span/2;u+=.35){const a0=p(u,.1),a1=p(u,z);g.beginPath();g.moveTo(a0.x,a0.y);g.lineTo(a1.x,a1.y);g.stroke();}
+  for(let v=.2;v<z;v+=.3){const a0=p(-span/2,v),a1=p(span/2,v);g.beginPath();g.moveTo(a0.x,a0.y);g.lineTo(a1.x,a1.y);g.stroke();}
+}
+function drawSportGoal(g,b){
+  const a=b.along==='x',span=3.7;
+  const P=(u,z,back=0)=>proj(b.x+(a?back:u),b.y+(a?u:back),z);
+  const p0=P(-span/2,0),p1=P(span/2,0),p2=P(span/2,2.35),p3=P(-span/2,2.35);
+  g.strokeStyle='#e8eee9';g.lineWidth=Math.max(1,cam.zoom*.055);
+  g.beginPath();g.moveTo(p0.x,p0.y);g.lineTo(p3.x,p3.y);g.lineTo(p2.x,p2.y);g.lineTo(p1.x,p1.y);g.stroke();
+  g.strokeStyle='rgba(225,233,228,.45)';g.lineWidth=.7;
+  for(let u=-span/2;u< span/2;u+=.3){const p=P(u,.1),q=P(u,2.35);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(q.x,q.y);g.stroke();}
+}
+function miaPlanSports(){
+  const poor=[],rich=[],r=mulberry(COG.WORLD_SEED^0x39031);
+  // Seleção global determinística: reservar terrenos ANTES das casas em todos os setores.
+  for(let y=55;y<COG.WORLD_H-55;y+=45)for(let x=55;x<COG.WORLD_W-55;x+=45){
+    const z=miaZone(x,y,world.districtFn(x,y));
+    const pool=z==='projects'||z==='poor'?poor:
+      z==='mansion'||z==='southbeach'||z==='brickell'?rich:null;
+    if(!pool||pondVal(x,y)<1.4||roadDist(x,y)<ROAD_W+SIDE+19)continue;
+    const modX=x%COG.SECTOR,modY=y%COG.SECTOR;
+    if(modX<35||modY<35||modX>COG.SECTOR-35||modY>COG.SECTOR-35)continue;
+    const bounds=[x-20,y-20,x+20,y+20];
+    if(!CityStreetLayout.clearBuilding(bounds,roadDist,ROAD_W,SIDE,1))continue;
+    pool.push({x,y,zone:z,rank:r()});
+  }
+  const result=[],draw=(arr,quota)=>{
+    arr.sort((a,b)=>a.rank-b.rank);
+    let count=0;
+    for(const p of arr){
+      if(count>=quota)break;
+      if(result.some(t=>Math.hypot(t.x-p.x,t.y-p.y)<115))continue;
+      result.push(p);count++;
+    }
+  };
+  draw(poor,14);draw(rich,10);
+  // Também cobre bairros comuns quando o terreno dos guetos não comporta a cota.
+  if(result.length<8){const extra=[];for(let y=60;y<COG.WORLD_H-60;y+=80)for(let x=60;x<COG.WORLD_W-60;x+=80)
+    if(world.districtFn(x,y)===D_.URBAN&&roadDist(x,y)>ROAD_W+SIDE+22&&pondVal(x,y)>1.4&&x%COG.SECTOR>38&&y%COG.SECTOR>38&&x%COG.SECTOR<COG.SECTOR-38&&y%COG.SECTOR<COG.SECTOR-38)extra.push({x,y,zone:'mansion',rank:r()});
+    draw(extra,8);
+  }
+  for(let i=0;i<result.length;i++){result[i].sport=['basketball','volleyball','tennis','soccer'][i%4];result[i].along=i%2?'x':'y';}
+  MIA.sportsPlan=result;
+  MIA.sportsReport={planned:result.length,poor:result.filter(p=>p.zone==='poor'||p.zone==='projects').length,
+    noble:result.filter(p=>p.zone==='brickell'||p.zone==='mansion'||p.zone==='southbeach').length,placed:0,failed:0};
+  return result;
+}
+function miaReserveSports(S,rects){
+  for(const p of MIA.sportsPlan||[]){
+    if(p.x<S.bounds[0]+30||p.x>S.bounds[2]-30||p.y<S.bounds[1]+30||p.y>S.bounds[3]-30)continue;
+    if(miaCourt(S,p.x,p.y,p.along,p.sport)){
+      const [L,W]=({basketball:[26,15],volleyball:[20,12],tennis:[26,13],soccer:[38,22]})[p.sport];
+      const w=p.along==='x'?L:W,d=p.along==='x'?W:L;
+      rects.push([p.x-w/2-3,p.y-d/2-3,p.x+w/2+3,p.y+d/2+3]);
+      MIA.sportsReport.placed++;
+    }else MIA.sportsReport.failed++;
+  }
 }
 function drawHoop(g, b) {
   const a = proj(b.x, b.y, 0), t = proj(b.x, b.y, 3.05), Z = cam.zoom;
@@ -1025,21 +1100,36 @@ function paintDecal(g, d) {
     g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 0.05;
     for (let i = 0; i < 40; i++) { const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), s = 0.3 + r() * 0.5; g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo(cx + s * 0.5, cy - s * 0.3, cx + s, cy + s * 0.1); g.stroke(); }
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x0, y0, x1 - x0, 0.25);
-  } else if (d.kind === 'court') {   // quadra: asfalto pintado de verde/azul com linhas
-    g.fillStyle = '#5d7064'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
-    g.fillStyle = '#5c7891'; g.fillRect(x0 + 1.2, y0 + 1.2, x1 - x0 - 2.4, y1 - y0 - 2.4);
-    g.strokeStyle = 'rgba(250,250,245,0.9)'; g.lineWidth = 0.08; g.strokeRect(x0 + 1.2, y0 + 1.2, x1 - x0 - 2.4, y1 - y0 - 2.4);
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, ax = d.along === 'x';
-    g.beginPath(); if (ax) { g.moveTo(cx, y0 + 1.2); g.lineTo(cx, y1 - 1.2); } else { g.moveTo(x0 + 1.2, cy); g.lineTo(x1 - 1.2, cy); } g.stroke();
-    g.beginPath(); g.arc(cx, cy, 1.8, 0, TAU); g.stroke();
-    for (const s of [-1, 1]) {
-      const hx = ax ? cx + s * ((x1 - x0) / 2 - 1.2) : cx, hy = ax ? cy : cy + s * ((y1 - y0) / 2 - 1.2);
-      g.fillStyle = 'rgba(200,80,50,0.55)'; if (ax) g.fillRect(hx - (s > 0 ? 5.8 : 0), hy - 2.45, 5.8, 4.9); else g.fillRect(hx - 2.45, hy - (s > 0 ? 5.8 : 0), 4.9, 5.8);
-      g.beginPath(); g.arc(hx, hy, 6.75, ax ? (s > 0 ? Math.PI / 2 : -Math.PI / 2) : (s > 0 ? Math.PI : 0), ax ? (s > 0 ? Math.PI * 1.5 : Math.PI / 2) : (s > 0 ? TAU : Math.PI)); g.stroke();
+  } else if (d.kind === 'court') {
+    // Quatro modalidades com dimensões e marcações próprias.
+    const sport=d.sport||'basketball',sx=x1-x0,sy=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2,ax=d.along==='x';
+    const line='#f7f8ed';g.fillStyle='#465d59';g.fillRect(x0,y0,sx,sy);
+    g.fillStyle=sport==='basketball'?'#477f9a':sport==='tennis'?'#3979a1':sport==='volleyball'?'#ad7458':'#43805b';
+    g.fillRect(x0+.6,y0+.6,sx-1.2,sy-1.2);
+    g.strokeStyle=line;g.lineWidth=.085;g.strokeRect(x0+1,y0+1,sx-2,sy-2);
+    g.beginPath();
+    if(ax){g.moveTo(cx,y0+1);g.lineTo(cx,y1-1);}else{g.moveTo(x0+1,cy);g.lineTo(x1-1,cy);}g.stroke();
+    const long=ax?sx:sy,short=ax?sy:sx,P=(u,v)=>ax?[cx+u,cy+v]:[cx+v,cy+u];
+    const strokeLine=(a,b,c,e)=>{const u=P(a,b),v=P(c,e);g.beginPath();g.moveTo(...u);g.lineTo(...v);g.stroke();};
+    if(sport==='basketball'){
+      g.beginPath();g.arc(cx,cy,1.8,0,TAU);g.stroke();
+      for(const side of [-1,1]){const u=side*(long/2-1.7);strokeLine(u,-2.4,u,2.4);
+        const a=P(u,0);g.beginPath();g.arc(a[0],a[1],2.1,0,TAU);g.stroke();}
+    }else if(sport==='tennis'){
+      for(const u of [-long*.25,long*.25])strokeLine(u,-short/2+1,u,short/2-1);
+      for(const v of [-short*.25,short*.25])strokeLine(-long*.25,v,long*.25,v);
+    }else if(sport==='volleyball'){
+      for(const u of [-long/6,long/6])strokeLine(u,-short/2+1,u,short/2-1);
+    }else if(sport==='soccer'){
+      g.beginPath();g.arc(cx,cy,2.6,0,TAU);g.stroke();
+      for(const side of [-1,1]){
+        const u=side*(long/2-1);
+        strokeLine(u,-short*.28,u-side*4,-short*.28);strokeLine(u-side*4,-short*.28,u-side*4,short*.28);
+        strokeLine(u-side*4,short*.28,u,short*.28);
+      }
     }
-    g.strokeStyle = 'rgba(25,25,25,0.35)'; g.lineWidth = 0.04;   // trincas e manchas de chuva
-    for (let i = 0; i < 18; i++) { let x = x0 + r() * (x1 - x0), y = y0 + r() * (y1 - y0); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 1.6; y += (r() - 0.5) * 1.6; g.lineTo(x, y); } g.stroke(); }
-    for (let i = 0; i < 10; i++) { const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), rr = 0.8 + r() * 1.8, gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, 'rgba(40,40,40,0.18)'); gr.addColorStop(1, 'rgba(40,40,40,0)'); g.fillStyle = gr; g.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); }
+    g.strokeStyle='rgba(0,0,0,.13)';g.lineWidth=.03;
+    for(let k=0;k<8;k++){const px=x0+1+r()*(sx-2),py=y0+1+r()*(sy-2);g.beginPath();g.moveTo(px,py);g.lineTo(px+.3,py+.12);g.stroke();}
   } else if (d.kind === 'pit') {   // canteiro de palmeira na calçada
     g.fillStyle = '#5c4632'; g.fillRect(x0, y0, x1 - x0, y1 - y0); g.strokeStyle = '#9d978a'; g.lineWidth = 0.1; g.strokeRect(x0 + 0.05, y0 + 0.05, x1 - x0 - 0.1, y1 - y0 - 0.1);
     for (let i = 0; i < 30; i++) { g.fillStyle = r() < 0.5 ? '#3f2f22' : '#7a5f44'; g.fillRect(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.07, 0.07); }
@@ -1058,6 +1148,7 @@ function paintDecal(g, d) {
 
 // ---------- ocupação do setor (substitui as casas genéricas do mundo grande) ----------
 function* miaGenSector(S, rects) {
+  miaReserveSports(S,rects);
   const dd = world.districtFn, zoneAt = (x, y) => miaZone(x, y, dd(x, y));
   const cands = [];
   for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 4) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, cls: rd.cls, rd, i, r: rng() }); }
@@ -1067,7 +1158,7 @@ function* miaGenSector(S, rects) {
   for (const c of cands) {
     if (placed >= cap || tries > 1600) break;
     const ox = c.p.x + c.p.nx * c.s * (ROAD_W + c.off + SIDE + 7), oy = c.p.y + c.p.ny * c.s * (ROAD_W + c.off + SIDE + 7), z = zoneAt(ox, oy);
-    if (!z || !CityStreetLayout.alignedFront(c.rd,c.i,c.cls==='avenue'?10:8)) continue;
+    if (!z || !CityStreetLayout.alignedFront(c.rd,c.i,c.cls==='avenue'?10:8,.20)) continue;
     tries++; c.zone = z; (MIA.zt || (MIA.zt = {}))[z] = (MIA.zt[z] || 0) + 1;
     const mix = MIA_W[z]; let kind = mix[(rng() * mix.length) | 0];
     if ((z === 'bungalow' || z === 'town' || z === 'poor') && c.cls === 'avenue' && rng() < 0.2) kind = 'shop';
