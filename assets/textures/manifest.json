@@ -18,5 +18,10 @@
     "meters": 2.65,
     "px": 512,
     "from": "round4/ground-sidewalk~v2 tint #dcaaa0"
+  },
+  "ground-dirt": {
+    "meters": 1.84,
+    "px": 512,
+    "from": "round5/ground-dirt~v2"
   }
 }
