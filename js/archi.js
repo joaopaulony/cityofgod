@@ -37,6 +37,9 @@ function houseStyle(H, rnd) {
 
 // ---------- reboco / tijolo ----------
 function paintPlaster(g, x, y, w, h, col, rnd, aging) {
+  // reboco pintado (textures.js): luz e sombra da textura sobre a cor da casa; o gasto nas casas mais velhas.
+  // A escala vem da própria imagem (fachadas Miami guardam c.ppm), senão TEX.
+  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, aging > 0.6 ? 'stuccoWorn' : 'stucco', g.canvas.ppm || TEX, col)) return;
   g.fillStyle = col; g.fillRect(x, y, w, h);
   // variação tonal da pintura (manchas suaves grandes)
   for (let i = 0; i < w * h / 900; i++) {
@@ -53,6 +56,7 @@ function paintPlaster(g, x, y, w, h, col, rnd, aging) {
   }
 }
 function paintBrick(g, x, y, w, h, col, rnd) {
+  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, 'brick', g.canvas.ppm || TEX, null)) return;   // tijolo pintado
   g.fillStyle = '#b9ad9c'; g.fillRect(x, y, w, h);   // argamassa
   const bh = 0.075 * TEX, bw = 0.22 * TEX;
   for (let r = 0, yy = y + h - bh; yy > y - bh; yy -= bh, r++) for (let xx = x - (r % 2) * bw / 2; xx < x + w; xx += bw) {
@@ -311,6 +315,20 @@ function paintDoor(style, col, rnd) {
 // ---------- texturas de telhado (a = ao longo do beiral, b = subindo a água) ----------
 function paintRoofTex(mat, col, A, B, rnd, aging) {
   const W = Math.ceil(A * RTEX), Hh = Math.ceil(B * RTEX), c = makeCanvas(W, Hh), g = c.getContext('2d');
+  // telhado pintado (textures.js): laje suja, manta branca, telha asfáltica tingida e zinco; a de barro segue procedural
+  const tk = { concrete: 'roofFlat', membrane: 'roofClean', shingle: 'shingle', metal: 'metal' }[mat];
+  if (tk && typeof wallTexFill === 'function' && wallTexFill(g, 0, 0, W, Hh, tk, RTEX, mat === 'shingle' ? col : null)) return c;
+  if (mat === 'membrane') {   // manta branca de condomínio: grão fino, emendas dos rolos a cada 2 m, alguns remendos
+    g.fillStyle = '#dddbd4'; g.fillRect(0, 0, W, Hh);
+    for (let i = 0; i < W * Hh / 5; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)'; g.fillRect(rnd() * W, rnd() * Hh, 1, 1); }
+    for (let i = 0; i < A * B / 8; i++) {   // sujeira acumulada, fraca
+      const x = rnd() * W, y = rnd() * Hh, r = (0.3 + rnd() * 0.8) * RTEX, gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(110,104,92,${0.06 + aging * 0.08})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    for (let y = 2 * RTEX; y < Hh; y += 2 * RTEX) { g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(0, y - 1, W, 1); g.fillStyle = 'rgba(70,66,58,0.22)'; g.fillRect(0, y, W, 1.5); }
+    for (let i = 0; i < A * B / 30; i++) { const w = (0.3 + rnd() * 0.5) * RTEX, h = (0.3 + rnd() * 0.4) * RTEX, x = rnd() * (W - w), y = rnd() * (Hh - h); g.fillStyle = 'rgba(205,203,196,0.9)'; g.fillRect(x, y, w, h); g.strokeStyle = 'rgba(80,76,68,0.25)'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); }
+    return c;
+  }
   if (mat === 'ceramic') {
     // fileiras de telha colonial: das de baixo p/ as de cima (a de cima sobrepõe a de baixo)
     const rowH = 0.3 * RTEX, tw = 0.22 * RTEX;

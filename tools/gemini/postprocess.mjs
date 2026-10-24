@@ -68,9 +68,16 @@ export function retouch(px, w, h, rects, feather = 20) {
   const at = (x, y) => ((((y % h) + h) % h) * w + (((x % w) + w) % w)) * 4;
   // retângulo: [x0,y0,x1,y1] escolhe a origem sozinho; [x0,y0,x1,y1, sx0,sy0,sx1,sy1] copia de uma área limpa indicada
   // (se ela for menor que o defeito, é repetida para cobrir)
+  let LB = null, LM = 0;   // luminância desfocada (raio ~3% da imagem) e média, p/ os nivelamentos locais
   for (const [fx0, fy0, fx1, fy1, ...src] of rects) {
     const x0 = Math.round(fx0 * w), y0 = Math.round(fy0 * h), x1 = Math.round(fx1 * w), y1 = Math.round(fy1 * h), rw = x1 - x0, rh = y1 - y0;
     const stat = (ax, ay, bw, bh) => { let s = 0, n = 0; const v = []; for (let y = ay; y < ay + bh; y += 3) for (let x = ax; x < ax + bw; x += 3) { const l = lum(at(x, y)); v.push(l); s += l; n++; } return { mean: s / n, v }; };
+    const mask = (x, y) => { const ex = Math.max(x0 - x, x - (x1 - 1), 0), ey = Math.max(y0 - y, y - (y1 - 1), 0), t = 1 - Math.min(1, Math.hypot(ex, ey) / feather); return t <= 0 ? 0 : t * t * (3 - 2 * t); };
+    if (src[0] === 'level') {   // [x0,y0,x1,y1,'level',força]: nivela só esta região (faixa/mancha do original), borda suave
+      if (!LB) { const B = boxBlur(px, w, h, Math.max(6, Math.round(w * 0.03))); LB = new Float32Array(w * h); for (let i = 0; i < w * h; i++) { LB[i] = 0.299 * B[i * 3] + 0.587 * B[i * 3 + 1] + 0.114 * B[i * 3 + 2]; LM += LB[i] / (w * h); } }
+      for (let y = y0 - feather; y < y1 + feather; y++) for (let x = x0 - feather; x < x1 + feather; x++) { const k = mask(x, y); if (!k) continue; const d = at(x, y), dl = (LB[d / 4] - LM) * (src[1] || 0.4) * k; for (let c = 0; c < 3; c++) out[d + c] = clamp8(out[d + c] - dl); }
+      continue;
+    }
     let from;   // (x, y) do defeito -> pixel de origem
     if (src[0] === 'clean') {
       // varre a imagem inteira atrás da janela do mesmo tamanho SEM pontos muito escuros (tufos, gravetos), mas com o
@@ -100,11 +107,14 @@ export function retouch(px, w, h, rects, feather = 20) {
       }
       from = (x, y) => at(x + best[0], y + best[1]);
     }
+    // brilho médio do pedaço copiado igualado ao do anel em volta do defeito (senão o retoque fica mais claro/escuro)
+    let sm = 0, sn = 0; for (let y = y0; y < y1; y += 3) for (let x = x0; x < x1; x += 3) { sm += lum(from(x, y)); sn++; }
+    const ringMean = (stat(x0 - feather, y0 - feather, rw + 2 * feather, feather).mean + stat(x0 - feather, y1, rw + 2 * feather, feather).mean + stat(x0 - feather, y0, feather, rh).mean + stat(x1, y0, feather, rh).mean) / 4;
+    const off = ringMean - sm / sn;
     for (let y = y0 - feather; y < y1 + feather; y++) for (let x = x0 - feather; x < x1 + feather; x++) {
-      const ex = Math.max(x0 - x, x - (x1 - 1), 0), ey = Math.max(y0 - y, y - (y1 - 1), 0), t = 1 - Math.min(1, Math.hypot(ex, ey) / feather);
-      if (t <= 0) continue;
-      const k = t * t * (3 - 2 * t), d = at(x, y), s = from(x, y);
-      for (let c = 0; c < 3; c++) out[d + c] = Math.round(out[d + c] + (px[s + c] - out[d + c]) * k);
+      const k = mask(x, y); if (!k) continue;
+      const d = at(x, y), s = from(x, y);
+      for (let c = 0; c < 3; c++) out[d + c] = clamp8(Math.round(out[d + c] + (px[s + c] + off - out[d + c]) * k));
     }
   }
   return out;
@@ -305,7 +315,7 @@ export async function processAsset(bytes, asset, opts = {}) {
     px = flattenLighting(px, w, h, 0.8); steps.push('flatten');
     if (asset.desat != null) { px = desaturate(px, asset.desat); steps.push('desat'); }
     if (asset.anchor) { px = colorMatch(px, hexRgb(asset.anchor)); steps.push('color ' + asset.anchor); }
-    if (asset.boost) { px = boostDetail(px, w, h, 8, asset.boost); steps.push('boost ' + asset.boost); }
+    if (asset.boost) { px = boostDetail(px, w, h, asset.boostR || 8, asset.boost); steps.push('boost ' + asset.boost); }
     if (asset.level) { px = levelLarge(px, w, h, Math.max(4, Math.round(w * 0.3 / asset.meters)), asset.level); steps.push('level ' + asset.level); }
     if (asset.despot) { const s = removeSpots(px, w, h, asset.despot === true ? {} : asset.despot); px = s.px; steps.push(`spots ${s.count}px`); }
     px = matchEdges(px, w, h); steps.push('edges');

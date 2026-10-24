@@ -83,7 +83,8 @@ function ensureFaceTex(H, f) {
   return f.tex;
 }
 function ensureSlabTex(H) {
-  if (!H.slabTex) { const S = H.style; H.slabTex = paintRoofTex('concrete', S.roofCol, H.x1 - H.x0, H.y1 - H.y0, roofRnd(H, 9), S.aging); bakeLight(H.slabTex.getContext('2d'), H.slabTex.width, H.slabTex.height, [0, 0, 1], 0.6); }
+  // condomínios e escritórios: manta branca; o resto: laje suja
+  if (!H.slabTex) { const S = H.style; H.slabTex = paintRoofTex(H.miaKind === 'condo' || H.miaKind === 'office' ? 'membrane' : 'concrete', S.roofCol, H.x1 - H.x0, H.y1 - H.y0, roofRnd(H, 9), S.aging); bakeLight(H.slabTex.getContext('2d'), H.slabTex.width, H.slabTex.height, [0, 0, 1], 0.6); }
   return H.slabTex;
 }
 // pré-pintura: cria UMA textura de telhado por chamada; devolve true quando não falta nenhuma
