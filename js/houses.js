@@ -106,6 +106,9 @@ function houseTex(H) {
   return H.tex;
 }
 
+// objetos desenhados em 3D na camada WebGL (props-3d.mjs) quando ela está ativa: o 2D não os desenha
+const PROPS3D_KINDS = new Set(['hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket']);
+function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || (b.kind === 'post' && !b.house)); }
 function addBox(b) {
   b = Object.assign({ z: 0, rot: 0, kind: 'box' }, b);
   boxes.push(b);
@@ -920,6 +923,7 @@ function houseDrawables(list, px, py) {
        at.y < -extra || at.y > cam.H+extra) continue;
     if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
+    if (props3d(b)) continue;   // desenhado em 3D
     if (b.house && !b.exteriorFixture && !b.house.inside) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
     let d=depthOf(b.x,b.y)+bias;

@@ -164,7 +164,7 @@ function chunkItemsStep(ci, cj, maxIter) {
   G.i = iEnd;
   if (G.i < n) return false;
   // remendos, rachaduras e manchas no asfalto deste bloco
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 56; i++) {
     const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
     if (rd > ROAD_W - 0.5) continue;
     // direção da rua no ponto = perpendicular ao gradiente da distância
@@ -173,6 +173,7 @@ function chunkItemsStep(ci, cj, maxIter) {
     if (pick < 0.4) items.push({ t: 'acrack', x, y, s: 0.5 + r() * 1.2, a: along + (r() - 0.5) * 1.2, seed: (r() * 1e9) | 0 });
     else if (pick < 0.62 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along });
     else if (pick < 0.7) items.push({ t: 'patch', x, y, s: 0.7 + r() * 1.1, a: along, k: 0.4 + r() * 0.4 });
+    else if (pick < 0.76) items.push({ t: 'pothole', x, y, s: 0.25 + r() * 0.45, a: r() * TAU, seed: (r() * 1e9) | 0, wet: r() < 0.3 });
   }
   // Manchas silvestres em pequenos grupos, com cores que seguem o mesmo bioma.
   // Detalhe assado no bloco: nenhum custo de animacao adicional por quadro.
@@ -490,7 +491,7 @@ function paintItems(ch, g, from = 0, to = Infinity) {
     }
     const bk = new Map(), bucket = (k, f) => { if (!bk.has(k)) bk.set(k, []); bk.get(k).push(f); };
     for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
-    const order = ['oil', 'patch', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
+    const order = ['oil', 'patch', 'pothole', 'acrack', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
     ch._buckets = bk;
     ch._keys = [...bk.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
   }
@@ -587,6 +588,19 @@ function paintItems(ch, g, from = 0, to = Infinity) {
       for (const o of its) { const gr = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.s); gr.addColorStop(0, 'rgba(18,18,22,0.26)'); gr.addColorStop(0.6, 'rgba(25,22,28,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(o.x, o.y, o.s, o.s * 0.6, o.a, 0, TAU); g.fill(); }
     } else if (t === 'patch') {
       for (const p of its) { g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = 'rgba(40,41,45,0.45)'; g.fillRect(-p.s / 2, -p.s * p.k / 2, p.s, p.s * p.k); g.strokeStyle = 'rgba(25,25,28,0.4)'; g.lineWidth = 0.02; g.strokeRect(-p.s / 2, -p.s * p.k / 2, p.s, p.s * p.k); g.restore(); }
+    } else if (t === 'pothole') {
+      // buraco: contorno irregular, borda clara quebrada, fundo escuro com brita solta; às vezes com água
+      for (const p of its) {
+        const r3 = mulberry(p.seed), N = 11, pts = [];
+        for (let k = 0; k < N; k++) { const a = p.a + k / N * TAU, d = p.s * (0.7 + r3() * 0.45); pts.push([p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8]); }
+        const path = (sc) => { g.beginPath(); pts.forEach(([x, y], k) => { const X = p.x + (x - p.x) * sc, Y = p.y + (y - p.y) * sc; k ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.closePath(); };
+        path(1.18); g.fillStyle = 'rgba(70,68,66,0.55)'; g.fill();   // asfalto esfarelado em volta
+        path(1); g.fillStyle = '#1b1a1c'; g.fill();
+        path(0.72); g.fillStyle = p.wet ? 'rgba(60,78,88,0.9)' : '#252326'; g.fill();
+        g.strokeStyle = 'rgba(150,146,138,0.55)'; g.lineWidth = 0.025; path(1); g.stroke();   // borda iluminada
+        for (let k = 0; k < 14; k++) { const a = r3() * TAU, d = r3() * p.s * 0.7; g.fillStyle = r3() < 0.5 ? '#5a5652' : '#3a3836'; g.fillRect(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8, 0.03 + r3() * 0.03, 0.025); }
+        if (p.wet) { g.fillStyle = 'rgba(200,220,230,0.25)'; g.beginPath(); g.ellipse(p.x - p.s * 0.15, p.y - p.s * 0.1, p.s * 0.25, p.s * 0.1, 0.4, 0, TAU); g.fill(); }
+      }
     } else if (t === 'acrack') {
       g.strokeStyle = 'rgba(24,24,27,0.7)'; g.lineWidth = 0.016; g.beginPath();
       for (const c of its) {

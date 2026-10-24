@@ -9,6 +9,7 @@ import {createWorldOccluders} from './vehicle-occlusion.mjs';
 import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
+import {createProps} from './props-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -126,13 +127,14 @@ function syncOccluders(force){
  occlusionScene?.dispose?.();
  // árvores e arbustos 3D têm profundidade própria: sem os troncos/esferas de oclusão das árvores 2D
  const plant=o=>window.VEG3D&&(o.type==='tree'||o.type==='bush');
+ const in3d=!!window.VEG3D;
  const view={...bridge,
-  world:{...w,lamps:(w.lamps||[]).filter(o=>near(o.x,o.y)),
-   trafficSignals:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
+  world:{...w,lamps:in3d?[]:(w.lamps||[]).filter(o=>near(o.x,o.y)),
+   trafficSignals:in3d?[]:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
    props:(w.props||[]).filter(o=>o.type!=='tuft'&&!plant(o)&&near(o.x,o.y)),
    segs:(w.segs||[]).filter(s=>s.kind==='fence'&&near(s.x1,s.y1))},
-  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)),
-  urbanBins:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
+  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)),
+  urbanBins:in3d?[]:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
  occlusionScene=createWorldOccluders(scene,THREE,view,occlusionMaterial);
  system.occlusionStats=occlusionScene.state;
 }
@@ -262,9 +264,12 @@ function initRenderer(){
  if(window.VEG3D!==false){
   try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
   catch(error){console.error('Vegetação 3D falhou',error);window.VEG3D=false;}
+  // objetos da rua, móveis, postes, semáforos e meio-fio (props-3d.mjs)
+  try{props3d=createProps(THREE,scene,bridge);system.props3d=props3d.state;}
+  catch(error){console.error('Objetos 3D falharam',error);}
  }
 }
-let vegetation=null;
+let vegetation=null,props3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -406,11 +411,13 @@ system.render=()=>{
  const night=bridge.world.night?.15:1;
  for(const [l,k] of scene.userData.lights)l.intensity=k*night;
  scene.userData.lights[0][0].color.setHex(bridge.world.night?0x8090c0:0xf8ead9);
+ scene.userData.sun.castShadow=!bridge.world.night;   // sem sombra do sol à noite
  if(vegetation){
   // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
   const p=bridge.player,target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:1.7};
   vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
  }
+ props3d?.update(performance.now()/1000,bridge.gameTime||0);
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;

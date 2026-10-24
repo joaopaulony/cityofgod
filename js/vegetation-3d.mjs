@@ -374,15 +374,19 @@ export function createVegetation(THREE, scene, bridge) {
     const t0 = performance.now();
     for (const k of Object.values(kinds)) k.list.length = 0;
     const props = bridge.world.props || [];
+    // flores e capim não nascem dentro das casas (o piso cobria isso no 2D)
+    const near = (bridge.houses || []).filter(H => H.x1 > cx - R - 2 && H.x0 < cx + R + 2 && H.y1 > cy - R - 2 && H.y0 < cy + R + 2);
+    const indoors = (x, y) => near.some(H => H.contains ? H.contains(x, y) : x > H.x0 - .2 && x < H.x1 + .2 && y > H.y0 - .2 && y < H.y1 + .2);
     for (const p of props) {
       if (p.type !== 'tree' && p.type !== 'bush' && p.type !== 'tuft') continue;
       const dx = p.x - cx, dy = p.y - cy; if (dx * dx + dy * dy > R * R) continue;
+      if (p.type === 'tuft' && indoors(p.x, p.y)) continue;
       const k = kinds[speciesOf(p)]; if (k.list.length < k.parts[0].mesh.instanceMatrix.count) k.list.push(p);
     }
     const FL = { '#eee6ce': 'flowerW', '#ead064': 'flowerY', '#ccacd1': 'flowerL', '#db9ca9': 'flowerP', '#9eaad0': 'flowerL', '#e6a274': 'flowerO', '#ca7778': 'flowerP', '#ede0a8': 'flowerY' };
     if (bridge.terrainItems) for (const items of bridge.terrainItems.values()) for (const it of items) {
       if (it.t !== 'wildflower') continue;
-      const dx = it.x - cx, dy = it.y - cy; if (dx * dx + dy * dy > R * R) continue;
+      const dx = it.x - cx, dy = it.y - cy; if (dx * dx + dy * dy > R * R || indoors(it.x, it.y)) continue;
       const kind = FL[it.c] || 'flowerY', k = kinds[kind];
       for (let j = 0; j < Math.min(3, Math.ceil(it.k / 3)); j++) if (k.list.length < k.parts[0].mesh.instanceMatrix.count) { const a = it.phase + j * 2.4, d = it.radius * (j ? 0.8 : 0); k.list.push({ type: 'flower', kind, x: it.x + Math.cos(a) * d, y: it.y + Math.sin(a) * d }); }
     }
