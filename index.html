@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Piloto Iso — Canvas 2D</title>
+<title>City of God — Cidade Aberta</title>
+<link rel="stylesheet" href="css/city-ui.css">
 <link rel="icon" href="data:,">
 <style>
   html, body { margin: 0; height: 100%; background: #14110f; overflow: hidden; }
@@ -16,6 +17,9 @@
   #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }
+  #chat { bottom: 228px !important; }
+  #keys { display: none; }
+  @media(max-width:670px) { #chat { display: none; } }
   #view { z-index: 0; }
   #chat {
     position: absolute; left: 12px; bottom: 12px; width: 270px;
@@ -67,6 +71,8 @@
   <div>Garagem: próximo carro (fora) <kbd>V</kbd></div>
   <div><a href="vehicle-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos modelos 3D</a></div>
   <div><a href="character-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos personagens</a></div>
+  <div>Celular / mochila / armas <kbd>P / I / Tab</kbd></div>
+  <div>Consumir itens <kbd>1–5</kbd></div>
   <div>Mapa <kbd>M</kbd></div>
   <div>Dia / noite <kbd>N</kbd></div>
   <div>Clima <kbd>K</kbd></div>
@@ -100,6 +106,8 @@
 <script src="js/skeleton.js"></script>
 <script src="js/character.js"></script>
 <script src="js/hud.js"></script>
+<script src="js/city-life.js"></script>
+<script src="js/city-ui.js"></script>
 <script src="js/worldmap.js"></script>
 <script src="js/ecosystem.js"></script>
 <script src="js/miami.js"></script>
