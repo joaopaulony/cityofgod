@@ -41,6 +41,7 @@ window.cityVehicleBridge={
   curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.curbCuts||[]).some(c=>Math.hypot(x-c.x,y-c.y)<c.r)||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,roadDist,
+  gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
   collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
@@ -606,6 +607,13 @@ function drawNight(W,H){
     ctx.restore();
   };
   for(const l of lamps)carve(l.x,l.y,l.r,.985,l.polygon);
+  // postos de gasolina (parking.js): o pátio sob a cobertura e a frente da loja ficam claros como de dia
+  const gasLights=[];
+  if(st.night)for(const s of world.gasStations||[]){
+    for(const is of s.islands){const x=s.ox+s.qx*is.u,y=s.oy+s.qy*(is.v0+is.v1)/2;if(visible(x,y,10))gasLights.push({x,y,r:9});}
+    const x=s.ox+s.qx*(s.store.u0+s.store.u1)/2,y=s.oy+s.qy*(s.store.v0-2.5);if(visible(x,y,10))gasLights.push({x,y,r:8});
+  }
+  for(const l of gasLights)carve(l.x,l.y,l.r,.99,null);
   for(const w of windows)directional(lg,w,.60);
   for(const w of porch)directional(lg,w,.88);
   // Luminarias internas iluminam cada comodo sem atravessar divisorias.
@@ -648,6 +656,7 @@ function drawNight(W,H){
   }
   // Mesma mascara suave para a cor: fonte e sombra coincidem
   // espacialmente, sem cortes triangulares nos cones sobrepostos.
+  for(const l of gasLights){tint(l.x,l.y,l.r,.15,'226,236,255');tint(l.x,l.y,l.r*.55,.1,'245,248,255');}
   gg.globalCompositeOperation='screen';
   for(const w of windows)directional(gg,w,.20,'239,183,103');
   for(const w of porch)directional(gg,w,.33,'255,207,129');

@@ -126,7 +126,7 @@ function owSectorRoads(S) {
       }
       pts.push(raw[raw.length - 1]);
       if (pts.length < 4) continue;
-      out.push({ pts: withNormals(pts), cls: rd.cls, w: rd.w, off: rd.w / 2 - ROAD_W, branch: rd.cls !== 'highway', bigId: rd.id });
+      out.push({ pts: withNormals(pts), cls: rd.cls, w: rd.w, off: rd.w / 2 - ROAD_W, lanes: rd.lanes || 1, park: rd.park || 0, grid: !!rd.grid, branch: rd.cls !== 'highway', bigId: rd.id });
     }
   });
   return out;
@@ -178,7 +178,8 @@ function owPlaceAirport(S, q) {
 const OW_TRACK = () => [['houses', houses], ['boxes', boxes], ['fences', fences], ['props', world.props], ['circles', world.circles], ['segs', world.segs],
   ['upperSegs', world.upperSegs], ['lamps', world.lamps], ['yards', world.yards], ['litter', urbanLife.litter], ['bins', urbanLife.bins],
   ['flowers', ecosystem.flowers], ['butterflies', ecosystem.butterflies], ['decals', world.decals],
-  ['garages', world.garages || (world.garages = [])], ['curbCuts', world.curbCuts || (world.curbCuts = [])]];
+  ['garages', world.garages || (world.garages = [])], ['curbCuts', world.curbCuts || (world.curbCuts = [])],
+  ['gasStations', world.gasStations || (world.gasStations = [])], ['paved', world.paved || (world.paved = [])], ['trafficSignals', world.trafficSignals || (world.trafficSignals = [])]];
 function owSnap() { return OW_TRACK().map(([, a]) => a.length); }
 function owCollect(S, snap) {
   for(const H of houses.slice(snap[0]))if(typeof remodelProperty==='function')remodelProperty(H);
@@ -538,11 +539,13 @@ function owCleanStreetSector(S) {
   const discarded = new Set();
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    // pátio de posto/estacionamento: nada de árvore, arbusto ou pedra (nem o colisor invisível dela)
+    if ((kind === 'props' || kind === 'circles') && ['tree', 'bush', 'tuft', 'rock'].includes(o.type || o.kind) && (world.paved || []).some(b => o.x > b[0] - 0.5 && o.x < b[2] + 0.5 && o.y > b[1] - 0.5 && o.y < b[3] + 0.5)) return true;
     if (kind === 'props') return o.type==='rock'||(['tree','bush','tuft'].includes(o.type) &&
       !CityStreetLayout.verge(o.x,o.y,o.type==='tree'?.3:.12,roadDist,ROAD_W,SIDE));
     if (kind === 'lamps') return !CityStreetLayout.curbFixture(o.x,o.y,.15,roadDist,ROAD_W,SIDE);
     if (kind === 'boxes') {
-      if (o.kind === 'vehicle' || o.house) return false;
+      if (o.kind === 'vehicle' || o.house || (o.kind === 'parkedcar' && o.street)) return false;
       const r = Math.min(.7,Math.max(.15,Math.min(o.w||.4,o.d||.4)/2));
       if (!CityStreetLayout.edgeFixture(o.x,o.y,r,roadDist,ROAD_W)) return true;
       if (['bench','planter','trashcan','busstop','bikerack','pallet','dumpster','tire','trashbag'].includes(o.kind))
@@ -579,6 +582,8 @@ function owFinish(S) {
   S.layoutAudit.passed=S.layoutAudit.passed&&!S.layoutAudit.sportOverlap;
   OW.stats.layout = S.layoutAudit;
   S.state = 'done'; S.props = S.own.props || [];
+  // blocos do terreno pintados com uma versão anterior deste setor (descarregado e gerado de novo) recomeçam
+  for (const [k, ch] of terrain.chunks) { const cx = ch.ci * CH, cy = ch.cj * CH; if (cx + CH > S.bounds[0] - OW.PAD && cx < S.bounds[2] + OW.PAD && cy + CH > S.bounds[1] - OW.PAD && cy < S.bounds[3] + OW.PAD) terrain.chunks.delete(k); }
   for (const c of S.own.circles || []) if (c.kind !== 'tree' && c.kind !== 'bush' && c.kind !== 'rock' && c.kind !== 'lamp') OW.place.add(c, c.x - c.r, c.y - c.r, c.x + c.r, c.y + c.r);
   owRebuildRoads(); world.version++;
   OW.stats.genMs = S.ms; OW.stats.last = S.key;

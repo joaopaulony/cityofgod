@@ -402,17 +402,11 @@ function paintRoadVectors(ch, g) {
   const bx0 = ch.ci * CH - 2, by0 = ch.cj * CH - 2, bx1 = bx0 + CH + 4, by1 = by0 + CH + 4, inB = p => p.x > bx0 - 4 && p.x < bx1 + 4 && p.y > by0 - 4 && p.y < by1 + 4;
   // pistas (mundo grande): marcações das pistas de pouso cruzando este bloco
   if (world.airports) paintRunways(ch, g, inB);
-  // faixas tracejadas brancas separando pistas nas vias largas
-  for (const rd of world.roads) if ((rd.off || 0) > 0.5) for (const o of [-1, 1]) {
-    const lane = o * ((rd.off || 0) + ROAD_W) * 0.5;
-    for (let i = 0; i < rd.pts.length - 1; i++) {
-      const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || (i % 12) > 5 || crossing(rd,p)) continue;
-      g.strokeStyle = 'rgba(232,230,222,0.8)'; g.lineWidth = 0.12;
-      g.beginPath(); g.moveTo(p.x + p.nx * lane, p.y + p.ny * lane); g.lineTo(q.x + q.nx * lane, q.y + q.ny * lane); g.stroke();
-    }
-  }
-  // faixa dupla amarela gasta: segmentos curtos com opacidade variando
-  for (const rd of world.roads) for (const o of [-0.12, 0.12]) for (let i = 0; i < rd.pts.length - 1; i++) {
+  // demarcação horizontal (eixo, faixas, bordo e vagas): para antes da faixa de pedestre de cada cruzamento
+  const beforeX = (rd, p) => !!world.open && CityStreetLayout.nearOtherRoad(p.x, p.y, rd.bigId, { map: OW.roadHash, cell: OW.RC }, ROAD_W + SIDE + 4.2);
+  for (const rd of world.roads) if (world.open && rd.lanes) paintLaneMarks(rd, g, inB, beforeX);
+  else for (const o of [-0.12, 0.12]) for (let i = 0; i < rd.pts.length - 1; i++) {
+    // mundo pequeno antigo: faixa dupla amarela gasta
     const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || nearJ(p) || crossing(rd,p)) continue;
     const wear = terrain.n3[((Math.floor(p.y * TP) & 255) << 8) | (Math.floor(p.x * TP) & 255)];
     g.strokeStyle = `rgba(214,176,62,${0.45 + wear * 0.45})`; g.lineWidth = 0.1;
@@ -463,6 +457,76 @@ function paintRoadVectors(ch, g) {
     }
     g.stroke();
   }
+}
+
+// Uma via do mundo aberto: rua local = eixo amarelo tracejado; avenida/rodovia = eixo duplo amarelo contínuo,
+// tracejado branco entre as 2 faixas de cada sentido e linha de bordo; rua comercial = linha da faixa de
+// estacionamento com as marcas (T) de cada vaga. Tinta com desgaste (ruído) e sem riscar dentro de cruzamentos.
+function paintLaneMarks(rd, g, inB, beforeX) {
+  const P = rd.pts, n = P.length, hw = ROAD_W + (rd.off || 0), park = rd.park || 0, big = rd.cls === 'avenue' || rd.cls === 'highway';
+  const ok = new Uint8Array(n); for (let i = 0; i < n; i++) ok[i] = inB(P[i]) && !beforeX(rd, P[i]) ? 1 : 0;
+  const wear = p => terrain.n3[((Math.floor(p.y * 9) & 255) << 8) | (Math.floor(p.x * 9) & 255)];
+  const phase = p => Math.abs(p.x * p.tx + p.y * p.ty);   // posição ao longo da via (contínua entre setores)
+  const stroke = (o, col, w, dash, gap) => {
+    g.lineWidth = w;
+    for (let i = 0; i < n - 1; i++) {
+      const p = P[i], q = P[i + 1]; if (!ok[i] || !ok[i + 1]) continue;
+      if (dash && (phase(p) % (dash + gap)) > dash) continue;
+      g.strokeStyle = col(0.72 + wear(p) * 0.26);
+      g.beginPath(); g.moveTo(p.x + p.nx * o, p.y + p.ny * o); g.lineTo(q.x + q.nx * o, q.y + q.ny * o); g.stroke();
+    }
+  };
+  const YEL = a => `rgba(226,182,52,${a})`, WHT = a => `rgba(238,236,228,${a})`;
+  if (big) { stroke(-0.15, YEL, 0.15, 0, 0); stroke(0.15, YEL, 0.15, 0, 0); }
+  else stroke(0, YEL, 0.12, 3, 5);
+  const lane = hw - park;
+  for (const s of [-1, 1]) {
+    if ((rd.lanes || 1) > 1) stroke(s * lane / 2, WHT, 0.14, 3, 6);
+    if (big) stroke(s * (lane - 0.25), WHT, 0.14, 0, 0);
+    if (park) {
+      stroke(s * lane, WHT, 0.15, 0, 0);
+      g.lineWidth = 0.15;
+      for (let i = 0; i < n; i++) {
+        const p = P[i]; if (!ok[i] || (phase(p) % 6.2) > 0.5 || (i && (phase(P[i - 1]) % 6.2) <= 0.5)) continue;
+        g.strokeStyle = WHT(0.5 + wear(p) * 0.4); g.beginPath();
+        g.moveTo(p.x + p.nx * s * lane, p.y + p.ny * s * lane); g.lineTo(p.x + p.nx * s * (lane + park * 0.85), p.y + p.ny * s * (lane + park * 0.85)); g.stroke();
+      }
+    }
+  }
+}
+
+// Braço de um cruzamento (decalque criado por miaCrosswalks): faixa de pedestre zebrada alinhada com a calçada,
+// linha de retenção na metade que chega e, na pista que chega, "PARE" (rua) ou setas de direção (avenida).
+function paintJunctionArm(g, d) {
+  const dx = d.dx, dy = d.dy, rx = dy, ry = -dx, hw = d.hw, e = d.e, r = mulberry(d.seed);
+  const at = (u, v) => [d.x + dx * u + rx * v, d.y + dy * u + ry * v];
+  const quad = (u0, u1, v0, v1, col) => { const a = at(u0, v0), b = at(u1, v0), c = at(u1, v1), q = at(u0, v1); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(q[0], q[1]); g.fill(); };
+  // zebra: barras no sentido do tráfego, com falhas de tinta (rua x rua: só onde há PARE)
+  if (d.zebra !== false) for (let v = -hw + 0.45; v < hw - 0.5; v += 1.0) {
+    const fade = 0.7 + r() * 0.25; quad(e + 0.35, e + 3.35, v, v + 0.55, `rgba(240,238,230,${fade})`);
+    for (let k = 0; k < 26; k++) { const u = e + 0.35 + r() * 3, w = v + r() * 0.55; quad(u, u + 0.04 + r() * 0.12, w, w + 0.03 + r() * 0.08, 'rgba(62,63,66,0.5)'); }
+  }
+  if (!d.stop) return;
+  // linha de retenção: só na metade de quem chega (mão direita)
+  const lane = hw - (d.park || 0);
+  quad(e + 4.0, e + 4.6, 0.15, lane, 'rgba(242,240,232,0.94)');
+  g.save(); g.transform(rx, ry, dx, dy, d.x, d.y);
+  if (d.cls === 'street') {
+    // "PARE" esticado no sentido do tráfego (lido por quem se aproxima)
+    g.translate(lane / 2, e + 7.2); g.scale(1, 2.4); g.fillStyle = 'rgba(240,238,230,0.86)';
+    g.font = 'bold 0.78px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('PARE', 0, 0);
+  } else {
+    // setas: pista da esquerda segue ou vira à esquerda, pista da direita segue ou vira à direita
+    const lw = lane / (d.lanes || 2);
+    for (let k = 0; k < (d.lanes || 2); k++) {
+      const cx = lw * (k + 0.5), y0 = e + 11.5, side = k === 0 ? -1 : k === (d.lanes || 2) - 1 ? 1 : 0;
+      g.fillStyle = 'rgba(240,238,230,0.86)';
+      g.fillRect(cx - 0.09, y0 - 3.4, 0.18, 4.4);
+      g.beginPath(); g.moveTo(cx, y0 - 4.6); g.lineTo(cx - 0.42, y0 - 3.3); g.lineTo(cx + 0.42, y0 - 3.3); g.fill();
+      if (side) { const sx = side; g.fillRect(Math.min(cx, cx + sx * 0.9), y0 - 1.3, 0.9, 0.18); g.beginPath(); g.moveTo(cx + sx * 1.35, y0 - 1.21); g.lineTo(cx + sx * 0.85, y0 - 1.65); g.lineTo(cx + sx * 0.85, y0 - 0.77); g.fill(); }
+    }
+  }
+  g.restore();
 }
 
 // pistas de pouso: asfalto, faixa central tracejada, cabeceiras (piano), números e luzes de borda
@@ -907,7 +971,10 @@ function drawGround(g, W, H) {
   const cj0 = clamp(Math.floor((Math.min(...ys) - 1) / CH), 0, MAP / CH - 1), cj1 = clamp(Math.floor((Math.max(...ys) + 1) / CH), 0, MAP / CH - 1);
   const need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3), vis = [], ahead = [];
   const want = (ci, cj, list) => {
-    if (world.chunkReady && !terrain.chunks.has(ci + ',' + cj) && !world.chunkReady(ci, cj)) return;   // setores vizinhos ainda carregando
+    if (world.chunkReady && !world.chunkReady(ci, cj)) {   // setores vizinhos ainda carregando (ou descarregados no meio da pintura)
+      const old = terrain.chunks.get(ci + ',' + cj); if (!old) return;
+      if (!old.done) { terrain.chunks.delete(ci + ',' + cj); return; }   // recomeça quando o setor voltar: sem faixas/decalques faltando
+    }
     const ch = terrain.chunks.get(ci + ',' + cj) || startChunk(ci, cj);
     ch.used = terrain.frame;
     if (!ch.done) list.push(ch);

@@ -42,7 +42,8 @@ function ecoFlowerSprite(kind,rr){
 function ecoFree(x,y){
   return x>1&&y>1&&x<MAP-1&&y<MAP-1&&
     !onRoad(x,y)&&pondVal(x,y)>1.17&&
-    !(world.blocked&&world.blocked(x,y,.12));
+    !(world.blocked&&world.blocked(x,y,.12))&&
+    !(world.paved&&world.paved.some(b=>x>b[0]&&x<b[2]&&y>b[1]&&y<b[3]));   // pátio de posto/estacionamento
 }
 function ecosystemInit(){
   if(world.open&&world.ecoReady)return;   // mundo grande: já iniciado no buildOpenWorld

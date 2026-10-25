@@ -76,14 +76,23 @@ test('rodovias ligam todos os núcleos (rede conexa) e só tocam água em pontes
   });
 });
 
-test('vias orgânicas: curvatura ao longo das rodovias (não são retas nem grade)', () => {
-  let turns = 0, segs = 0;
-  for (const r of world.roads.filter(r => r.cls !== 'rail')) for (let i = 2; i < r.pts.length; i++) {
-    const [a, b, c] = [r.pts[i - 2], r.pts[i - 1], r.pts[i]];
-    const t1 = Math.atan2(b[1] - a[1], b[0] - a[0]), t2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
-    const dt = Math.abs(Math.atan2(Math.sin(t2 - t1), Math.cos(t2 - t1))); segs++; if (dt > 0.005) turns++;
+test('malha urbana em grade: ruas retas, cruzamentos em ângulo reto, larguras por hierarquia', () => {
+  const turn = r => { let t = 0, n = 0; for (let i = 2; i < r.pts.length; i++) { const [a, b, c] = [r.pts[i - 2], r.pts[i - 1], r.pts[i]]; const t1 = Math.atan2(b[1] - a[1], b[0] - a[0]), t2 = Math.atan2(c[1] - b[1], c[0] - b[0]); n++; if (Math.abs(Math.atan2(Math.sin(t2 - t1), Math.cos(t2 - t1))) > 0.005) t++; } return [t, n]; };
+  const grid = world.roads.filter(r => r.grid);
+  assert.ok(grid.length > 30, 'grade pequena demais: ' + grid.length);
+  for (const r of grid) {
+    assert.equal(turn(r)[0], 0, 'rua da grade com curva');
+    const [a, b] = [r.pts[0], r.pts[r.pts.length - 1]];
+    assert.ok(Math.abs(a[0] - b[0]) < 1e-6 || Math.abs(a[1] - b[1]) < 1e-6, 'rua da grade fora dos eixos');
   }
-  assert.ok(turns / segs > 0.6, 'vias retas demais: ' + (turns / segs).toFixed(2));
+  // rodovias continuam fazendo curvas largas pelo campo
+  let t = 0, n = 0; for (const r of world.roads.filter(r => r.cls === 'highway')) { const [a, b] = turn(r); t += a; n += b; }
+  assert.ok(t / n > 0.3, 'rodovias retas demais: ' + (t / n).toFixed(2));
+  // hierarquia: rua local estreita (2 faixas), avenida com 4 faixas, rodovia a mais larga
+  assert.ok(COG.ROAD.street.w <= 7 && COG.ROAD.avenue.w > COG.ROAD.street.w && COG.ROAD.highway.w >= COG.ROAD.avenue.w);
+  assert.equal(COG.ROAD.avenue.lanes, 2);
+  assert.ok(world.roads.some(r => r.park > 0), 'centro sem ruas com vaga paralela');
+  assert.ok(world.junctions.length > 80, 'poucos cruzamentos: ' + world.junctions.length);
 });
 
 test('desempenho: mundo inteiro gerado rápido (cabe num Web Worker no celular)', () => {

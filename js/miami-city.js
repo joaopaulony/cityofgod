@@ -74,7 +74,9 @@ function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3, rotateBu
   const ax = fk === 'S' || fk === 'N', W = ax ? front : depth, D = ax ? depth : front;
   // via em diagonal: recua pelo canto mais próximo (meias-medidas projetadas na normal real da via)
   const dist = ROAD_W + c.off + SIDE + set + Math.abs(o[0]) * W / 2 + Math.abs(o[1]) * D / 2;
-  const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - D / 2), x1 = x0 + W, y1 = y0 + D;
+  // arredonda p/ o metro inteiro sempre p/ longe da via (rua reta da grade: o recuo nunca fica menor que o pedido)
+  const ex0 = p.x + o[0] * dist - W / 2, ey0 = p.y + o[1] * dist - D / 2, away = (v, s) => s > 0.98 ? Math.ceil(v - 1e-6) : s < -0.98 ? Math.floor(v + 1e-6) : Math.round(v);
+  const x0 = away(ex0, o[0]), y0 = away(ey0, o[1]), x1 = x0 + W, y1 = y0 + D;
   const theta=rotateBuilding?Math.atan2(n[0]*o[1]-n[1]*o[0],n[0]*o[0]+n[1]*o[1]):0;
   const corners=CityStreetLayout.orientedCorners(x0,y0,x1,y1,theta),xx=corners.map(p=>p[0]),yy=corners.map(p=>p[1]);
   const m = margin, box = [Math.min(...xx)-m,Math.min(...yy)-m,Math.max(...xx)+m,Math.max(...yy)+m];
@@ -94,7 +96,7 @@ function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3, rotateBu
 // ---------- prédio (fachada pintada por andar) ----------
 function miaBuilding(S, c, rects, kind) {
   const r = rng, sp = MIA_SPEC[kind](r);
-  const L = miaLot(S, c, rects, sp.w, sp.d, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .55), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2, .3, true);
+  const L = miaLot(S, c, rects, sp.w, sp.d, Math.max(.7, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .72)), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2, .3, true);
   if (!L) return null;
   rects.push(L.box);
   const { x0, y0, x1, y1, fk, n } = L, len = fk === 'S' || fk === 'N' ? x1 - x0 : y1 - y0, mid = len >> 1;
@@ -245,7 +247,7 @@ const miaQuad = (fx, fy, n, t, half, ext) => [[fx - t[0] * half, fy - t[1] * hal
 // pórtico de colunas, entrada circular com chafariz, piscina com deque e palmeiras imperiais ----------
 function miaMansion(S, c, rects) {
   let L = null, HW = 0, HD = 0;
-  for (const [hw, hd, lw, ld] of [[20, 14, 34, 33], [18, 12, 30, 29], [16, 11, 27, 26]]) if ((L = miaLot(S, c, rects, lw, ld, 0.4, 0.3))) { HW = hw; HD = hd; break; }
+  for (const [hw, hd, lw, ld] of [[20, 14, 34, 33], [18, 12, 30, 29], [16, 11, 27, 26]]) if ((L = miaLot(S, c, rects, lw, ld, 0.7, 0.3))) { HW = hw; HD = hd; break; }
   if (!L) return null;
   rects.push(L.box);
   const { fk, n } = L, t = [-n[1], n[0]], ax = Math.abs(n[0]) > 0.5;
@@ -501,7 +503,7 @@ function miaCar(x, y, rot, opt = {}) {
   const col = opt.col || MIA_CARS[(rng() * MIA_CARS.length) | 0];
   return addBox({ x, y, w: 4.4, d: 1.85, h: 1.5, rot, top: col, side: col, kind: 'parkedcar', col, junk: !!opt.junk, suv: rng() < 0.35, draw: drawParkedCar });
 }
-function drawParkedCar(g, b) { miaCached(g, b, cg => paintCar(cg, b)); }
+function drawParkedCar(g, b) { if (b.r3d) return; miaCached(g, b, cg => paintCar(cg, b)); }   // r3d: modelo GLB em parked-3d.mjs
 function paintCar(g, b) {
   const c = Math.cos(b.rot), s = Math.sin(b.rot), Z = cam.zoom, P = (u, v, z) => proj(b.x + u * c - v * s, b.y + u * s + v * c, z);
   const L = 2.2, W = 0.9, hb = b.suv ? 0.7 : 0.48, zc = 0.3 + hb, hc = b.suv ? 0.6 : 0.42;
@@ -884,10 +886,10 @@ function miaStreets(S, zoneAt) {
     // Los Angeles: fileiras regulares de Washingtonias (a cada ~11 m nas avenidas, ~15 m nas ruas, dos dois lados)
     const la = z0 => z0 === 'bungalow' || z0 === 'mansion' || z0 === 'southbeach' || z0 === 'town';
     const p0 = rd.pts[(rd.pts.length / 2) | 0], zMid = zoneAt(p0.x + p0.nx * (ROAD_W + SIDE + 6), p0.y + p0.ny * (ROAD_W + SIDE + 6));
-    const step = la(zMid) ? (rd.cls === 'avenue' ? 22 : 30) : rd.cls === 'avenue' ? 26 : 40;
+    const step = rd.park ? 64 : la(zMid) ? (rd.cls === 'avenue' ? 34 : 44) : rd.cls === 'avenue' ? 40 : 56;   // pontos de 0,5 m
     for (let i = 14, s = 1; i < rd.pts.length - 6; i += step, s = -s) {
       const p = rd.pts[i];
-      for (const sg of rd.cls === 'avenue' || la(zMid) ? [1, -1] : [s]) {
+      for (const sg of (rd.cls === 'avenue' || la(zMid)) && !rd.park ? [1, -1] : [s]) {
         const x = p.x + p.nx * sg * (ROAD_W + rd.off + SIDE + 1.05), y = p.y + p.ny * sg * (ROAD_W + rd.off + SIDE + 1.05), z = zoneAt(x, y);
         if (!z || z === 'works' || z === 'poor' || z === 'projects') continue;
         if (!CityStreetLayout.verge(x, y, .45, roadDist, ROAD_W, SIDE) || pondVal(x, y) < 1.2 || miaBlocked(x, y, 0.6)) continue;
@@ -974,18 +976,10 @@ function drawHydrant(g, b) {
 
 // ---------- vagas junto ao meio-fio, bancos e lixeiras nas calçadas ----------
 function miaParking(S, zoneAt) {
-  const P = { brickell: 0.55, southbeach: 0.4, bungalow: 0.18, town: 0.15, poor: 0.22, projects: 0.25, works: 0.15, mansion: 0.06 };
-  const zeb = world.decals.filter(d => d.kind === 'zebra');
+  // carros só nas vagas pintadas (ruas comerciais do centro); ruas locais ficam livres p/ passar
+  parkStreetCars(S, zoneAt);
   for (const rd of S.roads) {
     if (rd.cls === 'highway') continue;
-    for (let i = 14; i < rd.pts.length - 14; i += 13) for (const sg of [1, -1]) {
-      const p = rd.pts[i], off = ROAD_W + rd.off - 1.15, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off;
-      const z = zoneAt(p.x + p.nx * sg * (ROAD_W + rd.off + SIDE + 3), p.y + p.ny * sg * (ROAD_W + rd.off + SIDE + 3));
-      if (!z || rng() > (P[z] || 0) || zeb.some(d => Math.hypot(d.x - x, d.y - y) < 11) || pondVal(x, y) < 1.2) continue;
-      if (Math.abs(roadDist(x, y) - (ROAD_W - 1.15)) > 0.4) continue;   // perto de outra via (cruzamento)
-      const q = rd.pts[i + 1], rot = Math.atan2(q.y - p.y, q.x - p.x) + (sg > 0 ? 0 : Math.PI);
-      miaCar(x, y, rot);
-    }
     for (let i = 20; i < rd.pts.length - 10; i += 60) {
       const p = rd.pts[i], sg = i % 120 ? 1 : -1, off = ROAD_W + rd.off + SIDE + 1, x = p.x + p.nx * sg * off, y = p.y + p.ny * sg * off, z = zoneAt(x, y);
       if (z !== 'brickell' && z !== 'southbeach' && z !== 'bungalow' && z !== 'town') continue;
@@ -1079,39 +1073,50 @@ function drawClothesline(g, b) {
 }
 
 // ---------- faixas de pedestre nos cruzamentos ----------
+// Cruzamentos da grade (lista do gerador, COG.buildRoads): cada braço ganha faixa de pedestre alinhada com a
+// calçada, linha de retenção e "PARE"/setas (paintJunctionArm, terrain.js). O setor que contém o cruzamento o pinta.
 function miaCrosswalks(S) {
-  const C = OW.RC;
-  for (const rd of S.roads) {
-    if (rd.cls === 'highway') continue;
-    for (const end of [0, rd.pts.length - 1]) {
-      const p = rd.pts[end], a = OW.roadHash.get(Math.floor(p.y / C) * 65536 + Math.floor(p.x / C)); if (!a) continue;
-      let other = null;
-      for (const s of a) if (s.id !== rd.bigId && segDist(p.x, p.y, s.ax, s.ay, s.bx, s.by) < s.off + ROAD_W + 1.5) { other = s; break; }
-      if (!other) continue;
-      // anda pela via até sair do asfalto da outra + calçada
-      const dir = end ? -1 : 1; let i = end;
-      while (i >= 0 && i < rd.pts.length && segDist(rd.pts[i].x, rd.pts[i].y, other.ax, other.ay, other.bx, other.by) < other.off + ROAD_W + SIDE + 1.2) i += dir;
-      if (i < 0 || i >= rd.pts.length) continue;
-      const q = rd.pts[i], tx = rd.pts[Math.min(rd.pts.length - 1, i + 1)].x - rd.pts[Math.max(0, i - 1)].x, ty = rd.pts[Math.min(rd.pts.length - 1, i + 1)].y - rd.pts[Math.max(0, i - 1)].y, tl = Math.hypot(tx, ty) || 1;
-      const ol=Math.hypot(other.bx-other.ax,other.by-other.ay)||1;
-      if(Math.abs((tx*(other.bx-other.ax)+ty*(other.by-other.ay))/(tl*ol))>.42)continue;
-      if(CityStreetLayout.nearOtherRoad(q.x,q.y,rd.bigId,{map:OW.roadHash,cell:OW.RC},ROAD_W+1.6))continue;
-      if (world.decals.some(d => d.kind === 'zebra' && Math.hypot(d.x - q.x, d.y - q.y) < 12)) continue;
-      world.decals.push({ kind: 'zebra', x: q.x, y: q.y, tx: tx / tl * dir, ty: ty / tl * dir, hw: ROAD_W + rd.off, bb: [q.x - 13, q.y - 13, q.x + 13, q.y + 13], paint: paintZebra });
+  const C = OW.RC, [x0, y0, x1, y1] = S.bounds, roads = OW.cw.roads;
+  const near = (x, y) => OW.roadHash.get(Math.floor(y / C) * 65536 + Math.floor(x / C)) || [];
+  const otherEdge = (x, y, id) => { let b = 99; for (const s of near(x, y)) if (s.id !== id) { const d = segDist(x, y, s.ax, s.ay, s.bx, s.by) - s.off - ROAD_W; if (d < b) b = d; } return b; };
+  for (const J of OW.cw.junctions || []) {
+    if (J.x < x0 || J.x >= x1 || J.y < y0 || J.y >= y1) continue;
+    const arms = [];
+    for (const s of near(J.x, J.y)) {
+      if (segDist(J.x, J.y, s.ax, s.ay, s.bx, s.by) > 1) continue;
+      const L = Math.hypot(s.bx - s.ax, s.by - s.ay) || 1;
+      for (const sg of [1, -1]) {
+        const dx = (s.bx - s.ax) / L * sg, dy = (s.by - s.ay) / L * sg, px = J.x + dx * 8, py = J.y + dy * 8;
+        if (!near(px, py).some(t => t.id === s.id && segDist(px, py, t.ax, t.ay, t.bx, t.by) < 1)) continue;   // a via segue p/ esse lado
+        if (arms.some(o => o.id === s.id && o.dx * dx + o.dy * dy > 0.9)) continue;
+        arms.push({ id: s.id, dx, dy, off: s.off });
+      }
+    }
+    if (arms.length < 2) continue;
+    const big = arms.some(m => roads[m.id] && roads[m.id].cls !== 'street');
+    for (const m of arms) {
+      const rd = roads[m.id]; if (!rd || rd.cls === 'highway') continue;
+      // preferencial: avenida cruzando rua não para; rua x rua = parada só no sentido norte–sul (2 tempos)
+      const avX = arms.some(o => o !== m && roads[o.id] && roads[o.id].cls !== 'street' && Math.abs(o.dx * m.dx + o.dy * m.dy) < 0.5);
+      const stop = rd.cls === 'street' ? (big || Math.abs(m.dy) > 0.5) : avX;
+      let e = 0; while (e < 24 && otherEdge(J.x + m.dx * e, J.y + m.dy * e, m.id) < 0) e += 0.25;
+      if (e >= 24) continue;
+      const hw = ROAD_W + m.off, L = e + 16.5, ex = J.x + m.dx * L, ey = J.y + m.dy * L, pad = hw + 1;
+      world.decals.push({ kind: 'xarm', x: J.x, y: J.y, dx: m.dx, dy: m.dy, e, hw, park: rd.park || 0, lanes: rd.lanes || 1, cls: rd.cls, stop, zebra: big || stop,
+        seed: (Math.round(J.x * 7 + J.y * 13 + m.dx * 5 + m.dy * 3) >>> 0) + 1,
+        bb: [Math.min(J.x, ex) - pad, Math.min(J.y, ey) - pad, Math.max(J.x, ex) + pad, Math.max(J.y, ey) + pad], paint: paintJunctionArm });
+      // avenida x avenida: semáforo de braço na calçada da direita, antes da faixa, com o braço sobre as pistas que chegam
+      if (rd.cls !== 'street' && stop) {
+        const rx = m.dy, ry = -m.dx, lane = hw - (rd.park || 0), u = e + 4.9, px = J.x + m.dx * u + rx * (hw + 0.95), py = J.y + m.dy * u + ry * (hw + 0.95);
+        if (pondVal(px, py) > 1.3 && !world.blocked(px, py, 0.2)) {
+          const sig = { id: 'sig-' + Math.round(J.x) + '-' + Math.round(J.y) + '-' + Math.round(m.dx) + Math.round(m.dy), x: px, y: py, ax: -m.dx, ay: -m.dy, ix: -rx, iy: -ry,
+            armSpan: lane + 0.6, armHeight: 5.6, poleHeight: 5.6, headHeight: 4.7, group: Math.abs(m.dx) > 0.5 ? 'main' : 'branch', direction: 1, crossing: { x: J.x, y: J.y } };
+          (world.trafficSignals || (world.trafficSignals = [])).push(sig);
+          owAddCircle({ x: px, y: py, r: 0.15, h: 5.6, kind: 'trafficSignal', ref: sig });
+        }
+      }
     }
   }
-}
-function paintZebra(g, d) {
-  const nx = -d.ty, ny = d.tx;
-  g.fillStyle = 'rgba(244,242,234,0.9)';
-  for (let v = -d.hw + 0.3; v < d.hw - 0.3; v += 0.9) {
-    g.beginPath();
-    const ax = d.x + nx * v, ay = d.y + ny * v;
-    g.moveTo(ax, ay); g.lineTo(ax + nx * 0.5, ay + ny * 0.5); g.lineTo(ax + nx * 0.5 + d.tx * 3, ay + ny * 0.5 + d.ty * 3); g.lineTo(ax + d.tx * 3, ay + d.ty * 3); g.fill();
-  }
-  // linha de retenção
-  g.fillStyle = 'rgba(244,242,234,0.85)'; const bx = d.x + d.tx * 4.2, by = d.y + d.ty * 4.2;
-  g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + nx * d.hw, by + ny * d.hw); g.lineTo(bx + nx * d.hw + d.tx * 0.4, by + ny * d.hw + d.ty * 0.4); g.lineTo(bx + d.tx * 0.4, by + d.ty * 0.4); g.fill();
 }
 
 // ---------- decalques no chão (pintados nos blocos do terreno, em metros) ----------
@@ -1253,6 +1258,7 @@ function paintDecal(g, d) {
 function* miaGenSector(S, rects) {
   miaReserveSports(S,rects);
   const dd = world.districtFn, zoneAt = (x, y) => miaZone(x, y, dd(x, y));
+  gasStations(S, zoneAt, rects); yield;
   const cands = [];
   for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 4) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, cls: rd.cls, rd, i, r: rng() }); }
   cands.sort((a, b) => a.r - b.r);
@@ -1265,6 +1271,8 @@ function* miaGenSector(S, rects) {
     tries++; c.zone = z; (MIA.zt || (MIA.zt = {}))[z] = (MIA.zt[z] || 0) + 1;
     const mix = MIA_W[z]; let kind = mix[(rng() * mix.length) | 0];
     if ((z === 'bungalow' || z === 'town' || z === 'poor') && c.cls === 'avenue' && rng() < 0.2) kind = 'shop';
+    // estacionamento de lote: comércio, centro e galpões (mais nas avenidas)
+    if (z !== 'mansion' && z !== 'poor' && rng() < ({ brickell: 0.1, southbeach: 0.08, works: 0.08 }[z] || (c.cls === 'avenue' ? 0.05 : 0.012))) { if (parkingLot(S, c, rects)) { placed++; yield; } continue; }
     let H = null;
     if (kind === 'mansion') H = miaMansion(S, c, rects);
     else if (kind === 'bungalow') H = miaHouse(S, c, rects, false);

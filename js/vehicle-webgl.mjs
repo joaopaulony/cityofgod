@@ -17,11 +17,16 @@ import {createAmbience} from './ambience-3d.mjs';
 import {createBirds} from './birds-3d.mjs';
 import {createLandmarks} from './landmarks-3d.mjs';
 import {createAirport3D} from './airport-3d.mjs';
+import {createGas3D} from './gas-3d.mjs';
+import {createParked3D} from './parked-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
 const canvas=document.querySelector('#vehicle3d');
 const state={x:0,y:0,angle:0,speed:0,steer:0,distance:0};
+// tanque (0–1): ~12 km com o tanque cheio; abastece parado ao lado de uma bomba, motor desligado, segurando B
+const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
+const TANK_GAL=13.2,RANGE_M=12000;
 const modelId=new URLSearchParams(location.search).get('vehicleModel')||'silvia';
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
  gltfLoader=null,loadingSerial=0;
@@ -36,6 +41,7 @@ const system={
 window.cityVehicles=system;
 // Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
+system.fuel=fuel;
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
  shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;
@@ -140,7 +146,8 @@ function syncOccluders(force){
    trafficSignals:in3d?[]:(w.trafficSignals||[]).filter(o=>near(o.x,o.y)),
    props:(w.props||[]).filter(o=>o.type!=='tuft'&&!plant(o)&&near(o.x,o.y)),
    segs:(w.segs||[]).filter(s=>s.kind==='fence'&&(!in3d||s.chain)&&near(s.x1,s.y1))},
-  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)),
+  // carro estacionado com modelo GLB (parked-3d.mjs) já tem profundidade própria: sem caixa de oclusão por cima
+  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)&&!(in3d&&b.kind==='parkedcar')),
   urbanBins:in3d?[]:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
  occlusionScene=createWorldOccluders(scene,THREE,view,occlusionMaterial);
  system.occlusionStats=occlusionScene.state;
@@ -295,10 +302,16 @@ function initRenderer(){
   // aeroporto: aviões, torre, prédio-símbolo, luzes da pista e cerca de ferro (airport-3d.mjs)
   try{airport3d=createAirport3D(THREE,scene,bridge);system.airport3d=airport3d.state;}
   catch(error){console.error('Aeroporto 3D falhou',error);}
+  // postos de gasolina: cobertura, bombas, loja e totem (gas-3d.mjs)
+  try{gas3d=createGas3D(THREE,scene,bridge);system.gas3d=gas3d.state;}
+  catch(error){console.error('Postos 3D falharam',error);}
+  // carros estacionados com os modelos GLB (parked-3d.mjs)
+  try{parked3d=createParked3D(THREE,scene,bridge);system.parked3d=parked3d.state;}
+  catch(error){console.error('Carros estacionados 3D falharam',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
 }
-let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null;
+let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -328,8 +341,8 @@ function moveCar(dt){
  if(!system.driver)return;
  const p=bridge.player;
  const inControl={
-  forward:system.engineOn&&c.down('w'),
-  reverse:system.engineOn&&c.down('s'),
+  forward:system.engineOn&&fuel.level>0&&c.down('w'),
+  reverse:system.engineOn&&fuel.level>0&&c.down('s'),
   left:c.down('a'),right:c.down('d'),
   handbrake:c.down(' '),engineOn:system.engineOn
  };
@@ -346,6 +359,11 @@ function moveCar(dt){
   system.lastImpact=collision.impact.kind;
  }
  system.braking=c.down('s')||c.down(' ');
+ // consumo: distância rodada + marcha lenta; tanque vazio apaga o motor
+ if(system.engineOn){
+  fuel.level=Math.max(0,fuel.level-Math.hypot(state.x-old.x,state.y-old.y)/RANGE_M-dt/5400);
+  if(fuel.level<=0){system.engineOn=false;fuel.msg='Pane seca — empurre até um posto ou chame ajuda';fuel.msgT=4;}
+ }
  const signedTravel=(state.x-old.x)*Math.cos(old.angle)+
    (state.y-old.y)*Math.sin(old.angle);
  stepWheelRig(wheelRig,signedTravel,state.steer);
@@ -377,6 +395,25 @@ function interact(){
  state.speed=0;state.steer=0;
  return 'Entrou no '+activeModel.name+' — W/S acelerar, A/D esterçar, Espaço freio';
 }
+// abastecer: carro parado do lado de uma ilha, motor desligado, segurando B (galões e valor na bomba)
+function refuel(dt){
+ fuel.msgT=Math.max(0,fuel.msgT-dt);
+ const near=system.driver&&Math.abs(state.speed)<.4?bridge.gasPumpNear?.(state.x,state.y,3.6):null;
+ if(!near){if(fuel.pump&&fuel.gallons>0){fuel.msg='Abastecido: '+fuel.gallons.toFixed(2)+' gal · US$ '+fuel.cost.toFixed(2);fuel.msgT=3.5;}fuel.pump=null;fuel.gallons=0;fuel.cost=0;system.fueling=false;return;}
+ if(fuel.pump!==near.pump){fuel.pump=near.pump;fuel.gallons=0;fuel.cost=0;}
+ fuel.station=near.st;
+ system.fueling=!system.engineOn&&bridge.down('b')&&fuel.level<1;
+ if(system.fueling){const add=Math.min(1-fuel.level,dt*.11);fuel.level+=add;fuel.gallons+=add*TANK_GAL;fuel.cost=fuel.gallons*near.st.prices[0][1];}
+}
+function drawFuel(g,x,y){
+ // medidor: E — F com ponteiro, bomba e alerta de reserva
+ const low=fuel.level<.15;
+ g.fillStyle='rgba(255,255,255,.08)';g.beginPath();g.roundRect(x,y,120,22,6);g.fill();
+ g.fillStyle=low?'#e8823a':'#8fd27c';g.beginPath();g.roundRect(x+22,y+8,88*fuel.level,6,3);g.fill();
+ g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=1;for(let k=0;k<=4;k++){g.beginPath();g.moveTo(x+22+k*22,y+5);g.lineTo(x+22+k*22,y+8);g.stroke();}
+ g.font='bold 10px system-ui';g.fillStyle='#d0d4d1';g.fillText('E',x+14,y+15);g.fillText('F',x+112,y+15);
+ g.fillStyle=low?'#e8823a':'#d0d4d1';g.fillRect(x+3,y+6,6,10);g.fillRect(x+9,y+8,2,5);
+}
 function drawPanel(g,w,h){
  if(!system.ready)return;
  const near=Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.8;
@@ -396,6 +433,13 @@ function drawPanel(g,w,h){
   g.fillText(system.engineOn?'MOTOR LIGADO':'MOTOR DESLIGADO',x+190,y+32);
   g.font='11px system-ui';g.fillStyle='#b8bcc1';
   g.fillText('F sair  ·  X motor  ·  L faróis  ·  H buzina',x+15,y+56);
+  drawFuel(g,x+232,y+40);
+  // bomba ao lado: instrução ou leitura da bomba (galões e valor), mensagem de fim de abastecimento/pane
+  let tip=null;
+  if(fuel.pump){const s=fuel.station;tip=system.engineOn?'Posto '+s.brand.name+' — X desliga o motor para abastecer':fuel.level>=1?'Tanque cheio  ·  '+fuel.gallons.toFixed(2)+' gal  ·  US$ '+fuel.cost.toFixed(2):(system.fueling?'Abastecendo… ':'Segure B para abastecer  ·  ')+fuel.gallons.toFixed(2)+' gal  ·  US$ '+fuel.cost.toFixed(2)+'  ('+s.prices[0][0]+' US$ '+s.prices[0][1].toFixed(2)+'/gal)';}
+  else if(fuel.msgT>0)tip=fuel.msg;
+  else if(fuel.level<.15)tip='Combustível na reserva — procure um posto';
+  if(tip){g.font='bold 13px system-ui';const tw=g.measureText(tip).width+28;g.fillStyle='rgba(13,17,20,.88)';g.beginPath();g.roundRect(w/2-tw/2,y-38,tw,28,8);g.fill();g.fillStyle=fuel.pump?'#f4dc9a':'#f2b27a';g.textAlign='center';g.fillText(tip,w/2,y-19);g.textAlign='left';}
  }else{
   g.font='bold 12px system-ui';g.textAlign='center';
   g.fillStyle='#f4dc9a';
@@ -419,6 +463,7 @@ function engineSound(){
 }
 system.update=dt=>{
  if(!system.ready)return;
+ refuel(dt);
  if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
  if(bridge.hit('h')&&system.driver)engineSound();
@@ -456,6 +501,8 @@ system.render=()=>{
  birds?.update();
  landmarks?.update();
  airport3d?.update();
+ gas3d?.update();
+ parked3d?.update();
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
