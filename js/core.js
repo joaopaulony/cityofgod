@@ -90,13 +90,14 @@ function shadeOf(nx, ny, nz = 0) { return clamp(V.dot(V.norm([nx, ny, nz]), SUN)
 // ---- entrada ----
 const input = {
   keys: new Set(), mx: 0, my: 0, lmb: false, rmb: false, wheel: 0, pressed: new Set(),
-  down(k) { return this.keys.has(k); },
-  hit(k) { return this.pressed.has(k); },
+  down(k) { return !window.CityUI?.blocksGameInput() && this.keys.has(k); },
+  hit(k) { return !window.CityUI?.blocksGameInput() && this.pressed.has(k); },
   endFrame() { this.pressed.clear(); this.wheel = 0; },
 };
 addEventListener('keydown', e => {
   if(window.cityCharacterEditorOpen)return;
-  if (document.activeElement && document.activeElement.id === 'say') return;
+  if (window.CityUI?.blocksGameInput()) return;
+  if (['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return;
   const k = e.key.toLowerCase();
   if (!input.keys.has(k)) input.pressed.add(k);
   input.keys.add(k);
