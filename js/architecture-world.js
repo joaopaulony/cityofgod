@@ -54,14 +54,33 @@ function remodelProperty(H){
    const wall={a,b,normal:[0,1],ext:true};putSegment(level,wall,0,Math.hypot(b[0]-a[0],b[1]-a[1]));
    const s=level.segments.at(-1);s.kind='balcony-rail';s.h=level.z+1.05;
   }
-  for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-   const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
+  // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
+  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
+    for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
+    }
   }
   const hall=level.rooms.find(r=>r.id==='hall'),center=P((hall.x0+hall.x1)/2,(hall.y0+hall.y1)/2);
   H.switches.push({x:center[0],y:center[1],floor:level.floor,kind:'switch',house:H});
   for(const r of level.rooms){const c=P((r.x0+r.x1)/2,(r.y0+r.y1)/2);H.indoorLights.push({x:c[0],y:c[1],floor:level.floor,z:level.z+2.4,r:Math.min(5,Math.hypot(r.x1-r.x0,r.y1-r.y0)*.6)});}
  }
+ // Compra ativará a criação do mobiliário de todos os andares, sem reler assets.
+ H.furnishOnPurchase=()=>{
+   if(H._architectureFurnished)return;
+   H._architectureFurnished=true;
+   const newBoxes=[];
+   for(const level of plan.levels)for(const f of level.furniture){
+     const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
+     const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
+     H.interactables.push(b);newBoxes.push(b);
+   }
+   if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())
+     if(sector.own?.houses?.includes(H)){(sector.own.boxes||(sector.own.boxes=[])).push(...newBoxes);break;}
+ };
+ if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H))H._architectureFurnished=true;
  const first=plan.levels[0];H.doorPt=P(...first.entry);H.doorN=[ey[0],ey[1]];H.front=[H.doorPt[0]+ey[0]*1.8,H.doorPt[1]+ey[1]*1.8];if(H.walk)H.walk[0]=H.doorPt;
+ if(typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
  plan.openingSegments=plan.levels.flatMap(level=>level.segments.filter(s=>s.doorAnim||s.windowAnim));
  if(count>1){H.stair={house:H,z:height,architecture:true};
   for(const level of plan.levels){const hall=level.rooms.find(r=>r.id==='hall'),x=(hall.x0+hall.x1)/2-.45,y=D*.45;level.stair={x,y,bottom:P(x,y+1.25),top:P(x,y-1.25),center:P(x,y)};}

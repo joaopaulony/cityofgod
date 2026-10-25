@@ -4,7 +4,7 @@
 // Mapa local de teste (?seed=N): usa a textura do chão (world.ground).
 'use strict';
 
-const wmap = { open: false, mini: null, base: null, scale: 0, ox: 0, oy: 0, cache: null, key: '', drag: null };
+const wmap = { open: false, mini: null, base: null, scale: 0, ox: 0, oy: 0, cache: null, key: '', drag: null, clickStart: null };
 
 // um pedaço de base por quadro (~3 ms): primeiro a do minimapa (sem telhados sugeridos), depois a do mapa completo;
 // com o mapa aberto a do mapa termina de uma vez
@@ -92,6 +92,7 @@ function drawWorldMap(h, W, H, st) {
   }
   h.save(); h.setTransform(1, 0, 0, 1, 0, 0);
   h.drawImage(wmap.cache, 0, 0);
+  window.CityGPS?.drawFull(h,S,st);
   // jogador: halo pulsante + seta na direção em que olha
   const [px, py] = S(p.x, p.y), pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
   h.fillStyle = `rgba(255,77,61,${0.18 + pulse * 0.2})`; h.beginPath(); h.arc(px, py, 14 + pulse * 6, 0, TAU); h.fill();
@@ -101,7 +102,7 @@ function drawWorldMap(h, W, H, st) {
   // barra de título, norte e escala
   h.fillStyle = 'rgba(15,12,10,0.82)'; h.fillRect(0, 0, W, 52);
   h.fillStyle = '#fff6e0'; h.font = 'bold 20px "Segoe UI", sans-serif'; h.textAlign = 'left'; h.textBaseline = 'middle'; h.fillText('MAPA', 20, 26);
-  h.fillStyle = '#cfc8be'; h.font = '13px "Segoe UI", sans-serif'; h.fillText('M ou Esc fecha  ·  roda = zoom  ·  arrastar = mover', 92, 27);
+  h.fillStyle = '#cfc8be'; h.font = '13px "Segoe UI", sans-serif'; h.fillText('M/Esc fechar · roda zoom · arraste · clique no local para GPS', 92, 27);
   h.textAlign = 'right'; h.fillText(`você: ${Math.round(p.x)}, ${Math.round(p.y)}`, W - 20, 27);
   h.textAlign = 'center'; h.fillStyle = '#fff'; h.font = 'bold 14px sans-serif'; h.fillText('N ▲', W - 40, 76);
   const m = [2000, 1000, 500, 250, 100, 50, 20, 10].find(v => v * sc <= 180) || 10, bar = m * sc, bx = 20, by = H - 22;

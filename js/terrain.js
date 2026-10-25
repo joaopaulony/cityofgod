@@ -504,7 +504,7 @@ function paintJunctionArm(g, d) {
   // zebra: barras no sentido do tráfego, com falhas de tinta (rua x rua: só onde há PARE)
   if (d.zebra !== false) for (let v = -hw + 0.45; v < hw - 0.5; v += 1.0) {
     const fade = 0.7 + r() * 0.25; quad(e + 0.35, e + 3.35, v, v + 0.55, `rgba(240,238,230,${fade})`);
-    for (let k = 0; k < 26; k++) { const u = e + 0.35 + r() * 3, w = v + r() * 0.55; quad(u, u + 0.04 + r() * 0.12, w, w + 0.03 + r() * 0.08, 'rgba(62,63,66,0.5)'); }
+    for (let k = 0; k < 5; k++) { const u = e + 0.35 + r() * 3, w = v + r() * 0.55; quad(u, u + 0.025 + r() * 0.055, w, w + 0.02 + r() * 0.035, 'rgba(62,63,66,0.17)'); }
   }
   if (!d.stop) return;
   // linha de retenção: só na metade de quem chega (mão direita)

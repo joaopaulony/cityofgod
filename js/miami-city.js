@@ -265,10 +265,16 @@ function miaMansion(S, c, rects) {
   St.glassTint = '#5f8fa8'; St.curtains = true; St.shutters = ['#3f5f4a', '#f4f1ea', '#5a7f96'][(r() * 3) | 0];
   H.miaKind = 'mansion';
   const sd = H.sides[fk]; H.doorPt = [sd.a[0] + sd.dir[0] * (mid + 0.5), sd.a[1] + sd.dir[1] * (mid + 0.5)]; H.doorN = n; H.front = [H.doorPt[0] + n[0] * 2, H.doorPt[1] + n[1] * 2];
-  // móveis do térreo
+  // Móveis só são materializados na compra: reduz objetos de casas particulares.
   const fur = (u, v, w, d, h, top, side, kind) => addBox({ x: hcx + t[0] * u - n[0] * v, y: hcy + t[1] * u - n[1] * v, w: ax ? d : w, d: ax ? w : d, h, top, side, kind, house: H });
-  fur(-HW / 4, 0, 2.6, 0.9, 0.45, '#efe9dc', '#cfc6b4', 'sofa'); fur(-HW / 4, 1.6, 1.4, 0.8, 0.42, '#7a5a3c', '#5a4028', 'table');
-  fur(HW / 4, 0, 2.2, 1.1, 0.76, '#6b4a32', '#4f3624', 'table'); fur(HW / 4, -HD / 2 + 0.6, 3, 0.6, 0.9, '#e6e0d2', '#9c8a70', 'counter');
+  H.furnishOnPurchase=()=>{
+    if(H._furnished)return;H._furnished=true;
+    fur(-HW/4,0,2.6,.9,.45,'#efe9dc','#cfc6b4','sofa');
+    fur(-HW/4,1.6,1.4,.8,.42,'#7a5a3c','#5a4028','table');
+    fur(HW/4,0,2.2,1.1,.76,'#6b4a32','#4f3624','table');
+    fur(HW/4,-HD/2+.6,3,.6,.9,'#e6e0d2','#9c8a70','counter');
+  };
+  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H))H.furnishOnPurchase();
   world.yards.push([L.x0, L.y0, L.x1, L.y1]);
   // gramado listrado em todo o lote
   miaDecal([[L.x0, L.y0], [L.x1, L.y0], [L.x1, L.y1], [L.x0, L.y1]], 'lawn', r, { dir: ax ? 1 : 0 });

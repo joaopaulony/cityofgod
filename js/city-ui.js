@@ -139,11 +139,15 @@ const CityUI = (() => {
         ${appBtn('market','🏪','Mercado')}
         ${appBtn('contacts','👥','Contatos')}
         ${appBtn('sms','💬','Mensagens')}
-        ${appBtn('wallet','💳','Carteira')}
+        ${appBtn('wallet','👛','Carteira')}
+        ${appBtn('bank','💳','NexoBank')}
         ${appBtn('notes','📝','Notas')}
         ${appBtn('map','🗺️','Mapa')}
         ${appBtn('camera','📷','Câmera')}
-        ${appBtn('social','🌐','CitySocial')}
+        ${appBtn('social','📸','CitySocial')}
+        ${appBtn('dating','💕','CityMatch')}
+        ${appBtn('calculator','🧮','Calculadora')}
+        ${appBtn('gps','📍','GPS')}
         ${appBtn('jobs','💼','Carreiras')}
         ${appBtn('taxi','🚕','CityTaxi')}
         ${appBtn('business','🏪','Negócios')}
@@ -153,6 +157,7 @@ const CityUI = (() => {
         ${appBtn('browser','🌍','CityWeb')}
         ${appBtn('calls','📞','Ligações')}
         ${appBtn('settings','🎨','Aparência')}
+        ${appBtn('graphics','🎮','Gráficos')}
         ${appBtn('help','⚙️','Ajuda')}
         </div>
         <div class="city-home-dock"><button data-app="calls">📞 <small>Ligações</small></button><button data-app="sms">💬 <small>Mensagens</small></button><button data-app="camera">📷 <small>Câmera</small></button><button data-app="browser">🌍 <small>Internet</small></button></div>`;

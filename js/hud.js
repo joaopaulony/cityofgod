@@ -33,6 +33,7 @@ function drawHUD(h, W, H, st) {
   h.beginPath(); h.roundRect(mx,my,ms,ms,5); h.clip();
   drawMiniMap(h,mx,my,ms,p,st);
   h.restore();
+  window.CityGPS?.drawMini(h,mx,my,ms,p);
   h.save(); h.translate(mx+ms/2,my+ms/2); h.rotate(p.face+cam.ang);
   h.fillStyle='#fff';h.strokeStyle='#091119';h.lineWidth=2;
   h.beginPath();h.moveTo(11,0);h.lineTo(-7,-6);h.lineTo(-3,0);h.lineTo(-7,6);h.closePath();h.fill();h.stroke();h.restore();

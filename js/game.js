@@ -9,6 +9,7 @@ const buildingMask=makeCanvas(1,1),mg=buildingMask.getContext('2d');
 const buildingShade=makeCanvas(1,1),sg=buildingShade.getContext('2d');
 const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 
+if(typeof CityRealty!=='undefined')CityRealty.init();
 buildWorld();
 if(typeof remodelProperty==='function')for(const H of houses)remodelProperty(H);
 for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn=[...H.front];break;}
@@ -27,9 +28,10 @@ const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
 CityLife.init(st);
 CitySim.init(st);
+window.CityExtras?.bonus?.();
 let fireCD = 0, last = performance.now(), T = 0, dragX = null, dragY = null;
 // Zoom progressivo: inclui plano próximo estilo simuladores de vida.
-const ZOOMS = [20, 26, 32, 42, 52, 64, 80, 100, 125].map(z => z * RENDER_SCALE);
+const ZOOMS = [20, 26, 32, 42, 52, 64, 80, 100, 125, 148, 176, 205].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
@@ -74,13 +76,14 @@ view.addEventListener('mousemove', e => {
 });
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
-  if (wmap.open) { if (e.button === 0) wmap.drag = [e.clientX, e.clientY]; e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
+  if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
 addEventListener('mouseup', e => {
-  if (e.button === 0) wmap.drag = null;
+  if (e.button === 0 && wmap.open && wmap.clickStart && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
+  if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
   if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
@@ -721,8 +724,9 @@ function tick(dt) {
   const interactPressed=input.hit('f');
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
-  const stairStarted=!vehicleMessage&&updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!vehicleMessage&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const realtyOpened=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
+  const stairStarted=!vehicleMessage&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!vehicleMessage&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
@@ -749,7 +753,8 @@ function tick(dt) {
     lx = clamp((a[0] - player.x) * 0.25, -3, 3) * player.aimV; ly = clamp((a[1] - player.y) * 0.25, -3, 3) * player.aimV;
   }
   if(!window.cityVehicles?.driver){
-    const floorFocus=(player.floorZ||0)*HZ/TILT;
+    // Centra tronco e rosto em zoom alto, em vez de colocar os pés no meio da tela.
+    const floorFocus=((player.floorZ||0)+.85)*HZ/TILT;
     cam.tx = player.x + lx-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly-Math.cos(cam.ang)*floorFocus;
     if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
@@ -759,6 +764,8 @@ function tick(dt) {
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
   render();
   window.cityVehicles?.render();
+  window.CityCamera?.afterRender?.(view,document.getElementById('vehicle3d'));
+  window.CityDriving?.install?.();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
   // O painel 3D precisa de alinhamento proprio; a HUD usa textAlign=right.
@@ -767,7 +774,7 @@ function tick(dt) {
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=window.cityVehicles?.prompt()||interactionPrompt(player);
+  const prompt=window.cityVehicles?.prompt()||window.CityRealty?.prompt(player)||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
