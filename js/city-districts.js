@@ -131,32 +131,39 @@
  function mapLabels(g,world,S,scale,dpr=1){
   const geo=world.geo;if(!geo)return;
   g.save();g.textAlign='center';g.textBaseline='middle';
-  const areas=geo.neighborhoods||[];
+  const boxes=[],W=g.canvas.width,H=g.canvas.height;
+  const clear=(x,y,w,h)=>{
+    if(x<25||x>W-302||y<96||y>H-70)return false;
+    const a=[x-w/2,y-h/2,x+w/2,y+h/2];
+    if(boxes.some(b=>a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1]))return false;
+    boxes.push(a);return true;
+  };
+  const areas=(geo.neighborhoods||[]).slice().sort((a,b)=>
+    (b.gang?3:b.type==='downtown'?2:1)-(a.gang?3:a.type==='downtown'?2:1));
   for(const a of areas){
-   const [x,y]=S(a.x,a.y);
-   if(x<-160||y<-30||x>g.canvas.width+160||y>g.canvas.height+30)continue;
-   const size=Math.max(10,Math.min(16,a.gang?12:13))*dpr;
-   g.font='800 '+size+'px system-ui';g.lineWidth=3.7*dpr;g.strokeStyle='#0c1625db';
-   g.strokeText(a.name.toUpperCase(),x,y);g.fillStyle=a.gang?'#f3f9fe':'#f3f9ff';
-   g.fillText(a.name.toUpperCase(),x,y);
-   if(a.gang){
-    g.font='700 '+(10*dpr)+'px system-ui';g.strokeText('● '+a.gang.name,x,y+15*dpr);
-    g.fillStyle=a.gang.color;g.fillText('● '+a.gang.name,x,y+15*dpr);
-   }
+    const [x,y]=S(a.x,a.y),font=scale<.36?12:14,w=a.name.length*font*.66+18;
+    if(!clear(x,y,w,26))continue;
+    g.font='800 '+font+'px system-ui';g.lineWidth=3.5*dpr;
+    g.strokeStyle='#041422d9';g.strokeText(a.name.toUpperCase(),x,y);
+    g.fillStyle='#f6fbff';g.fillText(a.name.toUpperCase(),x,y);
+    if(a.gang&&scale>=.33){
+      g.fillStyle=a.gang.color;g.font='700 10px system-ui';
+      g.strokeText('● '+a.gang.name,x,y+14);g.fillText('● '+a.gang.name,x,y+14);
+    }
   }
-  if(scale>=.22){
-   let shown=0;const occupied=[];
-   for(const rd of world.roads||[]){
-    if(!rd.streetName||rd.cls==='rail'||rd.pts.length<2)continue;
-    const a=rd.pts[0],b=rd.pts[rd.pts.length-1],m=rd.pts[Math.floor(rd.pts.length/2)],p=S(m[0],m[1]);
-    if(p[0]<65||p[0]>g.canvas.width-65||p[1]<85||p[1]>g.canvas.height-52)continue;
-    if(occupied.some(o=>Math.hypot(o[0]-p[0],o[1]-p[1])<100))continue;
-    occupied.push(p);shown++;if(shown>45)break;
-    const angle=Math.atan2(b[1]-a[1],b[0]-a[0]),flip=Math.cos(angle)<0?angle+Math.PI:angle;
-    g.save();g.translate(p[0],p[1]);g.rotate(flip);g.font='700 10px system-ui';
-    g.strokeStyle='#eff8ff';g.lineWidth=2.5;g.strokeText(rd.streetName,0,0);
-    g.fillStyle='#354960';g.fillText(rd.streetName,0,0);g.restore();
-   }
+  if(scale>=.48){
+    let shown=0;
+    for(const rd of world.roads||[]){
+      if(!rd.streetName||rd.cls==='rail'||rd.pts.length<2)continue;
+      const a=rd.pts[0],b=rd.pts[rd.pts.length-1],m=rd.pts[Math.floor(rd.pts.length/2)],p=S(m[0],m[1]);
+      if(!clear(p[0],p[1],rd.streetName.length*6.5+10,15))continue;
+      if(++shown>46)break;
+      let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.cos(ang)<0)ang+=Math.PI;
+      g.save();g.translate(p[0],p[1]);g.rotate(ang);
+      g.font='600 10px system-ui';g.lineWidth=2.3;
+      g.strokeStyle='#f4f8fb';g.strokeText(rd.streetName,0,0);
+      g.fillStyle='#30475a';g.fillText(rd.streetName,0,0);g.restore();
+    }
   }
   g.restore();
  }

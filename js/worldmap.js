@@ -4,24 +4,114 @@
 // Mapa local de teste (?seed=N): usa a textura do chão (world.ground).
 'use strict';
 
-const wmap = { open: false, mini: null, base: null, scale: 0, ox: 0, oy: 0, cache: null, key: '', drag: null, clickStart: null };
-
-// um pedaço de base por quadro (~3 ms): primeiro a do minimapa (sem telhados sugeridos), depois a do mapa completo;
-// com o mapa aberto a do mapa termina de uma vez
+const wmap = { open:false, mini:null, base:null, scale:0, ox:0, oy:0, cache:null,key:'',drag:null,clickStart:null,
+  palette:'city',hover:null,dragDistance:0 };
+function wmapWorldSize() { return world.open ? [OW.geo.W, OW.geo.H] : [world.ground.width / world.groundPPM, world.ground.height / world.groundPPM]; }
+function wmapBounds(W=hudC.width,H=hudC.height){
+  const [ww,wh]=wmapWorldSize(),margin=26,top=62,bottom=44;
+  // When zoomed out the map is centered. At high zoom keep some land visible.
+  if(ww*wmap.scale<W-300)wmap.ox=(W-ww*wmap.scale)/2;
+  else wmap.ox=Math.max(W-ww*wmap.scale-margin,Math.min(margin,wmap.ox));
+  if(wh*wmap.scale<H-top-bottom)wmap.oy=top+(H-top-bottom-wh*wmap.scale)/2;
+  else wmap.oy=Math.max(H-wh*wmap.scale-bottom,Math.min(top,wmap.oy));
+}
 function wmapTick() {
   if (!world.open || typeof OW === 'undefined' || !OW.cw) return;
-  if (!wmap.mini) { wmap.mini = COG.atlasBase(OW.cw, COG.WORLD_SEED, 4, { roofs: false }); wmap.base = COG.atlasBase(OW.cw, COG.WORLD_SEED, 4); }
-  if (wmap.open) wmap.base.step(Infinity);
-  else if (!wmap.mini.done) wmap.mini.step(3);
-  else if (!wmap.base.done) wmap.base.step(3);
+  if (!wmap.mini) { wmap.mini=COG.atlasBase(OW.cw,COG.WORLD_SEED,4,{roofs:false});wmap.base=COG.atlasBase(OW.cw,COG.WORLD_SEED,4); }
+  if(wmap.open && !wmap.base.done)wmap.base.step(9); 
+  else if(!wmap.mini.done)wmap.mini.step(3);
+  else if(!wmap.base.done)wmap.base.step(3);
 }
-
-function wmapToggle() {
-  wmap.open = !wmap.open; wmap.drag = null;
-  document.body.classList.toggle('map-open', wmap.open);   // esconde chat e lista de teclas por cima do mapa
-  if (wmap.open) wmap.scale = 0;   // reabre enquadrado no mundo inteiro
+function wmapFit(W,H,followPlayer=true){
+  const [ww,wh]=wmapWorldSize();
+  const fit=Math.min((W-315)/ww,(H-108)/wh);
+  wmap.scale=Math.max(.025,fit*(followPlayer?1.62:1));
+  const p=typeof player!=='undefined'?player:{x:ww/2,y:wh/2};
+  wmap.ox=W/2-(followPlayer?p.x:ww/2)*wmap.scale-90;
+  wmap.oy=(H+60)/2-(followPlayer?p.y:wh/2)*wmap.scale;
+  wmapBounds(W,H);
 }
-
+function wmapZoomAt(sx,sy,f){
+  if(!wmap.scale)return;
+  const [ww,wh]=wmapWorldSize(),W=hudC.width,H=hudC.height;
+  const min=Math.min((W-315)/ww,(H-108)/wh)*.9;
+  const next=clamp(wmap.scale*f,min,5),ratio=next/wmap.scale;
+  wmap.ox=sx-(sx-wmap.ox)*ratio;wmap.oy=sy-(sy-wmap.oy)*ratio;
+  wmap.scale=next;wmapBounds(W,H);
+}
+function wmapDrag(dx,dy){wmap.ox+=dx;wmap.oy+=dy;wmap.dragDistance+=Math.hypot(dx,dy);wmapBounds();}
+function wmapPointer(x,y){
+  wmap.hover=[x,y];
+  const out=document.getElementById('city-map-hover');
+  if(out&&wmap.scale){
+    const xx=(x-wmap.ox)/wmap.scale,yy=(y-wmap.oy)/wmap.scale;
+    let street='';
+    if(world.open&&typeof OW!=='undefined'&&window.CityGPS?.roadAt){
+      street=window.CityGPS.roadAt(xx,yy);
+    }
+    out.textContent=(street?street+' · ':'')+'X '+Math.round(xx)+' · Y '+Math.round(yy);
+  }
+}
+function wmapShell(){
+  let root=document.getElementById('city-map-ui');
+  if(root)return root;
+  root=document.createElement('div');root.id='city-map-ui';
+  root.innerHTML=`<header class="map-header">
+    <div class="map-brand"><small>MAPA TÁTICO · BELLAVISTA</small><strong>Mapa da cidade</strong></div>
+    <div class="map-header-info">Explore as ruas · selecione um destino · siga a rota azul</div>
+    <button type="button" id="city-map-close" title="Fechar mapa (Esc)">✕ <span>Fechar</span></button>
+  </header>
+  <aside class="map-sidebar">
+   <div class="map-sidebar-title">LOCALIZAÇÕES <small>FILTROS</small></div>
+   <div id="city-map-filters" class="map-filters"></div>
+   <div class="map-side-group">
+    <span>TERRITÓRIOS</span><div id="city-map-gangs"></div>
+   </div>
+   <div class="map-side-group map-palette">
+    <span>VISUAL</span>
+    <button type="button" data-map-palette="city">Cartográfico</button>
+    <button type="button" data-map-palette="terrain">Terreno</button>
+   </div>
+  </aside>
+  <footer class="map-footer">
+   <div class="map-controls"><kbd>Scroll</kbd> Zoom no cursor <kbd>Arrastar</kbd> Mover <kbd>Clique</kbd> Definir GPS <kbd>Esc</kbd> Sair</div>
+   <div id="city-map-hover" class="map-hover">Passe o cursor por uma rua</div>
+  </footer>
+  <div class="map-route-status"><span class="map-route-icon">⌖</span><span id="city-gps-readout">Clique em uma rua ou ícone para traçar uma rota</span>
+   <button type="button" id="city-gps-clear" hidden>Limpar rota</button></div>`;
+  document.body.appendChild(root);
+  root.querySelector('#city-map-close').addEventListener('click',()=>{if(wmap.open)wmapToggle();});
+  root.querySelector('#city-gps-clear').addEventListener('click',()=>window.CityGPS?.clear());
+  root.querySelectorAll('[data-map-palette]').forEach(button=>button.addEventListener('click',()=>{
+    wmap.palette=button.dataset.mapPalette;wmap.key='';wmapPaletteButtons();
+  }));
+  root.querySelector('#city-map-filters').addEventListener('click',e=>{
+    const button=e.target.closest('[data-map-filter]');
+    if(!button)return;
+    const type=button.dataset.mapFilter,on=window.CityGPS?.filter(type);
+    button.classList.toggle('off',!on);button.setAttribute('aria-pressed',String(!!on));
+  });
+  return root;
+}
+function wmapPaletteButtons(){
+  document.querySelectorAll('#city-map-ui [data-map-palette]').forEach(b=>b.classList.toggle('active',wmap.palette===b.dataset.mapPalette));
+}
+function wmapToggle(){
+  wmap.open=!wmap.open;wmap.drag=null;wmap.clickStart=null;
+  wmapShell().classList.toggle('active',wmap.open);
+  document.body.classList.toggle('map-open',wmap.open);
+  if(wmap.open){
+    if(!wmap.scale)wmapFit(hudC.width,hudC.height,true);
+    const filters=document.getElementById('city-map-filters'),gps=window.CityGPS;
+    if(gps)filters.innerHTML=Object.entries(gps.labels).map(([type,title])=>
+      '<button type="button" data-map-filter="'+type+'" aria-pressed="'+gps.enabled(type)+'" class="'+(gps.enabled(type)?'':'off')+'"><i style="background:'+(gps.colors[type]||'#9bc3e7')+'"></i>'+title+'</button>').join('');
+    const gangs=world.open&&typeof OW!=='undefined'?OW.geo?.gangs||[]:[];
+    document.getElementById('city-map-gangs').innerHTML=gangs.map(g=>
+      '<div class="map-gang"><i style="background:'+g.color+'"></i>'+g.name+'</div>').join('');
+    gps?.status&&document.getElementById('city-gps-readout')&&(document.getElementById('city-gps-readout').textContent=gps.status());
+    wmapPaletteButtons();
+  }
+}
 // ---------- minimapa (girado com a câmera) ----------
 function drawMiniMap(h, mx, my, ms, p, st) {
   h.fillStyle = '#29331f'; h.fillRect(mx, my, ms, ms);
@@ -58,70 +148,49 @@ function drawMiniMap(h, mx, my, ms, p, st) {
   for (const n of st.npcs) { h.fillStyle = '#f2c94c'; h.beginPath(); h.arc(n.x, n.y, 0.8 * 2.6 / k, 0, TAU); h.fill(); }
 }
 
-// ---------- mapa completo ----------
-function wmapWorldSize() { return world.open ? [OW.geo.W, OW.geo.H] : [world.ground.width / world.groundPPM, world.ground.height / world.groundPPM]; }
-function wmapFit(W, H) {
-  const [ww, wh] = wmapWorldSize(), top = 64, bot = 40;
-  wmap.scale = Math.min((W - 40) / ww, (H - top - bot) / wh);
-  wmap.ox = (W - ww * wmap.scale) / 2; wmap.oy = top + (H - top - bot - wh * wmap.scale) / 2;
-}
-function wmapZoomAt(sx, sy, f) {
-  if (!wmap.scale) return;
-  const [ww, wh] = wmapWorldSize(), W = hudC.width, H = hudC.height, min = Math.min((W - 40) / ww, (H - 104) / wh) * 0.8;
-  const ns = clamp(wmap.scale * f, min, 4);
-  wmap.ox = sx - (sx - wmap.ox) * ns / wmap.scale; wmap.oy = sy - (sy - wmap.oy) * ns / wmap.scale; wmap.scale = ns;
-}
-function drawWorldMap(h, W, H, st) {
-  const p = st.player;
-  if (!wmap.scale) wmapFit(W, H);
-  const sc = wmap.scale, S = (x, y) => [wmap.ox + x * sc, wmap.oy + y * sc];
-  const key = [W, H, sc.toFixed(5), wmap.ox | 0, wmap.oy | 0, !!(wmap.base && wmap.base.done)].join('|');
-  if (wmap.key !== key) {   // refaz a imagem só quando o enquadramento muda
-    const cv = wmap.cache && wmap.cache.width === W && wmap.cache.height === H ? wmap.cache : makeCanvas(W, H), g = cv.getContext('2d');
-    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#163b5f'; g.fillRect(0, 0, W, H);
-    const [ww, wh] = wmapWorldSize();
-    if (world.open) {
-      g.imageSmoothingEnabled = sc < 1 / wmap.base.BP; g.drawImage(wmap.base.canvas, wmap.ox, wmap.oy, ww * sc, wh * sc);
-      COG.drawAtlasLayers(g, OW.cw, S, sc, 1);
-    } else {
-      g.imageSmoothingEnabled = true; g.drawImage(world.ground, wmap.ox, wmap.oy, ww * sc, wh * sc);
-      g.setTransform(sc, 0, 0, sc, wmap.ox, wmap.oy);
-      for (const Hs of houses) { g.fillStyle = '#e6ddcc'; g.strokeStyle = '#2a241e'; g.lineWidth = 1 / sc; g.fillRect(Hs.x0, Hs.y0, Hs.x1 - Hs.x0, Hs.y1 - Hs.y0); g.strokeRect(Hs.x0, Hs.y0, Hs.x1 - Hs.x0, Hs.y1 - Hs.y0); }
+// ---------- mapa completo: camadas separadas e rótulos sem colisões ----------
+function drawWorldMap(h,W,H,st){
+  if(!wmap.scale)wmapFit(W,H);
+  wmapTick();
+  const sc=wmap.scale,S=(x,y)=>[wmap.ox+x*sc,wmap.oy+y*sc];
+  const key=[W,H,sc.toFixed(5),wmap.ox|0,wmap.oy|0,wmap.palette,!!wmap.base?.done].join('|');
+  if(wmap.key!==key){
+    const cv=wmap.cache&&wmap.cache.width===W&&wmap.cache.height===H?wmap.cache:makeCanvas(W,H),g=cv.getContext('2d');
+    g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W,H);
+    g.fillStyle='#132231';g.fillRect(0,0,W,H);
+    const [ww,wh]=wmapWorldSize();
+    if(world.open&&wmap.base){
+      g.save();
+      if(wmap.palette==='city')g.filter='saturate(.55) brightness(.82)';
+      g.imageSmoothingEnabled=sc<1/wmap.base.BP;
+      g.drawImage(wmap.base.canvas,wmap.ox,wmap.oy,ww*sc,wh*sc);
+      g.restore();
+      COG.drawAtlasLayers(g,OW.cw,S,sc,1,{labels:false});
+      // Labels rendered in their own pass after roads. No overlapping site labels.
+      COG.drawLocationLabels?.(g,OW.cw,S,sc,1);
+    }else if(world.ground){
+      g.imageSmoothingEnabled=true;g.drawImage(world.ground,wmap.ox,wmap.oy,ww*sc,wh*sc);
+      g.setTransform(sc,0,0,sc,wmap.ox,wmap.oy);
+      for(const Hs of houses){g.fillStyle='#c7cbd0';g.fillRect(Hs.x0,Hs.y0,Hs.x1-Hs.x0,Hs.y1-Hs.y0);}
     }
-    wmap.cache = cv; wmap.key = key;
+    g.setTransform(1,0,0,1,0,0);
+    wmap.cache=cv;wmap.key=key;
   }
-  h.save(); h.setTransform(1, 0, 0, 1, 0, 0);
-  h.drawImage(wmap.cache, 0, 0);
-  h.strokeStyle='#d9e9f044';h.lineWidth=2;h.strokeRect(6,55,W-12,H-61);
+  h.save();h.setTransform(1,0,0,1,0,0);
+  h.drawImage(wmap.cache,0,0);
   window.CityGPS?.drawFull(h,S,st);
-  // jogador: halo pulsante + seta na direção em que olha
-  const [px, py] = S(p.x, p.y), pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
-  h.fillStyle = `rgba(255,77,61,${0.18 + pulse * 0.2})`; h.beginPath(); h.arc(px, py, 14 + pulse * 6, 0, TAU); h.fill();
-  h.translate(px, py); h.rotate(p.face);
-  h.fillStyle = '#ff4d3d'; h.strokeStyle = '#fff'; h.lineWidth = 2; h.beginPath(); h.moveTo(11, 0); h.lineTo(-7, -7); h.lineTo(-3, 0); h.lineTo(-7, 7); h.closePath(); h.fill(); h.stroke();
-  h.setTransform(1, 0, 0, 1, 0, 0);
-  // barra de título, norte e escala
-  h.fillStyle = 'rgba(15,12,10,0.82)'; h.fillRect(0, 0, W, 52);
-  h.fillStyle = '#fff6e0'; h.font = 'bold 20px "Segoe UI", sans-serif'; h.textAlign = 'left'; h.textBaseline = 'middle'; h.fillText('BELLAVISTA  •  MAPA DA CIDADE', 20, 26);
-  h.fillStyle = '#cfc8be'; h.font = '13px "Segoe UI", sans-serif'; h.fillText('M/Esc · zoom · arraste · clique para GPS', 390, 27);
-  h.textAlign = 'right'; h.fillText(`você: ${Math.round(p.x)}, ${Math.round(p.y)}`, W - 20, 27);
-  h.textAlign = 'center'; h.fillStyle = '#fff'; h.font = 'bold 14px sans-serif'; h.fillText('N ▲', W - 40, 76);
-  const m = [2000, 1000, 500, 250, 100, 50, 20, 10].find(v => v * sc <= 180) || 10, bar = m * sc, bx = 20, by = H - 22;
-  h.fillStyle = 'rgba(15,12,10,0.75)'; h.fillRect(bx - 8, by - 22, Math.max(bar, 40) + 16, 32);
-  h.fillStyle = '#fff'; h.fillRect(bx, by, bar, 4); h.font = '600 12px system-ui'; h.textAlign = 'left'; h.fillText(m >= 1000 ? m / 1000 + ' km' : m + ' m', bx, by - 9);
-  // Legenda territorial discreta: até seis gangues, posicionada no mapa completo.
-  const gangs=world.open&&typeof OW!=='undefined' ? OW.geo?.gangs||[] : [];
-  if(gangs.length){
-    const lh=gangs.length*22+36,lw=206,lx=W-lw-17,ly=H-lh-16;
-    h.fillStyle='#071827e9';h.strokeStyle='#a6c9dc55';h.lineWidth=1;
-    h.beginPath();h.roundRect(lx,ly,lw,lh,12);h.fill();h.stroke();
-    h.textAlign='left';h.textBaseline='alphabetic';h.font='700 11px system-ui';
-    h.fillStyle='#b1d6e9';h.fillText('TERRITÓRIOS DAS GANGUES',lx+12,ly+19);
-    gangs.slice(0,6).forEach((gang,j)=>{
-      h.fillStyle=gang.color;h.beginPath();h.roundRect(lx+13,ly+28+j*22,9,9,2);h.fill();
-      h.fillStyle='#f1f8ff';h.font='600 11px system-ui';
-      h.fillText(gang.name,lx+29,ly+36+j*22);
-    });
-  }
+  // Tracked player: white chevron with blue halo.
+  const [px,py]=S(st.player.x,st.player.y);
+  h.beginPath();h.arc(px,py,13,0,TAU);h.fillStyle='#36b9f344';h.fill();
+  h.save();h.translate(px,py);h.rotate(st.player.face);
+  h.fillStyle='#ffffff';h.strokeStyle='#12253c';h.lineWidth=2.6;
+  h.beginPath();h.moveTo(12,0);h.lineTo(-8,-8);h.lineTo(-3,0);h.lineTo(-8,8);h.closePath();h.fill();h.stroke();h.restore();
+  // Scale, kept in the footer margin and away from controls.
+  const m=[2000,1000,500,250,100,50,20,10].find(v=>v*sc<=135)||10,bar=m*sc;
+  const bx=20,by=H-66;
+  h.fillStyle='#091725d8';h.beginPath();h.roundRect(bx-10,by-26,Math.max(bar+21,87),40,8);h.fill();
+  h.fillStyle='#eaf4ff';h.fillRect(bx,by,bar,3);
+  h.font='600 11px system-ui';h.fillStyle='#fff';h.textAlign='left';h.textBaseline='alphabetic';
+  h.fillText(m>=1000?(m/1000)+' km':m+' m',bx,by-7);
   h.restore();
 }
