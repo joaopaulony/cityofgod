@@ -10,3 +10,9 @@ assets/generated/
 .mixamo-source/
 dist/
 .vercel/
+
+# Modelos CC3 de terceiros: nao distribuir no repositorio publico sem revisar a licenca
+assets/characters/cc3/*.glb
+assets/characters/cc3/manifest.json
+*.Fbx
+*.fbx

@@ -3,6 +3,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {chooseCharacterClip,planLowVault,stepTraversal,pointSegmentDistance} from './character-actions.mjs';
 import {createTombRig} from './tomb-rig.mjs';
+import {createCC3Rig} from './cc3-rig.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
@@ -43,6 +44,26 @@ export function createCharacterSystem(scene,bridge){
  system.update=dt=>{
   if(!system.enabled)return;
   for(const [a,e] of entries){
+   if(e.cc3Rig){
+    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
+    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+(e.cc3YOffset||0),a.y);
+    const heading=Math.PI/2-a.face+(e.spec.facingOffset||0);
+    const angleDelta=Math.atan2(Math.sin(heading-e.root.rotation.y),Math.cos(heading-e.root.rotation.y));
+    e.root.rotation.y+=angleDelta*(1-Math.exp(-Math.min(.09,Math.max(0,dt))*14));
+    if(e.root.visible)e.cc3Rig.update(a,dt);
+    if(e.gun){
+     e.gun.visible=e.root.visible&&a.armed&&!a.traversal;
+     if(e.gun.visible&&a.J){
+      const R=a.J.rifle,z=(a.floorZ||0)+(a.actionZ||0);
+      e.gun.position.set(R.butt[0],R.butt[2]+z,R.butt[1]);
+      const direction=new THREE.Vector3(R.muzzle[0]-R.butt[0],R.muzzle[2]-R.butt[2],R.muzzle[1]-R.butt[1]).normalize();
+      e.gun.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);
+      e.gun.userData.mag.visible=a.magState==='in';
+     }
+    }
+    a.characterClip=e.clip=chooseCharacterClip(a);
+    continue;
+   }
    if(e.tombRig){
     e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0),a.y);e.root.rotation.y=Math.PI/2-a.face;e.root.updateMatrixWorld(true);
@@ -108,6 +129,7 @@ export function createCharacterSystem(scene,bridge){
  async function init(){
   if(!system.enabled){system.status='disabled';return;}
   if(provider==='tomb'){await initTomb();return;}
+  if(provider==='cc3'){await initCC3();return;}
   if(provider==='mixamo'){await initMixamo();return;}
   try{
    const response=await fetch('assets/characters/manifest.json');if(!response.ok)throw Error('Character manifest '+response.status);
@@ -135,6 +157,64 @@ export function createCharacterSystem(scene,bridge){
    system.ready=entries.has(bridge.player);system.status=system.errors.length?'partial':system.ready?'ready':'failed';
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Characters GLB',error);}
+ }
+ // The CC3 provider is opt-in (?characters=cc3) until locally converted
+ // assets and the license are verified. Default Mixamo remains unchanged.
+ async function initCC3(){
+   try{
+     const res=await fetch('assets/characters/cc3/manifest.json',{cache:'no-store'});
+     if(!res.ok)throw Error('CC3 manifest '+res.status);
+     const manifest=await res.json();
+     if(!Array.isArray(manifest.models)||manifest.models.length<2)throw Error('CC3 male and female GLB exports not installed');
+     const assets=new Map();
+     for(const spec of manifest.models){
+       if(!['male','female'].includes(spec.sex)||typeof spec.file!=='string'||!/^[a-z0-9_-]+\\.glb$/i.test(spec.file))
+         throw Error('Invalid CC3 manifest entry');
+       const gltf=await loader.loadAsync('assets/characters/cc3/'+spec.file);
+       assets.set(spec.sex,{spec,gltf});
+     }
+     if(!assets.has('male')||!assets.has('female'))throw Error('CC3 exports incomplete');
+     const requestedSex=new URLSearchParams(location.search).get('sex');
+     function mount(a,sex){
+       const {spec,gltf}=assets.get(sex),root=cloneSkeleton(gltf.scene);
+       root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=true;}});
+       root.updateMatrixWorld(true);
+       // Fit CC4 FBX units into a human-height game actor, preserving bone hierarchy.
+       const bound=new THREE.Box3().setFromObject(root),h=bound.max.y-bound.min.y;
+       if(!Number.isFinite(h)||h<=.1)throw Error('CC3 invalid bounding box');
+       const scale=(sex==='female'?1.70:1.79)/h;
+       root.scale.setScalar(scale);
+       const cc3YOffset=-bound.min.y*scale;
+       scene.add(root);
+       const cc3Rig=createCC3Rig(root);
+       const gun=a===bridge.player?makeRifle():null;if(gun)scene.add(gun);
+       const entry={root,cc3Rig,cc3YOffset,spec,gun,clip:'idle'};
+       entries.set(a,entry);return entry;
+     }
+     for(const a of bridge.actors)mount(a,a===bridge.player&&requestedSex==='female'?'female':a.name==='Ana'?'female':'male');
+     // Compatible with the character editor's sex switch. No public raw FBX is required.
+     system.setBody=async(a,sex)=>{
+       if(!['male','female'].includes(sex)||!assets.has(sex))return;
+       const prior=entries.get(a);
+       if(!prior||prior.spec.sex===sex)return;
+       scene.remove(prior.root);
+       if(prior.gun)scene.remove(prior.gun);
+       entries.delete(a);
+       mount(a,sex);
+       system.update(0);
+     };
+     system.models=manifest.models.map(({sex,file,triangles,bones})=>({id:sex,file,triangles,bones}));
+     system.availableBodies=['male','female'];
+     system.ready=entries.has(bridge.player);
+     system.status=system.ready?'ready':'failed';
+     system.update(0);
+   }catch(error){
+     for(const e of entries.values()){scene.remove(e.root);if(e.gun)scene.remove(e.gun);}
+     entries.clear();
+     system.errors.push('CC3 unavailable: '+String(error.message||error));
+     system.provider='mixamo';
+     await initMixamo();
+   }
  }
  const textureLoader=new THREE.TextureLoader(),images=new Map();
  async function initMixamo(){
