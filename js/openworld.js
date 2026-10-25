@@ -137,11 +137,11 @@ function owSectorRoads(S) {
 // Saguão aberto: portas de vidro para a rua (sul) e para o pátio (norte), letreiro, bancos de espera,
 // balcões de check-in e esteira de bagagem.
 TPL.TERMINAL = {
-  w: 36, d: 14, setback: 0,
+  w: 64, d: 22, setback: 0,   // terminal grande, em dois pavimentos (inspirado no de Los Angeles)
   def: { h: 4.4, ext: '#d6dade', int: '#ecebe6', roof: '#7d8186', trim: '#f2f2ee', roofKind: 'flat',
     open: { S: { door: [16, 17, 18, 19], win: [...Array(36).keys()].filter(i => (i < 15 || i > 20) && i % 3 !== 2), sign: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] },
       N: { door: [6, 29], win: [...Array(36).keys()].filter(i => i !== 6 && i !== 29 && i % 2 === 0) }, W: { win: [3, 5, 8, 10] }, E: { win: [3, 5, 8, 10] } },
-    floors: [{ x0: 0, y0: 0, x1: 36, y1: 14, kind: 'tile', col: '#d9d6cd' }] },
+    floors: [{ x0: 0, y0: 0, x1: 64, y1: 22, kind: 'tile', col: '#d9d6cd' }] },
   furn: [
     ...[0, 1, 2, 3].map(i => ({ x: 4 + i * 2.6, y: 2.2, w: 2, d: 0.9, h: 1.05, top: '#d2cec4', side: '#6f7680', kind: 'counter' })),   // check-in
     ...[0, 1, 2, 3, 4, 5].map(i => ({ x: 22 + (i % 3) * 4.4, y: 8 + ((i / 3) | 0) * 2.4, w: 3.6, d: 0.6, h: 0.46, top: '#3c6fa8', side: '#2c5282', kind: 'bench' })),
@@ -159,17 +159,18 @@ function owAirportFor(S) {
 function owPlaceAirport(S, q) {
   const { ap, T, x0, y0 } = q;
   const H = placeTemplate(T, x0, y0, 0, { seed: owSeed(S, 'terminal') });
-  H.signText = 'AEROPORTO'; H.signBg = '#1f4f8a'; H.signBg2 = '#173d6b'; H.terminal = true;
+  H.signText = 'AEROPORTO'; H.signBg = '#1f4f8a'; H.signBg2 = '#173d6b'; H.terminal = true; H.nFloors = 2;
   H.walk = [H.doorPt, [H.doorPt[0], H.doorPt[1] + 14]];
-  // avião de passageiros estacionado no pátio, nariz apontado p/ o terminal
-  const px = ap.x + 6, py = y0 - 26, W = '#eef0f2', G = '#c9cdd2', B = '#1f4f8a';
-  addBox({ x: px, y: py, z: 0.9, w: 3.8, d: 34, h: 3.9, top: W, side: G, kind: 'plane' });                        // fuselagem
-  addBox({ x: px, y: py + 1, z: 1.4, w: 31, d: 4.6, h: 0.45, top: G, side: '#aeb3b9', kind: 'plane', solid: false });   // asas
-  addBox({ x: px, y: py - 15, z: 2.4, w: 10, d: 2.4, h: 0.35, top: G, side: '#aeb3b9', kind: 'plane', solid: false });  // estabilizador
-  addBox({ x: px, y: py - 15.5, z: 4.8, w: 0.5, d: 4, h: 5.2, top: B, side: B, kind: 'plane', solid: false });          // deriva
-  for (const sx of [-6.5, 6.5]) addBox({ x: px + sx, y: py + 2.2, z: 0.6, w: 2, d: 3.6, h: 2, top: '#d5d8dc', side: '#9aa0a6', kind: 'plane' });   // motores
-  addBox({ x: px, y: py + 16.8, z: 1.6, w: 3.2, d: 1.4, h: 1.2, top: '#2a3442', side: '#1c242e', kind: 'plane', solid: false });   // cabine
-  addBox({ x: px + 4, y: py + 12, z: 0, w: 1.6, d: 14, h: 3.2, top: '#b9bec4', side: '#8e949b', kind: 'jetway', solid: false });  // ponte de embarque
+  // portões: aviões 3D (airport-3d.mjs) estacionados de nariz p/ o terminal; aqui só o colisor de cada um
+  const gates = [0.18, 0.5, 0.82].map((f, i) => ({ x: x0 + T.w * f, y: y0 - 7 - 19, len: 38, i }));
+  for (const g of gates) { addBox({ x: g.x, y: g.y, w: 4.2, d: g.len, h: 4.2, kind: 'planebody', solid: true }); for (const sx of [-6, 6]) addBox({ x: g.x + sx, y: g.y + 1.5, w: 2.4, d: 4, h: 2.4, kind: 'planebody', solid: true }); }
+  world.airportLayout = { ap, x0, y0, w: T.w, d: T.d, gates };
+  // cerca de grade de ferro em volta do lado das pistas (ninguém invade): fecha nas pontas do terminal
+  const xW = ap.x - ap.len / 2 - 45, xE = ap.x + ap.len / 2 + 45, yN = ap.y - ap.width / 2 - 50, yS = y0 - 0.6;
+  const line = (ax, ay, bx, by) => { const L = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.round(L / 3)), dx = (bx - ax) / n, dy = (by - ay) / n, l = Math.hypot(dx, dy);
+    for (let k = 0; k < n; k++) { const x1 = ax + dx * k, y1 = ay + dy * k, x2 = x1 + dx, y2 = y1 + dy; if (roadDist((x1 + x2) / 2, (y1 + y2) / 2) < ROAD_W + 0.5 || pondVal((x1 + x2) / 2, (y1 + y2) / 2) < 1.05) continue;
+      world.segs.push({ x1, y1, x2, y2, nx: -dy / l, ny: dx / l, h: 2.6, kind: 'ironfence' }); } };
+  line(xW, yN, xE, yN); line(xW, yN, xW, yS); line(xE, yN, xE, yS); line(xW, yS, x0 - 0.2, yS); line(x0 + T.w + 0.2, yS, xE, yS);
   owIndexOwnedLive(S);
   return H;
 }

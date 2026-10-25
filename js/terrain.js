@@ -477,9 +477,14 @@ function paintRunways(ch, g, inB) {
     // pista de taxiamento e pátio
     g.fillStyle = '#4b4d51'; g.fillRect(-L / 2 + 120, Wd / 2 + 30, L - 240, 18);
     for (const t of [-0.3, 0, 0.3]) g.fillRect(t * L - 9, Wd / 2, 18, 40);
-    g.fillStyle = '#8e8c86'; g.fillRect(-L * 0.2, Wd / 2 + 48, L * 0.4, ap.apron - 80);
+    // pátio de concreto até a fachada do terminal, com juntas e as faixas guia amarelas dos portões
+    const apEnd = Wd / 2 + ap.apron - 22.5;
+    g.fillStyle = '#8e8c86'; g.fillRect(-L * 0.2, Wd / 2 + 48, L * 0.4, apEnd - Wd / 2 - 48);
     g.strokeStyle = 'rgba(40,40,40,0.35)'; g.lineWidth = 0.05;
-    for (let x = -L * 0.2; x <= L * 0.2; x += 6) { g.beginPath(); g.moveTo(x, Wd / 2 + 48); g.lineTo(x, Wd / 2 + ap.apron - 32); g.stroke(); }
+    for (let x = -L * 0.2; x <= L * 0.2; x += 6) { g.beginPath(); g.moveTo(x, Wd / 2 + 48); g.lineTo(x, apEnd); g.stroke(); }
+    for (let y = Wd / 2 + 48; y < apEnd; y += 6) { g.beginPath(); g.moveTo(-L * 0.2, y); g.lineTo(L * 0.2, y); g.stroke(); }
+    const AL = world.airportLayout;
+    if (AL) for (const gt of AL.gates) { const gx = gt.x - ap.x; g.fillStyle = '#e2bb2e'; g.fillRect(gx - 0.12, apEnd - 48, 0.24, 48); g.fillRect(gx - 3, apEnd - 7.4, 6, 0.24); g.strokeStyle = 'rgba(226,187,46,0.9)'; g.lineWidth = 0.2; g.strokeRect(gx - 18, apEnd - 46, 36, 45); }
     g.fillStyle = '#d8b13a'; g.fillRect(-L / 2 + 120, Wd / 2 + 38.6, L - 240, 0.25);
     // pista
     g.fillStyle = '#3c3e42'; g.fillRect(-L / 2, -Wd / 2, L, Wd);

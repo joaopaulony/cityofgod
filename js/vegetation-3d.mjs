@@ -318,7 +318,7 @@ export function createVegetation(THREE, scene, bridge) {
     pine: () => pine(106),
     coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 20, dead: 3, len: 5.8, width: 1.05, rise: 0.7, droop: 1.65, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
     // Washingtonia (Los Angeles): tronco altíssimo e fino, copa pequena e redonda de leques curtos e saia de folhas secas
-    washington: () => palm(109, { trunkH: 15.5, lean: 0.35, r0: 0.2, n: 30, dead: 18, len: 2.3, width: 0.62, rise: 0.75, droop: 0.95, green: '#557a36', tip: '#86a04c', bark: 'barkPalm' }),
+    washington: () => palm(109, { trunkH: 15, lean: 0.3, r0: 0.21, n: 38, dead: 30, len: 3.0, width: 1.45, rise: 1.15, droop: 0.75, green: '#5f7444', tip: '#8c9a62', bark: 'barkPalm' }),
     royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 18, dead: 1, len: 6.6, width: 1.15, rise: 0.85, droop: 1.55, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
     shrub: () => bush(201, { h: 1.4, w: 1.0, nClusters: 8, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1e3c18', light: '#78a444', warm: '#a8b456' }),
     hibiscus: () => bush(202, { h: 1.6, w: 1.1, nClusters: 9, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1a3816', light: '#5e9038', warm: '#84a648', flowers: { tex: 'hibiscus', n: 9, cards: 4 } }),

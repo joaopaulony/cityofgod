@@ -16,6 +16,7 @@ import {createArchitecture3D} from './architecture-3d.mjs';
 import {createAmbience} from './ambience-3d.mjs';
 import {createBirds} from './birds-3d.mjs';
 import {createLandmarks} from './landmarks-3d.mjs';
+import {createAirport3D} from './airport-3d.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -291,10 +292,13 @@ function initRenderer(){
   // marcos de Los Angeles: letreiro na serra (landmarks-3d.mjs)
   try{landmarks=createLandmarks(THREE,scene,bridge);system.landmarks=landmarks.state;}
   catch(error){console.error('Marcos 3D falharam',error);}
+  // aeroporto: aviões, torre, prédio-símbolo, luzes da pista e cerca de ferro (airport-3d.mjs)
+  try{airport3d=createAirport3D(THREE,scene,bridge);system.airport3d=airport3d.state;}
+  catch(error){console.error('Aeroporto 3D falhou',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
 }
-let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null;
+let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -451,6 +455,7 @@ system.render=()=>{
  house3d?.update(performance.now()/1000);
  birds?.update();
  landmarks?.update();
+ airport3d?.update();
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;

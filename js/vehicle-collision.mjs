@@ -76,7 +76,7 @@ export function carCollision(world,car,options={}){
  for(const s of world.segs||[]){
   if(s.house)continue; // casas ja cobertas por retangulo, ignore linhas de moveis duplicadas
   // Caixas já são testadas por OBB abaixo; seus quatro segmentos nunca são cercas.
-  if(s.kind!=='fence'&&s.kind!=='garage')continue;   // paredes e portão das garagens também
+  if(s.kind!=='fence'&&s.kind!=='garage'&&s.kind!=='ironfence')continue;   // paredes e portão das garagens também
   if(s.door&&s.doorAnim?.open>=.72)continue;
   if(Math.abs(s.x1-car.x)>radius+Math.abs(s.x2-s.x1)||
      Math.abs(s.y1-car.y)>radius+Math.abs(s.y2-s.y1))continue;

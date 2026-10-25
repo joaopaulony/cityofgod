@@ -56,9 +56,35 @@ export function createLandmarks(THREE, scene, bridge) {
     (window.cityLandmarkHoles || (window.cityLandmarkHoles = [])).push([x0 - total / 2 - 8, y0 - 8, x0 + total / 2 + 8, y0 + 34]);   // inclui a encosta abaixo: dá p/ ver da cidade
     return g;
   }
+  // placas de terreno à venda (lotes de miami-city.js): postes de madeira e chapa pintada, virada p/ a rua
+  const signs = new Map();
+  function saleSign(b) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 280; const g = c.getContext('2d');
+    g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, 512, 280);
+    g.fillStyle = '#c8102e'; g.fillRect(0, 0, 512, 92); g.fillStyle = '#fff'; g.font = '800 64px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('VENDE-SE', 256, 50);
+    g.fillStyle = '#1d2733'; g.font = '700 40px Arial'; g.fillText('TERRENO · LOTE ' + String(b.lot || 1).padStart(2, '0'), 256, 128);
+    g.font = '600 32px Arial'; g.fillText((b.area || 0) + ' m²  ·  US$ ' + (b.price || 0).toLocaleString('pt-BR'), 256, 172);
+    g.fillStyle = '#596572'; g.font = '500 23px Arial'; g.fillText('Em breve: compre e construa sua casa', 256, 214);
+    g.fillStyle = '#c8102e'; g.fillRect(0, 248, 512, 32); g.fillStyle = '#fff'; g.font = '700 20px Arial'; g.fillText('CITY OF GOD IMÓVEIS', 256, 265);
+    g.strokeStyle = '#1d2733'; g.lineWidth = 6; g.strokeRect(3, 3, 506, 274);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const grp = new THREE.Group(), wood = new THREE.MeshLambertMaterial({ color: new THREE.Color().setStyle('#7a5a3a', THREE.SRGBColorSpace) });
+    for (const x of [-0.95, 0.95]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.11, 2.75, 0.11), wood); p.position.set(x, 1.375, 0); p.castShadow = true; grp.add(p); }
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.26, 0.05), [wood, wood, wood, wood, new THREE.MeshLambertMaterial({ map: tex }), wood]); board.position.set(0, 1.85, 0.07); board.castShadow = true; grp.add(board);
+    const f = [-(b.nx || 0), -(b.ny || 1)]; grp.rotation.y = Math.atan2(f[0], f[1]); grp.position.set(b.x, 0, b.y);
+    scene.add(grp); return { grp, tex };
+  }
+  function syncSigns() {
+    const c = bridge.cam, seen = new Set();
+    for (const b of bridge.boxes || []) { if (b.kind !== 'forsale' || Math.hypot(b.x - c.x, b.y - c.y) > 140) continue; seen.add(b); if (!signs.has(b)) signs.set(b, saleSign(b)); }
+    for (const [b, s] of signs) if (!seen.has(b)) { scene.remove(s.grp); s.tex.dispose(); signs.delete(b); }
+    state.saleSigns = signs.size;
+  }
+  let signT = 0;
   return {
     state,
     update() {
+      if ((signT = (signT + 1) % 30) === 0) syncSigns();
       if (!group && tries < 200) { tries++; const geo = bridge.geo; if (geo) { const p = place(geo); if (p) group = build(p[0], p[1]); else tries = 999; } }
       if (!group) return;
       const E = globalThis.ENV, night = E ? E.dark : (bridge.world.night ? 1 : 0);

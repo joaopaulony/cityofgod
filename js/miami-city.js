@@ -845,6 +845,38 @@ function drawBeachUmbrella(g, b) {
   }
 }
 
+// ---------- terrenos à venda: lote vazio cercado com placa (no futuro os jogadores compram e constroem a casa) ----------
+function miaLotsForSale(S, zoneAt, rects) {
+  const R = mulberry(owSeed(S, 'lots')), want = R() < 0.55 ? 1 : 2; let made = 0;
+  for (const rd of S.roads) {
+    if (made >= want) break; if (rd.cls === 'highway' || rd.pts.length < 30) continue;
+    for (let tries = 0; tries < 14 && made < want; tries++) {
+      const i = 8 + ((R() * (rd.pts.length - 16)) | 0), p = rd.pts[i], s = R() < 0.5 ? 1 : -1;
+      const W = 14 + ((R() * 3) | 0) * 2, D = 18 + ((R() * 3) | 0) * 2, n = [p.nx * s, p.ny * s], t = [-n[1], n[0]], off = ROAD_W + (rd.off || 0) + SIDE + 0.8;
+      const z = zoneAt(p.x + n[0] * (off + D / 2), p.y + n[1] * (off + D / 2));
+      if (!['bungalow', 'town', 'mansion', 'southbeach'].includes(z)) continue;
+      const P = (u, v) => [p.x + n[0] * (off + v) + t[0] * u, p.y + n[1] * (off + v) + t[1] * u];
+      const q = [P(-W / 2, 0), P(W / 2, 0), P(W / 2, D), P(-W / 2, D)], xs = q.map(c => c[0]), ys = q.map(c => c[1]);
+      const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+      if (bb[0] < S.bounds[0] + 1 || bb[1] < S.bounds[1] + 1 || bb[2] > S.bounds[2] - 1 || bb[3] > S.bounds[3] - 1) continue;
+      if (rects.some(b => bb[0] < b[2] + 2 && bb[2] > b[0] - 2 && bb[1] < b[3] + 2 && bb[3] > b[1] - 2)) continue;
+      let ok = true;
+      for (let u = -W / 2; u <= W / 2 + 0.01 && ok; u += 2) for (let v = 0; v <= D + 0.01 && ok; v += 2) { const [x, y] = P(u, v); if (roadDist(x, y) < ROAD_W + SIDE + 0.3 || pondVal(x, y) < 1.4 || miaBlocked(x, y, 0.5)) ok = false; }
+      if (!ok) continue;
+      rects.push(bb); world.yards.push(bb);
+      miaDecal(q, 'lot', R, { ax: n, origin: P(0, 0), w: W, len: D });   // terra limpa, cascalho, marcas de trator
+      const [gx, gy] = P(0, 0.1), gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.7;
+      for (const [a, b] of [[q[0], q[1]], [q[1], q[2]], [q[2], q[3]], [q[3], q[0]]]) chainLine(a[0], a[1], b[0], b[1], gate, { h: 1.8 });
+      const list = world.lotsForSale || (world.lotsForSale = []), id = list.length + 1, area = W * D;
+      const price = Math.round(area * (z === 'mansion' ? 2600 : z === 'southbeach' ? 2200 : 1100) / 1000) * 1000;
+      const [sx, sy] = P(W / 2 - 2.4, 1.1);
+      addBox({ x: sx, y: sy, w: 2.4, d: 0.35, h: 2.7, rot: Math.atan2(t[1], t[0]), kind: 'forsale', solid: true, lot: id, area, price, nx: n[0], ny: n[1] });
+      list.push({ id, q, bb, area, price, zone: z, sign: [sx, sy], front: [-n[0], -n[1]] });
+      made++;
+    }
+  }
+}
+
 // ---------- palmeiras imperiais nas avenidas, hidrantes e pontos de ônibus ----------
 function miaStreets(S, zoneAt) {
   for (const rd of S.roads) {
@@ -1162,6 +1194,16 @@ function paintDecal(g, d) {
     for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(30,30,30,0.45)'; g.beginPath(); g.ellipse(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.04, 0.03, 0, 0, TAU); g.fill(); }
   } else if (d.kind === 'vbcourt') {
     g.strokeStyle = 'rgba(40,90,170,0.75)'; g.lineWidth = 0.06; g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
+  } else if (d.kind === 'lot') {
+    // terreno limpo p/ venda: terra batida, cascalho, marcas de esteira de trator, mato nas bordas e uma poça
+    g.fillStyle = '#9c8a6a'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    for (let i = 0; i < (x1 - x0) * (y1 - y0) * 1.2; i++) { const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), rr = 0.3 + r() * 1.4, gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, `rgba(${r() < 0.5 ? '120,100,70' : '170,150,115'},0.25)`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); }
+    for (let i = 0; i < (x1 - x0) * (y1 - y0) * 14; i++) { g.fillStyle = ['#7d725f', '#b3a78f', '#6a604f', '#c9bfa8'][(r() * 4) | 0]; g.fillRect(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.03 + r() * 0.04, 0.03); }
+    const [ox, oy] = d.origin; g.save(); g.translate(ox, oy); g.rotate(Math.atan2(d.ax[1], d.ax[0]));
+    for (const yy of [-1.1, 1.1]) { g.strokeStyle = 'rgba(70,58,40,0.35)'; g.lineWidth = 0.45; g.beginPath(); g.moveTo(0.5, yy); g.bezierCurveTo(d.len * 0.4, yy + 1.5, d.len * 0.6, yy - 2, d.len - 1, yy * 0.4); g.stroke(); g.strokeStyle = 'rgba(50,42,30,0.25)'; g.lineWidth = 0.05; for (let x = 1; x < d.len - 1; x += 0.35) { g.beginPath(); g.moveTo(x, yy - 0.2); g.lineTo(x, yy + 0.2); g.stroke(); } }
+    const pg = g.createRadialGradient(d.len * 0.65, d.w * 0.15, 0, d.len * 0.65, d.w * 0.15, 1.3); pg.addColorStop(0, 'rgba(90,108,118,0.75)'); pg.addColorStop(0.8, 'rgba(70,64,50,0.4)'); pg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = pg; g.fillRect(d.len * 0.65 - 1.3, d.w * 0.15 - 1.3, 2.6, 2.6);
+    g.restore();
+    for (let i = 0; i < 260; i++) { const e = r() < 0.5, x = e ? (r() < 0.5 ? x0 + r() * 0.8 : x1 - r() * 0.8) : x0 + r() * (x1 - x0), y = e ? y0 + r() * (y1 - y0) : (r() < 0.5 ? y0 + r() * 0.8 : y1 - r() * 0.8); g.fillStyle = ['#6f8a3a', '#8a9a4a', '#5a7a30'][(r() * 3) | 0]; g.beginPath(); g.ellipse(x, y, 0.08 + r() * 0.12, 0.05, r() * 3, 0, TAU); g.fill(); }
   } else if (d.kind === 'drive' || d.kind === 'drivepavers' || d.kind === 'garagefloor') {
     // entrada de carro e piso da garagem (garages.js), no referencial da entrada: x ao longo (da porta p/ a rua), y através
     const [ox, oy] = d.origin, hw = d.w / 2, xa = d.kind === 'garagefloor' ? -d.len : 0, xb = d.kind === 'garagefloor' ? 0 : d.len;
@@ -1234,5 +1276,6 @@ function* miaGenSector(S, rects) {
   miaStreets(S, zoneAt); yield;
   miaClutter(S, zoneAt, rects); yield;
   miaParking(S, zoneAt); yield;
+  miaLotsForSale(S, zoneAt, rects); yield;
   if (S.mix[D_.BEACH] > 4) { miaBeach(S); yield; }
 }
