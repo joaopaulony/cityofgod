@@ -11,6 +11,7 @@ const CityGPS=(()=>{
  const labels={gas:'Postos de combustível',home:'Minhas casas',airport:'Aeroportos',police:'Delegacias',
  hospital:'Hospitais',mall:'Comércio',market:'Mercados',cityhall:'Prefeitura',stadium:'Estádios',university:'Universidades',
  port:'Porto',town:'Bairros',bus:'Rodoviárias',church:'Igrejas',lighthouse:'Faróis',district:'Centro'};
+ const nowMs=()=>typeof performance!=='undefined'?performance.now():Date.now();
  const player=()=>window.cityVehicleBridge?.player||window.__game?.player||(typeof st!=='undefined'?st.player:null);
  const targetDist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
  function roads(){
@@ -59,7 +60,7 @@ const CityGPS=(()=>{
    }
    waypoint={id:point.id||'manual',x:point.x,y:point.y,name:point.name||'Destino selecionado',
      snapped:{x:candidate.to[0],y:candidate.to[1]}};
-   route=candidate;selection=point;remaining=candidate.length;lastRepath=performance.now();
+   route=candidate;selection=point;remaining=candidate.length;lastRepath=nowMs();
    if(!quiet)window.CityUI?.notify('🧭 Rota calculada pelas ruas: '+Math.round(candidate.length)+' m');
    updateMapUI();
    return true;
@@ -107,7 +108,7 @@ const CityGPS=(()=>{
    if(targetDist(arrival,p)<15||targetDist(waypoint,p)<15){
      clear(true);return;
    }
-   const now=performance.now();
+   const now=nowMs();
    if(now-lastRepath<3000)return;
    const d=nearRoute(p);
    updateMapUI();
