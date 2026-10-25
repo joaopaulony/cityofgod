@@ -155,7 +155,7 @@ function useHouseInteraction(p,st,time){
   }else if(kind==='shelf'||kind==='desk'||kind==='table'){
     message='Voce examinou a '+(INTERIOR_LABELS[kind]||kind);
   }
-  window.CityLife?.interior(kind);
+  if (typeof window !== 'undefined') window.CityLife?.interior(kind);
   st._interactionMessage=message;
   return true;
 }
