@@ -11,86 +11,135 @@ function roundRect(g, x, y, w, h, r, fill, stroke) {
 
 function drawHUD(h, W, H, st) {
   h.clearRect(0, 0, W, H);
-  h.imageSmoothingEnabled = false;
-  const p = st.player;
-  // retrato + barras (vida / fome / sede)
-  if (!hud.portrait) hud.portrait = paintPortrait(48);
-  h.save();
-  h.beginPath(); h.arc(58, 58, 46, 0, TAU); h.fillStyle = '#000'; h.fill();
-  h.beginPath(); h.arc(58, 58, 43, 0, TAU); h.clip();
-  h.drawImage(hud.portrait, 12, 12, 96, 96);
-  h.restore();
-  h.beginPath(); h.arc(58, 58, 44, 0, TAU); h.strokeStyle = '#2a2420'; h.lineWidth = 3; h.stroke();
-  const bars = [['#d8433a', st.hp, '♥'], ['#e39a35', st.food, '●'], ['#3f8fd8', st.water, '●']];
-  bars.forEach(([col, v, ic], i) => {
-    const y = 22 + i * 26;
-    roundRect(h, 108, y, 168, 18, 9, 'rgba(15,13,12,.85)', '#000');
-    roundRect(h, 128, y + 4, 140 * v, 10, 5, col);
-    h.fillStyle = 'rgba(255,255,255,.25)'; h.fillRect(132, y + 5, 140 * v - 8, 2);
-    h.fillStyle = col; h.font = 'bold 13px sans-serif'; h.textAlign = 'center'; h.textBaseline = 'middle'; h.fillText(ic, 118, y + 9.5);
-  });
-  // botões laterais (só visuais, como nas referências)
-  for (let i = 0; i < 4; i++) {
-    roundRect(h, 18, 124 + i * 52, 44, 44, 8, 'rgba(18,16,15,.85)', '#000');
-    h.strokeStyle = '#d9d2c7'; h.lineWidth = 2.5; h.lineCap = 'round';
-    const cx = 40, cy = 146 + i * 52;
-    h.beginPath();
-    if (i === 0) { h.moveTo(cx - 9, cy - 9); h.lineTo(cx + 9, cy + 9); h.moveTo(cx + 9, cy - 9); h.lineTo(cx - 9, cy + 9); }
-    if (i === 1) { h.roundRect(cx - 8, cy - 7, 16, 16, 3); h.moveTo(cx - 4, cy - 7); h.lineTo(cx - 4, cy - 11); h.lineTo(cx + 4, cy - 11); h.lineTo(cx + 4, cy - 7); }
-    if (i === 2) { h.roundRect(cx - 6, cy - 10, 12, 20, 2); }
-    if (i === 3) { h.arc(cx, cy, 6, 0, TAU); for (let k = 0; k < 8; k++) { const a = k * TAU / 8; h.moveTo(cx + Math.cos(a) * 8, cy + Math.sin(a) * 8); h.lineTo(cx + Math.cos(a) * 11, cy + Math.sin(a) * 11); } }
-    h.stroke();
-  }
-  // relógio
-  const mins = Math.floor(st.clock) % 1440, hh = String(Math.floor(mins / 60)).padStart(2, '0'), mm = String(mins % 60).padStart(2, '0');
-  roundRect(h, W - 360, 14, 160, 58, 8, 'rgba(18,16,15,.85)', '#000');
-  h.fillStyle = '#fff'; h.font = 'bold 28px "Segoe UI", sans-serif'; h.textAlign = 'center'; h.textBaseline = 'alphabetic';
-  h.fillText(`${hh}:${mm}`, W - 280, 46); h.font = '12px "Segoe UI", sans-serif'; h.fillStyle = '#cfc8be'; h.fillText('Qua, 21 Out 2026', W - 280, 63);
-  // clima atual (env.js) logo abaixo do relógio
-  const wl = envWeather().name + (ENV.snowCover > 0.05 ? ' · neve no chão' : '');
-  h.font = '11px "Segoe UI", sans-serif'; const ww = h.measureText(wl).width + 16;
-  roundRect(h, W - 280 - ww / 2, 76, ww, 18, 9, 'rgba(18,16,15,.7)', null); h.fillStyle = '#e8e2d8'; h.fillText(wl, W - 280, 89);
-  // minimapa girado com a câmera (worldmap.js)
-  const mx = W - 186, my = 14, ms = 172;
+  // HUD de mundo aberto: informação útil, sem os botões decorativos antigos.
+  if (wmap.open) return;
+  h.save(); h.imageSmoothingEnabled = true;
+  const p = st.player, needs = st.needs || {}, compact = W < 740;
+  const ms = compact ? Math.min(118, Math.max(90, W * .29)) : 164;
+  const mx = compact ? 10 : 20, my = Math.max(102, H - ms - (compact ? 16 : 24));
+  const panel = 'rgba(7,14,24,.82)', border = 'rgba(164,222,251,.34)';
+  const glow = 'rgba(105,198,252,.48)';
+  const round = (x,y,w,hh,r,fill,stroke) => roundRect(h,x,y,w,hh,r,fill,stroke);
+
+  // Radar inferior esquerdo. Mantém os dados reais do worldmap.js, com NPCs e direção atual.
   wmapTick();
-  roundRect(h, mx - 3, my - 3, ms + 6, ms + 6, 8, '#000');
-  h.save(); h.beginPath(); h.roundRect(mx, my, ms, ms, 6); h.clip();
-  drawMiniMap(h, mx, my, ms, p, st);
+  h.save();
+  h.shadowColor='#020815';h.shadowBlur=25;h.shadowOffsetY=5;
+  round(mx-5,my-5,ms+10,ms+10,14,panel,border);h.restore();
+  // Linha de borda azul, relevo e texto discreto — radar com identidade própria.
+  h.save();h.strokeStyle=glow;h.lineWidth=2;h.beginPath();
+  h.moveTo(mx+10,my-5);h.lineTo(mx+ms*.45,my-5);h.stroke();h.restore();
+  h.save();
+  h.beginPath(); h.roundRect(mx,my,ms,ms,5); h.clip();
+  drawMiniMap(h,mx,my,ms,p,st);
   h.restore();
-  // seta do jogador + norte
-  h.save(); h.translate(mx + ms / 2, my + ms / 2); h.rotate(p.face + cam.ang);
-  h.fillStyle = '#fff'; h.strokeStyle = '#000'; h.lineWidth = 1.5; h.beginPath(); h.moveTo(8, 0); h.lineTo(-5, -5); h.lineTo(-2, 0); h.lineTo(-5, 5); h.closePath(); h.fill(); h.stroke(); h.restore();
-  const north = screenDirOf(0, -1);
-  h.fillStyle = '#fff'; h.font = 'bold 12px sans-serif'; h.textAlign = 'center';
-  h.fillText('N', mx + ms / 2 + north[0] * (ms / 2 - 10), my + ms / 2 + north[1] * (ms / 2 - 10) + 4);
-  h.fillStyle = '#e8e2d8'; h.font = 'bold 12px sans-serif'; h.fillText('Q / E  gira  ·  M  mapa', mx + ms / 2, my + ms + 18);
+  window.CityGPS?.drawMini(h,mx,my,ms,p);
+  h.save(); h.translate(mx+ms/2,my+ms/2); h.rotate(p.face+cam.ang);
+  h.fillStyle='#fff';h.strokeStyle='#091119';h.lineWidth=2;
+  h.beginPath();h.moveTo(11,0);h.lineTo(-7,-6);h.lineTo(-3,0);h.lineTo(-7,6);h.closePath();h.fill();h.stroke();h.restore();
+  const north=screenDirOf(0,-1);
+  h.fillStyle='#f8fcff';h.strokeStyle='#0b1720';h.lineWidth=3;
+  h.textAlign='center';h.font='bold 12px system-ui';
+  const nmx=mx+ms/2+north[0]*(ms/2-13), nmy=my+ms/2+north[1]*(ms/2-13)+4;
+  h.strokeText('N',nmx,nmy);h.fillText('N',nmx,nmy);
 
-  // hotbar
-  const slots = 7, sw = 54, hx = W / 2 - slots * sw / 2, hy = H - 80;
-  roundRect(h, hx - 8, hy - 8, slots * sw + 16, 74, 8, 'rgba(18,16,15,.85)', '#000');
-  for (let i = 0; i < slots; i++) {
-    const x = hx + i * sw;
-    roundRect(h, x + 2, hy, sw - 4, 58, 6, i === 0 ? '#2e2823' : '#1c1916', i === 0 ? '#c9a45c' : '#000');
-    h.fillStyle = '#9a928a'; h.font = '11px sans-serif'; h.textAlign = 'left'; h.fillText(String(i + 1), x + 7, hy + 13);
-    drawIcon(h, i, x + sw / 2, hy + 30);
+  // Vida, fôlego e necessidades vão cair/subir no loop real e são atualizadas aqui.
+  const conditions=[
+    ['VIDA',st.hp,'#ee675f'],
+    ['FÔLEGO',needs.stamina??1,'#f4d47f'],
+    ['FOME',st.food,'#efb96e'],
+    ['SEDE',st.water,'#67c8e5'],
+    ['ENERGIA',needs.energy??1,'#a99beb'],
+    ['HIGIENE',needs.hygiene??1,'#8dddac'],
+    ['BANHEIRO',1-(needs.bladder??0),'#c6d2e1']
+  ];
+  const visible = compact ? conditions.slice(0,4) : conditions;
+  const nx = mx + ms + 14, nw = compact ? Math.min(132,W-nx-12) : 190;
+  const lineH=compact?24:25, ny=compact?Math.max(10,my-25-lineH*visible.length):my-3;
+  h.save();h.shadowColor='#010815';h.shadowBlur=19;
+  round(nx-9,ny-13,nw+18,visible.length*lineH+25,14,panel,border);h.restore();
+  h.save();h.fillStyle='#76c9f0';h.beginPath();h.roundRect(nx-9,ny-9,3,visible.length*lineH+17,2);h.fill();h.restore();
+  for(let i=0;i<visible.length;i++){
+    const [label,value,color]=visible[i], v=clamp(value,0,1), y=ny+i*lineH;
+    h.textBaseline='alphabetic';h.font=(compact?'600 9px':'600 10px')+' system-ui';
+    h.textAlign='left';h.fillStyle='#e5edf0';h.fillText(label,nx,y+10);
+    h.textAlign='right';h.fillStyle=v<.2?'#ff9691':'#c4d4d8';h.fillText(Math.round(v*100)+'%',nx+nw,y+10);
+    round(nx,y+14,nw,5,2,'#01090d');
+    if(v>.005) {
+      round(nx,y+14,nw*v,5,2,v<.18?'#f45555':color);
+      h.save();h.globalAlpha=.2;h.fillStyle='#fff';h.fillRect(nx+Math.min(nw*v,4),y+14,Math.max(0,nw*v-8),1);h.restore();
+    }
   }
-  h.fillStyle = '#fff'; h.font = 'bold 12px sans-serif'; h.textAlign = 'right';
-  h.fillText(`${p.ammo}/${p.reserve}`, hx + sw - 6, hy + 53);
+  if(compact){
+    h.font='600 10px system-ui';h.textAlign='left';h.textBaseline='alphabetic';
+    h.fillStyle='#e8f6f1';
+    h.fillText('⚡ '+Math.round((needs.energy??1)*100)+'%  🧼 '+Math.round((needs.hygiene??1)*100)+'%  🚻 '+Math.round((1-(needs.bladder??0))*100)+'%',mx,35);
+  }
 
-  // mira
-  const cx = input.mx, cy = input.my;
-  h.strokeStyle = '#000'; h.lineWidth = 4; crosshair(h, cx, cy, p);
-  h.strokeStyle = p.ammo === 0 ? '#ff6b5a' : '#ffffff'; h.lineWidth = 2; crosshair(h, cx, cy, p);
-  if (p.reloadT >= 0) {
-    h.strokeStyle = '#f2c94c'; h.lineWidth = 3; h.beginPath(); h.arc(cx, cy, 20, -Math.PI / 2, -Math.PI / 2 + TAU * p.reloadT / RELOAD.dur); h.stroke();
+  // Identidade, horário dinâmico e dinheiro do jogador.
+  const minute = ((Math.floor(st.clock)%1440)+1440)%1440;
+  const clock = String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
+  const topW=compact?151:216, tx=W-topW-17, ty=14;
+  h.save();h.shadowColor='#07101b';h.shadowBlur=19;
+  round(tx,ty,topW,compact?77:101,15,panel,border);h.restore();
+  h.save();h.fillStyle='#65c7ee';h.beginPath();h.roundRect(tx+11,ty+10,3,compact?56:81,2);h.fill();h.restore();
+  h.textAlign='left';h.textBaseline='alphabetic';h.font='700 10px system-ui';h.fillStyle='#74d2f5';
+  h.fillText('CITY OF GOD  ·  LIVE',tx+21,ty+17);
+  h.textAlign='right';h.textBaseline='alphabetic';
+  h.fillStyle='#f7f9fa';h.font=(compact?'700 21px':'700 27px')+' system-ui';
+  h.fillText(clock,tx+topW-13,ty+42);
+  h.fillStyle='#7de3b4';h.font=(compact?'700 13px':'700 17px')+' system-ui';
+  h.fillText(CityLife.money(CityLife.funds),tx+topW-13,ty+65);
+  if(!compact) {
+    h.fillStyle='#a7c2ce';h.font='11px system-ui';
+    const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
+    const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
+     ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
+    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx+topW-13,ty+87);
   }
-  // aviso central
-  if (hud.msgT > 0) {
-    h.globalAlpha = clamp(hud.msgT, 0, 1);
-    h.font = 'bold 16px "Segoe UI", sans-serif'; h.textAlign = 'center';
-    h.fillStyle = '#000'; h.fillText(hud.msg, W / 2 + 1, H - 104 + 1); h.fillStyle = '#ffe6a8'; h.fillText(hud.msg, W / 2, H - 104);
-    h.globalAlpha = 1;
+
+  const loc=window.CityDistrictsLocation?.();
+  if(loc && !compact){
+    const subY=ty+108;
+    round(tx,subY,topW,loc.gang?42:27,10,panel,border);
+    h.textAlign='right';h.font='700 10px system-ui';h.fillStyle='#c5eaff';
+    h.fillText(loc.street||'Explorando a cidade',tx+topW-12,subY+17);
+    if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx+topW-12,subY+33);}
   }
+  // Arma selecionada e balas do sistema existente. Mãos vazias não disparam.
+  const driving=!!window.cityVehicles?.driver;
+  if(!driving) {
+    const weapon = p.armed ? 'FUZIL' : 'MÃOS LIVRES', ammo=p.armed?p.ammo+'/'+p.reserve:'SEM ARMA';
+    const barW=compact?144:206, bx=W/2-barW/2, by=H-(compact?104:53);
+    if(bx>mx+ms+6) {
+      h.save();h.shadowColor='#000a';h.shadowBlur=16;round(bx,by,barW,37,11,panel,border);h.restore();
+      h.save();h.fillStyle='#82d1f7';h.beginPath();h.roundRect(bx,by+8,3,21,2);h.fill();h.restore();
+      h.textAlign='left';h.fillStyle='#e6eff5';h.font='700 11px system-ui';h.fillText(weapon,bx+11,by+14);
+      h.fillStyle='#e8c97e';h.font='700 13px system-ui';h.fillText(ammo,bx+11,by+29);
+      if(!compact){h.textAlign='right';h.fillStyle='#96afbd';h.font='11px system-ui';h.fillText('TAB/U · ARMAS',bx+barW-10,by+23);}
+    }
+  }
+
+  // Mira só aparece armado e fora das interfaces.
+  if(p.armed && !driving && !window.CityUI?.blocksGameInput()){
+    const cx=input.mx,cy=input.my;
+    h.strokeStyle='#031017';h.lineWidth=4;crosshair(h,cx,cy,p);
+    h.strokeStyle=p.ammo===0?'#ff7668':'#ffffff';h.lineWidth=2;crosshair(h,cx,cy,p);
+    if(p.reloadT>=0){
+      h.strokeStyle='#f4cd67';h.lineWidth=3;h.beginPath();
+      h.arc(cx,cy,20,-Math.PI/2,-Math.PI/2+TAU*p.reloadT/RELOAD.dur);h.stroke();
+    }
+  }
+
+  // Avisos legíveis sem esconder o painel de veículos nem o minimapa.
+  if(hud.msgT>0){
+    const alpha=clamp(hud.msgT,0,1);
+    h.globalAlpha=alpha;h.font='700 14px system-ui';h.textAlign='center';
+    const msgW=Math.min(W-24,Math.max(175,h.measureText(hud.msg).width+30)),msgY=Math.max(114,H*.25);
+    round((W-msgW)/2,msgY-24,msgW,34,7,panel,border);
+    h.fillStyle='#fce7ac';h.fillText(hud.msg,W/2,msgY-3);h.globalAlpha=1;
+  }
+  h.restore();
 }
 function screenDirOf(wx, wy) { const r = [cam.cos * wx - cam.sin * wy, (cam.sin * wx + cam.cos * wy)]; const l = Math.hypot(r[0], r[1]); return [r[0] / l, r[1] / l]; }
 

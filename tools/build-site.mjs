@@ -9,8 +9,11 @@ if(existing?.isSymbolicLink())throw Error('Refusing to replace symlinked build o
 if(existing)await rm(out,{recursive:true});
 await mkdir(out);
 const html=(await readdir(root)).filter(n=>n.endsWith('.html'));
-for(const name of [...html,'gameplay.gif','js','assets'])await cp(join(root,name),join(out,name),{recursive:true,filter:src=>!/(?:^|[\\/])(?:generated|references|\.env(?:\.[^\\/]*)?|\.git|node_modules)(?:[\\/]|$)/.test(src)});
+for(const name of [...html,'gameplay.gif','js','css','assets'])await cp(join(root,name),join(out,name),{recursive:true,filter:src=>!/(?:^|[\\/])(?:generated|references|\.env(?:\.[^\\/]*)?|\.git|node_modules)(?:[\\/]|$)/.test(src)});
 for(const name of html){const body=await readFile(join(out,name),'utf8');
+ for(const [,href] of body.matchAll(/<link\\b[^>]*\\brel=["']stylesheet["'][^>]*\\bhref=["']([^"']+)["']/g)){
+  if(!/^(https?:|data:)/.test(href))await stat(resolve(out,href));
+ }
  for(const [,src] of body.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/g)){
   if(/^(https?:|data:)/.test(src))continue;
   if(!((await stat(resolve(out,src))).isFile()))throw Error(`Missing script: ${src}`);

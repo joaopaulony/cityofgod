@@ -297,6 +297,7 @@
         if (!wet && start >= 0) { rd.bridges.push([Math.max(0, start - 1), i]); start = -1; }
       });
       rd.w = rd.w || COG.ROAD[rd.cls].w; rd.lanes = COG.ROAD[rd.cls].lanes || 0;
+      rd.streetName=COG.streetNameForRoad?.(geo,rd)||COG.ROAD[rd.cls].name;
     }
     roads.junctions = junctions;
     return roads;

@@ -1,3 +1,4 @@
+import {paintGangFacade} from './gang-graffiti.mjs';
 import {makeKit} from './kit-3d.mjs';
 import {propertyMaterials,metricUVs} from './architecture-materials.mjs';
 
@@ -145,6 +146,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const sx of [cu-dw/2-.38,cu+dw/2+.38]){wk.box(sx-.08,1.95,y1+.09,sx+.08,2.25,y1+.13,'#2f3336',.01,'metal');wk.box(sx-.06,1.98,y1+.13,sx+.06,2.2,y1+.21,'#f3dfb0',.01,'glass');wk.box(sx-.08,2.2,y1+.09,sx+.08,2.25,y1+.23,'#2f3336',0,'metal');}
   // número da casa
   wk.box(cu+dw/2+.2,1.5,y1+.09,cu+dw/2+.55,1.62,y1+.11,'#e9e3d4',0,'trim');
+  /* Garagem privada vazia: sem armários ou equipamentos construídos para não proprietários.
   // dentro: estante de aço com caixas, bancada com ferramentas, luminária tubular, régua de tomadas
   const ix0=x0+.18,ix1=x1-.18,iy0=y0+.18;
   const sx0=outerL?ix0:ix1-.48,sx1=sx0+.48;
@@ -157,6 +159,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   wk.box(outerL?ix1-.03:ix0,1.1,y0+.25,outerL?ix1:ix0+.03,1.9,y0+1.95,'#c9b38f',0,'wood');   // painel perfurado de ferramentas
   for(let zz=y0+.4;zz<y0+1.9;zz+=.28)wk.box(outerL?ix1-.07:ix0+.03,1.3+R()*.35,zz,outerL?ix1-.03:ix0+.07,1.55+R()*.2,zz+.05,'#3a3f44',0,'metal');
   wk.box(cu-.6,h-.12,(y0+y1)/2-.06,cu+.6,h-.06,(y0+y1)/2+.06,'#f4f1e8',0,'glass');
+  */
   // portão: quatro seções com almofadas em relevo; a de cima com visores em algumas casas; pivô no alto (basculante)
   const door=new THREE.Group();door.position.set(cu,dh,y1-.05);
   const dk=Kit(),col=A.palette%3===0?accent:'#f1ede4',secs=4,sh=dh/secs,cols=Math.max(4,Math.round(dw/.62)),pw=dw/cols,lites=(H.seed>>3)%2===0;
@@ -219,6 +222,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   wallKit.box(x0,-.08,y0,x1,0,y1,'#c8bfa9',0,'tile');
   if(y1-y0>.4){wallKit.box(x0,2.45,y0,x1,2.56,y1,'#d9cbb3',0,'wood');for(const x of [x0+.07,x1-.07])wallKit.box(x-.045,0,y1-.06,x+.045,2.45,y1+.03,accent,0,'trim');}
   groups(wallKit,exterior,materialSet);groups(roofKit,roof,materialSet);
+  paintGangFacade(THREE,H,A,exterior);
   for(const d of e.doors)exterior.add(d.object);
   e.sashes=installSashes(e.windows,exterior,glass);
   sign(H,e);scene.add(root);return e;

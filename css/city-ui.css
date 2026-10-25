@@ -1,0 +1,198 @@
+/* City of God — interface de vida urbana, identidade própria inspirada em jogos de mundo aberto. */
+#city-controls { position: fixed; right: 22px; bottom: 22px; z-index: 8; display: flex; gap: 9px; font: 600 12px system-ui,sans-serif; }
+#city-controls button { border: 1px solid #ffffff32; border-radius: 11px; background: #111920e6; color: #f7f8fb; padding: 11px 13px; box-shadow: 0 6px 24px #0008; cursor: pointer; }
+#city-controls button:hover, #city-controls button:focus-visible { background: #263946; outline: 2px solid #77c7e5; outline-offset: 1px; }
+#city-controls b { display: block; font-size: 18px; margin-bottom: 3px; }
+#city-toast { position: fixed; top: 102px; right: 22px; z-index: 45; border: 1px solid #ffffff35; color: #f7f7f7; background: #15232aef; padding: 12px 17px; border-radius: 9px; font: 600 13px system-ui,sans-serif; box-shadow: 0 10px 30px #0008; max-width: min(340px,80vw); pointer-events: none; opacity: 0; transition: opacity .18s; }
+#city-toast.show { opacity: 1; }
+#city-phone-layer[hidden], #city-wheel-layer[hidden] { display: none !important; }
+#city-phone-layer, #city-wheel-layer { position: fixed; inset: 0; z-index: 30; font-family: "Segoe UI", system-ui, sans-serif; }
+#city-phone-layer { pointer-events: none; }
+#city-phone { pointer-events: auto; position: absolute; bottom: 20px; right: 22px; width: min(330px, calc(100vw - 24px)); height: min(625px, calc(100dvh - 24px)); border: 7px solid #181b22; border-radius: 37px; background: #09151c; color: #f1f6fa; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 0 0 2px #586775, 0 18px 60px #000b; }
+#city-phone::before { content: ''; width: 84px; height: 17px; border-radius: 0 0 14px 14px; background: #181b22; position: absolute; top: 0; left: calc(50% - 42px); z-index: 2; }
+#city-phone button { cursor: pointer; color: inherit; }
+.city-phone-status { padding: 17px 20px 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #a5c3cc; background: #0b1f2b; }
+.city-phone-top { display: flex; padding: 10px 14px 11px; align-items: center; justify-content: space-between; background: #0b1f2b; gap: 6px; border-bottom: 1px solid #ffffff1a; }
+.city-phone-top strong { font-size: 17px; }
+.city-phone-top button, .city-phone-footer button { border: none; background: #ffffff1a; border-radius: 9px; padding: 7px 12px; font-size: 12px; }
+.city-phone-top button:hover, .city-phone-footer button:hover { background: #ffffff37; }
+.city-phone-screen { flex: 1; padding: 13px 13px 18px; overflow-y: auto; background: linear-gradient(148deg, #102a3c, #0d151e 58%, #18212b); scrollbar-color: #456 #172530; }
+.city-phone-footer { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 13px; border-top: 1px solid #ffffff20; background: #0b1f2b; }
+.city-phone-footer small { color: #9caeb7; }
+.city-app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px 8px; padding-top: 8px; }
+.city-app { border: 0; background: transparent; color: #fff; text-align: center; font-size: 12px; padding: 6px 0; }
+.city-app .city-app-icon { display: grid; place-items: center; font-size: 25px; width: 57px; height: 57px; margin: auto auto 6px; border-radius: 17px; border: 1px solid #ffffff35; background: linear-gradient(145deg, #345e77, #174056); box-shadow: 0 3px 9px #0005; }
+.city-app:hover .city-app-icon,.city-app:focus-visible .city-app-icon { background: #427b93; outline: 2px solid #9de0fa; }
+.city-phone-label { margin: 8px 3px 11px; font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #c7dce3; }
+.city-panel { background: #ffffff12; border: 1px solid #ffffff16; border-radius: 12px; padding: 11px 12px; margin-bottom: 10px; }
+.city-panel h3 { font-size: 15px; margin: 0 0 7px; }
+.city-panel p { font-size: 12px; line-height: 1.4; color: #bbc9d1; margin: 6px 0; }
+.city-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; font-size: 13px; }
+.city-row:last-child { margin-bottom: 0; }
+.city-row small { color: #adbec6; display: block; margin: 3px 0; }
+.city-row button, .city-primary { background: #2a7088; border: 1px solid #5696a8; border-radius: 8px; font: 600 12px system-ui,sans-serif; padding: 7px 9px; white-space: nowrap; }
+.city-row button:disabled { opacity: .45; cursor: not-allowed; }
+.city-row button:not(:disabled):hover, .city-primary:hover { background: #389bbb; }
+.city-track { width: 100%; height: 6px; border-radius: 4px; background: #0008; overflow: hidden; margin-top: 4px; }
+.city-fill { display: block; height: 100%; background: #65c39f; transition: width .2s; }
+.city-fill.warning { background: #eba14b; }
+.city-fill.danger { background: #ed6969; }
+.city-balance { font-size: 29px; font-weight: 800; margin: 5px 0 12px; color: #7be0b7; font-variant-numeric: tabular-nums; }
+.city-log { padding: 8px 0; border-bottom: 1px solid #ffffff17; font-size: 12px; display: flex; justify-content: space-between; gap: 5px; }
+.city-message { background: #ffffff1a; border-radius: 12px; padding: 8px 11px; margin: 6px 0; font-size: 12px; overflow-wrap: anywhere; }
+.city-message.sent { background: #206f72; margin-left: 25px; }
+.city-form { display: flex; gap: 5px; margin-top: 10px; }
+.city-form input, #city-notes { min-width: 0; flex: 1; background: #07151e; color: #fff; border: 1px solid #607887; border-radius: 9px; padding: 10px; font: 13px system-ui,sans-serif; box-sizing: border-box; }
+#city-notes { width: 100%; resize: vertical; min-height: 180px; }
+.city-help { color: #a9bbc7; font-size: 12px; line-height: 1.5; }
+.city-divider { border: 0; border-top: 1px solid #ffffff20; margin: 14px 0; }
+#city-wheel-layer { background: #020b12b8; display: grid; place-items: center; z-index: 32; }
+#city-wheel { position: relative; width: min(440px, 94vw); height: min(440px, 94vw); border: 1px solid #ffffff2b; border-radius: 50%; background: radial-gradient(circle, #15212be0 0%, #172631ef 24%, #070f18eb 25%, #101c27e8 100%); box-shadow: 0 0 40px #0009, inset 0 0 45px #000c; }
+#city-wheel .wheel-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid #5e8d9c; width: 100px; height: 100px; border-radius: 50%; background: #101d25; display: grid; align-content: center; justify-items: center; text-align: center; gap: 5px; font-size: 12px; }
+#city-wheel .wheel-center b { font-size: 15px; }
+.city-wheel-slot { position: absolute; top: 50%; left: 50%; display: grid; align-content: center; justify-items: center; border-radius: 50%; width: 78px; height: 78px; background: #1a2a34; border: 2px solid #4e6270; color: #fff; transform: translate(-50%,-50%); padding: 5px; gap: 4px; font-size: 11px; cursor: pointer; }
+.city-wheel-slot .wheel-icon { font-size: 25px; }
+.city-wheel-slot.active { border-color: #f3c96f; background: #46523d; box-shadow: 0 0 0 4px #f4cc5640; }
+.city-wheel-slot.locked { opacity: .42; }
+.city-wheel-slot:hover, .city-wheel-slot:focus-visible { border-color: #99d1eb; outline: none; }
+#city-wheel-hint { position: absolute; width: 100%; text-align: center; bottom: -57px; color: #eff6fa; font-size: 13px; text-shadow: 0 2px 7px #000; pointer-events: none; }
+body.city-modal #chat, body.city-modal #keys { display: none; }
+@media(max-width: 670px) {
+  #city-controls { right: 10px; bottom: 10px; gap: 5px; }
+  #city-controls button { padding: 8px 10px; font-size: 10px; }
+  #city-controls b { font-size: 16px; }
+  #city-phone { right: 8px; bottom: 8px; width: min(330px,calc(100vw - 16px)); max-height: calc(100dvh - 16px); }
+  #city-toast { right: 10px; top: 10px; }
+  #city-wheel { width: min(330px,90vw); height: min(330px,90vw); }
+  .city-wheel-slot { width: 61px; height: 61px; font-size: 9px; }
+  .city-wheel-slot .wheel-icon { font-size: 19px; }
+  #city-wheel .wheel-center { width: 78px; height: 78px; font-size: 10px; }
+  #city-wheel .wheel-center b { font-size: 12px; }
+}
+
+
+/* CITYOS 2.0 — redesign premium. Original, com linguagem de smartphone moderno. */
+#city-ui-root { color-scheme:dark; }
+#city-phone { width:min(362px,calc(100vw - 18px)); height:min(714px,calc(100dvh - 18px));
+  bottom:13px; right:19px; border:8px solid #181c22; border-radius:49px; isolation:isolate;
+  background:#07151e; box-shadow:0 0 0 1.5px #9aabb788, inset 0 0 0 1px #ffffff4d,
+  0 20px 45px #0008, 0 40px 110px #000b; transition:border-color .23s,box-shadow .23s;
+  animation:cityPhoneIn .24s cubic-bezier(.2,.8,.1,1) both; }
+@keyframes cityPhoneIn { from { opacity:.6; transform:translateY(32px) scale(.94); } to{opacity:1;transform:none;} }
+#city-phone::before {display:none;}
+.city-dynamic-island {height:28px;width:106px;position:absolute;top:7px;left:50%;z-index:8;
+  transform:translateX(-50%);border-radius:30px;background:#05090e;box-shadow:0 1px 1px #ffffff40;pointer-events:none;}
+.city-camera-lens {width:8px;height:8px;display:block;border-radius:50%;background:#112d51;
+  box-shadow:inset 0 0 0 2px #070d1a,0 0 2px #497db0;position:absolute;right:13px;top:10px;}
+.city-phone-status {padding:13px 25px 15px;background:transparent;position:relative;z-index:2;color:#fff;font-size:12px;
+  font-weight:700;min-height:14px;letter-spacing:.01em;}
+.city-phone-top {background:rgba(13,19,31,.34);backdrop-filter:blur(18px);padding:13px 18px 12px;min-height:28px;
+ border-top:1px solid #ffffff13;border-bottom:1px solid #ffffff29;}
+.city-phone-top strong {font-size:16px;letter-spacing:.015em;font-weight:760;text-shadow:0 1px 6px #0003;}
+.city-phone-top button,.city-phone-footer button {background:#ffffff26; border:1px solid #ffffff28;border-radius:50px;
+  min-width:35px;min-height:31px;font-weight:700;transition:transform .14s, background .14s;}
+.city-phone-top button:hover,.city-phone-footer button:hover{background:#ffffff40;transform:translateY(-1px);}
+.city-phone-screen {padding:14px 17px 22px; background:transparent; overscroll-behavior:contain; }
+#city-phone {--cityWallpaper:linear-gradient(150deg,#214368 0%,#162d50 27%,#0b1425 61%,#164257 100%);}
+#city-phone.city-wallpaper-ocean {--cityWallpaper:radial-gradient(ellipse at 80% 10%,#3d7cbbaa,transparent 46%), radial-gradient(ellipse at 12% 65%,#174b81b8,transparent 65%),linear-gradient(145deg,#09273c,#080d24);}
+#city-phone.city-wallpaper-rose {--cityWallpaper:radial-gradient(ellipse at 10% 25%,#b54f91ab,transparent 60%),linear-gradient(143deg,#332044,#482a61,#19152d);}
+#city-phone.city-wallpaper-midnight {--cityWallpaper:radial-gradient(ellipse at 90% 7%,#304f65aa,transparent 50%),linear-gradient(130deg,#0b0e13,#1a2230,#08080f);}
+#city-phone.city-wallpaper-sunset {--cityWallpaper:radial-gradient(ellipse at 77% 13%,#ffb66b83,transparent 42%),linear-gradient(160deg,#782a6e,#bd6378,#3b2a58 70%,#0f2943);}
+#city-phone {background-image:var(--cityWallpaper);}
+#city-phone.city-case-silver {border-color:#b8c2cb;box-shadow:0 0 0 2px #f6f8ffad,0 22px 65px #000b;}
+#city-phone.city-case-pink {border-color:#d79ec1;box-shadow:0 0 0 2px #ffd6ea95,0 22px 65px #000b;}
+#city-phone.city-case-blue {border-color:#4c7fba;box-shadow:0 0 0 2px #8abbec95,0 22px 65px #000b;}
+#city-phone.city-case-graphite {border-color:#171c26;}
+.city-phone-footer {background:#0f152a50;backdrop-filter:blur(16px);padding:9px 16px 8px;
+  border-top:1px solid #ffffff21;}
+.city-phone-footer small {font-size:11px;color:#ecf5f8bb;letter-spacing:.1em;text-transform:uppercase;}
+.city-home-indicator {width:108px;height:4px;margin:5px auto 8px;border-radius:8px;background:#f6f9fcee;flex:none;}
+.city-online-dot {display:inline-block;width:6px;height:6px;background:#69efbb;border-radius:50%;box-shadow:0 0 9px #7debbd;vertical-align:middle;}
+.city-home-hero {border-radius:24px;min-height:116px;padding:24px 17px 17px;display:flex;flex-direction:column;gap:6px;
+  background:linear-gradient(145deg,#ffffff29,#ffffff0a);border:1px solid #ffffff30;box-shadow:0 13px 26px #0002;}
+.city-home-hero strong {font-size:27px;line-height:1.13;letter-spacing:-.9px;color:#fff;}
+.city-home-hero > span:not(.city-hero-eyebrow) {font-size:12px;color:#e1eefa;opacity:.92;}
+.city-hero-eyebrow {font-size:9px;letter-spacing:.23em;font-weight:800;color:#dcf7ff;}
+.city-hero-stats {display:flex;justify-content:space-between;padding-top:15px;font-size:13px;color:#fff;align-items:center;}
+.city-hero-stats b {padding:7px 10px;border-radius:12px;background:#163a389c;color:#a7ffd8;border:1px solid #ffffff27;}
+.city-phone-label{color:#f4f7fc;font-size:10px;letter-spacing:.16em;margin:20px 1px 10px;}
+.city-app-grid {grid-template-columns:repeat(4,minmax(0,1fr)); gap:15px 5px;padding:6px 0 15px;}
+.city-app {font-size:10px;color:#fff;line-height:1.2;font-weight:620;min-width:0;word-break:break-word;
+  border-radius:13px;transition:transform .15s;}
+.city-app .city-app-icon {width:54px;height:54px;box-sizing:border-box;border-radius:16px;
+  background:linear-gradient(145deg,#5f96b8,#1b5375);border:1px solid #ffffff55;
+  color:#fff;font-size:26px;text-shadow:0 2px 7px #0004;
+  box-shadow:inset 0 1px 0 #ffffff65,0 5px 11px #0005;transition:transform .15s,box-shadow .15s;}
+.city-app:nth-child(6n + 1) .city-app-icon{background:linear-gradient(145deg,#8d90df,#45499c);}
+.city-app:nth-child(6n + 2) .city-app-icon{background:linear-gradient(145deg,#73cfc1,#1e8075);}
+.city-app:nth-child(6n + 3) .city-app-icon{background:linear-gradient(145deg,#e2a16c,#a55738);}
+.city-app:nth-child(6n + 4) .city-app-icon{background:linear-gradient(145deg,#e880aa,#9c4078);}
+.city-app:nth-child(6n + 5) .city-app-icon{background:linear-gradient(145deg,#84b5da,#4267ad);}
+.city-app:nth-child(6n) .city-app-icon{background:linear-gradient(145deg,#9a93b1,#50546b);}
+.city-app:hover .city-app-icon,.city-app:focus-visible .city-app-icon {transform:translateY(-3px) scale(1.055);box-shadow:0 10px 16px #0006;outline:2px solid #fff7;}
+.city-home-dock {display:flex;justify-content:space-around;gap:5px;padding:9px 6px 6px;margin:7px 0 0;
+  background:#ffffff24;border:1px solid #ffffff37;border-radius:23px;backdrop-filter:blur(16px);}
+.city-home-dock button {border:0;background:transparent;display:grid;justify-items:center;gap:4px;
+  font-size:23px;padding:7px;border-radius:14px;min-width:53px;transition:background .16s;}
+.city-home-dock button small {font-size:9px;color:#fff;}
+.city-home-dock button:hover {background:#ffffff28;}
+.city-panel {border-radius:17px;background:linear-gradient(135deg,#ffffff23,#ffffff0f);
+   border:1px solid #ffffff2e;box-shadow:0 5px 15px #0002;padding:13px 14px;}
+.city-panel h3{font-weight:740;margin-bottom:5px;font-size:14px;color:#fff;}
+.city-panel p{color:#e8f0f3c9;font-size:12px;}
+.city-phone-screen .city-row{flex-wrap:wrap;}
+.city-phone-screen .city-row button,.city-phone-screen .city-primary {background:linear-gradient(140deg,#5689e9,#3769ba);
+   border:1px solid #d5edff55;color:#fff;border-radius:11px;font-size:11px;padding:9px 11px;
+   box-shadow:inset 0 1px 0 #ffffff44;transition:transform .15s,background .15s;}
+.city-phone-screen .city-row button:hover:not(:disabled),.city-phone-screen .city-primary:hover{transform:translateY(-1px);background:#547acc;}
+.city-phone-screen .city-row button:disabled {opacity:.38;filter:grayscale(.9);}
+.city-phone-screen input,.city-phone-screen textarea {font:13px system-ui,sans-serif;border:1px solid #ffffff6b;
+ background:#0c1e2b88;border-radius:13px;color:#fff;padding:11px 13px;width:100%;box-sizing:border-box;}
+.city-phone-screen input:focus-visible,.city-phone-screen textarea:focus-visible{outline:2px solid #83ceff;}
+.city-phone-screen label {display:block;margin-bottom:8px;font-size:12px;font-weight:700;}
+.city-page-banner {min-height:80px;padding:18px 14px;display:grid;align-content:center;gap:7px;
+ border:1px solid #ffffff30;border-radius:19px;background:linear-gradient(135deg,#ffffff28,#ffffff0a);margin-bottom:16px;}
+.city-page-banner strong{font-size:24px;letter-spacing:-.7px;line-height:1.2;}
+.city-page-banner small{font-size:12px;color:#f0faffc8;}
+.city-rich-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.city-rich-head > div {min-width:0;flex:1;}
+.city-rich-icon {font-size:30px;display:grid;place-items:center;flex:none;width:48px;height:48px;
+ border-radius:14px;background:linear-gradient(130deg,#ffffff3d,#ffffff0c);border:1px solid #ffffff30;}
+.city-rich-actions {justify-content:flex-end;gap:5px;}
+.city-rich-actions button {max-width:100%;white-space:normal;word-break:normal;text-align:center;flex:0 1 auto;}
+.city-swatches {display:flex;flex-wrap:wrap;gap:7px;}
+.city-swatches button {background:#ffffff24;border:1px solid #ffffff40;color:#fff;border-radius:12px;padding:11px 9px;
+ font-size:11px;cursor:pointer;}
+.city-swatches button:hover,.city-swatches button:focus-visible {background:#ffffff49;}
+.city-photo {width:100%;height:auto;border-radius:12px;border:1px solid #ffffff50;margin:8px 0;display:block;}
+.city-social-post p {font-size:13px;color:#fafcff;line-height:1.6;}
+.city-social-post .city-action {background:#ffffff1c;color:#fff;padding:8px 11px;border-radius:20px;border:1px solid #ffffff2d;cursor:pointer;}
+#city-controls {right:18px;bottom:14px;align-items:flex-end;gap:8px;}
+#city-controls button {padding:9px 14px;background:linear-gradient(150deg,#192632ec,#10151deb);
+  backdrop-filter:blur(20px);border:1px solid #d0edff49;border-radius:14px;min-width:87px;
+  box-shadow:inset 0 1px 0 #ffffff28,0 8px 22px #0007;font-size:10px;letter-spacing:.025em;transition:transform .15s;}
+#city-controls button:hover {transform:translateY(-3px);background:#314455;}
+#city-controls b{font-size:22px;margin-bottom:4px;}
+#city-wheel-layer {background:radial-gradient(circle,#1120357a,#010409e0);
+ backdrop-filter:blur(5px);}
+#city-wheel {border:2px solid #deebff5a;background:
+ radial-gradient(circle at center,#192c3c 0 23%,#c6d9e520 24% 25%,transparent 26%),
+ repeating-conic-gradient(from -22.5deg,#1a3247ee 0 43.8deg,#799cbb77 44deg 45deg);
+ box-shadow:0 0 0 8px #c5dcf51d,0 0 70px #050c16d9,inset 0 0 45px #0008;}
+.city-wheel-slot {background:linear-gradient(145deg,#193751,#0e1b2b);border:2px solid #7498b6;
+ box-shadow:0 5px 20px #000a;font-weight:700;}
+.city-wheel-slot.active {border-color:#a7faff;background:#287487;box-shadow:0 0 0 5px #83e5ff39,0 0 30px #5de4ff55;}
+#city-wheel .wheel-center {border:2px solid #a5d3e7;background:#0b1723;color:#fff;box-shadow:0 0 20px #0006;}
+#city-toast {background:#102635f5;box-shadow:0 12px 35px #0009;border-radius:14px;border-color:#8bd6ed55;}
+@media(max-width:670px){
+ #city-phone {right:8px;bottom:8px;width:min(350px,calc(100vw - 16px));height:min(690px,calc(100dvh - 16px));}
+ .city-app-grid {gap:11px 2px;}
+ .city-app .city-app-icon {width:49px;height:49px;font-size:22px;}
+ .city-rich-actions{justify-content:flex-start;}
+ #city-controls {right:6px;bottom:8px;gap:5px;}
+ #city-controls button {min-width:65px;padding:7px 8px;font-size:9px;}
+ #city-controls b {font-size:18px;}
+}
+@media(prefers-reduced-motion:reduce){
+ #city-phone,.city-app .city-app-icon,#city-controls button {animation:none;transition:none;}
+}

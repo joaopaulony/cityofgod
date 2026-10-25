@@ -9,6 +9,7 @@ const buildingMask=makeCanvas(1,1),mg=buildingMask.getContext('2d');
 const buildingShade=makeCanvas(1,1),sg=buildingShade.getContext('2d');
 const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 
+if(typeof CityRealty!=='undefined')CityRealty.init();
 buildWorld();
 if(typeof remodelProperty==='function')for(const H of houses)remodelProperty(H);
 for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn=[...H.front];break;}
@@ -25,8 +26,22 @@ const npcs = [
 const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
+CityLife.init(st);
+CitySim.init(st);
+window.CityExtras?.bonus?.();
+let locCache=null,locNext=0;
+window.CityDistrictsLocation=()=>{
+  if(!world.open||typeof OW==='undefined'||!OW.geo||!COG.locationAt)return null;
+  const now=performance.now();
+  if(!locCache||now>=locNext){
+    locCache=COG.locationAt(OW.geo,world.roads,player.x,player.y);
+    locNext=now+1200;
+  }
+  return locCache;
+};
 let fireCD = 0, last = performance.now(), T = 0, dragX = null, dragY = null;
-const ZOOMS = [22, 28, 34, 42, 52, 64].map(z => z * RENDER_SCALE);
+// Zoom progressivo: inclui plano próximo estilo simuladores de vida.
+const ZOOMS = [20, 26, 32, 42, 52, 64, 80, 100, 125, 148, 176, 205].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
@@ -70,18 +85,20 @@ view.addEventListener('mousemove', e => {
   }
 });
 view.addEventListener('mousedown', e => {
-  if (wmap.open) { if (e.button === 0) wmap.drag = [e.clientX, e.clientY]; e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
+  if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
+  if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
 addEventListener('mouseup', e => {
-  if (e.button === 0) wmap.drag = null;
+  if (e.button === 0 && wmap.open && wmap.clickStart && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
+  if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
   if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
 });
-view.addEventListener('wheel', e => { if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
+view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
 // ---------- chat ----------
 const logEl = document.getElementById('log'), say = document.getElementById('say');
@@ -94,6 +111,7 @@ for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.hom
 if (world.arrival) { hud.msg = 'Bem-vindo! Você desembarcou no ' + world.arrival.airport; hud.msgT = 6; }
 chat('Sistema', world.open ? `voo pousou — você desembarcou no ${world.spawnName}. Pegue um carro e vá para a cidade. (G abre um mapa de teste)` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
+  if (window.CityUI?.blocksGameInput()) return;
   if (e.key !== 'Enter') return;
   if (document.activeElement === say) {
     const t = say.value.trim(); say.value = ''; say.blur();
@@ -166,13 +184,14 @@ function updatePlayer(dt) {
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
-  p.running = input.down('shift') && !p.aiming && !p.crouching;
+  p.running = input.down('shift') && !p.aiming && !p.crouching && st.needs.stamina > .025;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
     spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 3.7 : 1.75;
+    if (st.water < .09 || st.food < .09 || st.needs.energy < .09) spd *= .68;
     if(p.crouching)spd=Math.min(spd,.75);
     if (p.reloadT >= 0) spd = Math.min(spd, 1.3);
     const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28, p.floor||0);
@@ -188,14 +207,14 @@ function updatePlayer(dt) {
 
   fireCD -= dt;
   // clique curto fica na fila: o fuzil sobe (antecipação) e o tiro sai quando a mira assenta
-  if ((input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump) {
+  if (p.armed && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump) {
     p.aimHold = 1.3;
     if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
     else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = 0.12; p.wantShot = false; }
   }
   if (p.reloadT >= 0) p.wantShot = false;
-  if (input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve <= 0) { hud.msg = 'Sem carregadores'; hud.msgT = 1.4; }
-  if (input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
+  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve <= 0) { hud.msg = 'Sem carregadores'; hud.msgT = 1.4; }
+  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
   for (const ev of p.events.splice(0)) {
     if (ev === 'magOut') p.magState = 'hand';
     if (ev === 'magDrop') {
@@ -715,8 +734,11 @@ function tick(dt) {
   const interactPressed=input.hit('f');
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
-  const stairStarted=!vehicleMessage&&updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!vehicleMessage&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
+  if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
+  const realtyOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
+  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
@@ -725,6 +747,8 @@ function tick(dt) {
   }
   window.cityVehicles?.update(dt);
   updatePlayer(dt);
+  CityLife.tick(dt,player);
+  CitySim.tick();
   ecosystemTick(dt,player,T);
   for (const n of npcs) updateNPC(n, dt);
   updateHouseOpenings(dt, actors, st.night);
@@ -741,7 +765,8 @@ function tick(dt) {
     lx = clamp((a[0] - player.x) * 0.25, -3, 3) * player.aimV; ly = clamp((a[1] - player.y) * 0.25, -3, 3) * player.aimV;
   }
   if(!window.cityVehicles?.driver){
-    const floorFocus=(player.floorZ||0)*HZ/TILT;
+    // Centra tronco e rosto em zoom alto, em vez de colocar os pés no meio da tela.
+    const floorFocus=((player.floorZ||0)+.85)*HZ/TILT;
     cam.tx = player.x + lx-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly-Math.cos(cam.ang)*floorFocus;
     if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
@@ -751,6 +776,8 @@ function tick(dt) {
   if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
   render();
   window.cityVehicles?.render();
+  window.CityCamera?.afterRender?.(view,document.getElementById('vehicle3d'));
+  window.CityDriving?.install?.();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
   // O painel 3D precisa de alinhamento proprio; a HUD usa textAlign=right.
@@ -759,7 +786,7 @@ function tick(dt) {
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=window.cityVehicles?.prompt()||interactionPrompt(player);
+  const prompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player)||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
@@ -790,3 +817,4 @@ function warmIdle() {
 for (const H of houses) if (!H.architecture&&Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y) < 45) { houseTex(H); warmRoof(H); }
 requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };
+CityUI.mount();

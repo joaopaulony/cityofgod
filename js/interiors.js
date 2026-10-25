@@ -120,6 +120,11 @@ function useHouseInteraction(p,st,time){
   const found=findHouseInteraction(p);
   if(!found)return false;
   const {obj,kind,house:H}=found;
+  // Portas fechadas de residências privadas não podem ser abertas por transeuntes.
+  if(typeof CityRealty!=='undefined'&&CityRealty.residential(H)&&!CityRealty.isOwned(H)){
+    st._interactionMessage='Imóvel privado · acesso restrito';
+    return true;
+  }
   let message='';
   if(kind==='door'||kind==='window'){
     const key=kind==='door'?'doorAnim':'windowAnim';
@@ -145,16 +150,17 @@ function useHouseInteraction(p,st,time){
     message='Agua fresca  +hidratacao';
   }else if(kind==='bed'||kind==='sofa'){
     st.hp=Math.min(1,(st.hp||0)+.06);
-    message='Descansando um pouco  +energia';
+    message='Descansando · vida, energia e fôlego recuperados';
   }else if(kind==='stove'){
     message='Fogao pronto para preparar uma refeicao';
   }else if(kind==='shower'){
-    message='Um banho quente depois de um longo dia';
+    message='Banho tomado · higiene recuperada';
   }else if(kind==='toilet'){
-    message='Banheiro utilizado';
+    message='Banheiro utilizado · alívio recuperado';
   }else if(kind==='shelf'||kind==='desk'||kind==='table'){
     message='Voce examinou a '+(INTERIOR_LABELS[kind]||kind);
   }
+  if (typeof window !== 'undefined') window.CityLife?.interior(kind);
   st._interactionMessage=message;
   return true;
 }

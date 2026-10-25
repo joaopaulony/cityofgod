@@ -274,8 +274,17 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
     const st = L(du, T.d + 0.35); addBox({ x: st[0], y: st[1], w: 1.4, d: 0.6, h: 0.14, rot, top: '#bcb7ad', side: '#958f84', kind: 'step', solid: false });
     if (er() < 0.7) { const cp = L(du, T.d + 0.45); addBox({ x: cp[0], y: cp[1], w: 1.7, d: 0.9, h: 0.08, z: 2.34, rot, top: '#cfcac0', side: '#a19b90', kind: 'canopy', solid: false, house: H, exteriorFixture: true }); }
   }
-  for (const f of layoutFurniture(T)) { const p = L(f.x, f.y); addBox(Object.assign({}, f, { x: p[0], y: p[1], rot: (f.rot || 0) + k * Math.PI / 2, house: H })); }
-  decorateHouse(H,T,L,k);
+  // Casas particulares nascem fechadas/sem mobiliário. Os interiores são criados apenas
+  // quando adquiridos; imóveis públicos mantêm seus interiores habituais.
+  H.furnishOnPurchase=()=>{
+    if(H._furnished)return;
+    H._furnished=true;
+    for (const f of layoutFurniture(T)) { const p=L(f.x,f.y);
+      addBox(Object.assign({},f,{x:p[0],y:p[1],rot:(f.rot||0)+k*Math.PI/2,house:H}));
+    }
+    decorateHouse(H,T,L,k);
+  };
+  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H))H.furnishOnPurchase();
   urbanChimneyFor(H,T,L);
   urbanRooftopFor(H,T,L);
   if (T.yard) {   // quintal cercado com portão na frente e passagem nos fundos
@@ -558,11 +567,18 @@ function drawWindowLeaves(g, s, exterior) {
 // Porta abre ao aproximar-se o jogador ou um NPC; janelas mudam devagar,
 // de forma deterministica para cada casa, e fecham preferencialmente a noite.
 function updateHouseOpenings(dt, residents, night) {
+  // A animação de janelas e portas distantes não traz benefício visual.
+  // Ao retornar ao setor ela retoma suavemente; o culling respeita a câmera ativa.
+  const observer=residents[0];
   for (const H of houses) {
+    if(observer&&!H.inside){
+      const mx=(H.x0+H.x1)*.5,my=(H.y0+H.y1)*.5;
+      if(Math.abs(mx-observer.x)>170||Math.abs(my-observer.y)>170)continue;
+    }
     for (const s of H.architecture?H.architecture.openingSegments:H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
-      if(s.ext&&!s.doorAnim.manual)s.doorAnim.target = residents.some(a => (a.floor||0)===(s.floor||0)&&Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
+      if(s.ext&&!s.doorAnim.manual)s.doorAnim.target = (typeof CityRealty==='undefined'||CityRealty.canFurnish(H)) && residents.some(a => (a.floor||0)===(s.floor||0)&&Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
       // As portas internas agora usam F; os moradores nao as abrem so ao passar.
       s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
       if (Math.abs(s.doorAnim.target - s.doorAnim.open) < 0.005) s.doorAnim.open = s.doorAnim.target;
@@ -579,12 +595,14 @@ function updateHouseOpenings(dt, residents, night) {
       if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
     }
     }
-    // portão basculante da garagem: abre com o jogador (ou um morador) perto, ou o carro chegando
+    // O portão é controlado SOMENTE pelo proprietário via F ou botão do imóvel.
+    // Não reage à passagem de carros, NPCs, transeuntes ou outros jogadores.
     const G = H.garage;
-    if (G && G.seg) {
-      const a = G.seg.doorAnim, car = window.cityVehicles && window.cityVehicles.driver ? window.cityVehicles.car : null, near = (x, y, r) => Math.hypot(x - G.door[0], y - G.door[1]) < r;
-      a.target = residents.some(p => !(p.floor > 0) && near(p.x, p.y, 5.5)) || (car && near(car.x, car.y, 11)) ? 1 : 0;
-      a.open += (a.target - a.open) * (1 - Math.exp(-dt * 1.4)); if (Math.abs(a.target - a.open) < 0.004) a.open = a.target;
+    if(G?.seg?.doorAnim){
+      const a=G.seg.doorAnim;
+      if(typeof CityRealty!=='undefined'&&!CityRealty.isOwned(H))a.target=0;
+      a.open+=(a.target-a.open)*(1-Math.exp(-dt*2.4));
+      if(Math.abs(a.target-a.open)<.004)a.open=a.target;
     }
     if(H.upper)for(const s of H.upper.walls)if(s.doorAnim){
       const a=s.doorAnim;
@@ -905,7 +923,7 @@ function houseDrawables(list, px, py) {
       H.inside=false;H.fade=false;H.visionOpenings=[];
       continue;
     }
-    H.inside = H.contains ? H.contains(px,py,player.floor||0) : px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1;
+    H.inside = (typeof CityRealty==='undefined'||CityRealty.canFurnish(H)) && (H.contains ? H.contains(px,py,player.floor||0) : px > H.x0 && px < H.x1 && py > H.y0 && py < H.y1);
     // A visibilidade do interior depende de entrar na casa, e nunca de
     // dirigir atras de um telhado. Evita revelar o vazio verde da casa.
     H.fade=false;
@@ -946,7 +964,7 @@ function houseDrawables(list, px, py) {
     if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
     if (props3d(b)) continue;   // desenhado em 3D
-    if (b.house && !b.exteriorFixture && !b.house.inside) continue;
+    if (b.house && !b.exteriorFixture && (!b.house.inside || typeof CityRealty!=='undefined'&&!CityRealty.canFurnish(b.house))) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
     let d=depthOf(b.x,b.y)+bias;
     // Coberturas secundarias da varanda estao ABAIXO das aguas do telhado.

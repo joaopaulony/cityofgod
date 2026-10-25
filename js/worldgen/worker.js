@@ -1,6 +1,6 @@
 // worldgen/worker.js — gera o mundo (nível 1) e as fichas de setor fora da thread principal.
 'use strict';
-importScripts('geo.js', 'roads.js', 'stream.js');
+importScripts('geo.js', '../city-districts.js', 'roads.js', 'stream.js');
 let world = null;
 onmessage = e => {
   const m = e.data;

@@ -201,14 +201,21 @@ function facadeProjects(H, side, ext, rnd, night) {
       for (let u = 0; u < L; u += 1.2) g.fillRect(X(u), Y(z0 + 1.05), 2, 1.0 * K);
     }
   }
-  if (!night) for (let i = 0; i < Math.round(L / 7); i++) {   // pichações em letras de bloco com contorno
-    const tags = ['305', 'MIA', 'KRS', 'ZOE', 'RIP', 'DADE', 'SNK', 'BRO'], t = tags[(rnd() * tags.length) | 0], fs = (0.55 + rnd() * 0.4) * K;
-    const x = rnd() * (W - 3 * K), y = Y(0.55 + rnd() * 0.9), cols = ['#e8364f', '#2b8be6', '#f5c518', '#2ec46b', '#f2f2f2', '#9b59b6'];
-    g.save(); g.translate(x, y); g.rotate((rnd() - 0.5) * 0.25); g.font = `900 ${fs}px Impact, "Arial Black", sans-serif`; g.lineJoin = 'round';
-    g.lineWidth = fs * 0.22; g.strokeStyle = '#141414'; g.strokeText(t, 0, 0);
-    g.fillStyle = cols[(rnd() * cols.length) | 0]; g.fillText(t, 0, 0);
-    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, -fs * 0.62, g.measureText(t).width, fs * 0.08);
-    g.restore();
+  // Versão Canvas 2D (sem WebGL): grafites da gangue deste território.
+  // Pinta SOMENTE abaixo das janelas e entre os módulos de 3,2m, sem recobrir as aberturas.
+  const gang=typeof OW!=='undefined'&&OW.geo?.gangAt?.((H.x0+H.x1)/2,(H.y0+H.y1)/2);
+  if(gang&&!globalThis.cityArchitecture3D?.ready){
+    for(let i=0;i<Math.min(5,Math.floor((L-2)/3.2));i++){
+      const text=gang.art[(H.seed+i)%5],fs=.30*K,x=X(2.22+i*3.2),y=Y(.68);
+      g.save();g.translate(x,y);g.rotate((rnd()-.5)*.10);
+      g.font='900 '+fs+'px Impact,"Arial Black",sans-serif';g.lineJoin='round';
+      const width=g.measureText(text).width;
+      g.scale(Math.min(1,1.45*K/Math.max(1,width)),1);
+      g.lineWidth=.11*K;g.strokeStyle='#12151b';g.strokeText(text,0,0);
+      g.lineWidth=.04*K;g.strokeStyle='#e4f6ee';g.strokeText(text,0,0);
+      g.fillStyle=gang.color;g.fillText(text,0,0);
+      g.restore();
+    }
   }
   groundGrime(F, 0.95);
   return F.c;

@@ -126,7 +126,7 @@ function owSectorRoads(S) {
       }
       pts.push(raw[raw.length - 1]);
       if (pts.length < 4) continue;
-      out.push({ pts: withNormals(pts), cls: rd.cls, w: rd.w, off: rd.w / 2 - ROAD_W, lanes: rd.lanes || 1, park: rd.park || 0, grid: !!rd.grid, branch: rd.cls !== 'highway', bigId: rd.id });
+      out.push({ streetName: rd.streetName, pts: withNormals(pts), cls: rd.cls, w: rd.w, off: rd.w / 2 - ROAD_W, lanes: rd.lanes || 1, park: rd.park || 0, grid: !!rd.grid, branch: rd.cls !== 'highway', bigId: rd.id });
     }
   });
   return out;

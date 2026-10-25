@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Piloto Iso — Canvas 2D</title>
+<title>City of God — Cidade Aberta</title>
+<link rel="stylesheet" href="css/city-ui.css">
+<link rel="stylesheet" href="css/city-expansion.css">
 <link rel="icon" href="data:,">
 <style>
   html, body { margin: 0; height: 100%; background: #14110f; overflow: hidden; }
@@ -16,6 +18,9 @@
   #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }
+  #chat { bottom: 228px !important; }
+  #keys { display: none; }
+  @media(max-width:670px) { #chat { display: none; } }
   #view { z-index: 0; }
   #chat {
     position: absolute; left: 12px; bottom: 12px; width: 270px;
@@ -59,7 +64,7 @@
   <div>Mirar <kbd>Botão dir.</kbd></div>
   <div>Recarregar <kbd>R</kbd></div>
   <div>Girar câmera (segure) <kbd>Q / E</kbd></div>
-  <div>Zoom <kbd>Roda</kbd></div>
+  <div>Zoom aproximado (simulador) <kbd>Roda</kbd></div>
   <div>Interagir / entrar / sair do carro <kbd>F</kbd></div>
   <div>Dirigir <kbd>W / S / A / D</kbd></div>
   <div>Freio de mão <kbd>Espaço</kbd></div>
@@ -67,7 +72,10 @@
   <div>Entrar no carro próximo <kbd>V</kbd></div>
   <div><a href="vehicle-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos modelos 3D</a></div>
   <div><a href="character-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos personagens</a></div>
+  <div>Celular / mochila / armas <kbd>P / I / B ou Tab</kbd></div>
+  <div>Consumir itens <kbd>1–5</kbd></div>
   <div>Mapa <kbd>M</kbd></div>
+  <div>Garagem do proprietário <kbd>F</kbd></div>
   <div>Dia / noite <kbd>N</kbd></div>
   <div>Clima <kbd>K</kbd></div>
   <div>Novo mapa <kbd>G</kbd></div>
@@ -78,6 +86,7 @@
 <script src="js/env.js"></script>
 <script src="js/street-layout.js"></script>
 <script src="js/worldgen/geo.js"></script>
+<script src="js/city-districts.js"></script>
 <script src="js/worldgen/roads.js"></script>
 <script src="js/worldgen/stream.js"></script>
 <script src="js/worldgen/atlas-paint.js"></script>
@@ -100,6 +109,15 @@
 <script src="js/skeleton.js"></script>
 <script src="js/character.js"></script>
 <script src="js/hud.js"></script>
+<script src="js/city-life.js"></script>
+<script src="js/city-sim.js"></script>
+<script src="js/city-realty.js"></script>
+<script src="js/city-gps.js"></script>
+<script src="js/city-camera.js"></script>
+<script src="js/city-driving.js"></script>
+<script src="js/city-apps.js"></script>
+<script src="js/city-extras.js"></script>
+<script src="js/city-ui.js"></script>
 <script src="js/worldmap.js"></script>
 <script src="js/ecosystem.js"></script>
 <script src="js/miami.js"></script>
