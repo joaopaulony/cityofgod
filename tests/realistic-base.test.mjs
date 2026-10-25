@@ -10,8 +10,10 @@ test('base profile validates saved values',()=>{
  assert.deepEqual(baseProfile(null),{body:'male',tone:0});
  assert.deepEqual(baseProfile({body:'invalid',tone:99}),{body:'male',tone:4});
 });
-test('both human bases have bounded animated geometry, valid skinning and isolated skin colors',async()=>{
- const manifest=JSON.parse(await readFile(new URL('manifest.json',base)));
+test('both human bases have bounded animated geometry, valid skinning and isolated skin colors',async t=>{
+ const raw=await readFile(new URL('manifest.json',base)).catch(e=>{if(e.code==='ENOENT')return null;throw e;});
+ if(!raw){t.skip('Local licensed assets are not distributed in this repository; run importer to validate them.');return;}
+ const manifest=JSON.parse(raw);
  for(const spec of manifest.models){
   const bytes=await readFile(new URL(spec.file,base));
   const g=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');

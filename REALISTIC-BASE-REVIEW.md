@@ -2,7 +2,7 @@
 
 Prévia: http://127.0.0.1:4322/index.html?characters=realistic-base&characterTest=1
 
-O provedor `realistic-base` usa os arquivos fornecidos pelo usuário. O padrão continua Mixamo até aprovação visual. Botão Personagem: corpo, cinco tonalidades, giro, prévia de animações e aplicação persistida localmente. Lucas e Ana usam as mesmas bases com materiais independentes. Não é um editor completo de anatomia, roupas ou cabelo.
+O provedor `realistic-base` usa os arquivos fornecidos pelo usuário. Os binários e texturas são locais e ignorados pelo Git até confirmação da licença de distribuição; o código pode ser publicado, mas esta prévia não está disponível num clone limpo ou no Vercel. O padrão continua Mixamo até aprovação visual. Botão Personagem: corpo, cinco tonalidades, giro, prévia de animações e aplicação persistida localmente. Lucas e Ana usam as mesmas bases com materiais independentes. Não é um editor completo de anatomia, roupas ou cabelo.
 
 ## Conversão
 
