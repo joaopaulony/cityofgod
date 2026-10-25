@@ -63,12 +63,20 @@ test('ownership records are derived from actual world doors',()=>{
  assert.ok(realty.isOwned(home));assert.equal(life.funds,before-realty.price(home));
  assert.equal(realty.buy(home).ok,false);
 });
-test('gas stations produce real map POIs and manual GPS target',()=>{
+test('gas station POI only receives a GPS route when a road network exists',()=>{
  const {window,ctx}=boot();
- ctx.world={open:false,gasStations:[{brand:{name:'PACIFIC FUEL'},pumps:[{x:31,y:47}]}]};
+ ctx.world={open:false,roads:[],gasStations:[{brand:{name:'PACIFIC FUEL'},pumps:[{x:31,y:47}]}]};
  ctx.CityRealty={owned:{}};
  const pois=window.CityGPS.pois();
  assert.equal(pois[0].type,'gas');assert.equal(pois[0].x,31);
+ // The old straight-line fallback was intentionally removed.
+ assert.equal(window.CityGPS.set(pois[0]),false);
+ assert.equal(window.CityGPS.target,null);
+ // Give this fixture a connected street and a player position.
+ vm.runInContext(fs.readFileSync('js/city-road-routing.js','utf8'),ctx);
+ ctx.world.roads=[{cls:'street',pts:[[0,47],[90,47]]}];
+ window.cityVehicleBridge={player:{x:20,y:47}};
  assert.equal(window.CityGPS.set(pois[0]),true);
  assert.equal(window.CityGPS.target.name,'Posto PACIFIC FUEL');
+ assert.ok(window.CityGPS.route.points.length>=2);
 });
