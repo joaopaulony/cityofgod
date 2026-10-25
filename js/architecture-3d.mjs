@@ -8,7 +8,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  const Kit=makeKit(THREE),entries=new Map(),builds=new Map();
  const state=window.cityArchitecture3D={ready:true,properties:0,meshes:0,triangles:0,pending:0,buildMs:0,errors:[],revision:1};
  const mats=propertyMaterials(THREE,opts.seeThrough);
- const civicLights=Array.from({length:4},()=>{const l=new THREE.PointLight(0xf0f4e9,0,24,2);scene.add(l);return l;});
+ const civicLights=Array.from({length:4},()=>{const l=new THREE.PointLight(0xf0f4e9,0,24,2);return l;});
  // Interior cutaway already exposes the player. Keep its floor, rails and
  // doors opaque instead of applying the vegetation's broad dither circle.
  const innerMats=Object.fromEntries(Object.entries(mats).map(([k,m])=>[k,m.clone()]));
@@ -267,7 +267,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const [H,e] of entries)if(!seen.has(H)){disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
   for(const [H,job] of builds)if(!seen.has(H)){job.return();builds.delete(H);}
   const occupied=bridge.houses.find(H=>H.civic&&H.inside&&H.lightOn),lit=occupied?.architecture.levels[bridge.player.floor||0];
-  civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit){const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}});
+  civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit&&lit.rooms[i]){if(!light.parent)scene.add(light);const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}else scene.remove(light);});
   let meshes=0,triangles=0;for(const e of entries.values())e.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});
   Object.assign(state,{properties:entries.size,meshes,triangles,pending,buildMs:+(performance.now()-t0).toFixed(2)});
  }
