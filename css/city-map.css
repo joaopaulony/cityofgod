@@ -1,0 +1,90 @@
+/* City of God — dedicated map interface. Gameplay HUD is completely hidden while mapping. */
+body.map-open #city-controls,
+body.map-open #city-toast,
+body.map-open #chat,
+body.map-open #keys,
+body.map-open #city-phone-layer,
+body.map-open #city-wheel-layer{display:none!important}
+body.map-open #view{cursor:crosshair!important;filter:none!important}
+body.map-open #view:active{cursor:grabbing!important}
+body.map-open #hud{pointer-events:none!important}
+body.map-open{cursor:crosshair}
+#city-map-ui{display:none;position:fixed;inset:0;z-index:15;pointer-events:none;
+  color:#eaf1f9;font:12px/1.5 "Segoe UI",system-ui,sans-serif;isolation:isolate}
+#city-map-ui.active{display:block}
+#city-map-ui button{cursor:pointer;font:inherit;color:inherit;outline-offset:2px}
+#city-map-ui button:focus-visible{outline:2px solid #69caff}
+.map-header{position:absolute;top:0;left:0;right:0;height:58px;display:flex;align-items:center;gap:24px;
+  padding:0 16px 0 22px;box-sizing:border-box;background:linear-gradient(90deg,#09141ff7,#131d2aec);
+  border-bottom:1px solid #6596c34d;box-shadow:0 5px 18px #0005}
+.map-brand{display:flex;flex-direction:column;line-height:1.1;gap:5px;min-width:210px}
+.map-brand small{font-size:9px;letter-spacing:.19em;color:#5ec4f1;font-weight:800}
+.map-brand strong{font-size:20px;letter-spacing:.012em;font-weight:800}
+.map-header-info{font-size:12px;color:#adbbcd;flex:1}
+#city-map-close{pointer-events:auto;border:1px solid #ffffff48;padding:7px 13px;border-radius:9px;
+  background:#ffffff19;font-size:13px!important;display:flex;align-items:center;gap:8px}
+#city-map-close:hover{background:#ffffff38}
+.map-sidebar{position:absolute;top:70px;bottom:59px;right:12px;width:250px;max-height:calc(100dvh - 129px);
+  padding:13px 13px 16px;box-sizing:border-box;border-radius:13px;background:#07121ff2;
+  border:1px solid #6c91ad6d;box-shadow:0 12px 24px #0009;display:flex;flex-direction:column;gap:9px;pointer-events:auto}
+.map-sidebar-title{font-size:13px;font-weight:800;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center}
+.map-sidebar-title small{font-size:9px;color:#78bcd9;letter-spacing:.16em}
+.map-filters{overflow-y:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:2px;
+  scrollbar-color:#51677c transparent;overscroll-behavior:contain}
+.map-filters button{background:transparent;border:0;border-radius:7px;text-align:left;padding:6px 9px;
+  display:flex;align-items:center;gap:9px;transition:background .15s;color:#e6edf4!important;font-weight:550!important;
+  font-size:11px!important}
+.map-filters button:hover,.map-filters button[aria-pressed="true"]{background:#273e549b}
+.map-filters button.off{opacity:.40}
+.map-filters i,.map-gang i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none;
+ border:1px solid #ffffff6f;box-shadow:0 0 0 2px #0005}
+.map-side-group{padding-top:8px;border-top:1px solid #ffffff28}
+.map-side-group>span{display:block;font-weight:800;font-size:10px;letter-spacing:.13em;color:#b0d2e7;margin-bottom:7px}
+#city-map-gangs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.map-gang{display:flex;align-items:center;gap:5px;font-size:10px;white-space:nowrap}
+.map-palette{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.map-palette>span{width:100%}
+.map-palette button{background:#20364a9f;border:1px solid #ffffff38;border-radius:7px;padding:5px 9px;font-size:10px!important}
+.map-palette button.active{color:#8be2ff;border-color:#83d3ff;background:#21435f}
+.map-footer{position:absolute;bottom:0;left:0;right:0;height:47px;display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:0 19px;box-sizing:border-box;background:#09141ff5;border-top:1px solid #6e91a95d;
+ color:#b4c4d4}
+.map-controls{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:10px}
+.map-controls kbd{font:700 10px/1 system-ui;border-radius:4px;border:1px solid #8ea1b067;
+ padding:4px 5px;background:#233140;color:#fff;margin-left:11px}
+.map-controls kbd:first-child{margin-left:0}
+.map-hover{color:#a7ccdc;white-space:nowrap;font-size:10px}
+.map-route-status{position:absolute;top:73px;left:15px;max-width:min(540px,calc(100% - 300px));min-height:33px;
+  padding:7px 13px;background:#101f31e9;border:1px solid #6d91a75f;border-radius:11px;
+  display:flex;align-items:center;gap:9px;font-size:12px;box-shadow:0 5px 15px #0006}
+.map-route-icon{font-size:19px;color:#5fd6ff}
+#city-gps-readout{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#city-gps-clear{pointer-events:auto;border:1px solid #57a7d5;border-radius:6px;background:#174e70;
+ margin-left:7px;padding:4px 8px;white-space:nowrap;font-size:10px!important}
+#city-gps-clear[hidden]{display:none}
+@media(max-width:850px){
+ .map-header{height:52px;padding:0 10px}
+ .map-brand{min-width:120px}.map-brand strong{font-size:16px}
+ .map-header-info{display:none}
+ .map-sidebar{width:190px;top:60px;bottom:52px;right:7px;padding:9px;max-height:calc(100dvh - 112px)}
+ #city-map-gangs{grid-template-columns:1fr}
+ .map-filters button{padding:6px 4px}
+ .map-footer{height:42px;padding:0 9px}.map-hover{display:none}
+ .map-controls{gap:4px;font-size:9px}
+ .map-controls kbd{margin-left:5px;font-size:9px}
+ .map-route-status{top:59px;max-width:calc(100% - 225px);padding:5px 8px;font-size:10px}
+}
+@media(max-width:540px){
+ .map-brand small{font-size:7px}.map-brand strong{font-size:14px}
+ .map-header{padding-right:8px}
+ #city-map-close span{display:none}
+ .map-sidebar{width:137px;padding:7px;gap:6px}
+ .map-sidebar-title{font-size:9px}.map-sidebar-title small{display:none}
+ .map-filters button{font-size:9px!important;padding:4px 2px;gap:5px}
+ .map-gang{font-size:8px}
+ .map-side-group>span{font-size:8px}
+ .map-palette button{font-size:8px!important}
+ .map-route-status{max-width:calc(100% - 156px);left:5px}
+ .map-controls{font-size:8px}
+ .map-controls kbd:nth-of-type(3),.map-controls kbd:nth-of-type(4){display:none}
+}

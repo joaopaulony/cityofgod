@@ -77,7 +77,14 @@ addEventListener('resize', resize); resize();
 // ---------- entrada do mouse / câmera ----------
 view.addEventListener('mousemove', e => {
   input.mx = e.clientX; input.my = e.clientY;
-  if (wmap.drag) { wmap.ox += e.clientX - wmap.drag[0]; wmap.oy += e.clientY - wmap.drag[1]; wmap.drag = [e.clientX, e.clientY]; return; }
+  if(wmap.open){
+    wmapPointer(e.clientX,e.clientY);
+    if(wmap.drag){
+      wmapDrag(e.clientX-wmap.drag[0],e.clientY-wmap.drag[1]);
+      wmap.drag=[e.clientX,e.clientY];
+    }
+    return;
+  }
   if (dragX !== null) {
     cam.tang += (e.clientX - dragX) * .008;
     cam.ttilt = clamp(cam.ttilt - (e.clientY - dragY) * .0025, .34, .84);
@@ -86,19 +93,19 @@ view.addEventListener('mousemove', e => {
 });
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
-  if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
+  if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
 addEventListener('mouseup', e => {
-  if (e.button === 0 && wmap.open && wmap.clickStart && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
+  if (e.button === 0 && wmap.open && wmap.clickStart && wmap.dragDistance<8 && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
   if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
   if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
 });
-view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
+view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.17 : 1/1.17); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
 // ---------- chat ----------
 const logEl = document.getElementById('log'), say = document.getElementById('say');
@@ -715,6 +722,15 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function tick(dt) {
+  // Pause gameplay while the full map owns the mouse and keyboard.
+  if(wmap.open){
+    if(input.hit('m')||input.hit('escape'))wmapToggle();
+    if(wmap.open){
+      h.clearRect(0,0,hudC.width,hudC.height);
+      drawWorldMap(h,hudC.width,hudC.height,st);
+      input.endFrame();return;
+    }
+  }
   T += dt;
   st.clock += dt; hud.msgT -= dt;
   // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
@@ -747,6 +763,7 @@ function tick(dt) {
   }
   window.cityVehicles?.update(dt);
   updatePlayer(dt);
+  window.CityGPS?.tick(player);
   CityLife.tick(dt,player);
   CitySim.tick();
   ecosystemTick(dt,player,T);
