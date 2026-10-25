@@ -37,7 +37,7 @@ test('streets are named deterministically and retain geometry',()=>{
  const a=city(),b=city();
  assert.ok(a.roads.length>30);
  assert.equal(a.roads.filter(r=>r.streetName).length,a.roads.length);
- assert.deepEqual(a.roads.map(x=>x.streetName),b.roads.map(x=>x.streetName));
+ assert.deepEqual(Array.from(a.roads,x=>x.streetName),Array.from(b.roads,x=>x.streetName));
  assert.ok(a.roads.some(x=>/Street|Road|Avenue|Boulevard|Calle|Freeway/.test(x.streetName)));
  for(const r of a.roads)assert.ok(r.pts.length>1);
 });

@@ -54,7 +54,7 @@
   const add=(type,list,d,labels)=>list.forEach((anchor,i)=>{
    if(!anchor)return;
    const name=labels[i]||type+' '+(i+1),gang=(d===D.FAVELA||d===D.GHETTO)
-     ?Object.freeze({...palettes[gi++%palettes.length],id:'crew:'+type+':'+i,neighborhood:name,index:gi-1}):null;
+     ?Object.freeze({...palettes[gi++%palettes.length],id:'crew:'+type+':'+(gi-1),neighborhood:name,index:gi-1}):null;
    const obj={id:type+':'+i,type,name,x:anchor.x,y:anchor.y,r:anchor.r||170,d,gang};
    areas.push(obj);anchor.districtName=name;anchor.gang=gang;
   });
