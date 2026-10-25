@@ -145,16 +145,17 @@ function useHouseInteraction(p,st,time){
     message='Agua fresca  +hidratacao';
   }else if(kind==='bed'||kind==='sofa'){
     st.hp=Math.min(1,(st.hp||0)+.06);
-    message='Descansando um pouco  +energia';
+    message='Descansando · vida, energia e fôlego recuperados';
   }else if(kind==='stove'){
     message='Fogao pronto para preparar uma refeicao';
   }else if(kind==='shower'){
-    message='Um banho quente depois de um longo dia';
+    message='Banho tomado · higiene recuperada';
   }else if(kind==='toilet'){
-    message='Banheiro utilizado';
+    message='Banheiro utilizado · alívio recuperado';
   }else if(kind==='shelf'||kind==='desk'||kind==='table'){
     message='Voce examinou a '+(INTERIOR_LABELS[kind]||kind);
   }
+  window.CityLife?.interior(kind);
   st._interactionMessage=message;
   return true;
 }
