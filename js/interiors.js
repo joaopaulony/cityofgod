@@ -120,6 +120,11 @@ function useHouseInteraction(p,st,time){
   const found=findHouseInteraction(p);
   if(!found)return false;
   const {obj,kind,house:H}=found;
+  // Portas fechadas de residências privadas não podem ser abertas por transeuntes.
+  if(typeof CityRealty!=='undefined'&&CityRealty.residential(H)&&!CityRealty.isOwned(H)){
+    st._interactionMessage='Imóvel privado · acesso restrito';
+    return true;
+  }
   let message='';
   if(kind==='door'||kind==='window'){
     const key=kind==='door'?'doorAnim':'windowAnim';

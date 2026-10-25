@@ -95,9 +95,17 @@ function drawHUD(h, W, H, st) {
     const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
     const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
      ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
-    h.fillText(district+' · '+weather,tx+topW-13,ty+87);
+    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx+topW-13,ty+87);
   }
 
+  const loc=window.CityDistrictsLocation?.();
+  if(loc && !compact){
+    const subY=ty+108;
+    round(tx,subY,topW,loc.gang?42:27,10,panel,border);
+    h.textAlign='right';h.font='700 10px system-ui';h.fillStyle='#c5eaff';
+    h.fillText(loc.street||'Explorando a cidade',tx+topW-12,subY+17);
+    if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx+topW-12,subY+33);}
+  }
   // Arma selecionada e balas do sistema existente. Mãos vazias não disparam.
   const driving=!!window.cityVehicles?.driver;
   if(!driving) {

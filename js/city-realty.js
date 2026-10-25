@@ -11,6 +11,12 @@ const CityRealty=(()=>{
    document.addEventListener('click',e=>{
      const b=e.target.closest('[data-property-buy]');
      if(b){const H=houses.find(h=>residential(h)&&id(h)===b.dataset.propertyBuy);if(H) buy(H);close();}
+     const toggle=e.target.closest('[data-garage-toggle]');
+     if(toggle){
+       const H=houses.find(h=>residential(h)&&id(h)===toggle.dataset.garageToggle);
+       const msg=H?.garage?window.CityGarage?.toggle(H.garage,window.__game?.player,15):'Garagem indisponível';
+       window.CityUI?.notify(msg||'Garagem indisponível');close();
+     }
      if(e.target.closest('[data-property-close]'))close();
    });
  }
@@ -43,7 +49,7 @@ const CityRealty=(()=>{
      '<h2>🏠 '+name(H)+'</h2><p>Localização: '+Math.round(H.doorPt[0])+', '+Math.round(H.doorPt[1])+'</p>'+
      '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+
      '<div class="city-property-value">'+(mine?'Sua propriedade':CityLife.money(cost))+'</div>'+
-     (mine?'<p>Este imóvel já pertence ao personagem e aparece no mapa.</p>':
+     (mine?'<p>Este imóvel já pertence ao personagem e aparece no mapa.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
        '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>')+
      '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;

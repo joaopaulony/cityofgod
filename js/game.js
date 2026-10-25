@@ -29,6 +29,16 @@ const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 4
 CityLife.init(st);
 CitySim.init(st);
 window.CityExtras?.bonus?.();
+let locCache=null,locNext=0;
+window.CityDistrictsLocation=()=>{
+  if(!world.open||typeof OW==='undefined'||!OW.geo||!COG.locationAt)return null;
+  const now=performance.now();
+  if(!locCache||now>=locNext){
+    locCache=COG.locationAt(OW.geo,world.roads,player.x,player.y);
+    locNext=now+1200;
+  }
+  return locCache;
+};
 let fireCD = 0, last = performance.now(), T = 0, dragX = null, dragY = null;
 // Zoom progressivo: inclui plano próximo estilo simuladores de vida.
 const ZOOMS = [20, 26, 32, 42, 52, 64, 80, 100, 125, 148, 176, 205].map(z => z * RENDER_SCALE);
@@ -724,9 +734,11 @@ function tick(dt) {
   const interactPressed=input.hit('f');
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
-  const realtyOpened=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
-  const stairStarted=!vehicleMessage&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!vehicleMessage&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
+  if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
+  const realtyOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
+  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
@@ -774,7 +786,7 @@ function tick(dt) {
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=window.cityVehicles?.prompt()||window.CityRealty?.prompt(player)||interactionPrompt(player);
+  const prompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player)||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;

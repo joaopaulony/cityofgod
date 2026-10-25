@@ -317,7 +317,7 @@ function miaMansion(S, c, rects) {
   for (const sg of [-1, 1]) { const px = bk[0] + t[0] * sg * 9.5, py = bk[1] + t[1] * sg * 9.5; if (!miaBlocked(px, py, 0.8)) miaPalm(px, py, 'coconut'); }
   miaShrubs(H, ['hibiscus', 'bougainvillea', 'croton'], 9, r);
   if (r() < 0.85) miaCar(fc[0] + t[0] * 3.4, fc[1] + t[1] * 3.4, Math.atan2(t[1], t[0]), { col: ['#1d1f22', '#ecebe7', '#c3c6c9', '#35507a'][(r() * 4) | 0] });
-  if (G) { garageClear(G, S.snap); for (const k of [-1, 1]) if (r() < 0.7) { const c = garageCar(G, 'inside', ['#1d1f22', '#ecebe7', '#8c1c22', '#35507a', '#c3c6c9'][(r() * 5) | 0]); if (c) { c.x += G.t[0] * k * 1.35; c.y += G.t[1] * k * 1.35; } } }
+  if (G) garageClear(G, S.snap); // mansion garage kept empty for its future owner
   owIndexOwnedLive(S);
   return H;
 }
@@ -392,7 +392,7 @@ function miaHouse(S, c, rects, poor) {
     { const mx = H.doorPt[0] + n[0] * (ext - 0.5) - t[0] * 1.6, my = H.doorPt[1] + n[1] * (ext - 0.5) - t[1] * 1.6; if (!miaBlocked(mx, my, 0.3)) { addBox({ x: mx, y: my, w: 0.12, d: 0.12, h: 1.05, top: '#e9e5dc', side: '#d6d1c6', kind: 'post' }); addBox({ x: mx, y: my, z: 1.05, w: 0.48, d: 0.24, h: 0.26, rot: Math.atan2(n[1], n[0]), top: ['#2b4f7a', '#1f1f1f', '#e9e5dc'][(r() * 3) | 0], side: '#3a3a3a', kind: 'mailbox', solid: false }); } }
     miaShrubs(H, ['hibiscus', 'croton', 'bougainvillea'], 3 + ((r() * 3) | 0), r);
     // garagem livre de plantas e cercas; carro guardado lá dentro ou parado na entrada
-    if (G) { garageClear(G, S.snap); const rc = r(), col = MIA_CARS[(r() * MIA_CARS.length) | 0]; if (rc < 0.55) garageCar(G, 'inside', col); else if (rc < 0.8) garageCar(G, 'drive', col); }
+    if (G) garageClear(G, S.snap); // garagem privada fica vazia; veículos só de jogadores proprietários
     if (r() < 0.6) { const px = H.doorPt[0] - t[0] * (hw - 1.2) + n[0] * (ext - 1.5), py = H.doorPt[1] - t[1] * (hw - 1.2) + n[1] * (ext - 1.5); if (!miaBlocked(px, py, 0.6)) miaPalm(px, py, 'coconut'); }
   }
   owWalk(H);

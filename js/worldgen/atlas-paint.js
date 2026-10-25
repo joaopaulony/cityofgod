@@ -21,11 +21,11 @@
       if (dist === D.SEA) {
         // profundidade pela distância ao litoral: turquesa na beira -> azul fundo
         const lf = -geo.landField(x, y), t = Math.min(1, Math.max(0, lf / 900));
-        c = mix([86, 170, 176], [22, 62, 104], Math.pow(t, 0.6));
+        c = mix([58, 133, 163], [12, 42, 82], Math.pow(t, 0.6));
         c = mix(c, [255, 255, 255], (N1(x * 0.01, y * 0.03) > 0.7 ? 0.05 : 0) + (lf < 25 ? 0.45 * (1 - lf / 25) : 0));
       } else if (dist === D.RIVER) c = mix([58, 112, 128], [76, 136, 140], n);
       else if (dist === D.BEACH) c = cd < 22 ? mix([164, 150, 112], [186, 172, 132], n) : mix([222, 206, 160], [236, 224, 184], n);
-      else if (dist === D.FOREST) { const k = N2(x * 0.06, y * 0.06); c = mix([30, 58, 32], [58, 94, 44], k); if (h > 0.9) c = mix(c, [16, 30, 18], 0.5); }
+      else if (dist === D.FOREST) { const k = N2(x * 0.06, y * 0.06); c = mix([43, 82, 66], [84, 122, 87], k); if (h > 0.9) c = mix(c, [16, 30, 18], 0.5); }
       else if (dist === D.FARM) {
         // talhões: célula de Voronoi numa grade irregular; cada talhão tem cultura e direção de plantio
         const S = 150, gi = Math.floor(x / S), gj = Math.floor(y / S); let best = 1e9, id = 0, ang = 0;
@@ -36,11 +36,11 @@
       else if (dist === D.RURAL) c = mix([118, 142, 70], [146, 152, 84], N2(x * 0.004, y * 0.004));
       else if (dist === D.AIRPORT) c = mix([128, 148, 78], [138, 156, 88], n);
       else if (opt.roofs === false && (dist === D.DOWNTOWN || dist === D.URBAN || dist === D.TOWN || dist === D.FAVELA || dist === D.GHETTO || dist === D.INDUSTRIAL))
-        c = dist === D.URBAN || dist === D.TOWN ? mix([112, 136, 74], [130, 146, 88], n) : dist === D.FAVELA ? mix([138, 118, 92], [150, 128, 100], n) : dist === D.DOWNTOWN ? mix([150, 148, 142], [160, 158, 152], n) : mix([128, 130, 120], [140, 140, 130], n);
-      else if (dist === D.DOWNTOWN) c = h > 0.55 ? mix([128, 126, 124], [168, 164, 158], hash(px >> 2, py >> 2)) : [98, 98, 102];
-      else if (dist === D.URBAN || dist === D.TOWN) { const roof = hash(px >> 1, py >> 1); c = roof > 0.5 ? (roof > 0.8 ? [176, 98, 72] : [150, 146, 136]) : mix([110, 132, 72], [134, 140, 96], n); }
-      else if (dist === D.FAVELA) { const roof = hash(px, py); c = roof > 0.2 ? mix([150, 96, 70], [182, 130, 98], roof) : [104, 96, 88]; }
-      else if (dist === D.GHETTO) c = hash(px >> 3, py >> 3) > 0.45 ? [148, 142, 134] : [104, 108, 96];
+        c = dist === D.URBAN || dist === D.TOWN ? mix([138, 166, 130], [157, 181, 144], n) : dist === D.FAVELA ? mix([154, 142, 126], [173, 153, 139], n) : dist === D.DOWNTOWN ? mix([170, 182, 190], [186, 196, 200], n) : mix([155, 165, 166], [170, 176, 171], n);
+      else if (dist === D.DOWNTOWN) c = h > 0.55 ? mix([153, 163, 174], [178, 185, 187], hash(px >> 2, py >> 2)) : [139, 153, 169];
+      else if (dist === D.URBAN || dist === D.TOWN) { const roof = hash(px >> 1, py >> 1); c = roof > 0.5 ? (roof > 0.8 ? [173, 166, 153] : [171, 181, 176]) : mix([133, 168, 136], [159, 181, 151], n); }
+      else if (dist === D.FAVELA) { const roof = hash(px, py); c = roof > 0.2 ? mix([157, 129, 112], [187, 157, 132], roof) : [143, 128, 119]; }
+      else if (dist === D.GHETTO) c = hash(px >> 3, py >> 3) > 0.45 ? [167, 165, 162] : [141, 145, 150];
       else if (dist === D.INDUSTRIAL) c = hash(px >> 3, py >> 2) > 0.4 ? mix([132, 142, 150], [168, 172, 176], hash(px >> 3, py >> 3)) : [96, 96, 92];
       else if (dist === D.PORT) { const k = hash(px >> 1, py); c = k > 0.6 ? [[178, 64, 52], [58, 98, 150], [200, 160, 60], [80, 132, 88]][(k * 13 | 0) % 4] : [128, 126, 120]; }
       else c = [120, 140, 70];
@@ -76,11 +76,12 @@
       for (const e of [-1, 1]) for (let k = -4; k <= 4; k++) g.fillRect(e * (ap.len / 2 - 40) - 15, k * 6 - 1.5, 30, 3);
       g.restore();
     }
+    COG.drawTerritoryOverlay?.(g,world,S,scale);
     // vias: contorno + miolo por categoria
     const order = ['street', 'avenue', 'highway'];
     for (const pass of [0, 1]) for (const cls of order) for (const rd of roads) {
       if (rd.cls !== cls) continue;
-      const w = px(rd.w), col = pass ? (cls === 'highway' ? '#f2c25a' : cls === 'avenue' ? '#f4efe4' : '#dcd6ca') : 'rgba(30,26,22,0.75)';
+      const w = px(rd.w), col = pass ? (cls === 'highway' ? '#e3c474' : cls === 'avenue' ? '#f6f4eb' : '#e4eaf0') : 'rgba(29,48,65,0.82)';
       if (cls === 'street' && !pass && scale < 0.25) continue;   // sem contorno escuro nas ruas com o mapa afastado
       strokePoly(rd.pts, pass ? Math.max(w, cls === 'street' ? 0.7 * dpr : 1.4 * dpr) : Math.max(w + 2 * dpr, (cls === 'street' ? 1.2 : 2.6) * dpr), cls === 'street' && pass && scale < 0.25 ? 'rgba(236,230,218,0.55)' : col);
     }
@@ -98,10 +99,6 @@
         g.font = `600 ${11 * dpr}px system-ui`; g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(15,12,10,0.8)'; g.strokeText(l.name, sx, sy - r - 8 * dpr); g.fillStyle = '#fff6e0'; g.fillText(l.name, sx, sy - r - 8 * dpr);
       }
     }
-    // nomes dos distritos
-    const A = geo.anchors, label = (t, x, y, sz) => { const [sx, sy] = S(x, y); g.font = `700 ${sz * dpr}px system-ui`; g.lineWidth = 4 * dpr; g.strokeStyle = 'rgba(15,12,10,0.7)'; g.strokeText(t, sx, sy); g.fillStyle = '#ffffff'; g.fillText(t, sx, sy); };
-    label('CENTRO', A.downtown.x, A.downtown.y + 260, 15); label('PORTO', A.port.x, A.port.y, 13);
-    A.towns.forEach(t => label(t.name.toUpperCase(), t.x, t.y + 60, 13)); A.favelas.forEach((f, i) => label('FAVELA ' + ['DO MORRO', 'DA PEDREIRA', 'DO SOSSEGO', 'DA LINHA'][i], f.x, f.y, 11));
-    A.ghettos.forEach((f, i) => label('CONJUNTO ' + ['ESPERANÇA', 'NOVA VIDA'][i], f.x, f.y, 11)); A.industrial.forEach((f, i) => label('DISTRITO INDUSTRIAL ' + (i + 1), f.x, f.y, 11));
+    COG.drawLocationLabels?.(g,world,S,scale,dpr);
   };
 })();

@@ -567,7 +567,14 @@ function drawWindowLeaves(g, s, exterior) {
 // Porta abre ao aproximar-se o jogador ou um NPC; janelas mudam devagar,
 // de forma deterministica para cada casa, e fecham preferencialmente a noite.
 function updateHouseOpenings(dt, residents, night) {
+  // A animação de janelas e portas distantes não traz benefício visual.
+  // Ao retornar ao setor ela retoma suavemente; o culling respeita a câmera ativa.
+  const observer=residents[0];
   for (const H of houses) {
+    if(observer&&!H.inside){
+      const mx=(H.x0+H.x1)*.5,my=(H.y0+H.y1)*.5;
+      if(Math.abs(mx-observer.x)>170||Math.abs(my-observer.y)>170)continue;
+    }
     for (const s of H.architecture?H.architecture.openingSegments:H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
@@ -588,12 +595,14 @@ function updateHouseOpenings(dt, residents, night) {
       if (Math.abs(w.target - w.open) < 0.004) w.open = w.target;
     }
     }
-    // portão basculante da garagem: abre com o jogador (ou um morador) perto, ou o carro chegando
+    // O portão é controlado SOMENTE pelo proprietário via F ou botão do imóvel.
+    // Não reage à passagem de carros, NPCs, transeuntes ou outros jogadores.
     const G = H.garage;
-    if (G && G.seg) {
-      const a = G.seg.doorAnim, car = window.cityVehicles && window.cityVehicles.driver ? window.cityVehicles.car : null, near = (x, y, r) => Math.hypot(x - G.door[0], y - G.door[1]) < r;
-      a.target = residents.some(p => !(p.floor > 0) && near(p.x, p.y, 5.5)) || (car && near(car.x, car.y, 11)) ? 1 : 0;
-      a.open += (a.target - a.open) * (1 - Math.exp(-dt * 1.4)); if (Math.abs(a.target - a.open) < 0.004) a.open = a.target;
+    if(G?.seg?.doorAnim){
+      const a=G.seg.doorAnim;
+      if(typeof CityRealty!=='undefined'&&!CityRealty.isOwned(H))a.target=0;
+      a.open+=(a.target-a.open)*(1-Math.exp(-dt*2.4));
+      if(Math.abs(a.target-a.open)<.004)a.open=a.target;
     }
     if(H.upper)for(const s of H.upper.walls)if(s.doorAnim){
       const a=s.doorAnim;

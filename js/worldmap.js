@@ -92,6 +92,7 @@ function drawWorldMap(h, W, H, st) {
   }
   h.save(); h.setTransform(1, 0, 0, 1, 0, 0);
   h.drawImage(wmap.cache, 0, 0);
+  h.strokeStyle='#d9e9f044';h.lineWidth=2;h.strokeRect(6,55,W-12,H-61);
   window.CityGPS?.drawFull(h,S,st);
   // jogador: halo pulsante + seta na direção em que olha
   const [px, py] = S(p.x, p.y), pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
@@ -101,12 +102,26 @@ function drawWorldMap(h, W, H, st) {
   h.setTransform(1, 0, 0, 1, 0, 0);
   // barra de título, norte e escala
   h.fillStyle = 'rgba(15,12,10,0.82)'; h.fillRect(0, 0, W, 52);
-  h.fillStyle = '#fff6e0'; h.font = 'bold 20px "Segoe UI", sans-serif'; h.textAlign = 'left'; h.textBaseline = 'middle'; h.fillText('MAPA', 20, 26);
-  h.fillStyle = '#cfc8be'; h.font = '13px "Segoe UI", sans-serif'; h.fillText('M/Esc fechar · roda zoom · arraste · clique no local para GPS', 92, 27);
+  h.fillStyle = '#fff6e0'; h.font = 'bold 20px "Segoe UI", sans-serif'; h.textAlign = 'left'; h.textBaseline = 'middle'; h.fillText('BELLAVISTA  •  MAPA DA CIDADE', 20, 26);
+  h.fillStyle = '#cfc8be'; h.font = '13px "Segoe UI", sans-serif'; h.fillText('M/Esc · zoom · arraste · clique para GPS', 390, 27);
   h.textAlign = 'right'; h.fillText(`você: ${Math.round(p.x)}, ${Math.round(p.y)}`, W - 20, 27);
   h.textAlign = 'center'; h.fillStyle = '#fff'; h.font = 'bold 14px sans-serif'; h.fillText('N ▲', W - 40, 76);
   const m = [2000, 1000, 500, 250, 100, 50, 20, 10].find(v => v * sc <= 180) || 10, bar = m * sc, bx = 20, by = H - 22;
   h.fillStyle = 'rgba(15,12,10,0.75)'; h.fillRect(bx - 8, by - 22, Math.max(bar, 40) + 16, 32);
   h.fillStyle = '#fff'; h.fillRect(bx, by, bar, 4); h.font = '600 12px system-ui'; h.textAlign = 'left'; h.fillText(m >= 1000 ? m / 1000 + ' km' : m + ' m', bx, by - 9);
+  // Legenda territorial discreta: até seis gangues, posicionada no mapa completo.
+  const gangs=world.open&&typeof OW!=='undefined' ? OW.geo?.gangs||[] : [];
+  if(gangs.length){
+    const lh=gangs.length*22+36,lw=206,lx=W-lw-17,ly=H-lh-16;
+    h.fillStyle='#071827e9';h.strokeStyle='#a6c9dc55';h.lineWidth=1;
+    h.beginPath();h.roundRect(lx,ly,lw,lh,12);h.fill();h.stroke();
+    h.textAlign='left';h.textBaseline='alphabetic';h.font='700 11px system-ui';
+    h.fillStyle='#b1d6e9';h.fillText('TERRITÓRIOS DAS GANGUES',lx+12,ly+19);
+    gangs.slice(0,6).forEach((gang,j)=>{
+      h.fillStyle=gang.color;h.beginPath();h.roundRect(lx+13,ly+28+j*22,9,9,2);h.fill();
+      h.fillStyle='#f1f8ff';h.font='600 11px system-ui';
+      h.fillText(gang.name,lx+29,ly+36+j*22);
+    });
+  }
   h.restore();
 }

@@ -114,7 +114,7 @@
     A.favelas = [0.9, 2.2, 3.6].map((a, k) => { const d = (640 + r() * 200) * KG; return { x: A.downtown.x + Math.cos(a + Math.PI) * d, y: A.downtown.y - Math.abs(Math.sin(a)) * d * 0.9, r: (140 + r() * 70) * S }; });
     A.ghettos = [{ x: W * 0.38, y: H * 0.64, r: 170 * S }];
     A.urban = { x: A.downtown.x, y: A.downtown.y - 120 * KG, r: 1180 * S };
-    A.towns = [{ x: W * 0.2, y: H * 0.38, r: 290 * S, name: 'Silver Lake' }, { x: W * 0.42, y: H * 0.2, r: 250 * S, name: 'Echo Park' }];
+    A.towns = [{ x: W * 0.2, y: H * 0.38, r: 290 * S, name: 'Cypress Bay' }, { x: W * 0.42, y: H * 0.2, r: 250 * S, name: 'Santa Isla' }];
     // um só aeroporto: pista leste–oeste no planalto a nordeste (alinhada aos eixos p/ o terminal encaixar)
     A.airports = [
       { name: 'Aeroporto Internacional', x: W * 0.70, y: H * 0.20, len: 1500 * S, ang: 0, apron: 260 * S, region: [0.4, 0.06, 0.92, 0.45] },
@@ -196,6 +196,7 @@
     geo.dist = dist;
     geo.districtAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? D.SEA : dist[cell(x, y)];
     geo.noise = { N1, N2, N3 };
+    COG.decorateNeighborhoods?.(geo);
     return geo;
   };
 
