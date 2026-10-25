@@ -42,7 +42,7 @@ window.cityVehicleBridge={
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
-  collide, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  collide, addBox, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
 };

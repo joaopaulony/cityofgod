@@ -236,6 +236,8 @@ function* owGenSector(S) {
 
   // --- aeroporto: terminal e avião (só no setor que contém o terminal)
   const reserved = owAirportReserve(), rects = reserved ? [reserved] : [];
+  for(const site of world.civicSites||[])rects.push(site.bb);
+  civicPlaceSector(S);yield;
   const apq = owAirportFor(S);
   if (apq) { const H = owPlaceAirport(S, apq); rects.push([H.x0 - 4, H.y0 - 40, H.x1 + 4, H.y1 + 6]); yield; }
   // --- Miami: prédios, mansões, bangalôs, casas pobres, praia e ruas (miami-city.js)
@@ -670,6 +672,7 @@ function buildOpenWorld() {
   world.roads = []; world.junction = null; world.pond = null; world.pondPoly = null; world.trails = []; world.trafficSignals = [];
   world.shadowLayers = new Map(); world.groundCtx = makeCanvas(1, 1).getContext('2d');
   world.airports = OW.geo.anchors.airports.map((a, i) => ({ x: a.x, y: a.y, ang: a.ang, len: a.len, width: i ? 30 : 45, apron: a.apron, name: a.name }));
+  world.civicSites=COG.planCivicSites(OW.cw,roadDist,pondVal,[owAirportReserve()]);
   OW.blk = new HashGrid(16); OW.place = new HashGrid(8);
   world.blocked = owBlocked;
   world.bareFn = (x, y, di) => (di === D_.DOWNTOWN || di === D_.PORT || di === D_.INDUSTRIAL || owAirfield(x, y)) ? 1 : 0;

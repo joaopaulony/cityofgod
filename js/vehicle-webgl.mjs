@@ -19,6 +19,8 @@ import {createLandmarks} from './landmarks-3d.mjs';
 import {createAirport3D} from './airport-3d.mjs';
 import {createGas3D} from './gas-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
+import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
+import {createVehicleEffects} from './vehicle-effects.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -27,7 +29,9 @@ const state={x:0,y:0,angle:0,speed:0,steer:0,distance:0};
 // tanque (0–1): ~12 km com o tanque cheio; abastece parado ao lado de uma bomba, motor desligado, segurando B
 const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
 const TANK_GAL=13.2,RANGE_M=12000;
-const modelId=new URLSearchParams(location.search).get('vehicleModel')||'silvia';
+const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
+const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
+let vehicleFX=null,tailLights=[];
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
  gltfLoader=null,loadingSerial=0;
 const modelCache=new Map();
@@ -236,6 +240,8 @@ function importModel(root,config=activeModel){
  system.source='assets/vehicles/live/'+config.file;
 }
 function createLamp(){
+ tailLights=[];
+ for(const side of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(.04,.12,.3),new THREE.MeshBasicMaterial({color:0x601010}));m.position.set(-activeModel.length*.48,.65,side*.62);body.add(m);tailLights.push(m);}
  const mk=()=>new THREE.SpotLight(0xfff1c8,0,16,Math.PI/7,.45,1.2);
  lampL=mk();lampR=mk();
  const extent=activeModel.length*.38;
@@ -255,6 +261,7 @@ function initRenderer(){
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
+ vehicleFX=createVehicleEffects(THREE,scene);
  const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
  sun.position.set(-11,18,15);
@@ -383,17 +390,27 @@ function interact(){
     y=state.y+Math.cos(state.angle)*side*sign;
    if(!bridge.world.blocked(x,y,.33)&&bridge.pondVal(x,y)>1.1){
     p.x=x;p.y=y;
-    system.driver=false;system.braking=false;
+    const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level});
+    const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
+    system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;activeKey=null;
+    system.collider.x=-10000;system.collider.y=-10000;
     state.speed=0;state.steer=0; // sem velocidade guardada: evita tranco ao voltar ao carro
     return 'Saiu do veículo';
    }
   }
   return 'Não há espaço para sair';
  }
- if(Math.hypot(p.x-state.x,p.y-state.y)>3.3)return false;
- system.driver=true;system.engineOn=true;p.x=state.x;p.y=state.y;
- state.speed=0;state.steer=0;
- return 'Entrou no '+activeModel.name+' — W/S acelerar, A/D esterçar, Espaço freio';
+ const parked=fleet.nearest(bridge.boxes,p.x,p.y);if(!parked||claiming)return false;
+ claiming=true;
+ selectModel(streetModel(parked)).then(ok=>{
+  if(!ok)return;
+  parked3d?.paintActive(model,parked);
+  activeKey=fleet.claim(parked);activePaint=parked.col;fuel.level=parked.fuel??.45;
+  Object.assign(state,{x:parked.x,y:parked.y,angle:parked.rot||0,speed:0,steer:0,slip:0});
+  system.collider.x=state.x;system.collider.y=state.y;
+  system.driver=true;system.engineOn=true;p.x=state.x;p.y=state.y;bridge.world.version++;
+ }).finally(()=>{claiming=false;});
+ return 'Entrando no veículo…';
 }
 // abastecer: carro parado do lado de uma ilha, motor desligado, segurando B (galões e valor na bomba)
 function refuel(dt){
@@ -416,7 +433,7 @@ function drawFuel(g,x,y){
 }
 function drawPanel(g,w,h){
  if(!system.ready)return;
- const near=Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.8;
+ const near=!!fleet.nearest(bridge.boxes,bridge.player.x,bridge.player.y);
  if(!system.driver&&!near)return;
  g.save();
  if(system.driver){
@@ -443,9 +460,7 @@ function drawPanel(g,w,h){
  }else{
   g.font='bold 12px system-ui';g.textAlign='center';
   g.fillStyle='#f4dc9a';
-  g.fillText('F entrar · V próximo carro ('+
-   (VEHICLE_MODELS.findIndex(v=>v.id===activeModel.id)+1)+'/'+VEHICLE_MODELS.length+')',
-   w/2,h-132);
+  g.fillText('F entrar neste veículo · Espaço: drift ao dirigir',w/2,h-132);
  }
  g.restore();
 }
@@ -467,20 +482,20 @@ system.update=dt=>{
  if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
  if(bridge.hit('h')&&system.driver)engineSound();
- if(bridge.hit('v')&&!system.driver)system.nextModel();
+ for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  moveCar(dt);
+ vehicleFX?.update(dt,state,system.driver,activeModel.length);
 };
 system.interact=interact;
 system.drawHUD=drawPanel;
-system.prompt=()=>system.ready&&!system.driver&&
- Math.hypot(bridge.player.x-state.x,bridge.player.y-state.y)<3.3
- ?'F — entrar no '+activeModel.name:null;
+system.prompt=()=>{const b=system.ready&&!system.driver&&fleet.nearest(bridge.boxes,bridge.player.x,bridge.player.y);return b?'F — entrar no '+getVehicleById(streetModel(b)).name:null;};
 system.render=()=>{
  if(!renderer)return;
  const c=bridge.cam;
  setCamera();
- if(body){body.position.set(state.x,0,state.y);
- body.rotation.y=-state.angle;}
+ if(body){body.visible=!!activeKey;body.position.set(state.x,0,state.y);
+ body.rotation.set(system.driver?-state.steer*Math.min(.1,Math.abs(state.speed)*.004):0,-state.angle,0);}
+ for(const m of tailLights)m.material.color.setHex(state.speed<-.2?0xffeed0:system.braking?0xff2525:system.headlights?0xa52222:0x601010);
  // noite: as luzes da cena acompanham o escurecimento do jogo 2D
  if(ambience)ambience.update(viewCamera);   // sol/luar na direção do astro, céu do horário, vento e neve
  else{
@@ -525,7 +540,7 @@ system.render=()=>{
   y:c.H/2+(c.sin*(state.x-c.x)+c.cos*(state.y-c.y))*(c.tilt||.5)*c.zoom
  };
 };
-setupCar();
+system.collider={x:-10000,y:-10000,r:.55,kind:'vehicle',h:1.4};bridge.world.circles.push(system.collider);
 async function selectModel(id){
  const choice=getVehicleById(id);
  if(!choice||system.driver)return false;

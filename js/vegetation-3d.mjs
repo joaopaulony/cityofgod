@@ -110,7 +110,7 @@ export function createVegetation(THREE, scene, bridge) {
   const vegUniforms = (shader, w) => Object.assign(shader.uniforms, { vegTime: time, vegWind: windStr, vegAmp: { value: w.amp }, vegBase: { value: w.base }, vegSpan: { value: w.span }, vegFlutter: { value: w.flutter }, vegSeeP: seeP, vegSeeR: seeR });
   // pixel na frente do jogador e dentro do círculo: pontilhado (fica ~25% no miolo, some a borda suavemente)
   const seeThrough = `
-    { vec2 vegD = gl_FragCoord.xy - vegSeeP.xy; float vegQ = length( vec2( vegD.x, vegD.y * 0.8 ) ) / max( vegSeeR, 1.0 );
+    { vec2 vegD = gl_FragCoord.xy - vegSeeP.xy; float vegQ = length(vegD) / max( vegSeeR, 1.0 );
       if ( vegQ < 1.0 && gl_FragCoord.z < vegSeeP.z ) { float keep = mix( 0.22, 1.0, smoothstep( 0.55, 1.0, vegQ ) ); float n = fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) ); if ( n > keep ) discard; } }`;
   const makeMat = (map, wind, opts = {}) => {
     const m = new THREE.MeshLambertMaterial({ map, color: 0xffffff, vertexColors: true, side: opts.leaf ? THREE.DoubleSide : THREE.FrontSide, alphaTest: opts.leaf ? 0.42 : 0 });
@@ -423,7 +423,8 @@ export function createVegetation(THREE, scene, bridge) {
     renderer.getDrawingBufferSize(buf);
     pv.set(target.x, target.z, target.y).project(camera);
     seeP.value.set((pv.x * 0.5 + 0.5) * buf.x, (pv.y * 0.5 + 0.5) * buf.y, pv.z * 0.5 + 0.5 - 0.0004);
-    seeR.value = target.r * bridge.cam.zoom * (buf.x / Math.max(1, bridge.cam.W));
+    // Diameter occupies 85% of the shorter viewport dimension at every zoom/DPR.
+    seeR.value = Math.min(buf.x, buf.y) * .85 / 2;
   }
   return {
     state, ground,

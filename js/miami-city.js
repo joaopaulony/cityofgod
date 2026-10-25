@@ -503,7 +503,7 @@ function miaCar(x, y, rot, opt = {}) {
   const col = opt.col || MIA_CARS[(rng() * MIA_CARS.length) | 0];
   return addBox({ x, y, w: 4.4, d: 1.85, h: 1.5, rot, top: col, side: col, kind: 'parkedcar', col, junk: !!opt.junk, suv: rng() < 0.35, draw: drawParkedCar });
 }
-function drawParkedCar(g, b) { if (b.r3d) return; miaCached(g, b, cg => paintCar(cg, b)); }   // r3d: modelo GLB em parked-3d.mjs
+function drawParkedCar(g, b) { if (b.r3d||b.fleetHidden) return; miaCached(g, b, cg => paintCar(cg, b)); }
 function paintCar(g, b) {
   const c = Math.cos(b.rot), s = Math.sin(b.rot), Z = cam.zoom, P = (u, v, z) => proj(b.x + u * c - v * s, b.y + u * s + v * c, z);
   const L = 2.2, W = 0.9, hb = b.suv ? 0.7 : 0.48, zc = 0.3 + hb, hc = b.suv ? 0.6 : 0.42;
@@ -849,12 +849,12 @@ function drawBeachUmbrella(g, b) {
 
 // ---------- terrenos à venda: lote vazio cercado com placa (no futuro os jogadores compram e constroem a casa) ----------
 function miaLotsForSale(S, zoneAt, rects) {
-  const R = mulberry(owSeed(S, 'lots')), want = R() < 0.55 ? 1 : 2; let made = 0;
+  const R = mulberry(owSeed(S, 'lots')), want = 4 + Math.floor(R()*5); let made = 0;
   for (const rd of S.roads) {
     if (made >= want) break; if (rd.cls === 'highway' || rd.pts.length < 30) continue;
-    for (let tries = 0; tries < 14 && made < want; tries++) {
+    for (let tries = 0; tries < 48 && made < want; tries++) {
       const i = 8 + ((R() * (rd.pts.length - 16)) | 0), p = rd.pts[i], s = R() < 0.5 ? 1 : -1;
-      const W = 14 + ((R() * 3) | 0) * 2, D = 18 + ((R() * 3) | 0) * 2, n = [p.nx * s, p.ny * s], t = [-n[1], n[0]], off = ROAD_W + (rd.off || 0) + SIDE + 0.8;
+      const W = 10 + ((R() * 5) | 0) * 2, D = 14 + ((R() * 5) | 0) * 2, n = [p.nx * s, p.ny * s], t = [-n[1], n[0]], off = ROAD_W + (rd.off || 0) + SIDE + 0.8;
       const z = zoneAt(p.x + n[0] * (off + D / 2), p.y + n[1] * (off + D / 2));
       if (!['bungalow', 'town', 'mansion', 'southbeach'].includes(z)) continue;
       const P = (u, v) => [p.x + n[0] * (off + v) + t[0] * u, p.y + n[1] * (off + v) + t[1] * u];
@@ -869,11 +869,12 @@ function miaLotsForSale(S, zoneAt, rects) {
       miaDecal(q, 'lot', R, { ax: n, origin: P(0, 0), w: W, len: D });   // terra limpa, cascalho, marcas de trator
       const [gx, gy] = P(0, 0.1), gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.7;
       for (const [a, b] of [[q[0], q[1]], [q[1], q[2]], [q[2], q[3]], [q[3], q[0]]]) chainLine(a[0], a[1], b[0], b[1], gate, { h: 1.8 });
-      const list = world.lotsForSale || (world.lotsForSale = []), id = list.length + 1, area = W * D;
+      const list = world.lotsForSale || (world.lotsForSale = []), id = `lot-${S.sx}-${S.sy}-${made}`, area = W * D;
       const price = Math.round(area * (z === 'mansion' ? 2600 : z === 'southbeach' ? 2200 : 1100) / 1000) * 1000;
       const [sx, sy] = P(W / 2 - 2.4, 1.1);
       addBox({ x: sx, y: sy, w: 2.4, d: 0.35, h: 2.7, rot: Math.atan2(t[1], t[0]), kind: 'forsale', solid: true, lot: id, area, price, nx: n[0], ny: n[1] });
-      list.push({ id, q, bb, area, price, zone: z, sign: [sx, sy], front: [-n[0], -n[1]] });
+      const record={ id, q, bb, area, price, zone: z, sign: [sx, sy], front: [-n[0], -n[1]] },previous=list.findIndex(l=>l.id===id);
+      if(previous<0)list.push(record);else list[previous]=record;
       made++;
     }
   }
@@ -1259,6 +1260,7 @@ function* miaGenSector(S, rects) {
   miaReserveSports(S,rects);
   const dd = world.districtFn, zoneAt = (x, y) => miaZone(x, y, dd(x, y));
   gasStations(S, zoneAt, rects); yield;
+  miaLotsForSale(S, zoneAt, rects); yield;
   const cands = [];
   for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 4) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, cls: rd.cls, rd, i, r: rng() }); }
   cands.sort((a, b) => a.r - b.r);
@@ -1284,6 +1286,5 @@ function* miaGenSector(S, rects) {
   miaStreets(S, zoneAt); yield;
   miaClutter(S, zoneAt, rects); yield;
   miaParking(S, zoneAt); yield;
-  miaLotsForSale(S, zoneAt, rects); yield;
   if (S.mix[D_.BEACH] > 4) { miaBeach(S); yield; }
 }

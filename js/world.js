@@ -1242,6 +1242,7 @@ function pushOutCircle(c, x, y, r) {
   return d < m && d > 1e-6 ? [c.x + dx / d * m, c.y + dy / d * m] : null;
 }
 function pushOutSeg(s, x, y, r) {
+  if(s.sourceBox?.fleetHidden)return null;
   if (s.door && s.doorAnim?.open >= .72) return null;
   const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
   const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);

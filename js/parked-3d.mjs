@@ -5,6 +5,7 @@
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
+import {streetModel} from './vehicle-fleet.mjs';
 
 const POOL = ['sedan', 'suv', 'hatchback', 'compact', 'pickup', 'wagon'];
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
@@ -63,8 +64,7 @@ export function createParked3D(THREE, scene, bridge) {
   }
   const h = b => { let k = Math.imul(Math.round(b.x * 10) * 73856093 ^ Math.round(b.y * 10) * 19349663, 2654435761); return (k ^ (k >>> 15)) >>> 0; };
   function make(b) {
-    const ids = [...models.keys()]; if (!ids.length) return null;
-    const id = b.suv && h(b) % 3 === 0 && models.has('suv') ? 'suv' : ids.filter(i => i !== 'suv')[h(b) % Math.max(1, ids.length - 1)] || ids[0], M = models.get(id);
+    const id=streetModel(b),M=models.get(id);if(!M)return null;
     const obj = M.tpl.clone(true);
     if (M.paint && b.col && !KEEP_FACTORY.has(id)) {
       const key = id + b.col; let mat = paintCache.get(key);
@@ -77,11 +77,15 @@ export function createParked3D(THREE, scene, bridge) {
   let tick = 0;
   return {
     state,
+    paintActive(root,b){const id=streetModel(b),M=models.get(id);if(!M?.paint||KEEP_FACTORY.has(id))return;
+      const mat=M.paint.clone();if(b.col)mat.color.setStyle(b.junk?'#7a6a58':b.col,THREE.SRGBColorSpace);
+      root.traverse(o=>{if(!o.isMesh)return;const replace=m=>m.name===M.paint.name?mat:m;o.material=Array.isArray(o.material)?o.material.map(replace):replace(o.material);});
+    },
     update() {
       if (!started) start();
       if ((tick = (tick + 1) % 12) !== 0 || !models.size) return;
       const c = bridge.cam, R = 95, want = [];
-      for (const b of bridge.boxes) if (b.kind === 'parkedcar') { const d = Math.hypot(b.x - c.x, b.y - c.y); if (d < R) want.push([d, b]); }
+      for (const b of bridge.boxes) if (b.kind === 'parkedcar'&&!b.fleetHidden) { const d = Math.hypot(b.x - c.x, b.y - c.y); if (d < R) want.push([d, b]); }
       want.sort((a, q) => a[0] - q[0]);
       const keep = new Set(want.slice(0, 48).map(w => w[1]));
       for (const [b, g] of live) if (!keep.has(b)) { scene.remove(g); b.r3d = false; live.delete(b); }

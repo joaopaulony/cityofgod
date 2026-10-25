@@ -173,9 +173,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  }
  function wings(level){const hall=level.rooms.find(r=>r.id==='hall'),left=level.rooms.filter(r=>r.x1<=hall.x0+.01),right=level.rooms.filter(r=>r.x0>=hall.x1-.01);return[left,right,[hall]].map(list=>({x0:Math.min(...list.map(r=>r.x0)),y0:Math.min(...list.map(r=>r.y0)),x1:Math.max(...list.map(r=>r.x1)),y1:Math.max(...list.map(r=>r.y1))}));}
  function sign(H,e){
-  const A=H.architecture,level=A.levels[0],r=level.rooms.find(r=>r.id==='front-left'),commercial=['shop','office','warehouse','airport','deco'].includes(A.kind);if(!commercial)return;
+  const A=H.architecture,level=A.levels[0],r=level.rooms.find(r=>r.id==='front-left'),commercial=H.civic||['shop','office','warehouse','airport','deco'].includes(A.kind);if(!commercial)return;
   const c=document.createElement('canvas');c.width=512;c.height=96;const g=c.getContext('2d');g.fillStyle=['#36554f','#314854','#795b46'][A.palette%3];g.fillRect(0,0,512,96);g.fillStyle='#faf2df';g.font='600 42px sans-serif';g.textAlign='center';g.textBaseline='middle';
-  const label=A.kind==='shop'?(['CAFÉ PALM','MERCADO LOCAL','STUDIO MIAMI'][A.palette%3]):A.kind==='airport'?'AEROPORTO':A.kind==='warehouse'?'DADE SUPPLY':A.kind==='office'?(H.bName||'BISCAYNE OFFICES'):(H.hotelName||'PALM COURT');g.fillText(label,256,49,480);
+  const label=H.civic?H.bName:A.kind==='shop'?(['CAFÉ PALM','MERCADO LOCAL','STUDIO MIAMI'][A.palette%3]):A.kind==='airport'?'AEROPORTO':A.kind==='warehouse'?'DADE SUPPLY':A.kind==='office'?(H.bName||'BISCAYNE OFFICES'):(H.hotelName||'PALM COURT');g.fillText(label,256,49,480);
   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;e.textures.push(tex);const material=new THREE.MeshStandardMaterial({map:tex,roughness:.8});e.materials.push(material);
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(r.x1-r.x0-.3,5),.75),material);mesh.position.set((r.x0+r.x1)/2,2.65,r.y1+.12);e.exterior.add(mesh);
   // Slatted shop shade: real depth, alternating canvas stripes.
@@ -184,7 +184,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  function* build(H){
   const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
   const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],H};
-  const glass=mats.glass.clone();e.materials.push(glass);e.glass=glass;
+  const glass=mats.glass.clone();opts.seeThrough?.(glass);e.materials.push(glass);e.glass=glass;
   const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
   for(const level of A.levels){
    if(level.floor&&(level.setback>A.levels[level.floor-1].setback||level.wingRecess>A.levels[level.floor-1].wingRecess)){const prev=A.levels[level.floor-1];
@@ -196,10 +196,23 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    for(const r of level.outdoor)balcony(wallKit,r,level.z,accent);
    yield;
   }
-  const last=A.levels.at(-1),flat=['office','shop','airport','deco','projects'].includes(A.kind)||A.kind==='house'&&A.palette===3;
+  const last=A.levels.at(-1),flat=H.civic||['office','shop','airport','deco','projects'].includes(A.kind)||A.kind==='house'&&A.palette===3;
   for(const [i,r] of wings(last).entries())roofWing(roofKit,r,A.levels.length*A.floorHeight,H.style?.roofCol||'#ae7153',flat||i===2||A.family==='garden-wing'&&i===1&&A.kind!=='warehouse',A.family==='cross-gable'||A.kind==='warehouse');
   if(A.kind==='deco'){const r=last.rooms.find(r=>r.id==='front-left'),cx=(r.x0+r.x1)/2,z=A.levels.length*A.floorHeight;for(let i=0;i<3;i++)roofKit.box(cx-1.4+i*.3,z+.2,r.y1-.1,cx+1.4-i*.3,z+.55+i*.26,r.y1+.08,i===2?accent:base,0,'trim');}
   roofServices(roofKit,A,last,base);
+  if(H.civic){
+   const cx=A.levels[0].entry[0],front=A.depth,grand=A.kind==='cityhall',h=grand?7:3.5;
+   for(const dx of grand?[-8,-5,5,8]:[-4.5,4.5]){
+    wallKit.box(cx+dx-.5,0,front+2.5,cx+dx+.5,.3,front+3.5,base,0,'stone');
+    const col=new THREE.CylinderGeometry(.27,.34,h-.6,12);col.translate(cx+dx,h/2,front+3);wallKit.raw(col,base,'stone');
+    wallKit.box(cx+dx-.45,h-.3,front+2.55,cx+dx+.45,h,front+3.45,base,0,'stone');
+   }
+   const half=grand?8.5:5;wallKit.box(cx-half,h,front-.6,cx+half,h+.3,front+4.2,base,0,'concrete');
+   wallKit.box(cx-half-.15,h+.3,front-.7,cx+half+.15,h+.45,front+4.35,'#f0eade',0,'trim');
+   if(grand){roofKit.box(cx-6,H.h,4,cx+6,H.h+.65,12,base,0,'stone');roofKit.box(cx-6.2,H.h+.65,3.8,cx+6.2,H.h+.82,12.2,'#ece5d4',0,'concrete');}
+   if(A.kind==='hospital'){wallKit.box(2,2,front+.13,4,2.5,front+.25,'#d64e4e',0,'trim');wallKit.box(2.75,1.25,front+.13,3.25,3.25,front+.25,'#d64e4e',0,'trim');}
+   if(A.kind==='school')for(let x=2;x<A.width-2;x+=3)wallKit.box(x,3.1,front+.1,x+2.5,3.45,front+.22,x%2?'#587fa4':'#e2b55f',0,'trim');
+  }
   if(H.garage)buildGarage(wallKit,roofKit,e,H,base,accent,flat);
   // Entry recess stays inside the original envelope and is fully walkable.
   const hall=A.levels[0].rooms.find(r=>r.id==='hall'),x0=hall.x0+.08,x1=hall.x1-.08,y0=hall.y1,y1=A.depth-.05;

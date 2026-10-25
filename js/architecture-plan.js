@@ -16,7 +16,8 @@
   for(let floor=0;floor<count;floor++){
    const setback=count>3&&floor>1?Math.min(Math.min(W,D)*.13,.65+Math.floor((floor-2)/3)*.6):0;
    const w=W-setback*2,d=D-setback*2,ox=setback,oy=setback;
-   const publicFloor=floor===0&&['office','condo','projects','deco','shop','airport','warehouse'].includes(kind);
+   const civic=['hospital','police','military','cityhall','school'].includes(kind);
+   const publicFloor=civic||floor===0&&['office','condo','projects','deco','shop','airport','warehouse'].includes(kind);
    const hallW=publicFloor?(kind==='airport'?3.6:kind==='warehouse'?2.8:2.5):count>1?2.15:1.35;
    const left=round(coreX-hallW/2-ox),right=round(left+hallW),rear=round(Math.max(2.8,d*rearFraction));
    const inset=round(Math.min(1.8,d*.18)),wingRecess=count>3&&floor>=Math.ceil(count*.6)?Math.min(1.4,d*.1):0;
@@ -24,6 +25,11 @@
    let uses;
    if(isHome&&!(floor===0&&['condo','projects'].includes(kind)))uses=floor===0||['condo','projects'].includes(kind)?['bedroom','bathroom','living','kitchen']:['bedroom','bathroom','bedroom','study'];
    else if(kind==='warehouse')uses=['office','bathroom','warehouse','loading'];
+   else if(kind==='hospital')uses=floor?['ward','bathroom','clinic','office']:['clinic','bathroom','reception','ward'];
+   else if(kind==='police')uses=floor?['office','bathroom','briefing','office']:['holding','bathroom','reception','office'];
+   else if(kind==='military')uses=floor?['barracks','bathroom','barracks','briefing']:['armory','bathroom','reception','briefing'];
+   else if(kind==='cityhall')uses=floor?['council','bathroom','office','meeting']:['office','bathroom','reception','council'];
+   else if(kind==='school')uses=floor?['classroom','bathroom','classroom','library']:['classroom','bathroom','reception','library'];
    else if(kind==='airport')uses=['office','bathroom','terminal','service'];
    else if(kind==='office')uses=['meeting','bathroom',floor?'office':'reception','office'];
    else if(kind==='deco')uses=floor?['bedroom','bathroom','living','kitchen']:['storage','bathroom','reception','dining'];
@@ -90,6 +96,12 @@
    const kitchen=()=>{put('fridge',.65,.65,1.85,[r.x0+.6,r.y0+.6],{top:'#ecebe6'});put('stove',.7,.62,.9,[r.x0+1.38,r.y0+.6],{top:'#c6c4be'});put('sink',.72,.62,.9,[r.x1-.65,r.y0+.6],{top:'#e6e0d5'});if(D>3.7)put('counter',1.5,.65,.9,[cx,r.y1-.6]);};
    const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
    switch(r.use){
+    case'ward':case'barracks':for(let y=r.y0+1.5;y<r.y1-1;y+=3.2)for(const x of [r.x0+1.2,r.x1-1.2]){put('bed',1.15,2.05,.65,[x,y],{top:r.use==='ward'?'#e1eee9':'#657361'});put('cabinet',.5,.55,.75,[x+.85,y-.6],{top:'#bfcac8'});}break;
+    case'clinic':put('bed',.9,2,.85,[cx,cy],{top:'#d3e6e1'});put('sink',.8,.6,.9,[r.x0+.7,r.y0+.7]);put('desk',1.6,.7,.8,[cx,r.y0+.7]);put('shelf',2,.5,1.8,[r.x1-1.4,r.y1-.5]);break;
+    case'classroom':for(let y=r.y0+2.2;y<r.y1-1;y+=2)for(let x=r.x0+1;x<r.x1-1;x+=2.2){put('desk',1.2,.65,.75,[x,y]);put('chair',.45,.5,.8,[x,y+.7]);}put('tv',Math.min(3,W-1),.15,1.8,[cx,r.y0+.3],{top:'#284b43'});break;
+    case'library':case'armory':for(let y=r.y0+1;y<r.y1-1;y+=2.4)put('shelf',Math.min(W-2,4),.6,2,[cx,y],{top:r.use==='armory'?'#596562':'#a68b64'});break;
+    case'council':case'briefing':put('table',Math.min(5,W-2),2,.8,[cx,cy]);for(let x=cx-2;x<=cx+2;x+=1)for(const y of [cy-1.5,cy+1.5])put('chair',.55,.55,.9,[x,y]);put('desk',2,.8,.9,[cx,r.y0+.8]);break;
+    case'holding':put('bed',.85,2,.5,[r.x0+1,r.y0+1.4],{top:'#687b83'});put('toilet',.55,.7,.55,[r.x1-.7,r.y0+.7]);put('bench',2,.5,.45,[cx,r.y1-.6]);break;
     case'bedroom':bed();break;
     case'bathroom':put('toilet',.55,.72,.55,[r.x0+.6,r.y0+.65],{top:'#eeece6'});put('sink',.65,.52,.85,[r.x1-.6,r.y0+.55],{top:'#eee9dd'});put('shower',.88,.88,1.9,[r.x1-.7,r.y1-.7],{top:'#bad1d1'});break;
     case'kitchen':kitchen();break;

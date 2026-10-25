@@ -2,8 +2,8 @@
 // Unidades: metros, segundos, radianos, m/s. Sem sprites ou pre-render.
 export const CAR_SPEC=Object.freeze({
  length:4.47,width:1.9,wheelbase:2.52,
- maxForward:21,maxReverse:6.5,
- engineAccel:4.5,reverseAccel:2.7,brakeAccel:10.5,
+ maxForward:36,maxReverse:8,
+ engineAccel:7.2,reverseAccel:3.2,brakeAccel:10.5,
  rollingDrag:0.65,airDrag:0.009,
  steeringLow:0.56,steeringHigh:0.18,steeringRate:3.9
 });
@@ -29,7 +29,7 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  car.steer=approach(car.steer,targetSteer,spec.steeringRate*step*steerLimit(car.speed,spec));
  let speed=car.speed;
  if(brake){
-  speed=approach(speed,0,spec.brakeAccel*1.35*step);
+  speed=approach(speed,0,spec.brakeAccel*(Math.abs(car.steer)>.04&&Math.abs(speed)>6?.38:1.35)*step);
  }else if(gas&&!reverse){
   speed=speed<-.08
     ?approach(speed,0,spec.brakeAccel*step)
@@ -45,10 +45,14 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  if(!controls.engineOn)speed=approach(speed,0,(spec.rollingDrag*2+spec.airDrag*speed*speed)*step);
  car.speed=Math.max(-spec.maxReverse,Math.min(spec.maxForward,speed));
  // Modelo bicicleta: virar durante a re inverte corretamente a trajetoria.
- const headingDelta=car.speed/spec.wheelbase*Math.tan(car.steer)*step;
+ const drifting=brake&&Math.abs(car.speed)>6&&Math.abs(car.steer)>.04;
+ const headingDelta=car.speed/spec.wheelbase*Math.tan(car.steer)*step*(drifting?1.35:1);
  car.angle=normalizeAngle(car.angle+headingDelta);
- car.x+=Math.cos(car.angle)*car.speed*step;
- car.y+=Math.sin(car.angle)*car.speed*step;
+ const slipTarget=drifting?-Math.sign(car.steer)*Math.min(.65,Math.abs(car.speed)*.025):0;
+ car.slip=approach(car.slip||0,slipTarget,step*(drifting?1.8:1.3));
+ car.drifting=Math.abs(car.slip)>.12&&Math.abs(car.speed)>4;
+ car.x+=Math.cos(car.angle+car.slip)*car.speed*step;
+ car.y+=Math.sin(car.angle+car.slip)*car.speed*step;
  car.distance=(car.distance||0)+Math.abs(car.speed*step);
  return car;
 }
