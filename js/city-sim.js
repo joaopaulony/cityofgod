@@ -130,6 +130,7 @@ const CitySim = (() => {
     const vehicle=window.cityVehicles;
     if(!vehicle?.selectModel)return fail('Carregamento 3D do veículo indisponível');
     if(vehicle.driver)return fail('Saia do carro antes de chamar outro');
+    if(vehicle.deliverVehicle){const delivered=await vehicle.deliverVehicle(id);return delivered?ok('Seu '+CARS[id].title+' está próximo do personagem'):fail('Não há local livre para entregar o veículo');}
     const changed=await vehicle.selectModel(id);
     if(!changed)return fail('O modelo 3D não pôde ser carregado');
     // O módulo do carro expõe a mesma instância mutável de posição.

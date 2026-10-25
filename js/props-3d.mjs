@@ -18,6 +18,18 @@ export function createProps(THREE, scene, bridge) {
   // ======================= modelos (frente = +z, centro na base, medidas nominais) =======================
   const CHROME = '#c9ced2', DARK = '#2b2d30', WHITE = '#ecebe6', WOOD = '#8a6446', WOODL = '#b08a62';
   const M = {};
+  M.chair={dims:[.5,.85,.55],make(k){chair(k,0,0,0);}};
+  M.studentdesk={dims:[1.2,.75,.65],make(k){
+    for(const x of [-.5,.5])for(const z of [-.23,.23])k.cyl(x,0,z,.025,.71,'#687780',6);
+    k.box(-.6,.7,-.325,.6,.75,.325,'#bf9b68',.025);k.box(-.18,.75,-.13,.14,.765,.1,'#e8e4da');
+  }};
+  M.hospitalbed={dims:[1.15,.9,2.05],make(k){
+    for(const x of [-.43,.43])for(const z of [-.75,.75]){k.cyl(x,.1,z,.035,.48,'#9aa8ae',8);k.sph(x,.1,z,.09,'#3c464d');}
+    k.box(-.53,.43,-.97,.53,.55,.97,'#d1dadb',.04);k.box(-.5,.55,-.94,.5,.7,.94,'#e8eee9',.06);
+    k.box(-.45,.7,-.86,.45,.8,-.48,'#faf9f2',.06);k.box(-.5,.7,-.4,.5,.73,.88,'#85b3b0',.02);
+    for(const z of [-1,1])k.box(-.55,.55,z-.025,.55,.9,z+.025,'#d5dedf',.03);
+    for(const x of [-.55,.55]){k.cyl(x,.5,0,.02,.84,'#b5c5c8',8);k.box(x-.02,.82,-.5,x+.02,.86,.5,'#b5c5c8',.01);}
+  }};
   // ---------- rua ----------
   M.hydrant = { dims: [0.3, 0.75, 0.3], make(k) {
     k.cyl(0, 0, 0, 0.16, 0.07, '#cfc9b8'); k.cyl(0, 0.07, 0, 0.115, 0.52, '#e7c21e', 16); k.cyl(0, 0.52, 0, 0.15, 0.58, '#d9b01a', 16);

@@ -7,7 +7,7 @@ import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
-const POOL = ['sedan', 'suv', 'hatchback', 'compact', 'pickup', 'wagon'];
+const POOL = VEHICLE_MODELS.filter(v=>v.source==='passenger').map(v=>v.id);
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
 // SUV vem de fábrica em grafite escuro (sem separar pintura de borracha na textura): fica com a cor original
 const KEEP_FACTORY = new Set(['suv']);

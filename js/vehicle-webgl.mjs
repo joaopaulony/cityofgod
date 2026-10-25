@@ -380,6 +380,16 @@ function moveCar(dt){
  const lead=cameraLead(state);
  c.cam.tx=lead.x;c.cam.ty=lead.y;
 }
+function parkAndExit(pos){
+ if(!system.driver||!activeKey)return false;
+ const p=bridge.player;p.x=pos.x;p.y=pos.y;
+ const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level});
+ parked.draw=bridge.drawParkedCar;const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
+ system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;activeKey=null;
+ system.collider.x=-10000;system.collider.y=-10000;state.speed=0;state.steer=0;state.slip=0;state.drifting=false;bridge.world.version++;
+ return 'Saiu do veículo';
+}
+system.exitAt=parkAndExit;
 function interact(){
  const p=bridge.player;
  if(!system.ready)return false;
@@ -390,12 +400,7 @@ function interact(){
     y=state.y+Math.cos(state.angle)*side*sign;
    if(!bridge.world.blocked(x,y,.33)&&bridge.pondVal(x,y)>1.1){
     p.x=x;p.y=y;
-    const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level});
-    const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
-    system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;activeKey=null;
-    system.collider.x=-10000;system.collider.y=-10000;
-    state.speed=0;state.steer=0; // sem velocidade guardada: evita tranco ao voltar ao carro
-    return 'Saiu do veículo';
+    return parkAndExit({x,y});
    }
   }
   return 'Não há espaço para sair';
@@ -592,6 +597,13 @@ system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
   }):[];
 
 system.selectModel=selectModel;
+system.deliverVehicle=async id=>{
+ if(system.driver||claiming||!await selectModel(id))return false;
+ const q=nearestSafeParking();if(!isFree(q.x,q.y,q.angle))return false;
+ const key='owned:'+id,prior=fleet.saved.get(key);if(prior){prior.fleetHidden=true;prior.solid=false;}
+ const b=fleet.park(key,{x:q.x,y:q.y,rot:q.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:id,col:'#c3c6c9',fuel:.65});
+ b.draw=bridge.drawParkedCar;const saved=bridge.addBox(b);fleet.saved.set(key,saved);bridge.world.version++;return true;
+};
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
 (async()=>{

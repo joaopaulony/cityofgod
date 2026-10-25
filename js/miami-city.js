@@ -27,6 +27,7 @@ const MIA_POOR = [['#a89c78', '#7b7f80'], ['#8fa092', '#80786c'], ['#b0916e', '#
 // ocupado? (casas e objetos; ao contrário de world.blocked, o próprio lote/quintal não conta — o recheio do lote cabe nele)
 function miaBlocked(x, y, r) {
   return OW.blk.any(x - r, y - r, x + r, y + r, e => {
+    if(e.o?.fleetHidden)return false;
     if (e.t === 'y') return false;
     if (e.t === 'h') { const H = e.o,bb=H.drawBounds||[H.x0,H.y0,H.x1,H.y1]; return x>bb[0]-r-.3&&x<bb[2]+r+.3&&y>bb[1]-r-.3&&y<bb[3]+r+.3; }
     const b = e.o; return Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.2;

@@ -208,6 +208,7 @@ function owRebuildIndices() {
 }
 function owBlocked(x, y, r) {
   return OW.blk.any(x - r, y - r, x + r, y + r, e => {
+    if(e.o?.fleetHidden)return false;
     if (e.t === 'h') { const H = e.o; return x > H.x0 - r - 1.5 && x < H.x1 + r + 1.5 && y > H.y0 - r - 1.5 && y < H.y1 + r + 1.5; }
     if (e.t === 'y') { const Y = e.o; return x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r; }
     const b = e.o; return Math.hypot(b.x - x, b.y - y) < Math.max(b.w, b.d) / 2 + r + 0.6;

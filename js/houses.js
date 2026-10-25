@@ -107,7 +107,7 @@ function houseTex(H) {
 }
 
 // objetos desenhados em 3D na camada WebGL (props-3d.mjs) quando ela está ativa: o 2D não os desenha
-const PROPS3D_KINDS = new Set(['hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
+const PROPS3D_KINDS = new Set(['hospitalbed','studentdesk','chair','hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
   'trashbag', 'tire', 'mattress', 'hoop', 'cooler', 'bin', 'porchroof', 'portico', 'deck', 'column', 'gatepost', 'hedge', 'planebody', 'forsale',
   'gasstore', 'gasisland', 'gascol', 'gaspump', 'gassign', 'gasair', 'gasice', 'gaspropane']);   // + house-3d.mjs
 function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || (b.kind === 'post' && (!b.house || b.exteriorFixture)) || (b.kind === 'canopy' && !b.draw) || (b.kind === 'step' && !b.house)); }

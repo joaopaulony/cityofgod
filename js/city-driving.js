@@ -96,6 +96,7 @@ const CityDriving=(()=>{
      if(!v.driver)return original();
      const pos=safePosition(v);
      if(!pos)return 'Saída bloqueada: nenhum ponto seguro ao redor do carro';
+     if(v.exitAt)return v.exitAt(pos);
      const p=window.cityVehicleBridge.player;p.x=pos.x;p.y=pos.y;
      v.driver=false;v.braking=false;v.car.speed=0;v.car.steer=0;
      return 'Você saiu do veículo';

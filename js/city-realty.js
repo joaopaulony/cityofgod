@@ -4,7 +4,7 @@ const CityRealty=(()=>{
  const KEY='cityofgod.owned-homes.v1';
  let owned={};let started=false,selected=null;
  const id=H=>Math.round(H.doorPt?.[0]??H.x0)+'_'+Math.round(H.doorPt?.[1]??H.y0)+'_'+Math.round(H.x1-H.x0)+'x'+Math.round(H.y1-H.y0);
- const residential=H=>!!H?.doorPt&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
+ const residential=H=>!!H?.doorPt&&!H.civic&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
  function init(){
    if(started)return;started=true;
    try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(x&&typeof x==='object'&&!Array.isArray(x)) owned=x;}catch(_){}

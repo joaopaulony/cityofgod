@@ -9,6 +9,6 @@ export class VehicleFleet{
  constructor(){this.taken=new Set();this.saved=new Map();}
  claim(b){const key=vehicleKey(b);this.taken.add(key);this.saved.delete(key);b.fleetHidden=true;b.solid=false;return key;}
  hideOriginal(b){return !b.fleetSaved&&this.taken.has(vehicleKey(b));}
- park(key,data){const b={...data,kind:'parkedcar',vehicleKey:key,fleetSaved:true,solid:true,fleetHidden:false};this.saved.set(key,b);return b;}
+ park(key,data){const b={...data,top:data.col||'#c3c6c9',side:data.col||'#c3c6c9',kind:'parkedcar',vehicleKey:key,fleetSaved:true,solid:true,fleetHidden:false};this.saved.set(key,b);return b;}
  nearest(boxes,x,y,r=3.8){let best=null;for(const b of [...boxes,...this.saved.values()]){if(b.kind!=='parkedcar'||b.fleetHidden||this.hideOriginal(b))continue;const d=Math.hypot(b.x-x,b.y-y);if(d<r){r=d;best=b;}}return best;}
 }

@@ -57,7 +57,7 @@ window.cityVehicleBridge={
   down:k=>input.down(k),hit:k=>input.hit(k),
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
-  collide, addBox, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  collide, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
 };
@@ -514,7 +514,7 @@ function drawPlayerVision(list,blocker,W,H){
   const vehicle=window.cityVehicles;
   const driving=!!vehicle?.driver;
   const point=driving?proj(vehicle.car.x,vehicle.car.y,1.05):proj(player.x,player.y,1.05+(player.floorZ||0));
-  const radius=clamp(cam.zoom*(driving?Math.max(1.6,(vehicle.carLength||4)*.48):1.33),42,120);
+  const radius=Math.min(W,H)*.85/2;
   const cx=point.x,cy=point.y+cam.zoom*.17;
   if(cx+radius<0||cy+radius<0||cx-radius>W||cy-radius>H)return;
   fg.setTransform(1,0,0,1,0,0);

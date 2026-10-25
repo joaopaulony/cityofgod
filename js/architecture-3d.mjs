@@ -8,6 +8,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  const Kit=makeKit(THREE),entries=new Map(),builds=new Map();
  const state=window.cityArchitecture3D={ready:true,properties:0,meshes:0,triangles:0,pending:0,buildMs:0,errors:[],revision:1};
  const mats=propertyMaterials(THREE,opts.seeThrough);
+ const civicLights=Array.from({length:4},()=>{const l=new THREE.PointLight(0xf0f4e9,0,24,2);scene.add(l);return l;});
  // Interior cutaway already exposes the player. Keep its floor, rails and
  // doors opaque instead of applying the vegetation's broad dither circle.
  const innerMats=Object.fromEntries(Object.entries(mats).map(([k,m])=>[k,m.clone()]));
@@ -50,9 +51,10 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    }
    if(o.kind==='door'&&doors){const p=point(u),leaf=new THREE.Group();leaf.position.set(p[0],z,p[1]);leaf.rotation.y=-Math.atan2(dy,dx);
     const dk=Kit(),dh=Math.min(o.height,h);if(o.style==='glazed'){dk.box(0,0,-.03,.09,dh,.03,'#e8e1d2',0,'trim');dk.box(o.width-.09,0,-.03,o.width,dh,.03,'#e8e1d2',0,'trim');for(const yy of [0,dh-.1])dk.box(0,yy,-.03,o.width,yy+.1,.03,'#e8e1d2',0,'trim');dk.box(.09,.1,-.014,o.width-.09,dh-.1,.014,'#bdd4d8',0,'glass');}
+    else if(o.style==='bars'){for(let x=.03;x<o.width;x+=.13)dk.box(x,0,-.025,x+.025,dh,.025,'#46545b',0,'metal');for(const y of [.08,1,dh-.08])dk.box(0,y,-.03,o.width,y+.045,.03,'#46545b',0,'metal');}
     else dk.box(0,0,-.025,o.width,dh,.025,w.ext?'#657b74':'#c3ab89',.008,'wood');
     if(o.style==='roller')for(let y=.1;y<dh;y+=.19)dk.box(.04,y,-.04,o.width-.04,y+.025,.04,'#73817e',0,'metal');
-    else if(dh>1&&o.style!=='glazed')for(const yy of [.32,1.15])dk.box(.1,yy,-.04,o.width-.1,Math.min(yy+.55,dh-.08),.04,'#b4a188',.008,'trim');
+    else if(dh>1&&o.style!=='glazed'&&o.style!=='bars')for(const yy of [.32,1.15])dk.box(.1,yy,-.04,o.width-.1,Math.min(yy+.55,dh-.08),.04,'#b4a188',.008,'trim');
     dk.sph(o.width-.13,Math.min(1,dh*.65),.06,.035,'#c0a15d',1,'metal');groups(dk,leaf,cut?innerMats:mats);doors.push({object:leaf,opening:o,base:leaf.rotation.y,baseY:z});
    }
    cursor=v;
@@ -212,7 +214,11 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    }
    const half=grand?8.5:5;wallKit.box(cx-half,h,front-.6,cx+half,h+.3,front+4.2,base,0,'concrete');
    wallKit.box(cx-half-.15,h+.3,front-.7,cx+half+.15,h+.45,front+4.35,'#f0eade',0,'trim');
-   if(grand){roofKit.box(cx-6,H.h,4,cx+6,H.h+.65,12,base,0,'stone');roofKit.box(cx-6.2,H.h+.65,3.8,cx+6.2,H.h+.82,12.2,'#ece5d4',0,'concrete');}
+   if(grand){roofKit.box(cx-6,H.h,4,cx+6,H.h+.65,12,base,0,'stone');roofKit.box(cx-6.2,H.h+.65,3.8,cx+6.2,H.h+.82,12.2,'#ece5d4',0,'concrete');
+    quad(wallKit,[[cx-8.65,h+.45,front+4.36],[cx+8.65,h+.45,front+4.36],[cx,h+2.75,front+4.36]],base,'stone');
+    span(wallKit,[cx-8.65,front+4.4],[cx+8.65,front+4.4],h+.4,h+.57,.25,'#f3eee2','trim');
+    const crest=new THREE.CylinderGeometry(.48,.48,.08,24);crest.rotateX(Math.PI/2);crest.translate(cx,h+1.2,front+4.42);wallKit.raw(crest,'#bd9a48','metal');
+   }
    if(A.kind==='hospital'){wallKit.box(2,2,front+.13,4,2.5,front+.25,'#d64e4e',0,'trim');wallKit.box(2.75,1.25,front+.13,3.25,3.25,front+.25,'#d64e4e',0,'trim');}
    if(A.kind==='school')for(let x=2;x<A.width-2;x+=3)wallKit.box(x,3.1,front+.1,x+2.5,3.45,front+.22,x%2?'#587fa4':'#e2b55f',0,'trim');
   }
@@ -233,7 +239,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   const A=e.H.architecture,level=A.levels[floor],kit=Kit();if(!level)return;
   const ca=bridge.cam.ang,Acos=Math.cos(A.angle),Asin=Math.sin(A.angle),camera=[Math.sin(ca)*Acos+Math.cos(ca)*Asin,-Math.sin(ca)*Asin+Math.cos(ca)*Acos];
   for(const r of level.rooms){const wet=['bathroom','kitchen','laundry','loading'].includes(r.use),use=wet?'tile':'wood';
-   const slab=(x0,y0,x1,y1)=>{if(x1-x0>.01&&y1-y0>.01)kit.box(x0,level.z-.07,y0,x1,level.z-.005,y1,wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0',0,use);};
+   const slab=(x0,y0,x1,y1)=>{if(x1-x0>.01&&y1-y0>.01)kit.box(x0,level.z-.07,y0,x1,level.z-.005,y1,e.H.civic?'#d9e0dc':wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0',0,e.H.civic?'tile':use);};
    if(r.id==='hall'&&floor>0&&level.stair){const s=level.stair,x0=Math.max(r.x0,s.x-.51),x1=Math.min(r.x1,s.x+.51),y0=s.y-1.45,y1=s.y+1.45;slab(r.x0,r.y0,x0,r.y1);slab(x1,r.y0,r.x1,r.y1);slab(x0,r.y0,x1,y0);slab(x0,y1,x1,r.y1);}else slab(r.x0,r.y0,r.x1,r.y1);
   }
   for(const r of level.outdoor)balcony(kit,r,level.z,palettes[A.palette][1]);
@@ -260,6 +266,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   }
   for(const [H,e] of entries)if(!seen.has(H)){disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
   for(const [H,job] of builds)if(!seen.has(H)){job.return();builds.delete(H);}
+  const occupied=bridge.houses.find(H=>H.civic&&H.inside&&H.lightOn),lit=occupied?.architecture.levels[bridge.player.floor||0];
+  civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit){const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}});
   let meshes=0,triangles=0;for(const e of entries.values())e.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});
   Object.assign(state,{properties:entries.size,meshes,triangles,pending,buildMs:+(performance.now()-t0).toFixed(2)});
  }

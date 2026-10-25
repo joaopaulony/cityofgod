@@ -37,6 +37,11 @@
    else uses=floor>0?['bedroom','bathroom','living','kitchen']:palette%3===0?['storage','bathroom','dining','kitchen']:palette%3===1?['storage','bathroom','sales','checkout']:['staff','bathroom','salon','reception'];
    const rooms=[rect('rear-left',uses[0],0,0,left,rear),rect('rear-right',uses[1],right,0,w,rear),rect('front-left',uses[2],0,rear,left,leftEnd),rect('front-right',uses[3],right,rear,w,rightEnd),rect('hall','circulation',left,0,right,entry)];
    if(kind==='mansion'&&w>=14){const bath=rooms[1];const split=round(rear*.57);bath.y1=split;rooms.push(rect('laundry','laundry',right,split,w,rear));}
+   if(civic){for(const room of rooms.slice()){if(room.id==='hall'||room.y1-room.y0<8)continue;
+    const mid=round((room.y0+room.y1)/2),front=room.id.startsWith('front');
+    rooms.push({...room,id:room.id+'-annex',y0:front?room.y0:mid,y1:front?mid:room.y1});
+    if(front)room.y0=mid;else room.y1=mid;
+   }}
    for(const r of rooms){r.x0=round(r.x0+ox);r.x1=round(r.x1+ox);r.y0=round(r.y0+oy);r.y1=round(r.y1+oy);}
    const level={floor,kind,wingRecess,z:floor*height,rooms,walls:[],furniture:[],entry:[ox+(left+right)/2,oy+entry],setback,
     outdoor:floor>0?[rect('balcony','balcony',ox+left,oy+entry,ox+right,oy+d)]:[]};
@@ -56,7 +61,7 @@
    const key=[...a,...b].map(round).join(',');if(seen.has(key))return;seen.add(key);
    const ext=!left||!right,owner=left||right,len=Math.hypot(b[0]-a[0],b[1]-a[1]);
    const wall={a,b,ext,normal:ext?(left?n:n.map(v=>-v)):n,rooms:[left?.id,right?.id].filter(Boolean),openings:[]};
-   if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12)wall.openings.push({kind:'door',at:len/2,width:1.02,height:2.16});
+   if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12)wall.openings.push({kind:'door',style:[left.use,right.use].includes('holding')?'bars':undefined,at:len/2,width:1.02,height:2.16});
    if(ext&&owner.id==='hall'&&n[1]!==0&&Math.abs((a[1]+b[1])/2-level.entry[1])<.01)wall.openings.push({kind:'door',style:level.floor?'glazed':undefined,at:len/2,width:Math.min(1.15,len-.16),height:2.25});
    else if(ext&&owner.id==='hall'&&wall.normal[1]<-.5&&level.outdoor.some(r=>r.rear))wall.openings.push({kind:'door',style:'glazed',at:len/2,width:1.15,height:2.25});
    else if(ext&&owner.use!=='circulation'&&len>=1.8){
@@ -96,9 +101,9 @@
    const kitchen=()=>{put('fridge',.65,.65,1.85,[r.x0+.6,r.y0+.6],{top:'#ecebe6'});put('stove',.7,.62,.9,[r.x0+1.38,r.y0+.6],{top:'#c6c4be'});put('sink',.72,.62,.9,[r.x1-.65,r.y0+.6],{top:'#e6e0d5'});if(D>3.7)put('counter',1.5,.65,.9,[cx,r.y1-.6]);};
    const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
    switch(r.use){
-    case'ward':case'barracks':for(let y=r.y0+1.5;y<r.y1-1;y+=3.2)for(const x of [r.x0+1.2,r.x1-1.2]){put('bed',1.15,2.05,.65,[x,y],{top:r.use==='ward'?'#e1eee9':'#657361'});put('cabinet',.5,.55,.75,[x+.85,y-.6],{top:'#bfcac8'});}break;
-    case'clinic':put('bed',.9,2,.85,[cx,cy],{top:'#d3e6e1'});put('sink',.8,.6,.9,[r.x0+.7,r.y0+.7]);put('desk',1.6,.7,.8,[cx,r.y0+.7]);put('shelf',2,.5,1.8,[r.x1-1.4,r.y1-.5]);break;
-    case'classroom':for(let y=r.y0+2.2;y<r.y1-1;y+=2)for(let x=r.x0+1;x<r.x1-1;x+=2.2){put('desk',1.2,.65,.75,[x,y]);put('chair',.45,.5,.8,[x,y+.7]);}put('tv',Math.min(3,W-1),.15,1.8,[cx,r.y0+.3],{top:'#284b43'});break;
+    case'ward':case'barracks':for(let y=r.y0+1.5;y<r.y1-1;y+=3.2)for(const x of [r.x0+1.2,r.x1-1.2]){put(r.use==='ward'?'hospitalbed':'bed',1.15,2.05,.9,[x,y],{top:r.use==='ward'?'#e1eee9':'#657361'});put('cabinet',.5,.55,.75,[x+.85,y-.6],{top:'#bfcac8'});}break;
+    case'clinic':put('hospitalbed',1.15,2.05,.9,[cx,cy],{top:'#d3e6e1'});put('sink',.8,.6,.9,[r.x0+.7,r.y0+.7]);put('desk',1.6,.7,.8,[cx,r.y0+.7]);put('shelf',2,.5,1.8,[r.x1-1.4,r.y1-.5]);break;
+    case'classroom':for(let y=r.y0+2.2;y<r.y1-1;y+=2)for(let x=r.x0+1;x<r.x1-1;x+=2.2){put('studentdesk',1.2,.65,.75,[x,y]);put('chair',.45,.5,.8,[x,y+.7]);}put('tv',Math.min(3,W-1),.15,1.8,[cx,r.y0+.3],{top:'#284b43'});break;
     case'library':case'armory':for(let y=r.y0+1;y<r.y1-1;y+=2.4)put('shelf',Math.min(W-2,4),.6,2,[cx,y],{top:r.use==='armory'?'#596562':'#a68b64'});break;
     case'council':case'briefing':put('table',Math.min(5,W-2),2,.8,[cx,cy]);for(let x=cx-2;x<=cx+2;x+=1)for(const y of [cy-1.5,cy+1.5])put('chair',.55,.55,.9,[x,y]);put('desk',2,.8,.9,[cx,r.y0+.8]);break;
     case'holding':put('bed',.85,2,.5,[r.x0+1,r.y0+1.4],{top:'#687b83'});put('toilet',.55,.7,.55,[r.x1-.7,r.y0+.7]);put('bench',2,.5,.45,[cx,r.y1-.6]);break;

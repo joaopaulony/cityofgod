@@ -48,6 +48,10 @@ function civicPlaceSector(S){
   // Dedicated bays remain empty for future emergency/service vehicles.
   for(let i=0;i<4;i++)miaCar(x+7+i*3,site.y-16,Math.PI/2);
   for(const dx of [-24,24]){world.lamps.push({x:x+dx,y:site.y-8,ax:0,ay:-1});}
+  if(site.kind==='military'){
+   const [x0,y0,x1,y1]=site.bb,gate=(px,py)=>py>y1-1&&Math.abs(px-H.doorPt[0])<4;
+   for(const [a,b] of [[[x0,y0],[x1,y0]],[[x0,y0],[x0,y1]],[[x1,y0],[x1,y1]],[[x0,y1],[x1,y1]]])chainLine(...a,...b,gate,{h:2.3});
+  }
   // Welcoming portico; city hall has a wider colonnade and a central raised crown.
   const portico=site.kind==='cityhall',width=portico?16:9;
   for(const dx of portico?[-8,-5,5,8]:[-4.5,4.5])addBox({x:H.doorPt[0]+dx,y:H.y1+3,w:.55,d:.55,h:portico?7:3.5,kind:'civic-column',top:site.color,side:site.color,house:H,exteriorFixture:true});

@@ -2,10 +2,11 @@
 'use strict';
 const CityGPS=(()=>{
  let waypoint=null,selection=null;
- const icon={gas:'⛽',home:'⌂',airport:'✈',town:'◆',port:'⚓',district:'◉',lot:'▣'};
+ const icon={gas:'⛽',home:'⌂',airport:'✈',town:'◆',port:'⚓',district:'◉',lot:'▣',hospital:'✚',police:'★',military:'◆',cityhall:'⌂',school:'▤'};
  function pois(){
    const result=[];
    if(typeof world==='undefined')return result;
+   for(const s of world.civicSites||[])result.push({id:s.id,x:s.x,y:s.y+2,name:s.name,type:s.kind});
    for(const [i,st] of (world.gasStations||[]).entries()){
      const p=st.pumps?.[0];if(p)result.push({id:'gas:'+i,x:p.x,y:p.y,name:'Posto '+(st.brand?.name||'de combustível'),type:'gas'});
    }
