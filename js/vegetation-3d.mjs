@@ -317,6 +317,8 @@ export function createVegetation(THREE, scene, bridge) {
     poinciana: () => broadleaf(105, { trunkH: 2.6, trunkR: 0.32, crownC: [0, 5.6, 0], crownR: [5.6, 1.7, 5.6], nClusters: 22, nLimbs: 7, clusterR: 1.9, cards: 26, cardSize: 1.7, flat: 0.5, minY: -0.1, bark: 'barkRoyal', leaf: 'fine', dark: '#2a4a1e', light: '#86b04a', warm: '#aabc56', flowers: { tex: 'poinciana', n: 18, cards: 14 } }),
     pine: () => pine(106),
     coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 20, dead: 3, len: 5.8, width: 1.05, rise: 0.7, droop: 1.65, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
+    // Washingtonia (Los Angeles): tronco altíssimo e fino, copa pequena e redonda de leques curtos e saia de folhas secas
+    washington: () => palm(109, { trunkH: 15.5, lean: 0.35, r0: 0.2, n: 30, dead: 18, len: 2.3, width: 0.62, rise: 0.75, droop: 0.95, green: '#557a36', tip: '#86a04c', bark: 'barkPalm' }),
     royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 18, dead: 1, len: 6.6, width: 1.15, rise: 0.85, droop: 1.55, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
     shrub: () => bush(201, { h: 1.4, w: 1.0, nClusters: 8, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1e3c18', light: '#78a444', warm: '#a8b456' }),
     hibiscus: () => bush(202, { h: 1.6, w: 1.1, nClusters: 9, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1a3816', light: '#5e9038', warm: '#84a648', flowers: { tex: 'hibiscus', n: 9, cards: 4 } }),
@@ -330,7 +332,7 @@ export function createVegetation(THREE, scene, bridge) {
   };
 
   // ======================= malhas instanciadas =======================
-  const CAP = { grass: 9000, reeds: 3000, flowerY: 800, flowerW: 800, flowerP: 800, flowerL: 800, flowerO: 800, liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500 };
+  const CAP = { grass: 9000, reeds: 3000, flowerY: 800, flowerW: 800, flowerP: 800, flowerL: 800, flowerO: 800, liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, washington: 1500, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500 };
   const kinds = {};
   for (const [name, make] of Object.entries(SPECIES)) {
     const parts = make().map(part => {
@@ -359,7 +361,7 @@ export function createVegetation(THREE, scene, bridge) {
     if (p.type === 'tuft') return sp.reed ? 'reeds' : 'grass';
     if (p.type === 'flower') return p.kind;
     if (p.type === 'bush') return { hibiscus: 'hibiscus', bougainvillea: 'bougainvillea', croton: 'croton', seagrape: 'seagrape' }[sp.vegKind] || 'shrub';
-    if (sp.kind === 'palm') return sp.palm === 'royal' ? 'royal' : 'coconut';
+    if (sp.kind === 'palm') return sp.palm === 'royal' ? 'royal' : sp.palm === 'washington' ? 'washington' : 'coconut';
     if (sp.kind === 'pine') return 'pine';
     if (sp.decoration === 'flowering') return 'poinciana';
     if (sp.kind === 'street') return 'mahogany';
@@ -379,6 +381,8 @@ export function createVegetation(THREE, scene, bridge) {
     const indoors = (x, y) => near.some(H => H.contains ? H.contains(x, y) : x > H.x0 - .2 && x < H.x1 + .2 && y > H.y0 - .2 && y < H.y1 + .2);
     for (const p of props) {
       if (p.type !== 'tree' && p.type !== 'bush' && p.type !== 'tuft') continue;
+      const holes = window.cityLandmarkHoles;   // espaço aberto p/ marcos (letreiro da serra)
+      if (holes && holes.some(h => p.x > h[0] && p.x < h[2] && p.y > h[1] && p.y < h[3])) continue;
       const dx = p.x - cx, dy = p.y - cy; if (dx * dx + dy * dy > R * R) continue;
       if (p.type === 'tuft' && indoors(p.x, p.y)) continue;
       const k = kinds[speciesOf(p)]; if (k.list.length < k.parts[0].mesh.instanceMatrix.count) k.list.push(p);

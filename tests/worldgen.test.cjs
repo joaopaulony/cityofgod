@@ -24,9 +24,9 @@ test('mundo fixo: a semente oficial gera sempre o mesmo mapa', () => {
   assert.notDeepEqual(Buffer.from(other.geo.dist), Buffer.from(geo.dist));
 });
 
-test('tamanho: ~9 km² de terra firme', () => {
+test('tamanho: mapa compacto, ~5 km² de terra firme', () => {
   const land = km2(geo.land.reduce((a, b) => a + b, 0));
-  assert.ok(land > 8.6 && land < 9.6, 'terra = ' + land.toFixed(2) + ' km²');
+  assert.ok(land > 4.6 && land < 5.8, 'terra = ' + land.toFixed(2) + ' km²');
 });
 
 test('todos os biomas e distritos existem, com proporções plausíveis', () => {
@@ -34,8 +34,9 @@ test('todos os biomas e distritos existem, com proporções plausíveis', () => 
   for (const d of geo.dist) area[d]++;
   for (const [name, id] of Object.entries(D)) assert.ok(area[id] > 0, 'falta ' + name);
   assert.ok(km2(area[D.AIRPORT]) < 1.0, 'aeroporto grande demais');
-  assert.ok(km2(area[D.DOWNTOWN]) > 0.35, 'centro pequeno demais');
-  assert.ok(km2(area[D.FOREST]) > 0.8 && km2(area[D.FARM]) > 0.8, 'faltam florestas/fazendas');
+  assert.ok(km2(area[D.DOWNTOWN]) > 0.25, 'centro pequeno demais');
+  assert.ok(km2(area[D.INDUSTRIAL]) < 0.12 && km2(area[D.PORT]) < 0.12, 'industrial/porto deveriam ter ~1/3 do antigo');
+  assert.ok(km2(area[D.FOREST]) > 0.4 && km2(area[D.FARM]) > 0.6, 'faltam florestas/fazendas');
   // menos área rural: a cidade (centro, bairros, favelas, conjuntos, vilas) ocupa mais que o campo aberto
   const city = [D.DOWNTOWN, D.URBAN, D.FAVELA, D.GHETTO, D.TOWN].reduce((a, d) => a + km2(area[d]), 0);
   assert.ok(city > km2(area[D.RURAL]) * 4, 'campo aberto grande demais');
@@ -56,8 +57,8 @@ test('um só aeroporto: pista inteira em terra, longe da costa e das cidades', (
     assert.ok(ap.ok, ap.name + ' sem local válido');
     for (let t = -0.5; t <= 0.5; t += 0.05) {
       const x = ap.x + Math.cos(ap.ang) * ap.len * t, y = ap.y + Math.sin(ap.ang) * ap.len * t;
-      assert.ok(geo.isLand(x, y) && geo.coastDist(x, y) > 200, ap.name + ': pista na água/costa');
-      for (const a of keepOff) assert.ok(Math.hypot(x - a.x, y - a.y) > a.r + 240, ap.name + ': pista sobre área urbana');
+      assert.ok(geo.isLand(x, y) && geo.coastDist(x, y) > 140, ap.name + ': pista na água/costa');
+      for (const a of keepOff) assert.ok(Math.hypot(x - a.x, y - a.y) > a.r + 160, ap.name + ': pista sobre área urbana');
     }
   }
 });

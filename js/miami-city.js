@@ -41,7 +41,7 @@ function miaZone(x, y, d) {
   if (d === D_.INDUSTRIAL || d === D_.PORT) return 'works';
   if (d === D_.TOWN) return 'town';
   if (d === D_.URBAN) {
-    if (geo.coastDist(x, y) < 420) return x > geo.bay.x ? 'southbeach' : 'mansion';
+    if (geo.coastDist(x, y) < 330) return x > geo.bay.x ? 'southbeach' : 'mansion';   // orla (mapa compacto)
     return 'bungalow';
   }
   return null;
@@ -50,7 +50,9 @@ function miaZone(x, y, d) {
 // ---------- sprites compartilhados ----------
 function miaInit() {
   const R = mulberry(COG.WORLD_SEED ^ 0x7a11);
-  MIA.palms = { royal: Array.from({ length: 9 }, () => makePalm('royal', R)), coconut: Array.from({ length: 12 }, () => makePalm('coconut', R)) };
+  MIA.palms = { royal: Array.from({ length: 9 }, () => makePalm('royal', R)), coconut: Array.from({ length: 12 }, () => makePalm('coconut', R)),
+    // Washingtonia das ruas de Los Angeles (no 2D reaproveita o desenho da imperial; em 3D tem modelo próprio)
+    washington: Array.from({ length: 6 }, () => Object.assign(makePalm('royal', R), { palm: 'washington', r: 1.4 })) };
   MIA.bush = {};
   for (const k of ['hibiscus', 'bougainvillea', 'seagrape', 'croton']) MIA.bush[k] = Array.from({ length: 3 }, () => makeTropicalBush(k, R));
   for (const sp of [...MIA.palms.royal, ...MIA.palms.coconut]) palmShadowStamp(sp);
@@ -847,15 +849,18 @@ function drawBeachUmbrella(g, b) {
 function miaStreets(S, zoneAt) {
   for (const rd of S.roads) {
     if (rd.cls === 'highway') continue;
-    const step = rd.cls === 'avenue' ? 26 : 40;
+    // Los Angeles: fileiras regulares de Washingtonias (a cada ~11 m nas avenidas, ~15 m nas ruas, dos dois lados)
+    const la = z0 => z0 === 'bungalow' || z0 === 'mansion' || z0 === 'southbeach' || z0 === 'town';
+    const p0 = rd.pts[(rd.pts.length / 2) | 0], zMid = zoneAt(p0.x + p0.nx * (ROAD_W + SIDE + 6), p0.y + p0.ny * (ROAD_W + SIDE + 6));
+    const step = la(zMid) ? (rd.cls === 'avenue' ? 22 : 30) : rd.cls === 'avenue' ? 26 : 40;
     for (let i = 14, s = 1; i < rd.pts.length - 6; i += step, s = -s) {
       const p = rd.pts[i];
-      for (const sg of rd.cls === 'avenue' ? [1, -1] : [s]) {
+      for (const sg of rd.cls === 'avenue' || la(zMid) ? [1, -1] : [s]) {
         const x = p.x + p.nx * sg * (ROAD_W + rd.off + SIDE + 1.05), y = p.y + p.ny * sg * (ROAD_W + rd.off + SIDE + 1.05), z = zoneAt(x, y);
         if (!z || z === 'works' || z === 'poor' || z === 'projects') continue;
         if (!CityStreetLayout.verge(x, y, .45, roadDist, ROAD_W, SIDE) || pondVal(x, y) < 1.2 || miaBlocked(x, y, 0.6)) continue;
         if (OW.place.any(x - 3, y - 3, x + 3, y + 3, c => Math.hypot(c.x - x, c.y - y) < 3)) continue;
-        miaPalm(x, y, z === 'town' || z === 'bungalow' ? (rng() < 0.5 ? 'royal' : 'coconut') : 'royal', true);
+        miaPalm(x, y, la(z) ? 'washington' : z === 'town' ? (rng() < 0.5 ? 'royal' : 'coconut') : 'royal', true);
       }
     }
     // hidrantes amarelos junto ao meio-fio
