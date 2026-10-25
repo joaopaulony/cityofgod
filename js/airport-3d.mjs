@@ -120,8 +120,12 @@ export function createAirport3D(THREE, scene, bridge) {
     for (let i = 0; i <= bays; i++) k.cyl(x0 + bw * i, 0, front + 5.6, 0.32, th + 0.4, '#dfe3e6', 14);   // pilares da marquise
     k.box(x0 - 0.3, th + 0.1, front + 5.9, x0 + w + 0.3, th + 1.0, front + 6.6, '#2a4a66');   // testeira azul
     const gw = w * 0.62, gx0 = x0 + (w - gw) / 2;
-    k.box(gx0, 0.05, front + 0.25, gx0 + gw, th - 0.1, front + 0.4, '#5f86a0', 0, 'glass');    // cortina de vidro do saguão
-    for (let x = gx0; x <= gx0 + gw + 0.01; x += 2.2) k.box(x - 0.06, 0, front + 0.2, x + 0.06, th - 0.05, front + 0.48, '#d9dde0');
+    // Vão alinhado à porta funcional: a cortina decorativa não deve fechar a saída.
+    const entryX = TH?.doorPt?.[0] ?? x0 + w / 2, gap = 1.6;
+    k.box(gx0, 0.05, front + 0.25, entryX - gap, th - 0.1, front + 0.4, '#5f86a0', 0, 'glass');
+    k.box(entryX + gap, 0.05, front + 0.25, gx0 + gw, th - 0.1, front + 0.4, '#5f86a0', 0, 'glass');
+    k.box(entryX - gap, 2.7, front + 0.25, entryX + gap, th - 0.1, front + 0.4, '#5f86a0', 0, 'glass');
+    for (let x = gx0; x <= gx0 + gw + 0.01; x += 2.2) if(Math.abs(x-entryX)>gap+.1) k.box(x - 0.06, 0, front + 0.2, x + 0.06, th - 0.05, front + 0.48, '#d9dde0');
     for (const y of [3.3, th - 0.15]) k.box(gx0, y - 0.08, front + 0.2, gx0 + gw, y + 0.08, front + 0.5, '#d9dde0');
     k.box(x0 + 2, 0, front + 0.6, x0 + w - 2, 0.12, front + 6.2, '#c4c0b6');   // calçada coberta (meio-fio de embarque)
     {

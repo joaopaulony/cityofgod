@@ -156,6 +156,12 @@ function owAirportFor(S) {
   if (cx < S.bounds[0] || cx >= S.bounds[2] || cy < S.bounds[1] || cy >= S.bounds[3]) return null;   // setor dono do terminal
   return { ap, T, x0, y0 };
 }
+// Shared reservation in EVERY sector, including neighbours generated before the terminal.
+function owAirportReserve() {
+  const ap = world.airports?.[0]; if (!ap) return null;
+  const T = TPL.TERMINAL, x = Math.round(ap.x - T.w / 2), y = Math.round(ap.y + ap.width / 2 + ap.apron - 22);
+  return [x - 5, y - 50, x + T.w + 5, y + T.d + 32];
+}
 function owPlaceAirport(S, q) {
   const { ap, T, x0, y0 } = q;
   const H = placeTemplate(T, x0, y0, 0, { seed: owSeed(S, 'terminal') });
@@ -209,6 +215,8 @@ function owBlocked(x, y, r) {
 }
 function owFree(S, x, y, r, inset = 1.5) {
   const [x0, y0, x1, y1] = S.bounds;
+  const ap = owAirportReserve();
+  if (ap && x > ap[0]-r && x < ap[2]+r && y > ap[1]-r && y < ap[3]+r) return false;
   if (x < x0 + inset || y < y0 + inset || x > x1 - inset || y > y1 - inset) return false;
   if (onRoad(x, y) || pondVal(x, y) < 1.12 + r * 0.25 || world.blocked(x, y, r)) return false;
   return !OW.place.any(x - r - 2, y - r - 2, x + r + 2, y + r + 2, c => Math.hypot(c.x - x, c.y - y) < c.r + r + 0.4);
@@ -227,7 +235,7 @@ function* owGenSector(S) {
   yield;
 
   // --- aeroporto: terminal e avião (só no setor que contém o terminal)
-  const rects = [];
+  const reserved = owAirportReserve(), rects = reserved ? [reserved] : [];
   const apq = owAirportFor(S);
   if (apq) { const H = owPlaceAirport(S, apq); rects.push([H.x0 - 4, H.y0 - 40, H.x1 + 4, H.y1 + 6]); yield; }
   // --- Miami: prédios, mansões, bangalôs, casas pobres, praia e ruas (miami-city.js)
@@ -537,8 +545,11 @@ function owStep(S, budget) {
 // Limpeza aplicada a TODO setor concluído, inclusive os gerados depois do spawn.
 function owCleanStreetSector(S) {
   const discarded = new Set();
+  const airport = owAirportReserve();
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    if (airport && o.x > airport[0] && o.x < airport[2] && o.y > airport[1] && o.y < airport[3] &&
+      (kind === 'props' || kind === 'bins' || kind === 'lamps' || kind === 'boxes' && !o.house && !['vehicle','planebody'].includes(o.kind))) return true;
     // pátio de posto/estacionamento: nada de árvore, arbusto ou pedra (nem o colisor invisível dela)
     if ((kind === 'props' || kind === 'circles') && ['tree', 'bush', 'tuft', 'rock'].includes(o.type || o.kind) && (world.paved || []).some(b => o.x > b[0] - 0.5 && o.x < b[2] + 0.5 && o.y > b[1] - 0.5 && o.y < b[3] + 0.5)) return true;
     if (kind === 'props') return o.type==='rock'||(['tree','bush','tuft'].includes(o.type) &&
@@ -685,21 +696,27 @@ function buildOpenWorld() {
   // chegada: o jogador é um passageiro que acabou de desembarcar no saguão do aeroporto
   const ap = world.airports[0], T = TPL.TERMINAL;
   const tx0 = Math.round(ap.x - T.w / 2), ty0 = Math.round(ap.y + ap.width / 2 + ap.apron - 22);
-  const sp0 = [tx0 + T.w / 2 + 0.5, ty0 + T.d - 2.4];   // no saguão, diante das portas p/ a rua
+  const sp0 = [tx0 + T.w / 2, ty0 + T.d + 3]; // área pública, nunca o pátio de aviões
   world.spawnName = ap.name;
   // carrega já tudo num raio de 150 m (síncrono): o terminal e o entorno prontos na abertura
   for (const [d, i, j] of owWanted(sp0[0], sp0[1])) { if (d > 150) continue; const S = owStartSector(i, j); while (!owStep(S, 1e9)); }
-  let spawn = sp0;
-  if (collide(sp0[0], sp0[1], 0.28).some((v, i) => Math.abs(v - sp0[i]) > 0.01)) {   // empurrado por móvel: procura vão livre perto
-    for (let r = 0.5; r < 6 && spawn === sp0; r += 0.5) for (let a = 0; a < TAU; a += 0.5) {
-      const x = sp0[0] + Math.cos(a) * r, y = sp0[1] + Math.sin(a) * r, q = collide(x, y, 0.28);
-      if (Math.hypot(q[0] - x, q[1] - y) < 0.01 && y < ty0 + T.d - 0.5) { spawn = [x, y]; break; }
-    }
-  }
+  const terminal = houses.find(H => H.terminal);
+  if (!terminal) throw Error('Terminal must be loaded before passenger arrival');
+  const spawn = owAirportArrival(terminal, collide);
   world.spawn = spawn; world.aimDir = Math.PI / 2; world.targets = []; world.clear = [];
   world.arrival = { airport: ap.name, terminal: [tx0, ty0, tx0 + T.w, ty0 + T.d] };
   OW.stats.startMs = performance.now() - t0;
   window.openWorld = OW;
+}
+
+// Passenger arrival follows the actual remodelled entrance, always on the public side.
+function owAirportArrival(H, collision) {
+  const y = H.y1 + 3, x = H.doorPt[0];
+  for (const dy of [0, 1, 2, 4, 6]) for (const dx of [0, -1, 1, -2, 2, -4, 4]) {
+    const p = [x + dx, y + dy], q = collision(...p, .28, 0);
+    if (Math.hypot(q[0] - p[0], q[1] - p[1]) < .01) return p;
+  }
+  throw Error('No unobstructed public airport arrival');
 }
 
 // depuração: teleporta e carrega na hora os setores em volta (ex.: owTeleport(4540, 1880) = aeroporto)

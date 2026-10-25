@@ -6,6 +6,33 @@ import {createRequire} from 'node:module';
 import {carCollision} from '../js/vehicle-collision.mjs';
 const require=createRequire(import.meta.url),A=require('../js/architecture-plan.js'),Street=require('../js/street-layout.js');
 const read=name=>readFileSync(new URL('../js/'+name,import.meta.url),'utf8');
+test('airport keeps its public entrance south and arrival can walk both ways to the city',()=>{
+ const ctx=fixture();
+ // A closer service road on the apron must never turn the passenger entrance north.
+ ctx.ROAD_W=3.5;ctx.SIDE=2;ctx.roadDist=(x,y)=>y<300?0:15;
+ const source=read('openworld.js'),start=source.indexOf('function owAirportArrival('),end=source.indexOf('// depuração:',start);
+ vm.runInContext(source.slice(start,end),ctx);
+ vm.runInContext(`const terminal=addHouse({x0:200,y0:260,x1:264,y1:282,h:6.6,nFloors:2,terminal:true,seed:72,open:{S:{door:[32]}}});remodelProperty(terminal);globalThis.airport=terminal;`,ctx);
+ const H=ctx.airport;
+ assert.equal(H.frontSide,'S');assert.equal(H.doorN[1],1);
+ const spawn=ctx.owAirportArrival(H,ctx.collide);
+ assert.ok(spawn[1]>H.y1,'arrival is outside the terminal, away from fenced apron');
+ assert.equal(spawn[0],H.doorPt[0],'arrival follows the real entrance');
+ const door=H.segs.find(s=>s.ext&&s.door);door.doorAnim.open=1;
+ for(const dir of [1,-1])for(let t=0;t<=1;t+=.005){
+  const a=H.doorPt[1]-.8,b=H.y1+20,y=dir===1?a+(b-a)*t:b-(b-a)*t;
+  const q=ctx.collide(spawn[0],y,.28,0);
+  assert.ok(Math.hypot(q[0]-spawn[0],q[1]-y)<.01,'passenger can enter and leave using the south entrance');
+ }
+ const alternative=ctx.owAirportArrival(H,(x,y)=>y===spawn[1]?[x+1,y]:[x,y]);
+ assert.ok(alternative[1]>spawn[1],'blocked arrival searches only the public side');
+ const reserveStart=source.indexOf('function owAirportReserve('),reserveEnd=source.indexOf('function owPlaceAirport(',reserveStart);
+ vm.runInContext('TPL.TERMINAL={w:64,d:22}',ctx);ctx.world.airports=[{x:232,y:180,width:45,apron:79.5}];
+ vm.runInContext(source.slice(reserveStart,reserveEnd),ctx);
+ const reserved=ctx.owAirportReserve();
+ assert.deepEqual(Array.from(reserved),[195,210,269,314]);
+ assert.ok(spawn[0]>reserved[0]&&spawn[0]<reserved[2]&&spawn[1]<reserved[3]);
+});
 function fixture(rotation=0,floors=4,kind='office'){
  const ctx=vm.createContext({console,Math,URLSearchParams,CityArchitecture:A,CityStreetLayout:Street,world:{seed:42,segs:[],upperSegs:[],circles:[],version:1},PARAPET:.2,PITCH:.5,houseStyle:()=>({plaster:'#eee',roofCol:'#b56b43'}),mulberry:()=>()=>.5,clamp:(x,a,b)=>Math.min(b,Math.max(a,x)),MAP:500});
  vm.runInContext(read('houses.js')+read('multistorey.js')+read('architecture-world.js')+read('interiors.js'),ctx);

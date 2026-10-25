@@ -7,7 +7,8 @@ if(typeof addEventListener==='function'&&new URLSearchParams(location.search).ha
 function remodelProperty(H){
  if(H.architecture||!globalThis.CityArchitecture)return H;
  // Fachada sempre virada p/ a rua mais próxima (sítios e fazendas ficam como estão).
- if(typeof roadDist==='function'&&!H.rural&&!H.country){
+ if(H.terminal||H.templateKey==='TERMINAL')H.frontSide='S'; // lado público; norte é o pátio cercado
+ if(typeof roadDist==='function'&&!H.rural&&!H.country&&!H.terminal&&H.templateKey!=='TERMINAL'){
   const c=[(H.x0+H.x1)/2,(H.y0+H.y1)/2],N={S:[0,1],N:[0,-1],E:[1,0],W:[-1,0]};
   const probe=k=>{const half=(k==='E'||k==='W'?H.x1-H.x0:H.y1-H.y0)/2+2,p=[c[0]+N[k][0]*half,c[1]+N[k][1]*half],q=H.toWorld?H.toWorld(...p):p;return roadDist(q[0],q[1]);};
   const cur=H.frontSide||'S',best=['S','N','E','W'].reduce((a,k)=>probe(k)<probe(a)?k:a,cur);

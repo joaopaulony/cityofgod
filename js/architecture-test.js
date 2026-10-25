@@ -20,7 +20,7 @@ if(new URLSearchParams(location.search).get('architectureTest')==='1'){
  button('Buscar no mapa',async()=>{
   if(!world.open){select();return;}
   const wanted=type.value,zone={mansion:'mansion',office:'brickell',condo:'brickell',deco:'southbeach',projects:'projects',warehouse:'works',poor:'poor',bungalow:'bungalow',shop:'town',house:'town',rural:null,airport:'airport'}[wanted],candidates=[];
-  if(wanted==='airport'){const a=OW.geo.anchors.airports[0];candidates.push([a.x,a.y+a.width/2+a.apron-12]);}
+  if(wanted==='airport'){const a=world.airports[0];candidates.push([a.x,a.y+a.width/2+a.apron-12]);}
   else for(let y=250;y<OW.geo.H-200;y+=160)for(let x=200;x<OW.geo.W-200;x+=160){const d=OW.geo.districtAt(x,y);if(wanted==='rural'?[D_.FARM,D_.RURAL].includes(d):miaZone(x,y,d)===zone)candidates.push([x,y]);}
   candidates.sort((a,b)=>Math.hypot(a[0]-player.x,a[1]-player.y)-Math.hypot(b[0]-player.x,b[1]-player.y));
   message='Carregando setor real…';
