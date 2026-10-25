@@ -722,6 +722,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function tick(dt) {
+  if(window.cityCharacterEditorOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
   // Pause gameplay while the full map owns the mouse and keyboard.
   if(wmap.open){
     if(input.hit('m')||input.hit('escape'))wmapToggle();

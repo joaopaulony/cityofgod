@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {chooseCharacterClip,planLowVault,stepTraversal,pointSegmentDistance} from './character-actions.mjs';
+import {buildCartoon,npcLook,DEFAULT_LOOK} from './cartoon-character.mjs';
+import {installCartoonCreator,loadLook} from './cartoon-creator.mjs';
 import {createTombRig} from './tomb-rig.mjs';
 
 export function createCharacterSystem(scene,bridge){
@@ -108,7 +110,7 @@ export function createCharacterSystem(scene,bridge){
  async function init(){
   if(!system.enabled){system.status='disabled';return;}
   if(provider==='tomb'){await initTomb();return;}
-  if(provider==='mixamo'){await initMixamo();return;}
+  if(provider==='mixamo'||provider==='cartoon'){await initMixamo();return;}
   try{
    const response=await fetch('assets/characters/manifest.json');if(!response.ok)throw Error('Character manifest '+response.status);
    const manifest=await response.json();
@@ -142,9 +144,10 @@ export function createCharacterSystem(scene,bridge){
    const response=await fetch('assets/characters/mixamo/manifest.json');if(!response.ok)throw Error('Mixamo manifest '+response.status);
    const manifest=await response.json(),assets=new Map();
    for(const spec of manifest.models){
+    if(provider==='cartoon'&&spec.id!=='david')continue;
     const gltf=await loader.loadAsync('assets/characters/mixamo/'+spec.file);
     const materialList=[];gltf.scene.traverse(o=>{if(o.isMesh)materialList.push(...(Array.isArray(o.material)?o.material:[o.material]));});
-    for(const material of new Set(materialList)){
+    for(const material of provider==='cartoon'?[]:new Set(materialList)){
      const maps=spec.materials[material.name];if(!maps)continue;
      for(const key of ['map','normalMap'])if(maps[key]){
       const texture=await textureLoader.loadAsync('assets/characters/mixamo/'+maps[key]);texture.flipY=true;
@@ -156,14 +159,18 @@ export function createCharacterSystem(scene,bridge){
     assets.set(spec.id,{spec,gltf});
    }
    for(const [i,a] of bridge.actors.entries()){
-    const item=assets.get(a.name==='Ana'?'megan':'david');if(!item)continue;
+    const item=assets.get(provider==='cartoon'?'david':a.name==='Ana'?'megan':'david');if(!item)continue;
     const {spec,gltf}=item,root=cloneSkeleton(gltf.scene),mixer=new THREE.AnimationMixer(root),rest=new Map();
     root.traverse(o=>{if(o.isBone)rest.set(o.name,o.quaternion.clone());if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
     const gun=makeRifle();scene.add(gun);const muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.94);gun.add(muzzle);
-    scene.add(root);entries.set(a,{root,mixer,spec,rest,mixamo:true,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null});
+    const cartoonRest=[];root.traverse(o=>{if(o.isBone)cartoonRest.push([o,o.position.clone(),o.quaternion.clone(),o.scale.clone()]);});
+    const appearance=provider==='cartoon'?(a===bridge.player?loadLook()||DEFAULT_LOOK:npcLook(i)):null;
+    if(appearance)buildCartoon(root,appearance);
+    scene.add(root);entries.set(a,{root,mixer,spec,rest,cartoonRest,appearance,mixamo:true,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null});
    }
-   system.models=manifest.models;system.ready=entries.has(bridge.player);system.status=assets.has('megan')?'ready':'partial';
-   if(!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
+   system.models=manifest.models;system.ready=entries.has(bridge.player);system.status=provider==='cartoon'||assets.has('megan')?'ready':'partial';
+   if(provider==='cartoon')installCartoonCreator(system,bridge,assets.get('david').gltf);
+   if(provider!=='cartoon'&&!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Mixamo characters',error);}
  }
@@ -181,7 +188,16 @@ export function createCharacterSystem(scene,bridge){
   e.appearance.face=sex==='female'?'Sophie':'Jake';await system.setAppearance(a,{});system.update(0);
  };
  system.setAppearance=async(a,changes)=>{
-  const e=entries.get(a);if(!e?.tombRig)return;
+  const e=entries.get(a);
+  if(provider==='cartoon'&&e){
+   const current=e.cartoonRest.map(([b])=>[b,b.position.clone(),b.quaternion.clone(),b.scale.clone()]);
+   const p=e.root.position.clone(),q=e.root.quaternion.clone();e.root.position.set(0,0,0);e.root.quaternion.identity();
+   for(const [b,p,q,s] of e.cartoonRest){b.position.copy(p);b.quaternion.copy(q);b.scale.copy(s);}
+   const result=buildCartoon(e.root,{...e.appearance,...changes});e.appearance=result.look;
+   for(const [b,p,q,s] of current){b.position.copy(p);b.quaternion.copy(q);b.scale.copy(s);}
+   e.root.position.copy(p);e.root.quaternion.copy(q);e.root.updateMatrixWorld(true);return;
+  }
+  if(!e?.tombRig)return;
   const appearance=e.appearance={...e.appearance,...changes},serial=e.appearanceSerial=(e.appearanceSerial||0)+1;
   const skin=tombManifest.skins.find(s=>s.sex===e.spec.sex&&s.tone===Number(appearance.tone));
   const face=tombManifest.faces.find(f=>f.sex===e.spec.sex&&f.tone===Number(appearance.tone)&&f.name===appearance.face);
