@@ -84,6 +84,21 @@ const CityLife = (() => {
     save(); signal();
     return { ok: true, text: it.icon + ' ' + it.name + ' adicionado à mochila' };
   }
+  // Transações atômicas para os apps da cidade; reutilizam o histórico da carteira.
+  function debit(amount,reason='Pagamento') {
+    if(!Number.isFinite(amount)||amount<0||funds<amount)return false;
+    funds-=Math.round(amount);addHistory(reason,-Math.round(amount));save();signal();return true;
+  }
+  function credit(amount,reason='Recebimento') {
+    if(!Number.isFinite(amount)||amount<=0)return false;
+    funds=Math.min(1000000,funds+Math.round(amount));
+    addHistory(reason,Math.round(amount));save();signal();return true;
+  }
+  function canAdd(id){return !!items[id]&&(inventory[id]||0)<999;}
+  function addItem(id,qty=1){
+    if(!canAdd(id)||!Number.isInteger(qty)||qty<1||inventory[id]+qty>999)return false;
+    inventory[id]+=qty;save();signal();return true;
+  }
   function interior(kind) {
     if (!st) return;
     if (kind === 'toilet') st.needs.bladder = Math.max(0, st.needs.bladder - .85);
@@ -106,7 +121,7 @@ const CityLife = (() => {
     if (autosave > 10) { autosave = 0; save(); }
   }
   const api = {
-    items, init, tick, save, use, buy, equip, interior, money,
+    items, init, tick, save, use, buy, equip, interior, money, debit, credit, canAdd, addItem,
     get inventory() { return inventory; },
     get funds() { return funds; },
     get history() { return history; },

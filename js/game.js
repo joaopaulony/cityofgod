@@ -26,8 +26,10 @@ const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
 CityLife.init(st);
+CitySim.init(st);
 let fireCD = 0, last = performance.now(), T = 0, dragX = null, dragY = null;
-const ZOOMS = [22, 28, 34, 42, 52, 64].map(z => z * RENDER_SCALE);
+// Zoom progressivo: inclui plano próximo estilo simuladores de vida.
+const ZOOMS = [20, 26, 32, 42, 52, 64, 80, 100, 125].map(z => z * RENDER_SCALE);
 let zi = 3; cam.tzoom = cam.zoom = ZOOMS[zi];
 cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
@@ -83,7 +85,7 @@ addEventListener('mouseup', e => {
   if (e.button === 2) input.rmb = false;
   if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
 });
-view.addEventListener('wheel', e => { if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
+view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
 // ---------- chat ----------
 const logEl = document.getElementById('log'), say = document.getElementById('say');
@@ -730,6 +732,7 @@ function tick(dt) {
   window.cityVehicles?.update(dt);
   updatePlayer(dt);
   CityLife.tick(dt,player);
+  CitySim.tick();
   ecosystemTick(dt,player,T);
   for (const n of npcs) updateNPC(n, dt);
   updateHouseOpenings(dt, actors, st.night);

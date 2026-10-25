@@ -12,7 +12,7 @@ const CityUI = (() => {
     { id: null, icon: '🔒', name: 'Ferramentas' }
   ];
   const quickItems = ['water','sandwich','burger','firstaid','coffee'];
-  const appNames = { home: 'Início', status: 'Necessidades', bag: 'Mochila', market: 'Mercadinho', contacts: 'Contatos', sms: 'Mensagens', wallet: 'Carteira', notes: 'Anotações', help: 'Ajuda' };
+  const appNames = { home: 'Início', status: 'Necessidades', bag: 'Mochila', market: 'Mercadinho', contacts: 'Contatos', sms: 'Mensagens', wallet: 'Carteira', notes: 'Anotações', help: 'Ajuda', ...CityApps.names };
   const contacts = { lucas: { name: 'Lucas', reply: 'O movimento da cidade está tranquilo. Precisando de alguma coisa, me avisa!' }, ana: { name: 'Ana', reply: 'Oi! Estou por aqui. Se cuida e não esquece de comer e beber água.' } };
   const labels = { hp:'Vida', food:'Fome', water:'Sede', stamina:'Fôlego', energy:'Energia', hygiene:'Higiene', bladder:'Banheiro' };
   let app = 'home', phoneOpen = false, wheelOpen = false, wheelChoice = 1, selectedContact = 'lucas', mounted = false;
@@ -29,6 +29,10 @@ const CityUI = (() => {
     if (currentSt?.player) { currentSt.player.wantShot = false; currentSt.player.aiming = false; }
   }
   function setModal() { document.body.classList.toggle('city-modal', blocked()); }
+  function updatePhoneTheme(){
+    const phone=$('city-phone'); if(!phone)return;
+    phone.className='city-wallpaper-'+CitySim.data.themes.wallpaper+' city-case-'+CitySim.data.themes.caseColor;
+  }
   function notify(message) {
     if (typeof hud !== 'undefined') { hud.msg = message; hud.msgT = 2.4; }
     const el = $('city-toast');
@@ -44,7 +48,7 @@ const CityUI = (() => {
     phoneOpen = next;
     $('city-phone-layer').hidden = !phoneOpen;
     setModal();
-    if (phoneOpen) { render(); $('city-phone-close')?.focus(); }
+    if (phoneOpen) { updatePhoneTheme(); render(); $('city-phone-close')?.focus(); }
     else { if (document.activeElement && $('city-phone-layer').contains(document.activeElement)) document.activeElement.blur(); releaseControls(); }
   }
   function openWheel(yes) {
@@ -80,7 +84,7 @@ const CityUI = (() => {
       return `<button type="button" class="city-wheel-slot ${wheelChoice === i ? 'active' : ''} ${!entry.id ? 'locked' : ''}" style="left:${left}%;top:${top}%" data-wheel="${i}" aria-label="${safe(entry.name)}">
         <span class="wheel-icon">${entry.icon}</span><span>${safe(entry.name)}</span></button>`;
     }).join('') + `<div class="wheel-center"><b>${safe(item.name)}</b><span>${item.id === 'rifle' && currentSt ? currentSt.player.ammo + '/' + currentSt.player.reserve + ' balas' : item.id ? 'Disponível' : 'Bloqueado'}</span></div>
-      <div id="city-wheel-hint">Segure TAB, aponte e solte para equipar · ou toque na opção</div>`;
+      <div id="city-wheel-hint">Segure TAB ou U e solte · ou clique</div>`;
   }
   const btn = (action, label, extra = '') => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
   const appBtn = (id, icon, title) => `<button type="button" class="city-app" data-app="${id}"><span class="city-app-icon">${icon}</span>${title}</button>`;
@@ -128,9 +132,8 @@ const CityUI = (() => {
     $('city-phone-time').textContent = minsToTime(currentSt.clock);
     let html = '';
     if (app === 'home') {
-      html = `<div class="city-panel"><h3>Boa viagem! 🏙️</h3><p>CityOS · celular do seu personagem</p>
-        <p>🕒 ${minsToTime(currentSt.clock)} · ${CityLife.money(CityLife.funds)}</p></div>
-        <div class="city-app-grid">
+      html = `<div class="city-home-hero"><span class="city-hero-eyebrow">SEU MUNDO, SEU RITMO</span><strong>City of God</strong><span>Descubra a cidade. Construa sua história.</span><div class="city-hero-stats">☀️ ${minsToTime(currentSt.clock)} <b>${CityLife.money(CityLife.funds)}</b></div></div>
+        <div class="city-phone-label">Aplicativos</div><div class="city-app-grid">
         ${appBtn('status','❤️','Status')}
         ${appBtn('bag','🎒','Mochila')}
         ${appBtn('market','🏪','Mercado')}
@@ -139,8 +142,20 @@ const CityUI = (() => {
         ${appBtn('wallet','💳','Carteira')}
         ${appBtn('notes','📝','Notas')}
         ${appBtn('map','🗺️','Mapa')}
+        ${appBtn('camera','📷','Câmera')}
+        ${appBtn('social','🌐','CitySocial')}
+        ${appBtn('jobs','💼','Carreiras')}
+        ${appBtn('taxi','🚕','CityTaxi')}
+        ${appBtn('business','🏪','Negócios')}
+        ${appBtn('services','🛎️','Serviços')}
+        ${appBtn('properties','🏠','Imóveis')}
+        ${appBtn('cars','🚗','Carros')}
+        ${appBtn('browser','🌍','CityWeb')}
+        ${appBtn('calls','📞','Ligações')}
+        ${appBtn('settings','🎨','Aparência')}
         ${appBtn('help','⚙️','Ajuda')}
-        </div>`;
+        </div>
+        <div class="city-home-dock"><button data-app="calls">📞 <small>Ligações</small></button><button data-app="sms">💬 <small>Mensagens</small></button><button data-app="camera">📷 <small>Câmera</small></button><button data-app="browser">🌍 <small>Internet</small></button></div>`;
     } else if (app === 'status') html = renderNeeds() + '<p class="city-help">Geladeiras, pias, camas, chuveiros e vasos sanitários das casas agora ajudam a manter o personagem.</p>';
     else if (app === 'bag') html = renderBag();
     else if (app === 'market') html = renderMarket();
@@ -149,12 +164,14 @@ const CityUI = (() => {
       Object.entries(contacts).map(([id,c]) => `<div class="city-panel city-row"><strong>👤 ${safe(c.name)}</strong>${btn('contact:'+id,'Conversar')}</div>`).join('');
     else if (app === 'sms') html = renderMessages();
     else if (app === 'notes') html = `<p class="city-help">Notas privadas salvas no navegador.</p><textarea id="city-notes" maxlength="1000" aria-label="Anotações"></textarea><p class="city-help">Salvamento automático.</p>`;
-    else if (app === 'help') html = `<div class="city-panel"><h3>Controles</h3><p>P: celular · TAB: roda de equipamentos · I: mochila · M: mapa.</p>
+    else if (app === 'help') html = `<div class="city-panel"><h3>Controles</h3><p>P: celular · TAB ou U: roda de equipamentos · I: mochila · M: mapa. Role o mouse para aproximar a câmera do personagem.</p>
       <p>1–5: consumo rápido · F: interagir · R: recarregar o fuzil.</p><p>Clique ou toque nos botões de acesso da tela.</p>
-      <p>Saldo e necessidades são protótipos locais salvos no navegador, não sincronizados em servidor.</p></div>`;
+      <p>Compras, empregos, imóveis, chamadas de NPCs e publicações são simulações locais salvas no navegador, ainda sem servidor multiplayer.</p></div>`;
+    else if (CityApps.names[app]) html = CityApps.render(app);
     screen.innerHTML = html;
     if (app === 'notes') { $('city-notes').value = notes; $('city-notes').addEventListener('input', e => { notes = e.target.value; localWrite('cityofgod.phone.notes.v1',notes); }); }
     if (app === 'sms') $('city-sms-form')?.addEventListener('submit', sendMessage);
+    if(CityApps.names[app]) CityApps.afterRender(app);
   }
   function sendMessage(e) {
     e.preventDefault();
@@ -200,17 +217,19 @@ const CityUI = (() => {
     root.innerHTML = `
       <div id="city-controls" aria-label="Ações do personagem">
         <button type="button" data-action="bag" aria-label="Abrir mochila"><b>🎒</b>I · Mochila</button>
-        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos"><b>✊</b>TAB · Armas</button>
+        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos"><b>✊</b>Tab/U · Armas</button>
         <button type="button" data-action="phone" aria-label="Abrir celular"><b>📱</b>P · Celular</button>
       </div>
       <div id="city-toast" role="status" aria-live="polite"></div>
       <div id="city-phone-layer" hidden>
         <div id="city-phone" role="dialog" aria-modal="true" aria-label="Celular CityOS">
-          <div class="city-phone-status"><span id="city-phone-time">17:40</span><span>CityOS · modo local ▰▰▰</span></div>
+          <div class="city-dynamic-island" aria-hidden="true"><span class="city-camera-lens"></span></div>
+          <div class="city-phone-status"><span id="city-phone-time">17:40</span><span>•••  ◕  ▰▰▰</span></div>
           <div class="city-phone-top"><button data-action="back" aria-label="Voltar">‹</button>
             <strong id="city-phone-title">Início</strong><button id="city-phone-close" data-action="close" aria-label="Fechar celular">✕</button></div>
           <div class="city-phone-screen" id="city-phone-screen"></div>
-          <div class="city-phone-footer"><button data-action="home">⌂ Início</button><small>City of God</small><button data-action="close">Fechar</button></div>
+          <div class="city-phone-footer"><button data-action="home" aria-label="Tela inicial">⌂ Início</button><small>CityOS <span class="city-online-dot"></span></small><button data-action="close">Fechar</button></div>
+          <div class="city-home-indicator" role="presentation"></div>
         </div>
       </div>
       <div id="city-wheel-layer" hidden><div id="city-wheel" role="dialog" aria-modal="true" aria-label="Roda de equipamentos"></div></div>`;
@@ -222,6 +241,13 @@ const CityUI = (() => {
       const appBtn = e.target.closest('[data-app]');
       if (appBtn) return setApp(appBtn.dataset.app);
       const action = e.target.closest('[data-action]');
+      if (action?.dataset.action.startsWith('sim:')) {
+        CityApps.action(action.dataset.action).then(result=>{
+          if(result?.text) notify(result.text);
+          if(phoneOpen) { updatePhoneTheme(); render(); }
+        }).catch(()=>notify('Não foi possível concluir a ação'));
+        return;
+      }
       if (action) onAction(action.dataset.action);
     });
     $('city-wheel-layer').addEventListener('pointermove', e => {
@@ -236,11 +262,13 @@ const CityUI = (() => {
     });
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', e => {
-      if (e.key.toLowerCase()==='tab' && wheelOpen) { e.preventDefault(); closeWheel(true); }
+      if ((e.key.toLowerCase()==='tab' || e.key.toLowerCase()==='u') && wheelOpen) { e.preventDefault(); closeWheel(true); }
     });
     window.addEventListener('blur', () => { if (wheelOpen) closeWheel(false); });
-    window.addEventListener('city-life-change', () => { if(phoneOpen && ['status','bag','market','wallet','home'].includes(app)) render(); });
+    window.addEventListener('city-life-change', () => { if(phoneOpen && ['status','bag','market','wallet','home','jobs','business','properties','cars'].includes(app)) render(); });
+    window.addEventListener('city-sim-change', () => { if(phoneOpen && app!=='social') {updatePhoneTheme();render();} });
     mounted = true;
+    updatePhoneTheme();
   }
   function onKeyDown(e) {
     const key = e.key.toLowerCase();
@@ -254,12 +282,15 @@ const CityUI = (() => {
     if (isTyping) return;
     if (key === 'p') { e.preventDefault(); togglePhone(); }
     else if (key === 'i') { e.preventDefault(); if (!phoneOpen) togglePhone(true); if (phoneOpen) setApp('bag'); }
-    else if (key === 'tab' && !e.repeat) { e.preventDefault(); if (!phoneOpen) openWheel(true); }
+    else if ((key === 'tab' || key === 'u') && !e.repeat) {
+      e.preventDefault();
+      if(!phoneOpen && !wmap.open)openWheel(true);
+    }
     else if (/^[1-5]$/.test(key) && !blocked() && !(typeof wmap!=='undefined' && wmap.open)) {
       const r=CityLife.use(quickItems[Number(key)-1]); notify(r.text);
     }
   }
-  const api = { mount, notify, togglePhone, openWheel, closeWheel, get phoneOpen(){return phoneOpen;}, get wheelOpen(){return wheelOpen;}, blocksGameInput:blocked, quickItems };
+  const api = { mount, notify, togglePhone, openWheel, closeWheel, refreshPhone:render, goApp:setApp, updatePhoneTheme, get phoneOpen(){return phoneOpen;}, get wheelOpen(){return wheelOpen;}, blocksGameInput:blocked, quickItems };
   return api;
 })();
 window.CityUI = CityUI;
