@@ -1,0 +1,71 @@
+/* City of God — interface de vida urbana, identidade própria inspirada em jogos de mundo aberto. */
+#city-controls { position: fixed; right: 22px; bottom: 22px; z-index: 8; display: flex; gap: 9px; font: 600 12px system-ui,sans-serif; }
+#city-controls button { border: 1px solid #ffffff32; border-radius: 11px; background: #111920e6; color: #f7f8fb; padding: 11px 13px; box-shadow: 0 6px 24px #0008; cursor: pointer; }
+#city-controls button:hover, #city-controls button:focus-visible { background: #263946; outline: 2px solid #77c7e5; outline-offset: 1px; }
+#city-controls b { display: block; font-size: 18px; margin-bottom: 3px; }
+#city-toast { position: fixed; top: 102px; right: 22px; z-index: 45; border: 1px solid #ffffff35; color: #f7f7f7; background: #15232aef; padding: 12px 17px; border-radius: 9px; font: 600 13px system-ui,sans-serif; box-shadow: 0 10px 30px #0008; max-width: min(340px,80vw); pointer-events: none; opacity: 0; transition: opacity .18s; }
+#city-toast.show { opacity: 1; }
+#city-phone-layer[hidden], #city-wheel-layer[hidden] { display: none !important; }
+#city-phone-layer, #city-wheel-layer { position: fixed; inset: 0; z-index: 30; font-family: "Segoe UI", system-ui, sans-serif; }
+#city-phone-layer { pointer-events: none; }
+#city-phone { pointer-events: auto; position: absolute; bottom: 20px; right: 22px; width: min(330px, calc(100vw - 24px)); height: min(625px, calc(100dvh - 24px)); border: 7px solid #181b22; border-radius: 37px; background: #09151c; color: #f1f6fa; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 0 0 2px #586775, 0 18px 60px #000b; }
+#city-phone::before { content: ''; width: 84px; height: 17px; border-radius: 0 0 14px 14px; background: #181b22; position: absolute; top: 0; left: calc(50% - 42px); z-index: 2; }
+#city-phone button { cursor: pointer; color: inherit; }
+.city-phone-status { padding: 17px 20px 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #a5c3cc; background: #0b1f2b; }
+.city-phone-top { display: flex; padding: 10px 14px 11px; align-items: center; justify-content: space-between; background: #0b1f2b; gap: 6px; border-bottom: 1px solid #ffffff1a; }
+.city-phone-top strong { font-size: 17px; }
+.city-phone-top button, .city-phone-footer button { border: none; background: #ffffff1a; border-radius: 9px; padding: 7px 12px; font-size: 12px; }
+.city-phone-top button:hover, .city-phone-footer button:hover { background: #ffffff37; }
+.city-phone-screen { flex: 1; padding: 13px 13px 18px; overflow-y: auto; background: linear-gradient(148deg, #102a3c, #0d151e 58%, #18212b); scrollbar-color: #456 #172530; }
+.city-phone-footer { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 13px; border-top: 1px solid #ffffff20; background: #0b1f2b; }
+.city-phone-footer small { color: #9caeb7; }
+.city-app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px 8px; padding-top: 8px; }
+.city-app { border: 0; background: transparent; color: #fff; text-align: center; font-size: 12px; padding: 6px 0; }
+.city-app .city-app-icon { display: grid; place-items: center; font-size: 25px; width: 57px; height: 57px; margin: auto auto 6px; border-radius: 17px; border: 1px solid #ffffff35; background: linear-gradient(145deg, #345e77, #174056); box-shadow: 0 3px 9px #0005; }
+.city-app:hover .city-app-icon,.city-app:focus-visible .city-app-icon { background: #427b93; outline: 2px solid #9de0fa; }
+.city-phone-label { margin: 8px 3px 11px; font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #c7dce3; }
+.city-panel { background: #ffffff12; border: 1px solid #ffffff16; border-radius: 12px; padding: 11px 12px; margin-bottom: 10px; }
+.city-panel h3 { font-size: 15px; margin: 0 0 7px; }
+.city-panel p { font-size: 12px; line-height: 1.4; color: #bbc9d1; margin: 6px 0; }
+.city-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; font-size: 13px; }
+.city-row:last-child { margin-bottom: 0; }
+.city-row small { color: #adbec6; display: block; margin: 3px 0; }
+.city-row button, .city-primary { background: #2a7088; border: 1px solid #5696a8; border-radius: 8px; font: 600 12px system-ui,sans-serif; padding: 7px 9px; white-space: nowrap; }
+.city-row button:disabled { opacity: .45; cursor: not-allowed; }
+.city-row button:not(:disabled):hover, .city-primary:hover { background: #389bbb; }
+.city-track { width: 100%; height: 6px; border-radius: 4px; background: #0008; overflow: hidden; margin-top: 4px; }
+.city-fill { display: block; height: 100%; background: #65c39f; transition: width .2s; }
+.city-fill.warning { background: #eba14b; }
+.city-fill.danger { background: #ed6969; }
+.city-balance { font-size: 29px; font-weight: 800; margin: 5px 0 12px; color: #7be0b7; font-variant-numeric: tabular-nums; }
+.city-log { padding: 8px 0; border-bottom: 1px solid #ffffff17; font-size: 12px; display: flex; justify-content: space-between; gap: 5px; }
+.city-message { background: #ffffff1a; border-radius: 12px; padding: 8px 11px; margin: 6px 0; font-size: 12px; overflow-wrap: anywhere; }
+.city-message.sent { background: #206f72; margin-left: 25px; }
+.city-form { display: flex; gap: 5px; margin-top: 10px; }
+.city-form input, #city-notes { min-width: 0; flex: 1; background: #07151e; color: #fff; border: 1px solid #607887; border-radius: 9px; padding: 10px; font: 13px system-ui,sans-serif; box-sizing: border-box; }
+#city-notes { width: 100%; resize: vertical; min-height: 180px; }
+.city-help { color: #a9bbc7; font-size: 12px; line-height: 1.5; }
+.city-divider { border: 0; border-top: 1px solid #ffffff20; margin: 14px 0; }
+#city-wheel-layer { background: #020b12b8; display: grid; place-items: center; z-index: 32; }
+#city-wheel { position: relative; width: min(440px, 94vw); height: min(440px, 94vw); border: 1px solid #ffffff2b; border-radius: 50%; background: radial-gradient(circle, #15212be0 0%, #172631ef 24%, #070f18eb 25%, #101c27e8 100%); box-shadow: 0 0 40px #0009, inset 0 0 45px #000c; }
+#city-wheel .wheel-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid #5e8d9c; width: 100px; height: 100px; border-radius: 50%; background: #101d25; display: grid; align-content: center; justify-items: center; text-align: center; gap: 5px; font-size: 12px; }
+#city-wheel .wheel-center b { font-size: 15px; }
+.city-wheel-slot { position: absolute; top: 50%; left: 50%; display: grid; align-content: center; justify-items: center; border-radius: 50%; width: 78px; height: 78px; background: #1a2a34; border: 2px solid #4e6270; color: #fff; transform: translate(calc(-50% + var(--wx)),calc(-50% + var(--wy))); padding: 5px; gap: 4px; font-size: 11px; cursor: pointer; }
+.city-wheel-slot .wheel-icon { font-size: 25px; }
+.city-wheel-slot.active { border-color: #f3c96f; background: #46523d; box-shadow: 0 0 0 4px #f4cc5640; }
+.city-wheel-slot.locked { opacity: .42; }
+.city-wheel-slot:hover, .city-wheel-slot:focus-visible { border-color: #99d1eb; outline: none; }
+#city-wheel-hint { position: absolute; width: 100%; text-align: center; bottom: -57px; color: #eff6fa; font-size: 13px; text-shadow: 0 2px 7px #000; pointer-events: none; }
+body.city-modal #chat, body.city-modal #keys { display: none; }
+@media(max-width: 670px) {
+  #city-controls { right: 10px; bottom: 10px; gap: 5px; }
+  #city-controls button { padding: 8px 10px; font-size: 10px; }
+  #city-controls b { font-size: 16px; }
+  #city-phone { right: 8px; bottom: 8px; width: min(330px,calc(100vw - 16px)); max-height: calc(100dvh - 16px); }
+  #city-toast { right: 10px; top: 10px; }
+  #city-wheel { width: min(330px,90vw); height: min(330px,90vw); }
+  .city-wheel-slot { width: 61px; height: 61px; font-size: 9px; }
+  .city-wheel-slot .wheel-icon { font-size: 19px; }
+  #city-wheel .wheel-center { width: 78px; height: 78px; font-size: 10px; }
+  #city-wheel .wheel-center b { font-size: 12px; }
+}
