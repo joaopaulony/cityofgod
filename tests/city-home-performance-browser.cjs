@@ -135,10 +135,18 @@ const variants=[
        'Pelvis is not aligned to seat: '+JSON.stringify(report));
       assert.ok(report.feet.every(f=>Math.hypot(f[0]-report.hip[0],f[1]-report.hip[1])<.88),
        'Feet are too distant to form natural seated legs: '+JSON.stringify(report));
+      assert.ok(report.rendered.feet.every(f=>f&&f[2]>-.10),
+       'Visible character feet penetrate the floor while seated: '+JSON.stringify(report));
      }else if(phase==='sleep'){
       assert.ok(Math.abs(report.hipLocal[0])<halfW&&Math.abs(report.hipLocal[1])<halfD&&
        report.head[2]>.58&&report.head[2]<.95,
        'Character is not reclining above mattress: '+JSON.stringify(report));
+      const shown=report.rendered.head,hips=report.rendered.hips;
+      assert.ok(shown&&hips&&Math.hypot(shown[0]-hips[0],shown[1]-hips[1])>.32&&
+       Math.abs(shown[2]-hips[2])<.34,
+       'Visible Mixamo torso remains upright despite horizontal IK targets: '+JSON.stringify(report));
+      assert.ok(report.rendered.feet.every(f=>f&&f[2]>.34&&f[2]<1.05),
+       'Visible feet should lie on top of the mattress: '+JSON.stringify(report));
      }else{
       assert.ok(report.hipLocal[1]>halfD+.23&&report.hipLocal[1]<halfD+.7,
        'Character is standing on the stove instead of in front: '+JSON.stringify(report));
