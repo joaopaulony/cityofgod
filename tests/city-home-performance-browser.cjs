@@ -28,6 +28,21 @@ const variants=[
   }));
   assert.ok(info.ready&&info.webgl,'WebGL Mixamo must be ready: '+JSON.stringify(info));
   fs.mkdirSync(OUT,{recursive:true});
+  // Chrome + SwiftShader can stall on full-page compositor screenshots.
+  // Grab the actual real-time Canvas2D + WebGL frames directly instead.
+  async function capture(name){
+   const data=await page.evaluate(()=>{
+    render();cityVehicles.render();
+    const ground=document.querySelector('#view'),webgl=document.querySelector('#vehicle3d');
+    const composite=document.createElement('canvas');
+    composite.width=ground.width;composite.height=ground.height;
+    const ctx=composite.getContext('2d',{alpha:false});
+    ctx.drawImage(ground,0,0,composite.width,composite.height);
+    ctx.drawImage(webgl,0,0,composite.width,composite.height);
+    return composite.toDataURL('image/png').split(',')[1];
+   });
+   fs.writeFileSync(OUT+'/'+name+'.png',Buffer.from(data,'base64'));
+  }
   const frames=[];
   for(const {kind,phase,times} of variants){
    const setup=await page.evaluate(({kind})=>{
@@ -71,7 +86,7 @@ const variants=[
       architecture3d:window.cityVehicles?.architecture3d?.properties??null};
    },{kind});
    if(!setup.error){
-    await page.screenshot({path:OUT+'/'+phase+'-staged.png'});
+    await capture(phase+'-staged');
     fs.writeFileSync(OUT+'/'+phase+'-setup.json',JSON.stringify(setup,null,2));
    }
    assert.ok(!setup.error,JSON.stringify(setup));
@@ -105,7 +120,7 @@ const variants=[
       fixture:{x:item.x,y:item.y,w:item.w,d:item.d,h:item.h,rot:item.rot}};
     },{kind,phase,time:times[i]});
     frames.push(report);
-    await page.screenshot({path:OUT+'/'+phase+'-'+String(i+1).padStart(2,'0')+'.png'});
+    await capture(phase+'-'+String(i+1).padStart(2,'0'));
     fs.writeFileSync(OUT+'/report.partial.json',JSON.stringify({status:info,frames},null,2));
     assert.ok(report.finite&&report.character?.visible&&report.rendered?.ready,
       'Real WebGL character missing: '+JSON.stringify(report));
