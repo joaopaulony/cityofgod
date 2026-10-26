@@ -132,6 +132,24 @@ export function createCharacterSystem(scene,bridge){
   e.muzzle.getWorldPosition(tmp);return [tmp.x,tmp.z,tmp.y];
  };
  system.telemetry=()=>[...entries].map(([a,e])=>({name:a.name||'Jogador',clip:e.clip,x:a.x,y:a.y,z:a.actionZ||0,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));
+ // Read-only evidence of the *rendered* bones (not just scripted IK targets).
+ // Called by Chrome QA when taking screenshots; no cost in the frame loop.
+ system.homeTelemetry=(a=bridge.player)=>{
+  const e=entries.get(a);if(!e?.root)return null;
+  e.root.updateMatrixWorld(true);
+  const point=name=>{
+   let bone=null;
+   e.root.traverse(o=>{if(!bone&&o.isBone&&o.name.replace(/^mixamorig(?::)?/,'')===name)bone=o;});
+   if(!bone)return null;
+   const v=bone.getWorldPosition(new THREE.Vector3());
+   return [v.x,v.z,v.y]; // City Home world coordinates: x,y,height.
+  };
+  const hips=point('Hips'),head=point('Head');
+  const hands=[point('LeftHand'),point('RightHand')];
+  const feet=[point('LeftFoot'),point('RightFoot')];
+  return {ready:!!e.homeRig?.ready,visible:e.root.visible,hips,head,hands,feet,
+   action:a.homeAction?.kind||null};
+ };
  async function init(){
   if(!system.enabled){system.status='disabled';return;}
   if(provider==='tomb'){await initTomb();return;}
