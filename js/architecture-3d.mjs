@@ -14,7 +14,12 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  const innerMats=Object.fromEntries(Object.entries(mats).map(([k,m])=>[k,m.clone()]));
  const palettes=[['#e8dec9','#8c9f9c'],['#d0dfd8','#f0e8d8'],['#edc8b5','#788c8b'],['#e5e1d7','#697b86'],['#d6d7bc','#b39168'],['#decfba','#806954']];
  function groups(kit,parent,materials=mats){
-  for(const [name,geometry] of Object.entries(kit.done())){const mesh=new THREE.Mesh(metricUVs(THREE,geometry),materials[name]||materials.trim);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);}
+  for(const [name,geometry] of Object.entries(kit.done())){const mesh=new THREE.Mesh(metricUVs(THREE,geometry),materials[name]||materials.trim);mesh.castShadow=true;mesh.receiveShadow=true;
+   if(parent.userData.weatherRoof&&name==='roof'){
+    // No shared material with rooms, characters or indoor props.
+    mesh.material=mesh.material.clone();mesh.userData.weatherOutdoorSurface=true;
+   }
+   parent.add(mesh);}
  }
  const span=(k,a,b,lo,hi,width,color,set='wall')=>{
   const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<.001||hi<=lo)return;
@@ -187,7 +192,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   if(A.kind==='shop'){const kit=Kit(),x0=r.x0+.2,x1=r.x1-.2;for(let x=x0,i=0;x<x1;x+=.38,i++)kit.box(x,2.42,r.y1,Math.min(x+.37,x1),2.49,Math.min(r.y1+.65,A.depth),i%2?'#eee7d5':'#698a81',0,'trim');groups(kit,e.exterior);}
  }
  function* build(H){
-  const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
+  const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();roof.userData.weatherRoof=true;root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
   const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],H};
   const glass=mats.glass.clone();opts.seeThrough?.(glass);e.materials.push(glass);e.glass=glass;
   const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];

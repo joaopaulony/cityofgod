@@ -45,6 +45,22 @@
   #keys div { display: flex; justify-content: space-between; gap: 22px; padding: 3px 10px; }
   #keys kbd { color: #9a928a; font: inherit; }
   body.map-open #chat, body.map-open #keys { display: none; }
+   #city-calendar-panel{position:fixed;z-index:9;top:150px;right:17px;width:min(345px,calc(100vw - 34px));
+     box-sizing:border-box;padding:17px;color:#e9f6fd;background:#081821f2;
+     border:1px solid #54859b;border-radius:13px;box-shadow:0 18px 50px #000b;
+     font:12px/1.45 system-ui;pointer-events:auto}
+   #city-calendar-panel[hidden]{display:none}
+   .city-calendar-bar{display:flex;align-items:center;gap:6px}
+   .city-calendar-bar strong{margin-right:auto;font-size:12px;letter-spacing:.04em}
+   .city-calendar-bar button{background:#214254;color:#eef7fa;border:1px solid #568198;
+     border-radius:6px;padding:3px 8px;cursor:pointer}
+   .city-calendar-days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;
+     text-align:center;margin:12px 0}
+   .city-calendar-days>*{padding:7px 1px;border-radius:5px;font-style:normal}
+   .city-calendar-days b{color:#81c9e2}
+   .city-calendar-days .today{background:#2c8b99;font-weight:700;color:#fff}
+   .city-calendar-days .event{box-shadow:inset 0 -2px #ddb86d}
+   #city-calendar-panel small{color:#a6c9d8}
 </style>
 </head>
 <body>
@@ -81,12 +97,17 @@
   <div>Decorar minha residência <kbd>F7</kbd></div>
   <div>Dia / noite <kbd>N</kbd></div>
   <div>Clima <kbd>K</kbd></div>
+  <div>Calendário <kbd>J</kbd></div>
   <div>Novo mapa <kbd>G</kbd></div>
 </div>
 <script>window.VEG3D = !/veg2d/.test(location.search) && !!document.createElement('canvas').getContext('webgl2');</script>
 <script src="js/visual-palette.js"></script>
 <script src="js/core.js"></script>
+<script src="js/calendar-system.js"></script>
+<script src="js/weather-shelter.js"></script>
 <script src="js/env.js"></script>
+<script src="js/weather-audio.js"></script>
+<script src="js/calendar-ui.js"></script>
 <script src="js/street-layout.js"></script>
 <script src="js/worldgen/geo.js"></script>
 <script src="js/city-districts.js"></script>

@@ -1,0 +1,42 @@
+name: Weather and calendar - targeted WebGL Chrome QA
+on:
+  pull_request:
+    paths:
+      - 'js/env.js'
+      - 'js/ambience-3d.mjs'
+      - 'js/weather-shelter.js'
+      - 'js/calendar-system.js'
+      - 'js/game.js'
+      - 'tests/weather-browser.cjs'
+      - '.github/workflows/weather-calendar-qa.yml'
+permissions:
+  contents: read
+jobs:
+  weather-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify weather and annual calendar contracts
+        run: node --test tests/weather-calendar.test.cjs
+      - name: Build actual Three.js browser bundle
+        run: npm run build:site
+      - name: Install Chrome automation
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Capture snow, rain and indoor/outdoor weather in Chrome
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/weather-server.log 2>&1 &
+          sleep 2
+          node tests/weather-browser.cjs
+      - name: Upload six real scene captures and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-weather-calendar-chrome
+          path: artifacts/weather-calendar/
+          if-no-files-found: warn
