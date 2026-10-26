@@ -94,9 +94,9 @@ const CityHomePerformance=(()=>{
    // Contact targets derive from the *actual* current furniture footprint.
    const bed=kind==='sleep',toilet=kind==='toilet';
    const seatSide=state.socket?.u<0?-1:1;
-   const target=bed?position(item,seatSide*(item.w/2-.16),item.d*.17):
+   const target=bed?position(item,seatSide*Math.min(.32,item.w*.18),-.08):
      position(item,0,['sofa','couch','sectional'].includes(item.kind)?.10:0);
-   const seatHeight=bed?Math.min(.55,Math.max(.32,item.h*.73)):toilet?.43:item.kind==='chair'?.45:.43;
+   const seatHeight=bed?Math.min(.55,Math.max(.32,item.h*.73)):toilet?.52:item.kind==='chair'?.53:.54;
    const seatWeight=anim.occupied,reclineWeight=anim.reclining;
    const pelvis=[target.x,target.y,seatHeight+anim.breathe*seatWeight];
    // The feet must follow the sit-down step instead of staying at the distant
