@@ -41,6 +41,12 @@ function remodelProperty(H){
   if(s.window){s.windowAnim={open:0,target:0,manual:true};opening.segment=s;}
   if(level.floor)(world.upperSegs||(world.upperSegs=[])).push(s);else{world.segs.push(s);H.segs.push(s);}level.segments.push(s);
  };
+  // Built-in sofas near the far wall must face INTO the room. The procedural
+  // furniture renderer uses +V as the front of the sofa; keeping all prefab
+  // rotations equal to the building angle pointed these sofas at the wall.
+  const furnitureRotation=(f,room)=>plan.angle+(
+    ['sofa','couch','sectional'].includes(f.kind)&&room&&
+    f.y>(room.y0+room.y1)/2?Math.PI:0);
  for(const level of plan.levels){
   level.segments=[];
   for(const wall of level.walls){const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);let cursor=0;
@@ -54,12 +60,6 @@ function remodelProperty(H){
    const wall={a,b,normal:[0,1],ext:true};putSegment(level,wall,0,Math.hypot(b[0]-a[0],b[1]-a[1]));
    const s=level.segments.at(-1);s.kind='balcony-rail';s.h=level.z+1.05;
   }
-  // Built-in sofas near the far wall must face INTO the room. The procedural
-  // furniture renderer uses +V as the front of the sofa; keeping all prefab
-  // rotations equal to the building angle pointed these sofas at the wall.
-  const furnitureRotation=(f,room)=>plan.angle+(
-    ['sofa','couch','sectional'].includes(f.kind)&&room&&
-    f.y>(room.y0+room.y1)/2?Math.PI:0);
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
