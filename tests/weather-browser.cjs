@@ -103,6 +103,13 @@ const OUT='artifacts/weather-calendar';fs.mkdirSync(OUT,{recursive:true});
    fail(f.phase+' birds remain original material',f.birdsWhitened===0);
    fail(f.phase+' no rain enters indoors',f.rainInside===0);
    fail(f.phase+' no snow enters indoors',f.snowInside===0);
+   if(f.phase.endsWith('indoors')){
+     fail(f.phase+' cutaway camera silhouette masked',f.ambient.indoorsMasked>0);
+     if(f.snow>.5)fail('Snow projection masked over interior',
+       f.ambient.screenSnowHidden>0);
+     if(f.rain>.5)fail('Rain projection masked over interior',
+       f.ambient.screenRainHidden>0);
+   }
   }
   fail('Rain exists as real WebGL geometry',report[2].rain>.5&&report[2].rainParticleCount>0);
   fail('Snow exists as real WebGL particles',report[0].snow>.5&&report[0].snowParticleCount>0);

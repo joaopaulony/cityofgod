@@ -3,6 +3,7 @@
 //   tarde, azulada no luar; céu (hemisfério) e rebatimento acompanham o dia; sombra mais suave com nuvens e luar
 // • vento: folhas secas rodopiando e, na ventania, rajadas de poeira rente ao chão
 // • neve: flocos caindo com o vento e neve pousando no alto de plantas, móveis de rua e casas 3D
+import {occupiedHouseScreens,isScreenMasked} from './weather-screen-mask.mjs';
 export function createAmbience(THREE, scene, bridge, L) {
   const col = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
   const hex = h => new THREE.Color().setStyle(h, THREE.SRGBColorSpace);
@@ -65,7 +66,7 @@ export function createAmbience(THREE, scene, bridge, L) {
   }
   let patchT = 0;
 
-  const v3 = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Euler(), s3 = new THREE.Vector3(), M = new THREE.Matrix4();
+  const v3=new THREE.Vector3(),weatherProject=new THREE.Vector3(),q=new THREE.Quaternion(),e=new THREE.Euler(),s3=new THREE.Vector3(),M=new THREE.Matrix4();
   let last = performance.now() / 1000;
   return {
     state,
@@ -95,6 +96,20 @@ export function createAmbience(THREE, scene, bridge, L) {
       const canopies=(bridge.boxes||[]).filter(b=>['canopy','porchroof','portico','awning'].includes(b.kind)
         &&Math.hypot(b.x-c.x,b.y-c.y)<rad+Math.max(b.w||0,b.d||0)+5);
       const covered=(x,y)=>shelter?.isSheltered(x,y,0,nearH,canopies)||false;
+      // A camera in a roofless cutaway can SEE precipitation physically outside
+      // the house projected over its interior. Mask the screen silhouette too.
+      camera.updateMatrixWorld(true);
+      const mask=occupiedHouseScreens(bridge.houses,(x,y,z)=>{
+        weatherProject.set(x,z,y).project(camera);
+        return [weatherProject.x,weatherProject.y];
+      });
+      const screenCovered=(x,y,z)=>{
+        if(!mask.length)return false;
+        weatherProject.set(x,z,y).project(camera);
+        return isScreenMasked(mask,weatherProject.x,weatherProject.y);
+      };
+      state.indoorsMasked=mask.length;
+      state.screenRainHidden=0;state.screenSnowHidden=0;
       if(state.season!==E.season){
         state.season=E.season;
         const palette=E.season==='outono'?['#b07935','#c09046','#8f592e','#d6a74e']:
@@ -152,7 +167,12 @@ export function createAmbience(THREE, scene, bridge, L) {
             rainWorld[o]=c.x+(R()-.5)*rad*2;rainWorld[o+2]=c.y+(R()-.5)*rad*2;
             rainWorld[o+1]=top*(.45+R()*.55);
           }
-          const hidden=covered(rainWorld[o],rainWorld[o+2]);
+          const direct=covered(rainWorld[o],rainWorld[o+2]);
+          const projection=!direct&&(
+            screenCovered(rainWorld[o],rainWorld[o+2],rainWorld[o+1])||
+            screenCovered(rainWorld[o],rainWorld[o+2],rainWorld[o+1]+.45+rv*.35));
+          if(projection)state.screenRainHidden++;
+          const hidden=direct||projection;
           rainVertices[j]=rainWorld[o];rainVertices[j+1]=hidden?-100:rainWorld[o+1];
           rainVertices[j+2]=rainWorld[o+2];rainVertices[j+3]=rainWorld[o]+wx*.16;
           rainVertices[j+4]=hidden?-100:rainWorld[o+1]+.45+rv*.35;
@@ -161,7 +181,7 @@ export function createAmbience(THREE, scene, bridge, L) {
         rainGeo.attributes.position.needsUpdate=true;
         if(splashes.visible){for(let i=0;i<SPL;i++){const o=i*3;
           const x=c.x+(R()-.5)*rad*2,y=c.y+(R()-.5)*rad*2;
-          splashData[o]=x;splashData[o+1]=covered(x,y)?-100:.04;
+          splashData[o]=x;splashData[o+1]=(covered(x,y)||screenCovered(x,y,.04))?-100:.04;
           splashData[o+2]=y;
         }splashGeo.attributes.position.needsUpdate=true;}
       }
@@ -176,7 +196,10 @@ export function createAmbience(THREE, scene, bridge, L) {
           snowPos[o] += (wx * drift + Math.sin(now * 1.3 + sd) * 0.35) * dt; snowPos[o + 2] += (wy * drift + Math.cos(now * 1.1 + sd) * 0.35) * dt;
           snowPos[o + 1] -= (0.9 + (sd % 1) * 0.6) * dt;
           if (snowPos[o + 1] < 0 || Math.abs(snowPos[o] - c.x) > rad || Math.abs(snowPos[o + 2] - c.y) > rad) { snowPos[o] = c.x + (R() - 0.5) * 2 * rad; snowPos[o + 2] = c.y + (R() - 0.5) * 2 * rad; snowPos[o + 1] = top * (0.6 + R() * 0.4); }
-          if(covered(snowPos[o],snowPos[o+2]))snowPos[o+1]=-100;
+          const direct=covered(snowPos[o],snowPos[o+2]);
+          const projection=!direct&&screenCovered(snowPos[o],snowPos[o+2],snowPos[o+1]);
+          if(projection)state.screenSnowHidden++;
+          if(direct||projection)snowPos[o+1]=-100;
         }
         snowGeo.attributes.position.needsUpdate = true;
       }

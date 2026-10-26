@@ -96,3 +96,16 @@ test('Game loads modules in order, exposes calendar UI and audio',()=>{
  assert.match(g,/CityCalendarUI\?\.toggle\(\)/);
  assert.match(g,/CityWeatherAudio\?\.tick\(ENV,player\)/);
 });
+
+test('Isometric weather mask prevents projected flakes from crossing opened interiors',async()=>{
+ const {occupiedHouseScreens,isScreenMasked,hull2D}=await import('../js/weather-screen-mask.mjs');
+ const H={inside:true,h:3,architecture:{width:8,depth:6,
+  toWorld:(x,y)=>[x+10,y+20]}};
+ const projector=(x,y,z)=>[(x-14)*.1,(y-23)*.1-z*.07];
+ const masks=occupiedHouseScreens([H],projector);
+ assert.equal(masks.length,1);
+ assert.equal(isScreenMasked(masks,0,0),true,'Visible indoor silhouette blocks snow');
+ assert.equal(isScreenMasked(masks,2,2),false,'Outdoor snow stays visible');
+ assert.equal(occupiedHouseScreens([{...H,inside:false}],projector).length,0);
+ assert.equal(hull2D([[0,0],[0,2],[2,2],[2,0],[1,1]]).length,4);
+});
