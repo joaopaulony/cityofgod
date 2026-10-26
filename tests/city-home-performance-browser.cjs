@@ -51,6 +51,10 @@ const variants=[
      if(H)break;
     }
     if(!item)return {error:'No legally accessible '+kind+' furniture socket in generated houses'};
+    // A player may only see the architectural cutaway in a property they own.
+    // Grant the test browser an ephemeral owned fixture; production ownership
+    // and purchase mechanics remain unchanged.
+    CityRealty.owned[CityRealty.id(H)]={id:CityRealty.id(H),testFixture:true};
     window.__cityHomeQA={H,item};
     player.x=stand.x;player.y=stand.y;
     player.face=kind==='bed'?Math.atan2(item.y-player.y,item.x-player.x):
