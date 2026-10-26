@@ -81,8 +81,8 @@ function drawHUD(h, W, H, st) {
   const clock = String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
   const topW=compact?151:216, tx=W-topW-17, ty=14;
   h.save();h.shadowColor='#07101b';h.shadowBlur=19;
-  round(tx,ty,topW,compact?77:101,15,panel,border);h.restore();
-  h.save();h.fillStyle='#65c7ee';h.beginPath();h.roundRect(tx+11,ty+10,3,compact?56:81,2);h.fill();h.restore();
+  round(tx,ty,topW,compact?105:132,15,panel,border);h.restore();
+  h.save();h.fillStyle='#65c7ee';h.beginPath();h.roundRect(tx+11,ty+10,3,compact?83:111,2);h.fill();h.restore();
   h.textAlign='left';h.textBaseline='alphabetic';h.font='700 10px system-ui';h.fillStyle='#74d2f5';
   h.fillText('CITY OF GOD  ·  LIVE',tx+21,ty+17);
   h.textAlign='right';h.textBaseline='alphabetic';
@@ -90,17 +90,24 @@ function drawHUD(h, W, H, st) {
   h.fillText(clock,tx+topW-13,ty+42);
   h.fillStyle='#7de3b4';h.font=(compact?'700 13px':'700 17px')+' system-ui';
   h.fillText(CityLife.money(CityLife.funds),tx+topW-13,ty+65);
-  if(!compact) {
-    h.fillStyle='#a7c2ce';h.font='11px system-ui';
-    const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
-    const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
-     ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
-    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx+topW-13,ty+87);
+  const cal=window.CityCalendar?.get();
+  const date=cal?String(cal.day).padStart(2,'0')+'/'+String(cal.month).padStart(2,'0')+'/'+cal.year+' · '+cal.season:'Calendário';
+  h.fillStyle='#b3c8d4';h.font=(compact?'10px':'11px')+' system-ui';
+  h.fillText(date,tx+topW-13,ty+83);
+  if(!compact){
+    const weather=typeof envWeather==='function'?envWeather().name:'Tempo';
+    h.font='11px system-ui';h.fillStyle='#96b9c8';
+    h.fillText(weather+' · '+Math.round(ENV.temperature||20)+'°C',tx+topW-13,ty+105);
+    h.font='10px system-ui';h.fillStyle='#6caab8';
+    h.fillText('J · CALENDÁRIO',tx+topW-13,ty+121);
+  }else{
+    h.font='9px system-ui';h.fillStyle='#8db9ce';
+    h.fillText((typeof envWeather==='function'?envWeather().name:'Tempo')+' · '+Math.round(ENV.temperature||20)+'°C',tx+topW-13,ty+98);
   }
 
   const loc=window.CityDistrictsLocation?.();
   if(loc && !compact){
-    const subY=ty+108;
+    const subY=ty+141;
     round(tx,subY,topW,loc.gang?42:27,10,panel,border);
     h.textAlign='right';h.font='700 10px system-ui';h.fillStyle='#c5eaff';
     h.fillText(loc.street||'Explorando a cidade',tx+topW-12,subY+17);

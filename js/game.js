@@ -12,6 +12,7 @@ const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 if(typeof CityRealty!=='undefined')CityRealty.init();
 buildWorld();
 if(typeof remodelProperty==='function')for(const H of houses)remodelProperty(H);
+window.CityShelter?.bind(()=>houses,()=>boxes);
 for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn=[...H.front];break;}
 
 const player = makeActor({ x: world.spawn[0], y: world.spawn[1], face: world.aimDir, pal: PAL.hero, ammo: 30, reserve: 90 });
@@ -25,7 +26,7 @@ const npcs = [
 ];
 const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
-const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
+const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: (window.CityCalendar?.get().timestamp??(17*60+40)), night: false, shake: 0 };
 CityLife.init(st);
 CitySim.init(st);
 window.CityExtras?.bonus?.();
@@ -353,7 +354,8 @@ function render() {
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
   drawGround(g,W,H);
-  drawSnowGround(g,W,H);   // neve acumulada no chão (env.js)
+  drawWetGround(g,W,H);    // chuva só molha áreas expostas
+  drawSnowGround(g,W,H);   // neve nunca cobre pisos internos
   if(st.night)for(const lamp of world.lamps)drawLampBeam(g,lamp,T);
 
   const list = [], margin = 6 * s;
@@ -743,9 +745,12 @@ function tick(dt) {
     }
   }
   T += dt;
-  st.clock += dt; hud.msgT -= dt;
-  // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
-  envTick(dt, st.clock);
+  window.CityCalendar?.advance(dt);
+  st.clock=window.CityCalendar?.get().timestamp??st.clock+dt;
+  hud.msgT-=dt;
+  // Calendar drives daylight, seasons, precipitation and temperature.
+  envTick(dt,st.clock);
+  window.CityWeatherAudio?.tick(ENV,player);
   if (st.night !== ENV.night) st.night = world.night = ENV.night;
   // câmera livre: segurar Q/E gira em qualquer ângulo (sem travar de 90 em 90°)
   const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
@@ -754,9 +759,18 @@ function tick(dt) {
   if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, .34, .84);
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
-  // N pula p/ a manhã ou p/ a noite; K troca o clima (calmo, brisa, ventania, neve)
-  if (input.hit('n')) { st.clock = ENV.night ? 7 * 60 : 21 * 60 + 5; envTick(0, st.clock); st.night = world.night = ENV.night; }
-  if (input.hit('k')) { envSetWeather(ENV.weather + 1); hud.msg = 'Clima: ' + envWeather().name; hud.msgT = 2; }
+  // N jumps the time of day, never resets the calendar date.
+  if(input.hit('j'))window.CityCalendarUI?.toggle();
+  if(input.hit('n')){
+    const time=ENV.night?7*60:21*60+5;
+    window.CityCalendar?.setTimeOfDay(time);
+    st.clock=window.CityCalendar?.get().timestamp??time;
+    envTick(0,st.clock);st.night=world.night=ENV.night;
+  }
+  if(input.hit('k')){envSetWeather(ENV.weather+1);
+    hud.msg='Clima: '+envWeather().name;hud.msgT=2;
+    window.CityCalendarUI?.render();
+  }
   // Veiculo tem prioridade ao entrar/sair; casas preservam F fora dele.
   const interactPressed=input.hit('f');
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
@@ -858,3 +872,4 @@ requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };
 CityUI.mount();
 window.CityHomeUI?.mount();
+window.CityCalendarUI?.mount();

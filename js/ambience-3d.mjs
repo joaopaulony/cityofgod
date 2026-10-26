@@ -8,7 +8,7 @@ export function createAmbience(THREE, scene, bridge, L) {
   const hex = h => new THREE.Color().setStyle(h, THREE.SRGBColorSpace);
   const SKY = { day: hex('#f8ead9'), gold: hex('#ffc694'), dusk: hex('#b48cc8'), night: hex('#8592bc') };
   const GND = { day: hex('#343c32'), night: hex('#161a26') };
-  const tmp = new THREE.Color(), state = { leaves: 0, dust: 0, snow: 0, patched: 0 };
+  const tmp=new THREE.Color(), overcast=hex('#a5b2bc'), state={leaves:0,dust:0,snow:0,rain:0,splashes:0,patched:0};
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const R = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(1234);
 
@@ -30,7 +30,21 @@ export function createAmbience(THREE, scene, bridge, L) {
   const flake = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
   const snowMat = new THREE.PointsMaterial({ size: 5, sizeAttenuation: false, map: flake, transparent: true, depthWrite: false, opacity: 0, color: 0xffffff });
   const snow = new THREE.Points(snowGeo, snowMat); snow.frustumCulled = false; snow.renderOrder = 3; snow.visible = false; scene.add(snow);
-  let snowInit = false;
+  let snowInit=false;
+  // Rain: depth-tested real-world streaks, not a screen whitening overlay.
+  const NR=1500,rainWorld=new Float32Array(NR*3),rainVertices=new Float32Array(NR*6);
+  const rainGeo=new THREE.BufferGeometry();
+  rainGeo.setAttribute('position',new THREE.BufferAttribute(rainVertices,3).setUsage(THREE.DynamicDrawUsage));
+  const rainMat=new THREE.LineBasicMaterial({color:0x9fcff1,transparent:true,depthTest:true,depthWrite:false,opacity:0});
+  const rain=new THREE.LineSegments(rainGeo,rainMat);rain.frustumCulled=false;rain.renderOrder=1;
+  rain.visible=false;scene.add(rain);
+  let rainInit=false;
+  const SPL=96,splashData=new Float32Array(SPL*3),splashGeo=new THREE.BufferGeometry();
+  splashGeo.setAttribute('position',new THREE.BufferAttribute(splashData,3).setUsage(THREE.DynamicDrawUsage));
+  const splashMat=new THREE.PointsMaterial({color:0xcdeaff,size:2,sizeAttenuation:false,
+    transparent:true,depthWrite:false,depthTest:true,opacity:.3});
+  const splashes=new THREE.Points(splashGeo,splashMat);splashes.frustumCulled=false;
+  splashes.renderOrder=1;splashes.visible=false;scene.add(splashes);
 
   // ---------- neve pousada: o alto dos objetos 3D clareia conforme ENV.snowCover ----------
   const snowU = { snowCover: { value: 0 }, snowUp: { value: new THREE.Vector3(0, 1, 0) } };
@@ -66,7 +80,8 @@ export function createAmbience(THREE, scene, bridge, L) {
       sun.castShadow = E.keyI > 0.03;
       sun.shadow.radius = E.moonLit ? 7 : 1.8 + (1 - ss(13, 62, E.keyEl)) * 2.5 + E.cloud * 5;
       // céu e chão do hemisfério: dia, dourado, crepúsculo, noite
-      tmp.copy(SKY.day).lerp(SKY.gold, E.golden * 0.8).lerp(SKY.dusk, E.twilight * 0.7).lerp(SKY.night, ss(0.5, 1, E.dark));
+      tmp.copy(SKY.day).lerp(SKY.gold,E.golden*.8).lerp(SKY.dusk,E.twilight*.7)
+        .lerp(SKY.night,ss(.5,1,E.dark)).lerp(overcast,E.cloud*.32);
       hemi.color.copy(tmp); hemi.groundColor.copy(GND.day).lerp(GND.night, E.dark);
       hemi.intensity = 1.95 * (0.17 + 0.83 * E.day) * (1 - E.cloud * 0.12);
       bounce.intensity = 0.62 * (0.12 + 0.88 * E.day);
@@ -75,9 +90,23 @@ export function createAmbience(THREE, scene, bridge, L) {
 
       // caixa de partículas em volta da vista
       const hw = c.W / (2 * c.zoom) + 6, hh = c.H / (2 * c.zoom) / (c.tilt || 0.5) + 6, rad = Math.hypot(hw, hh);
-      const wx = E.windDir[0], wy = E.windDir[1], wn = E.windNow;
+      const wx=E.windDir[0],wy=E.windDir[1],wn=E.windNow;
+      const shelter=globalThis.CityShelter, nearH=shelter?.nearby(c.x,c.y,rad+12)||[];
+      const canopies=(bridge.boxes||[]).filter(b=>['canopy','porchroof','portico','awning'].includes(b.kind)
+        &&Math.hypot(b.x-c.x,b.y-c.y)<rad+Math.max(b.w||0,b.d||0)+5);
+      const covered=(x,y)=>shelter?.isSheltered(x,y,0,nearH,canopies)||false;
+      if(state.season!==E.season){
+        state.season=E.season;
+        const palette=E.season==='outono'?['#b07935','#c09046','#8f592e','#d6a74e']:
+          E.season==='inverno'?['#756b55','#85826a','#5c725e']:
+          E.season==='primavera'?['#76a84c','#88aa64','#569552']:
+          ['#679347','#5b8646','#4b7a3d'];
+        for(let i=0;i<NL;i++)leaves.setColorAt(i,hex(palette[i%palette.length]));
+        if(leaves.instanceColor)leaves.instanceColor.needsUpdate=true;
+      }
       // folhas: aparecem com a brisa, muitas na ventania
-      const nl = Math.round(NL * ss(0.22, 0.85, wn) * (1 - E.snow)); state.leaves = nl;
+      const nl=Math.min(NL,Math.round(NL*ss(.22,.85,wn)*(1-E.snow)*
+        (E.season==='outono'?1.35:E.season==='inverno'?.6:1)));state.leaves=nl;
       for (let i = 0; i < nl; i++) {
         const o = i * 3;
         if (lp[o + 2] < -0.5 || Math.hypot(lp[o] - c.x, lp[o + 1] - c.y) > rad + 4) {   // nasce do lado de onde vem o vento
@@ -105,6 +134,37 @@ export function createAmbience(THREE, scene, bridge, L) {
         e.set(-Math.PI / 2, 0, -ang); q.setFromEuler(e); v3.set(dp[o], dp[o + 2], dp[o + 1]); s3.set(dp[o + 3], 1, 1); M.compose(v3, q, s3); dust.setMatrixAt(i, M);
       }
       dust.count = nd; dust.instanceMatrix.needsUpdate = true;
+      // Wind-driven rainfall, excluded from roofed interiors even in cutaway.
+      const rv=E.rain||0;
+      rain.visible=rv>.025;rainMat.opacity=.13+.5*Math.min(1,rv);
+      splashes.visible=rv>.12;state.rain=rain.visible?Math.round(NR*rv):0;
+      state.splashes=splashes.visible?SPL:0;
+      if(rain.visible){
+        const top=18;
+        if(!rainInit){rainInit=true;for(let i=0;i<NR;i++){const o=i*3;
+          rainWorld[o]=c.x+(R()-.5)*rad*2;rainWorld[o+1]=R()*top;
+          rainWorld[o+2]=c.y+(R()-.5)*rad*2;}}
+        for(let i=0;i<NR;i++){
+          const o=i*3,j=i*6;
+          rainWorld[o]+=wx*(1+wn*3)*dt;rainWorld[o+2]+=wy*(1+wn*3)*dt;
+          rainWorld[o+1]-=(14+rv*7)*dt;
+          if(rainWorld[o+1]<0||Math.abs(rainWorld[o]-c.x)>rad||Math.abs(rainWorld[o+2]-c.y)>rad){
+            rainWorld[o]=c.x+(R()-.5)*rad*2;rainWorld[o+2]=c.y+(R()-.5)*rad*2;
+            rainWorld[o+1]=top*(.45+R()*.55);
+          }
+          const hidden=covered(rainWorld[o],rainWorld[o+2]);
+          rainVertices[j]=rainWorld[o];rainVertices[j+1]=hidden?-100:rainWorld[o+1];
+          rainVertices[j+2]=rainWorld[o+2];rainVertices[j+3]=rainWorld[o]+wx*.16;
+          rainVertices[j+4]=hidden?-100:rainWorld[o+1]+.45+rv*.35;
+          rainVertices[j+5]=rainWorld[o+2]+wy*.16;
+        }
+        rainGeo.attributes.position.needsUpdate=true;
+        if(splashes.visible){for(let i=0;i<SPL;i++){const o=i*3;
+          const x=c.x+(R()-.5)*rad*2,y=c.y+(R()-.5)*rad*2;
+          splashData[o]=x;splashData[o+1]=covered(x,y)?-100:.04;
+          splashData[o+2]=y;
+        }splashGeo.attributes.position.needsUpdate=true;}
+      }
       // neve caindo
       const sv = E.snow; snow.visible = sv > 0.02; snowMat.opacity = Math.min(1, sv * 1.1) * (0.55 + 0.45 * E.day + 0.25); state.snow = snow.visible ? NS : 0;
       if (snow.visible) {
@@ -116,13 +176,18 @@ export function createAmbience(THREE, scene, bridge, L) {
           snowPos[o] += (wx * drift + Math.sin(now * 1.3 + sd) * 0.35) * dt; snowPos[o + 2] += (wy * drift + Math.cos(now * 1.1 + sd) * 0.35) * dt;
           snowPos[o + 1] -= (0.9 + (sd % 1) * 0.6) * dt;
           if (snowPos[o + 1] < 0 || Math.abs(snowPos[o] - c.x) > rad || Math.abs(snowPos[o + 2] - c.y) > rad) { snowPos[o] = c.x + (R() - 0.5) * 2 * rad; snowPos[o + 2] = c.y + (R() - 0.5) * 2 * rad; snowPos[o + 1] = top * (0.6 + R() * 0.4); }
+          if(covered(snowPos[o],snowPos[o+2]))snowPos[o+1]=-100;
         }
         snowGeo.attributes.position.needsUpdate = true;
       }
       // neve pousada nos objetos 3D (só começa a mexer nos materiais quando neva)
       snowU.snowCover.value = E.snowCover;
       if (E.snowCover > 0.005 || E.snow > 0.05) {
-        if ((patchT -= dt) <= 0) { patchT = 1.5; scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material)) patch(o.material); }); }
+        if((patchT-=dt)<=0){patchT=1.5;scene.traverse(o=>{
+          // Never recolor skinned characters, NPCs, instanced birds, cars or indoor objects.
+          if(o.isMesh&&!o.isSkinnedMesh&&!o.isInstancedMesh&&
+             o.userData?.weatherOutdoorSurface&&o.material&&!Array.isArray(o.material))patch(o.material);
+        });}
         snowU.snowUp.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse);
       }
     },
