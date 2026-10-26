@@ -17,7 +17,7 @@ const variants=[
  try{
   const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance&veg2d',
+  await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
    {waitUntil:'domcontentloaded',timeout:120000});
   await page.waitForFunction(()=>window.cityCharacters&&['ready','partial','failed'].includes(window.cityCharacters.status),
    null,{timeout:120000});
@@ -33,17 +33,26 @@ const variants=[
    const setup=await page.evaluate(({kind})=>{
     window.__manual=true;
     const bridge=window.cityVehicleBridge,player=bridge.player;
-    const H=bridge.houses.find(h=>h.architecture?.levels?.[0]?.furniture?.some(f=>f.kind===kind));
-    if(!H)return {error:'No residential plan for '+kind};
-    H.furnishOnPurchase?.();
-    const item=bridge.boxes.find(b=>b.kind===kind&&b.house===H&&!(b.floor||0));
-    if(!item)return {error:'Fixture did not instantiate: '+kind};
-    // Set the actor on the legal accessible side, never inside the furniture.
-    const side=kind==='bed'?1:0;
-    const front=kind==='chair'?-1:1,c=Math.cos(item.rot||0),s=Math.sin(item.rot||0);
-    const u=kind==='bed'?(item.w/2+.56):0;
-    const v=kind==='bed'?0:front*(item.d/2+(kind==='stove'?.34:.52));
-    player.x=item.x+u*c-v*s;player.y=item.y+u*s+v*c;
+    // Prefer a real, walkable furnished house; never stage a character on
+    // a socket outside the walls (the old screenshot's false-negative).
+    let H=null,item=null,stand=null;
+    for(const house of bridge.houses.filter(h=>h.architecture?.levels?.[0]?.furniture?.some(f=>f.kind===kind))){
+     house.furnishOnPurchase?.();
+     for(const fixture of bridge.boxes.filter(b=>b.kind===kind&&b.house===house&&!(b.floor||0))){
+      const side=kind==='bed'?fixture.w/2+.56:0;
+      const front=kind==='chair'?-1:1,c=Math.cos(fixture.rot||0),s=Math.sin(fixture.rot||0);
+      const v=kind==='bed'?0:front*(fixture.d/2+(kind==='stove'?.34:.52));
+      const x=fixture.x+side*c-v*s,y=fixture.y+side*s+v*c;
+      if(!house.contains?.(x,y))continue;
+      const p=house.architecture.toLocal(x,y);
+      if(!CityHomeNav.inside(house,0,p[0],p[1])||CityHomeNav.furnitureBlocked(house,0,p[0],p[1],null))continue;
+      H=house;item=fixture;stand={x,y};break;
+     }
+     if(H)break;
+    }
+    if(!item)return {error:'No legally accessible '+kind+' furniture socket in generated houses'};
+    window.__cityHomeQA={H,item};
+    player.x=stand.x;player.y=stand.y;
     player.face=kind==='bed'?Math.atan2(item.y-player.y,item.x-player.x):
       kind==='sofa'?item.rot+Math.PI/2:item.rot-Math.PI/2;
     player.armed=false;player.aiming=false;player.speed=0;player.running=false;
@@ -63,8 +72,7 @@ const variants=[
    for(let i=0;i<times.length;i++){
     const report=await page.evaluate(({kind,phase,time})=>{
      const player=cityVehicleBridge.player;
-     const H=cityVehicleBridge.houses.find(h=>h.architecture?.levels?.[0]?.furniture?.some(f=>f.kind===kind));
-     const item=cityVehicleBridge.boxes.find(b=>b.kind===kind&&b.house===H&&!(b.floor||0));
+     const {H,item}=window.__cityHomeQA;
      player.homeAction={kind:phase,item:{...item},socket:{u:kind==='bed'?item.w/2+.56:0,v:1},
       t:time,duration:CityHomePerformance.duration(phase)};
      player.speed=0;player.running=false;
