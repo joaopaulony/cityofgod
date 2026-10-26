@@ -9,7 +9,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
  try{
   const page=await browser.newPage({viewport:{width:1280,height:800}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
+  await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance&veg2d',
    {waitUntil:'domcontentloaded',timeout:120000});
   await page.waitForFunction(()=>window.cityCharacters&&['ready','partial','failed'].includes(window.cityCharacters.status),
    null,{timeout:120000});
@@ -25,8 +25,14 @@ const {chromium}=require('playwright'),fs=require('node:fs');
    const result=await page.evaluate(({kind,phase})=>{
     window.__manual=true;
     const bridge=window.cityVehicleBridge,player=bridge.player;
-    const item=bridge.boxes.find(b=>b.kind===kind&&b.house&&!b.house.upper);
-    if(!item)return {kind,error:'No house fixture of this kind found'};
+    // Unowned residences intentionally have no live furniture; staging a model
+    // from the exact generated architectural plan is a test-only setup.
+    const H=bridge.houses.find(h=>h.architecture?.levels?.[0]?.furniture?.some(f=>f.kind===kind));
+    if(!H)return {kind,error:'No residential plan includes this fixture'};
+    H.furnishOnPurchase?.();
+    const item=bridge.boxes.find(b=>b.kind===kind&&b.house===H&&(!b.floor));
+    if(!item)return {kind,error:'Plan fixture failed to instantiate',house:H.templateKey};
+
     const side=kind==='bed'?1:0;
     player.x=item.x+(kind==='bed'?item.w/2+.52:0);
     player.y=item.y+(kind==='bed'?0:item.d/2+.53);
