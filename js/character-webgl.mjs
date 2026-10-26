@@ -106,7 +106,7 @@ export function createCharacterSystem(scene,bridge){
     // Generator faces +Z. Game face 0 points +X.
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.updateMatrixWorld(true);
-    if(e.homeRig?.ready&&a.homeAction)e.homeRig.apply(a);
+    if(e.homeRig?.ready)e.homeRig.apply(a);
     if(e.mixamo){
      e.root.updateMatrixWorld(true);
      e.gun.visible=a.armed&&!a.traversal;

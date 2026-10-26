@@ -11,6 +11,10 @@ const LINKS=[
  ['LeftUpLeg','hipL','kneeL'],['LeftLeg','kneeL','ankL'],['LeftFoot','ankL','toeL'],
  ['RightUpLeg','hipR','kneeR'],['RightLeg','kneeR','ankR'],['RightFoot','ankR','toeR']
 ];
+// Physical joint anchors, activated only by domestic furniture interactions.
+const ANCHOR_BONES=new Set(['Spine','Spine1','Spine2','Neck','Head',
+ 'LeftArm','LeftForeArm','RightArm','RightForeArm',
+ 'LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot']);
 const required=['Hips','LeftArm','RightArm','LeftUpLeg','RightUpLeg'];
 export function createHomeBoneRig(root){
  const byName=new Map();
@@ -29,7 +33,7 @@ export function createHomeBoneRig(root){
   const v=child?child.getWorldPosition(new THREE.Vector3()):p.clone().add(new THREE.Vector3(0,.1,0));
   const dir=v.sub(p);
   if(dir.lengthSq()<1e-8)continue;
-  entries.push({bone,child:child||null,from,to,bindDirection:dir.normalize()});
+  entries.push({bone,name:boneName,child:child||null,from,to,bindDirection:dir.normalize(),bindPosition:bone.position.clone()});
  }
  const hip=byName.get('Hips');
  const point=new THREE.Vector3(),parentWorld=new THREE.Quaternion(),rootWorld=new THREE.Quaternion();
@@ -38,16 +42,26 @@ export function createHomeBoneRig(root){
   childPosition=new THREE.Vector3(),bonePosition=new THREE.Vector3();
  const originalHip=hip.position.clone();
  let active=false;
+ function restore(){
+  if(!active)return;
+  for(const e of entries)if(ANCHOR_BONES.has(e.name))e.bone.position.copy(e.bindPosition);
+  hip.position.copy(originalHip);
+  root.updateMatrixWorld(true);
+  active=false;
+ }
  function apply(a){
   const J=a?.J,home=a?.homeAction;
-  if(!home||!J?.pelvis){active=false;return false;}
+  if(!home||!J?.pelvis){restore();return false;}
   // Origin coordinates are shared with the canvas skeleton: X,Z,Y in Three.
   // The scripted action starts and ends standing, keeping post-action reset smooth.
   const norm=Math.min(1,Math.max(0,(home.t||0)/Math.max(.1,home.duration)));
   const ease=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t);};
   const weight=Math.min(ease(norm/.15),ease((1-norm)/.12));
-  if(weight<=0){active=false;return false;}
-  active=true;root.updateMatrixWorld(true);
+  if(weight<=0){restore();return false;}
+  active=true;
+  // Avoid cumulative skinning-joint drift: clips seldom key bone translations.
+  for(const e of entries)if(ANCHOR_BONES.has(e.name))e.bone.position.copy(e.bindPosition);
+  root.updateMatrixWorld(true);
   // The Mixamo idle action is evaluated first each frame. Overlay the pelvis
   // translation from the physical socket in the model's own local space.
   const desired=point.set(J.pelvis[0],(a.floorZ||0)+(a.actionZ||0)+J.pelvis[2],J.pelvis[1]);
@@ -56,7 +70,30 @@ export function createHomeBoneRig(root){
   hip.parent.worldToLocal(target);
   hip.position.lerp(target,weight);
   root.getWorldQuaternion(rootWorld);
+  const seated=home.kind==='sit'||home.kind==='sleep'||home.kind==='toilet';
+  const interp=(u,v,t)=>u&&v?u.map((q,i)=>q+(v[i]-q)*t):null;
+  const anchors={
+   LeftArm:J.shL,LeftForeArm:J.elbL,RightArm:J.shR,RightForeArm:J.elbR,
+   ...(seated?{
+    Spine:interp(J.pelvis,J.chest,.24),
+    Spine1:interp(J.pelvis,J.chest,.55),
+    Spine2:interp(J.pelvis,J.chest,.86),
+    Neck:J.neck,Head:J.head,
+    LeftUpLeg:J.hipL,LeftLeg:J.kneeL,LeftFoot:J.ankL,
+    RightUpLeg:J.hipR,RightLeg:J.kneeR,RightFoot:J.ankR
+   }:{})
+  };
+  const elevation=(a.floorZ||0)+(a.actionZ||0);
   for(const e of entries){
+   const anchor=anchors[e.name];
+   if(anchor){
+    // Matching segment angles alone leaves Mixamo feet under the floor:
+    // reposition the actual joint to the furniture-space IK target.
+    target.set(anchor[0],anchor[2]+elevation,anchor[1]);
+    e.bone.parent.worldToLocal(target);
+    e.bone.position.lerp(target,weight);
+    e.bone.updateMatrixWorld(true);
+   }
    const from=J[e.from],to=J[e.to];if(!from||!to)continue;
    direction.set(to[0]-from[0],to[2]-from[2],to[1]-from[1]);
    if(direction.lengthSq()<1e-8)continue;
