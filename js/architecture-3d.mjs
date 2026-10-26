@@ -275,19 +275,21 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   }
   for(const [H,e] of entries)if(!seen.has(H)){disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
   for(const [H,job] of builds)if(!seen.has(H)){job.return();builds.delete(H);}
-  // Up to two small, unshadowed point lights follow the current owned interior;
-  // extra fixtures keep their emissive style without multiplying expensive GPU lights.
-  if(!scene.userData.homeLights){
-    scene.userData.homeLights=Array.from({length:2},()=>{const light=new THREE.PointLight(0xffd6a4,0,10,1.8);
-      scene.add(light);return light;});
-  }
+  // Instantiate lamps only for a visibly occupied, permitted property.
+  // Never add decorative PointLights to empty streets or unloaded sectors.
   const playerHome=bridge.houses.find(H=>H.inside&&window.CityHome?.owned(H)&&H.architecture);
   const lamps=playerHome&&typeof CityHomePlus!=='undefined'&&CityHomePlus.data(playerHome).power!==false?
-      CityHomePlus.data(playerHome).lights.filter(l=>l.floor===(bridge.player.floor||0)):[];
-  scene.userData.homeLights.forEach((L,i)=>{
-    const f=lamps[i];L.intensity=f?(bridge.world.night?3.4:1.5)*f.intensity:0;
-    if(f){L.color.set(CityHomePlus.color[f.mode]||'#ffdaa8');
-      L.position.set(f.x,playerHome.architecture.levels[f.floor].z+2.5,f.y);}
+      CityHomePlus.data(playerHome).lights.filter(l=>l.floor===(bridge.player.floor||0)).slice(0,2):[];
+  if(lamps.length&&!scene.userData.homeLights){
+    scene.userData.homeLights=Array.from({length:2},()=>new THREE.PointLight(0xffd6a4,0,10,1.8));
+  }
+  if(scene.userData.homeLights)scene.userData.homeLights.forEach((L,i)=>{
+    const f=lamps[i];
+    if(!f){scene.remove(L);return;}
+    if(!L.parent)scene.add(L);
+    L.intensity=(bridge.world.night?3.4:1.5)*f.intensity;
+    L.color.set(CityHomePlus.color[f.mode]||'#ffdaa8');
+    L.position.set(f.x,playerHome.architecture.levels[f.floor].z+2.5,f.y);
   });
   const occupied=bridge.houses.find(H=>H.civic&&H.inside&&H.lightOn),lit=occupied?.architecture.levels[bridge.player.floor||0];
   civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit&&lit.rooms[i]){if(!light.parent)scene.add(light);const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}else scene.remove(light);});
