@@ -118,7 +118,9 @@ function animate(a, dt) {
   // The player can walk away: actions naturally terminate after their duration.
   if(a.homeAction){
     const state=a.homeAction;
-    state.t=Math.max(0,state.t+Math.max(0,dt));
+    // CityHomeRoutine owns elapsed time; advancing here as well doubled
+    // the playback speed and cut the recovery pose short.
+    state.t=Math.max(0,state.t||0);
     const seated=['sit','watch','work'].includes(state.kind),sleep=state.kind==='sleep';
     const pose=P({crouch:sleep?.68:seated?.52:.12,
       lean:sleep?.57:seated?.09:.17,bz:sleep?.75:seated?.98:1.28,

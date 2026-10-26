@@ -7,6 +7,7 @@ import {buildCartoon,npcLook,DEFAULT_LOOK} from './cartoon-character.mjs';
 import {installCartoonCreator,loadLook} from './cartoon-creator.mjs';
 import {createTombRig} from './tomb-rig.mjs';
 import {createCC3Rig} from './cc3-rig.mjs';
+import {createHomeBoneRig} from './home-bone-rig.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
@@ -105,6 +106,7 @@ export function createCharacterSystem(scene,bridge){
     // Generator faces +Z. Game face 0 points +X.
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.updateMatrixWorld(true);
+    if(e.homeRig?.ready)e.homeRig.apply(a);
     if(e.mixamo){
      e.root.updateMatrixWorld(true);
      e.gun.visible=a.armed&&!a.traversal;
@@ -130,6 +132,24 @@ export function createCharacterSystem(scene,bridge){
   e.muzzle.getWorldPosition(tmp);return [tmp.x,tmp.z,tmp.y];
  };
  system.telemetry=()=>[...entries].map(([a,e])=>({name:a.name||'Jogador',clip:e.clip,x:a.x,y:a.y,z:a.actionZ||0,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));
+ // Read-only evidence of the *rendered* bones (not just scripted IK targets).
+ // Called by Chrome QA when taking screenshots; no cost in the frame loop.
+ system.homeTelemetry=(a=bridge.player)=>{
+  const e=entries.get(a);if(!e?.root)return null;
+  e.root.updateMatrixWorld(true);
+  const point=name=>{
+   let bone=null;
+   e.root.traverse(o=>{if(!bone&&o.isBone&&o.name.replace(/^mixamorig(?::)?/,'')===name)bone=o;});
+   if(!bone)return null;
+   const v=bone.getWorldPosition(new THREE.Vector3());
+   return [v.x,v.z,v.y]; // City Home world coordinates: x,y,height.
+  };
+  const hips=point('Hips'),head=point('Head');
+  const hands=[point('LeftHand'),point('RightHand')];
+  const feet=[point('LeftFoot'),point('RightFoot')];
+  return {ready:!!e.homeRig?.ready,visible:e.root.visible,hips,head,hands,feet,
+   action:a.homeAction?.kind||null};
+ };
  async function init(){
   if(!system.enabled){system.status='disabled';return;}
   if(provider==='tomb'){await initTomb();return;}
@@ -250,7 +270,7 @@ export function createCharacterSystem(scene,bridge){
     const cartoonRest=[];root.traverse(o=>{if(o.isBone)cartoonRest.push([o,o.position.clone(),o.quaternion.clone(),o.scale.clone()]);});
     const appearance=profile||(provider==='cartoon'?(a===bridge.player?loadLook()||DEFAULT_LOOK:npcLook(i)):null);
     if(provider==='cartoon'&&appearance)buildCartoon(root,appearance);
-    scene.add(root);entries.set(a,{root,mixer,spec,rest,cartoonRest,appearance,mixamo:true,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null});
+    scene.add(root);entries.set(a,{root,mixer,spec,rest,cartoonRest,appearance,mixamo:true,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),homeRig:createHomeBoneRig(root),clip:null,action:null});
    }
    system.models=manifest.models;system.ready=entries.has(bridge.player);system.status=provider==='realistic-base'||provider==='cartoon'||assets.has('megan')?'ready':'partial';
    if(provider==='realistic-base'){baseAssets=assets;installBaseEditor(system,bridge,assets);}
@@ -268,7 +288,7 @@ export function createCharacterSystem(scene,bridge){
    const e=entries.get(a),item=baseAssets?.get(sex);if(!e||!item||e.spec.id===sex)return;
    e.mixer.stopAllAction();e.mixer.uncacheRoot(e.root);releaseBase(e.root);
    e.root=cloneBase(item.gltf.scene);e.spec=item.spec;e.appearance={...e.appearance,body:sex};tintBase(e.root,e.appearance.tone);
-   e.mixer=new THREE.AnimationMixer(e.root);e.actions=new Map(item.gltf.animations.map(c=>[c.name,e.mixer.clipAction(c)]));e.clip=null;e.action=null;scene.add(e.root);system.update(0);return;
+   e.mixer=new THREE.AnimationMixer(e.root);e.actions=new Map(item.gltf.animations.map(c=>[c.name,e.mixer.clipAction(c)]));e.homeRig=createHomeBoneRig(e.root);e.clip=null;e.action=null;scene.add(e.root);system.update(0);return;
   }
   const e=entries.get(a),item=tombAssets?.get(sex);if(!e||!item||e.spec.sex===sex)return;
   scene.remove(e.root);e.skinTexture?.dispose();e.maskTexture?.dispose();

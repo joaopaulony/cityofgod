@@ -41,6 +41,12 @@ function remodelProperty(H){
   if(s.window){s.windowAnim={open:0,target:0,manual:true};opening.segment=s;}
   if(level.floor)(world.upperSegs||(world.upperSegs=[])).push(s);else{world.segs.push(s);H.segs.push(s);}level.segments.push(s);
  };
+  // Built-in sofas near the far wall must face INTO the room. The procedural
+  // furniture renderer uses +V as the front of the sofa; keeping all prefab
+  // rotations equal to the building angle pointed these sofas at the wall.
+  const furnitureRotation=(f,room)=>plan.angle+(
+    ['sofa','couch','sectional'].includes(f.kind)&&room&&
+    f.y>(room.y0+room.y1)/2?Math.PI:0);
  for(const level of plan.levels){
   level.segments=[];
   for(const wall of level.walls){const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);let cursor=0;
@@ -57,7 +63,7 @@ function remodelProperty(H){
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:furnitureRotation(f,room),house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
     }
   }
   const hall=level.rooms.find(r=>r.id==='hall'),center=P((hall.x0+hall.x1)/2,(hall.y0+hall.y1)/2);
@@ -72,7 +78,7 @@ function remodelProperty(H){
    for(const level of plan.levels)for(const f of level.furniture){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:furnitureRotation(f,room),house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
      H.interactables.push(b);newBoxes.push(b);
    }
    if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())
