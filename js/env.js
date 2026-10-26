@@ -45,6 +45,7 @@ function envSetWeather(i){
   ENV.change=150+Math.random()*150;return envWeather();
 }
 function envPickWeather(){
+ ENV.season=globalThis.CityCalendar?.get()?.season||ENV.season;
  const weights=SEASONAL_WEIGHT[ENV.season]||{};
  const values=WEATHERS.map(w=>Math.max(0,w.weight*(weights[w.id]??1)));
  let r=Math.random()*values.reduce((a,b)=>a+b,0);

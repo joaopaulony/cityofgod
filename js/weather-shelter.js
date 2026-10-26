@@ -12,14 +12,16 @@
    return {x0:Math.min(...xs),y0:Math.min(...ys),x1:Math.max(...xs),y1:Math.max(...ys)};}
   return H;
  }
- function roofedHouse(H,x,y){
+ function roofedHouse(H,x,y,z=0){
   if(!inRect(bounds(H),x,y,1))return false;
   if(H.architecture?.toLocal){
    const pt=H.architecture.toLocal(x,y);
    // Rooms, not balcony/outdoor polygons. The highest occupied floor has a roof;
    // lower floors are protected by the upper slab.
-   return H.architecture.levels?.some(l=>l.rooms?.some(r=>inRect(r,pt[0],pt[1],.04)))||false;
+   return H.architecture.levels?.some(l=>((l.z??l.floor*(H.floorHeight||3))+(H.floorHeight||3))>z+.01&&
+     l.rooms?.some(r=>inRect(r,pt[0],pt[1],.04)))||false;
   }
+  if(z>(H.h||3)+.6)return false;
   if(typeof H.contains==='function')return !!H.contains(x,y,0);
   return inRect(H,x,y,.15);
  }
@@ -34,7 +36,7 @@
  }
  function isSheltered(x,y,z=0,near,nearProps){
   if(!Number.isFinite(x)||!Number.isFinite(y))return false;
-  for(const H of near||nearby(x,y,1))if(roofedHouse(H,x,y))return true;
+  for(const H of near||nearby(x,y,1))if(roofedHouse(H,x,y,z))return true;
   for(const b of nearProps||props()||[])if(Math.abs(b.x-x)<(b.w||0)/2+.1&&roofedProp(b,x,y))return true;
   return false;
  }
