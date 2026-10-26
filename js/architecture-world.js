@@ -54,10 +54,16 @@ function remodelProperty(H){
    const wall={a,b,normal:[0,1],ext:true};putSegment(level,wall,0,Math.hypot(b[0]-a[0],b[1]-a[1]));
    const s=level.segments.at(-1);s.kind='balcony-rail';s.h=level.z+1.05;
   }
+  // Built-in sofas near the far wall must face INTO the room. The procedural
+  // furniture renderer uses +V as the front of the sofa; keeping all prefab
+  // rotations equal to the building angle pointed these sofas at the wall.
+  const furnitureRotation=(f,room)=>plan.angle+(
+    ['sofa','couch','sectional'].includes(f.kind)&&room&&
+    f.y>(room.y0+room.y1)/2?Math.PI:0);
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:furnitureRotation(f,room),house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
     }
   }
   const hall=level.rooms.find(r=>r.id==='hall'),center=P((hall.x0+hall.x1)/2,(hall.y0+hall.y1)/2);
@@ -72,7 +78,7 @@ function remodelProperty(H){
    for(const level of plan.levels)for(const f of level.furniture){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:furnitureRotation(f,room),house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
      H.interactables.push(b);newBoxes.push(b);
    }
    if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())
