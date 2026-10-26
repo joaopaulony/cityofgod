@@ -5,7 +5,7 @@ const CityHomeVisitors=(()=>{
  const notify=t=>window.CityUI?.notify?.(t);
  function invite(H,name){
    if(!window.CityHome?.owned(H)||!window.CityHomeNav||!window.CityHomePlus)return {ok:false,text:'Imóvel ou navegação indisponível'};
-   if(!CityHomePlus.data(H).guests.includes(name)&&CityHomePlus.data(H).guestMode!=='friends')
+   if(!window.CityHomePlus.data(H).guests.includes(name)&&window.CityHomePlus.data(H).guestMode!=='friends')
      return {ok:false,text:'Adicione o nome à lista de convidados primeiro'};
    const actors=window.cityVehicleBridge?.actors||[];
    const npc=actors.find(n=>n.name===name&&n!==window.cityVehicleBridge.player);

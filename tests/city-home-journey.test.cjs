@@ -18,7 +18,7 @@ function fixture(withDoor=true){
     key:()=> 'fixture',catalog:{sofa:{name:'Sofá'}}};
  window.CityHome=ctx.CityHome;
  ctx.CityLife={funds:1000,state:window.__game,debit(v){if(this.funds<v)return false;this.funds-=v;return true;},
-  credit(v){this.funds+=v;return true;},save(){}};
+  credit(v){this.funds+=v;return true;},money:v=>'R$ '+v,save(){}};
  ctx.Event=class{};
  vm.runInContext(read('js/city-home-nav.js'),ctx);
  vm.runInContext(read('js/city-home-kitchen.js'),ctx);
