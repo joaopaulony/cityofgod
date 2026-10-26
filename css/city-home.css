@@ -147,3 +147,13 @@ body.city-home-open #view:active{cursor:grabbing!important;}
 #city-home-builder .home-shop-content>h3{font-size:14px;margin:14px 4px 6px;color:#d4fff3}
 #city-home-builder .home-shop-content>p{color:#b6d1db;line-height:1.5;font-size:11px}
 @media(max-height:750px){#city-home-builder .home-tabs button{min-height:28px;padding:3px}}
+
+/* City Home Journey: pantry, recipes and restrained property listing presentation. */
+.home-pantry-status{padding:9px 11px;background:linear-gradient(90deg,#21565b85,#11293780);
+ border:1px solid #85e0d044;border-radius:10px;color:#d0f8e9!important;font-size:12px!important}
+.home-pantry-stock{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:12px 0}
+.home-pantry-stock span{background:#172b38c5;border:1px solid #8dbcc52e;border-radius:7px;
+ padding:7px;color:#cce2e7;font-size:10px}
+#city-home-builder .home-plus-button:disabled{opacity:.38;cursor:not-allowed;filter:saturate(.3)}
+#city-home-builder .home-tabs button{letter-spacing:0;white-space:normal;line-height:1.2}
+#city-home-builder .home-condition strong{font-size:clamp(14px,2.3vw,25px);overflow-wrap:anywhere}

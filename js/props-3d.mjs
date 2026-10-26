@@ -298,6 +298,28 @@ export function createProps(THREE, scene, bridge) {
   }
 
   // ======================= materiais e malhas instanciadas =======================
+  // Shared physically based materials for indoor furniture. Street props keep
+  // the original light Lambert shader; no expensive per-item material instances.
+  const wovenData=new Uint8Array(48*48*4);
+  for(let y=0;y<48;y++)for(let x=0;x<48;x++){
+    const o=(y*48+x)*4,u=((x%4)-1.5)/1.5,v=((y%4)-1.5)/1.5;
+    wovenData[o]=Math.max(110,Math.min(145,128+u*5));
+    wovenData[o+1]=Math.max(110,Math.min(145,128+v*5));
+    wovenData[o+2]=254;wovenData[o+3]=255;
+  }
+  const wovenNormal=new THREE.DataTexture(wovenData,48,48,THREE.RGBAFormat);
+  wovenNormal.wrapS=wovenNormal.wrapT=THREE.RepeatWrapping;
+  wovenNormal.repeat.set(3,3);wovenNormal.needsUpdate=true;
+  const matHomeFabric=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.92,metalness:0,
+    normalMap:wovenNormal,normalScale:new THREE.Vector2(.22,.22)});
+  const matHomeWood=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.67,metalness:0});
+  const matHomeCeramic=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.28,metalness:.07});
+  const matHomeSteel=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.46});
+  const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug']);
+  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk']);
+  const ceramicSet=new Set(['sink','toilet','shower']);
+  const indoorMaterial=name=>fabricSet.has(name)?matHomeFabric:metallicSet.has(name)?matHomeSteel:
+    ceramicSet.has(name)?matHomeCeramic:matHomeWood;
   const matBody = new THREE.MeshLambertMaterial({ vertexColors: true });
   const matGlass = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false });
   const matShiny = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 70, specular: 0x555555 });   // plástico, lata, vidro
@@ -312,7 +334,8 @@ export function createProps(THREE, scene, bridge) {
     if (def.tinted && color && [...kinds.keys()].filter(k => k.startsWith(name + '|')).length >= 8) return kindOf(name, null);
     const kit = Kit(); def.make(kit, def.tinted ? color : undefined); const geos = kit.done(), cap = CAP[name] || 300, meshes = [];
     for (const [set, geo] of Object.entries(geos)) {
-      const m = new THREE.InstancedMesh(geo, { glass: matGlass, shiny: matShiny, net: matNet }[set] || matBody, cap);
+      const chosen={glass:matGlass,shiny:matShiny,net:matNet}[set]||(def?.dims?indoorMaterial(name):matBody);
+      const m = new THREE.InstancedMesh(geo,chosen,cap);
       m.castShadow = set !== 'glass' && set !== 'net' && name !== 'towel'; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       scene.add(m); meshes.push(m);
     }
@@ -480,7 +503,9 @@ export function createProps(THREE, scene, bridge) {
       const meshes=shapes.done();
       for(const [type,geo] of Object.entries(meshes)){
         geometries.push(geo);
-        const mat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,
+        const mat=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,
+          roughness:fabricSet.has(name)?.9:ceramicSet.has(name)?.3:metallicSet.has(name)?.42:.7,
+          metalness:metallicSet.has(name)?.4:0,
           transparent:type==='glass',opacity:type==='glass'?.36:1,depthWrite:type!=='glass'});
         materials.push(mat);
         scene2.add(new THREE.Mesh(geo,mat));

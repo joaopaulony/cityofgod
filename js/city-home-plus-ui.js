@@ -41,10 +41,26 @@ const CityHomePlusUI=(()=>{
        '<p>Valor estimado do imóvel mobiliado: <strong>'+CityLife.money(p.appraisal(H))+'</strong></p>';
    }
    if(tab==='living'){
+     const pantry=window.CityHomeKitchen?.pantry(H);
+     const recipes=window.CityHomeKitchen?.recipes||[];
+     const bundles=window.CityHomeKitchen?.bundles||[];
+     const stove=CityHome.placed(H).find(r=>['stove','microwave'].includes(r.kind)&&r.floor===floor);
+     const kitchen='<h3>🍳 Cozinha e receitas</h3>'+
+       '<p class="home-copy">Compre ingredientes para sua despensa, cozinhe no fogão e guarde as refeições. O personagem precisa caminhar até o móvel antes de preparar ou comer.</p>'+
+       '<p class="home-pantry-status">🍽️ Porções prontas: <b>'+(pantry?.portions||0)+'</b></p>'+
+       '<div class="home-plus-actions">'+bundles.map(b=>
+         btn('pantrybuy|'+b.id,esc(b.name)+' · '+CityLife.money(b.price))).join('')+'</div>'+
+       '<div class="home-pantry-stock">'+Object.entries(pantry?.stock||{}).map(([k,v])=>
+          '<span>'+esc(({eggs:'🥚 Ovos',milk:'🥛 Leite',pasta:'🍝 Massa',tomato:'🍅 Tomate',greens:'🥬 Verduras',bread:'🍞 Pão',cheese:'🧀 Queijo'})[k]||k)+': '+v+'</span>').join('')+'</div>'+
+       (stove?recipes.map(r=>'<div class="home-plus-tile"><b>'+r.icon+' '+esc(r.name)+'</b><small>'+
+         Object.entries(r.ingredients).map(([k,v])=>esc(k)+' ×'+v).join(' · ')+'</small>'+
+         btn('recipe|'+r.id, 'Preparar '+r.servings+' porção(ões)',window.CityHomeKitchen?.canPrepare(H,r.id)?'':'disabled')+
+         '</div>').join(''):'<p class="home-empty">Instale um fogão ou micro-ondas para preparar receitas.</p>')+
+       (pantry?.portions>0?btn('eat','🍽️ Comer uma refeição'):'');
      const placed=CityHome.placed(H).filter(x=>x.floor===floor);
      const hosts=placed.filter(r=>p.supports.has(r.kind));
      const objects=CityHome.inventory(H).filter(r=>p.decor.has(r.kind));
-     return '<h3>🛋️ Casa funcional</h3><p class="home-copy">Interaja com os móveis que já possui para recuperar necessidades e fazer atividades domésticas.</p>'+
+     return kitchen+'<h3>🛋️ Casa funcional</h3><p class="home-copy">Escolha um móvel e o personagem caminhará até ele pelo interior, desviando dos obstáculos.</p>'+
        placed.filter(r=>kinds.includes(r.kind)).map(r=>
         '<div class="home-plus-tile"><b>'+esc(CityHome.catalog[r.kind]?.name)+'</b> '+
           btn('use|'+r.id,label(r.kind))+'</div>').join('')+
@@ -62,7 +78,23 @@ const CityHomePlusUI=(()=>{
        '<p>Modo atual: <b>'+esc(info.guestMode)+'</b></p>'+
        '<label class="home-plus-label">Nome do morador convidado<input id="city-home-guest-name" maxlength="32" placeholder="Nome do NPC ou jogador"></label>'+
        btn('invite','Adicionar à lista local')+
+       '<h3>👥 Visitas dos NPCs</h3><p class="home-copy">Lucas e Ana podem visitar sua casa, caminhar até um sofá e conversar. Primeiro adicione o nome como convidado ou selecione o modo amigos.</p>'+
+       ['Lucas','Ana'].map(n=>'<div class="home-plus-tile"><b>'+n+'</b>'+
+         btn('npcvisit|'+n,'🔔 Convidar')+
+         (window.CityHomeVisitors?.active.includes(n)?btn('npcleave|'+n,'Encerrar visita'):'')+'</div>').join('')+
        info.guests.map(g=>'<div class="home-plus-tile"><b>'+esc(g)+'</b>'+btn('removeguest|'+encodeURIComponent(g),'Remover')+'</div>').join('');
+   }
+   if(tab==='realty'){
+     const sale=p.appraisal(H),draft=info.listing;
+     return '<h3>🏘️ Bellavista Realty</h3>'+
+       '<p class="home-copy">Calcule o valor de mercado da sua residência. Você pode preparar um anúncio, mas vendas e aluguéis reais entre jogadores exigem um servidor seguro.</p>'+
+       '<div class="home-condition"><strong>'+CityLife.money(sale)+'</strong><span>Valor estimado</span></div>'+
+       (draft?'<div class="home-plus-tile"><b>Rascunho '+(draft.kind==='sale'?'de venda':'de aluguel')+
+         '</b><small>'+CityLife.money(draft.price)+'</small>'+btn('withdraw','Retirar anúncio')+'</div>':'')+
+       '<label class="home-plus-label">Valor pedido (R$)<input id="city-home-listing-price" inputmode="numeric" type="number" min="250" max="2000000" step="10" value="'+Math.round(sale)+'"></label>'+
+       btn('listing|sale','Criar anúncio de venda')+
+       btn('listing|rent','Criar anúncio de aluguel')+
+       '<p class="home-copy">Anúncios são rascunhos locais: não transferem propriedade, não cobram aluguel e não aparecem para outros jogadores.</p>';
    }
    if(tab==='maintenance'){
      return '<h3>🧽 Manutenção da residência</h3>'+
@@ -87,8 +119,25 @@ const CityHomePlusUI=(()=>{
    if(kind==='invite')result=p.invite(H,document.getElementById('city-home-guest-name')?.value);
    if(kind==='removeguest')result=p.removeGuest(H,decodeURIComponent(a));
    if(kind==='service')result=p.repair(H,a);
+   if(kind==='listing')result=p.listing(H,a,document.getElementById('city-home-listing-price')?.value);
+   if(kind==='withdraw')result=p.withdrawListing(H);
    if(kind==='mount')result=CityHome.mountOn(H,a,b);
    if(kind==='use')result=p.activity(H,a);
+   if(kind==='pantrybuy')result=window.CityHomeKitchen?.bundle(H,a)||{ok:false,text:'Despensa indisponível'};
+   if(kind==='recipe'){
+     const stove=CityHome.placed(H).find(r=>['stove','microwave'].includes(r.kind)&&r.floor===(window.__game?.player.floor||0));
+     result=stove?p.activity(H,stove.id,{recipe:a}):{ok:false,text:'Instale um fogão neste andar'};
+   }
+   if(kind==='npcvisit')result=window.CityHomeVisitors?.invite(H,a)||{ok:false,text:'Visitas indisponíveis'};
+   if(kind==='npcleave')result=window.CityHomeVisitors?.leave(a)||{ok:false,text:'Visitas indisponíveis'};
+   if(kind==='eat'){
+     const fridge=CityHome.placed(H).find(r=>r.kind==='fridge'&&r.floor===(window.__game?.player.floor||0));
+     const chair=CityHome.placed(H).find(r=>['table','chair','sofa'].includes(r.kind)&&r.floor===(window.__game?.player.floor||0));
+     result=fridge?p.activity(H,fridge.id):chair?
+       // Eat near a dining seat while keeping the food requirement.
+       window.CityHomeKitchen?.eat(H)||{ok:false,text:'Sem refeições'}:
+       {ok:false,text:'Instale uma geladeira ou mesa neste andar'};
+   }
    return result;
  }
  return {render,act};

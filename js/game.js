@@ -773,14 +773,22 @@ function tick(dt) {
     hud.msgT=1.8;
   }
   window.cityVehicles?.update(dt);
-  updatePlayer(dt);
+  // Indoor A* guide owns movement only while an autonomous domestic action
+  // is running. Any manual movement key cancels it immediately.
+  const manualHomeInput=['w','a','s','d','shift'].some(k=>input.down(k))||input.rmb;
+  const guided=window.CityHomeRoutine?.tick(dt,player,(x,y)=>
+    moveTo(player.x,player.y,x,y,.28,player.floor||0),manualHomeInput);
+  if(!guided)updatePlayer(dt);
   window.CityHome?.tick(player);
   window.CityHomeUI?.tick();
   window.CityGPS?.tick(player);
   CityLife.tick(dt,player);
   CitySim.tick();
   ecosystemTick(dt,player,T);
-  for (const n of npcs) updateNPC(n, dt);
+  for(const n of npcs){
+    const visiting=window.CityHomeVisitors?.tick(dt,n,(x,y,nx,ny)=>moveTo(x,y,nx,ny,.28,n.floor||0));
+    if(!visiting)updateNPC(n,dt);
+  }
   updateHouseOpenings(dt, actors, st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   window.cityCharacters?.update(dt);
@@ -810,6 +818,7 @@ function tick(dt) {
   window.CityDriving?.install?.();
   cam.x = sx; cam.y = sy;
   drawHUD(h,hudC.width,hudC.height,st);
+  window.CityHomeRoutine?.draw?.(h,hudC.width,hudC.height);
   // O painel 3D precisa de alinhamento proprio; a HUD usa textAlign=right.
   h.save();h.textAlign='left';h.textBaseline='alphabetic';
   window.cityVehicles?.drawHUD(h,hudC.width,hudC.height);

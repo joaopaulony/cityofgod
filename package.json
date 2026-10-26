@@ -5,7 +5,8 @@
     "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
     "build:site": "npm run build && node tools/build-site.mjs",
     "start": "node tools/serve.mjs",
-    "test:characters": "node --test tests/character-actions.test.mjs"
+    "test:characters": "node --test tests/character-actions.test.mjs",
+    "judge:home": "node tools/judge-city-home.cjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

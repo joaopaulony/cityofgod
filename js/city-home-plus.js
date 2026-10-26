@@ -33,7 +33,8 @@ const CityHomePlus=(()=>{
      condition:clamp(Number(s.condition)||100,0,100),lastDay:Math.max(0,Number(s.lastDay)||0),
      guestMode:['private','friends'].includes(s.guestMode)?s.guestMode:'private',
      guests:Array.isArray(s.guests)?s.guests.filter(x=>typeof x==='string'&&x.length<36).slice(0,10):[],
-     power:s.power!==false,notes:Array.isArray(s.notes)?s.notes.slice(0,12):[]};
+     power:s.power!==false,notes:Array.isArray(s.notes)?s.notes.slice(0,12):[],
+     listing:s.listing&&Number.isFinite(s.listing.price)&&['sale','rent'].includes(s.listing.kind)?s.listing:null};
    }
   }catch(e){console.warn('CityHomePlus load',e);}
   try{const x=JSON.parse(localStorage.getItem(PLANS)||'{}');if(x&&typeof x==='object')
@@ -41,7 +42,7 @@ const CityHomePlus=(()=>{
   }catch(_){}
  }
  function data(H){load();const key=storageKey(H);return ready[key]||(ready[key]={
-  finishes:{},lights:[],condition:100,lastDay:0,guestMode:'private',guests:[],power:true,notes:[]});}
+  finishes:{},lights:[],condition:100,lastDay:0,guestMode:'private',guests:[],power:true,notes:[],listing:null});}
  function save(){
   try{localStorage.setItem(STORAGE,JSON.stringify(ready));changes++;
    window.dispatchEvent?.(new Event('city-home-plus-change'));return true;}catch(e){console.warn('Home plus save',e);return false;}
@@ -156,6 +157,24 @@ const CityHomePlus=(()=>{
   const renovations=Object.keys(data(H).finishes).length*900;
   return Math.round((typeof CityRealty!=='undefined'?CityRealty.price(H):20000)+deco*.38+renovations);
  }
+ function listing(H,kind,price){
+   if(!own(H))return {ok:false,text:'Somente o proprietário pode anunciar'};
+   if(!['sale','rent'].includes(kind))return {ok:false,text:'Tipo de anúncio inválido'};
+   const value=Number(price),estimate=appraisal(H);
+   const low=kind==='sale'?Math.round(estimate*.65):250,
+     high=kind==='sale'?Math.round(estimate*1.75):15000;
+   if(!Number.isFinite(value)||!Number.isSafeInteger(value)||value<low||value>high)
+     return {ok:false,text:'Informe um valor entre '+CityLife.money(low)+' e '+CityLife.money(high)};
+   const d=data(H),old=d.listing;
+   d.listing={kind,price:value,estimatedValue:estimate,createdAt:Date.now(),status:'draft'};
+   if(!save()){d.listing=old;return {ok:false,text:'Falha ao salvar anúncio'};}
+   return {ok:true,text:'Rascunho '+(kind==='sale'?'de venda':'de aluguel')+' salvo localmente'};
+ }
+ function withdrawListing(H){
+   if(!own(H))return {ok:false,text:'Acesso negado'};
+   const d=data(H);d.listing=null;
+   return save()?{ok:true,text:'Rascunho retirado'}:{ok:false,text:'Falha ao atualizar anúncio'};
+ }
  function upkeep(H,clock){
   if(!own(H))return;
   const d=data(H),day=Math.floor(Number(clock||0)/1440);
@@ -173,34 +192,67 @@ const CityHomePlus=(()=>{
   d.condition=clamp(d.condition+(service==='repair'?35:16),0,100);save();
   return {ok:true,text:(service==='repair'?'Reparo':'Limpeza')+' concluído · conservação '+Math.round(d.condition)+'%'};
  }
- function activity(H,id){
-  if(!own(H))return {ok:false,text:'Acesso negado'};
-  const item=CityHome.placed(H).find(r=>r.id===id);
-  if(!item)return {ok:false,text:'O móvel não está instalado'};
-  const kinds={bed:'sleep',mattress:'sleep',sofa:'sit',couch:'sit',sectional:'sit',
-    chair:'sit',tv:'watch',desk:'work',stove:'cook',fridge:'eat',microwave:'eat',
-    sink:'wash',shower:'wash',toilet:'toilet'};
-  const action=kinds[item.kind];
-  if(!action)return {ok:false,text:'Esse móvel não tem uma atividade'};
-  const state=typeof CitySim!=='undefined'?CitySim.game:null;
-  const player=state?.player||window.__game?.player;
-  if(!player)return {ok:false,text:'Personagem indisponível'};
-  if(!data(H).power&&['watch','cook','work','eat'].includes(action))
-    return {ok:false,text:'Ligue a energia da casa primeiro'};
-  if(Math.hypot(player.x-item.x,player.y-item.y)>12)
-    return {ok:false,text:'Aproxime-se do móvel antes de usar'};
-  // Existing needs logic stays authoritative. Pose is a short procedural
-  // interaction state; actual foot IK/navigation will need a dedicated controller.
-  if(typeof CityLife!=='undefined')CityLife.interior(item.kind);
-  if(state){
-    if(action==='cook'||action==='eat')state.food=Math.min(1,(state.food||0)+.13);
-    if(action==='wash')state.water=Math.min(1,(state.water||0)+.04);
-    if(action==='sit'||action==='sleep')state.hp=Math.min(1,(state.hp||0)+.04);
-  }
-  player.homeAction={kind:action,t:0,duration:action==='sleep'?5:3.5};
-  if(typeof CityLife!=='undefined')CityLife.save();
-  return {ok:true,text:({sit:'Sentando',sleep:'Descansando',watch:'Assistindo televisão',work:'Trabalhando',
-    cook:'Preparando refeição',eat:'Fazendo lanche',wash:'Usando o banheiro',toilet:'Usando banheiro'})[action]};
+ function completeActivity(H,id,kind,options={}){
+   if(!own(H))return {ok:false,text:'Imóvel indisponível'};
+   const item=CityHome.placed(H).find(r=>r.id===id);
+   if(!item)return {ok:false,text:'Móvel indisponível'};
+   const state=typeof CityLife!=='undefined'?CityLife.state:null;
+   const p=state?.player||window.__game?.player;
+   if(!p||Math.hypot(p.x-item.x,p.y-item.y)>Math.max(2.8,Math.max(item.w,item.d)*.5+1.65))
+     return {ok:false,text:'O personagem não alcançou o móvel'};
+   if(!data(H).power&&['cook','watch','work','eat'].includes(kind))
+     return {ok:false,text:'Sem energia elétrica'};
+   if(kind==='cook'){
+     const result=window.CityHomeKitchen?.cook(H,options.recipe||'omelette');
+     if(!result?.ok)return result||{ok:false,text:'Despensa indisponível'};
+     if(state?.needs)state.needs.energy=Math.max(0,state.needs.energy-.035);
+     CityLife.save();return result;
+   }
+   if(kind==='eat'){
+     return window.CityHomeKitchen?.eat(H)||{ok:false,text:'Prepare uma receita primeiro'};
+   }
+   CityLife.interior(item.kind);
+   if(state){
+     if(kind==='sleep'&&state.needs){
+       state.needs.energy=Math.min(1,state.needs.energy+.3);
+       state.needs.stamina=Math.min(1,state.needs.stamina+.42);
+     }
+     if(kind==='wash'&&state.needs)state.needs.hygiene=Math.min(1,state.needs.hygiene+.22);
+     if(kind==='watch'&&state.needs)state.needs.energy=Math.min(1,state.needs.energy+.035);
+     if(kind==='toilet'&&state.needs)state.needs.bladder=Math.max(0,state.needs.bladder-.7);
+   }
+   CityLife.save();
+   return {ok:true,text:({
+     sit:'Descansou no móvel',sleep:'Sono recuperado',watch:'Assistiu televisão',
+     work:'Usou o computador',wash:'Higiene restaurada',toilet:'Banheiro utilizado'
+   })[kind]||'Atividade concluída'};
+ }
+ function activity(H,id,options={}){
+   if(!own(H))return {ok:false,text:'Acesso negado'};
+   const item=CityHome.placed(H).find(r=>r.id===id);
+   if(!item)return {ok:false,text:'Móvel não está instalado'};
+   const actions={bed:'sleep',mattress:'sleep',sofa:'sit',couch:'sit',
+     sectional:'sit',chair:'sit',tv:'watch',screen:'watch',desk:'work',
+     studentdesk:'work',stove:'cook',fridge:'eat',microwave:'eat',
+     sink:'wash',shower:'wash',toilet:'toilet'};
+   const kind=actions[item.kind];
+   if(!kind)return {ok:false,text:'Esse móvel não possui interação'};
+   if(!data(H).power&&['watch','work','cook','eat'].includes(kind))
+     return {ok:false,text:'Ligue a energia da casa'};
+   const player=window.__game?.player||CityLife.state?.player;
+   if(!player)return {ok:false,text:'Personagem indisponível'};
+   if(kind==='cook'&&window.CityHomeKitchen){
+     const possible=CityHomeKitchen.prepare(H,options.recipe||'omelette');
+     if(!possible.ok)return possible;
+   }
+   if(kind==='eat'&&window.CityHomeKitchen&&CityHomeKitchen.pantry(H).portions<1)
+     return {ok:false,text:'Cozinhe algo antes de comer'};
+   // In production this queues A* routing and spends needs/ingredients ONLY after arrival.
+   if(window.CityHomeRoutine)return CityHomeRoutine.start(H,item,kind,options);
+   // Preserve the older offline fixture interface where nav engine is absent.
+   const done=completeActivity(H,id,kind,options);
+   if(done.ok)player.homeAction={kind,t:0,duration:kind==='sleep'?5:3.5};
+   return done;
  }
  function tick(p){
   if(!p||typeof houses==='undefined')return;
@@ -212,7 +264,7 @@ const CityHomePlus=(()=>{
   lastTick=day;upkeep(H,clk);
  }
  return {load,data,save,rooms,roomAt,finishes,trim,lightModes,color,decor,supports,finish,surface,decorate,
-  installLight,light,togglePower,setGuestMode,invite,removeGuest,capture,projects,apply,appraisal,repair,upkeep,activity,tick,
+  installLight,light,togglePower,setGuestMode,invite,removeGuest,capture,projects,apply,appraisal,repair,upkeep,listing,withdrawListing,activity,completeActivity,tick,
   get changes(){return changes}};
 })();
 window.CityHomePlus=CityHomePlus;

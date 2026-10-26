@@ -1,0 +1,45 @@
+name: City Home - juiz de qualidade
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'js/city-home*.js'
+      - 'js/city-home-ui.js'
+      - 'js/game.js'
+      - 'js/props-3d.mjs'
+      - 'js/architecture-3d.mjs'
+      - 'js/skeleton.js'
+      - 'index.html'
+      - 'tests/city-home*.test.cjs'
+      - 'tools/judge-city-home.cjs'
+      - '.github/workflows/city-home-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe dos componentes
+        run: |
+          node --check js/city-home-nav.js
+          node --check js/city-home-routine.js
+          node --check js/city-home-kitchen.js
+          node --check js/city-home-visitors.js
+          node --check js/city-home-plus.js
+          node --check js/city-home-plus-ui.js
+          node --check js/game.js
+          node --check js/props-3d.mjs
+      - name: Julgador - exigir cada nota acima de 8 e zero regressões
+        run: node tools/judge-city-home.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notas-city-home
+          path: reports/city-home-judge.json
+          if-no-files-found: ignore
