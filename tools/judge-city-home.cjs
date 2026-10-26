@@ -5,6 +5,7 @@
 const fs=require('node:fs'),cp=require('node:child_process');
 const read=p=>fs.readFileSync(p,'utf8');
 const src={nav:read('js/city-home-nav.js'),routine:read('js/city-home-routine.js'),
+ performance:read('js/city-home-performance.js'),rig:read('js/home-bone-rig.mjs'),character:read('js/character-webgl.mjs'),
  kitchen:read('js/city-home-kitchen.js'),visitors:read('js/city-home-visitors.js'),
  ui:read('js/city-home-ui.js'),plusUI:read('js/city-home-plus-ui.js'),
  plus:read('js/city-home-plus.js'),core:read('js/city-home.js'),
@@ -23,6 +24,12 @@ const rubric=[
   has('routine',/completeActivity/),has('routine',/replans<2/),
   has('routine',/armed=task\.wasArmed/),has('game',/CityHomeRoutine\?\.tick/),
   has('plus',/window\.CityHomeRoutine/),has('routine',/stage='pose'/)]],
+ ['Animações domésticas (lógica técnica)',[
+  has('performance',/function approach/),has('performance',/function sample/),
+  has('performance',/function poleIK/),has('performance',/function apply/),
+  has('performance',/function arm/),has('performance',/reclining/),
+  has('routine',/stage='align'/),has('routine',/homeAction=\{kind:t.kind/),
+  has('rig',/hip\.parent\.worldToLocal/),has('character',/homeRig\.apply/)]],
  ['Economia e culinária',[
   has('kitchen',/function bundle/),has('kitchen',/CityLife\.debit/),
   has('kitchen',/function prepare/),has('kitchen',/function cook/),
@@ -63,7 +70,7 @@ const rubric=[
   has('html',/src="js\/city-home-kitchen\.js"/),
   has('html',/src="js\/city-home-visitors\.js"/)]]
 ];
-const suites=['tests/city-home-journey.test.cjs','tests/city-home-plus.test.cjs',
+const suites=['tests/city-home-performance.test.cjs','tests/city-home-journey.test.cjs','tests/city-home-plus.test.cjs',
  'tests/city-home.test.cjs','tests/city-home-polish.test.cjs'];
 const regress=cp.spawnSync(process.execPath,['--test',...suites],{encoding:'utf8',timeout:90000,
  maxBuffer:4*1024*1024});

@@ -790,7 +790,7 @@ function tick(dt) {
     if(!visiting)updateNPC(n,dt);
   }
   updateHouseOpenings(dt, actors, st.night);
-  for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
+  for (const a of actors) { a.clock = T; a.pose = animate(a, dt); const joints=solveSkeleton(a,a.pose);a.J=window.CityHomePerformance?.apply(a,joints)||joints; }
   window.cityCharacters?.update(dt);
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);
