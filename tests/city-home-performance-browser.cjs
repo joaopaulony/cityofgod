@@ -43,7 +43,7 @@ const variants=[
    });
    fs.writeFileSync(OUT+'/'+name+'.png',Buffer.from(data,'base64'));
   }
-  const frames=[];
+  const frames=[],failures=[];
   for(const {kind,phase,times} of variants){
    const setup=await page.evaluate(({kind})=>{
     window.__manual=true;
@@ -122,6 +122,7 @@ const variants=[
     frames.push(report);
     await capture(phase+'-'+String(i+1).padStart(2,'0'));
     fs.writeFileSync(OUT+'/report.partial.json',JSON.stringify({status:info,frames},null,2));
+    try{
     assert.ok(report.finite&&report.character?.visible&&report.rendered?.ready,
       'Real WebGL character missing: '+JSON.stringify(report));
     assert.ok(report.houseInside&&report.furniture3d>0,
@@ -154,12 +155,14 @@ const variants=[
        'Hands are too far above/below stove: '+JSON.stringify(report));
      }
     }
+    }catch(e){failures.push(phase+' frame '+(i+1)+': '+e.message);}
    }
    await page.evaluate(()=>{cityVehicleBridge.player.homeAction=null;tick(.016);});
   }
-  if(errors.length)throw Error('Browser JavaScript errors: '+JSON.stringify(errors));
-  fs.writeFileSync(OUT+'/report.json',JSON.stringify({status:info,frames,
+  fs.writeFileSync(OUT+'/report.json',JSON.stringify({status:info,frames,failures,errors,
    note:'Geometric pass is not a visual quality grade. Review all 12 PNG frames.'},null,2));
+  assert.equal(frames.length,12,'All three interactions must capture four phases');
+  if(errors.length||failures.length)throw Error('Chrome animation checks: '+JSON.stringify({errors,failures}));
   console.log('CITY HOME WEBGL 12-frame visual evidence recorded; manual visual judgment still required');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

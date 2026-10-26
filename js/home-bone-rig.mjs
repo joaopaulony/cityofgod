@@ -41,10 +41,12 @@ export function createHomeBoneRig(root){
  const boneWorld=new THREE.Quaternion(),local=new THREE.Quaternion(),target=new THREE.Vector3(),
   childPosition=new THREE.Vector3(),bonePosition=new THREE.Vector3();
  const originalHip=hip.position.clone();
+ // Also track terminal / zero-length bones omitted by directional IK.
+ const anchorRest=[...ANCHOR_BONES].map(n=>byName.get(n)).filter(Boolean).map(b=>[b,b.position.clone()]);
  let active=false;
  function restore(){
   if(!active)return;
-  for(const e of entries)if(ANCHOR_BONES.has(e.name))e.bone.position.copy(e.bindPosition);
+  for(const [bone,bind] of anchorRest)bone.position.copy(bind);
   hip.position.copy(originalHip);
   root.updateMatrixWorld(true);
   active=false;
@@ -60,7 +62,7 @@ export function createHomeBoneRig(root){
   if(weight<=0){restore();return false;}
   active=true;
   // Avoid cumulative skinning-joint drift: clips seldom key bone translations.
-  for(const e of entries)if(ANCHOR_BONES.has(e.name))e.bone.position.copy(e.bindPosition);
+  for(const [bone,bind] of anchorRest)bone.position.copy(bind);
   root.updateMatrixWorld(true);
   // The Mixamo idle action is evaluated first each frame. Overlay the pelvis
   // translation from the physical socket in the model's own local space.
@@ -85,15 +87,6 @@ export function createHomeBoneRig(root){
   };
   const elevation=(a.floorZ||0)+(a.actionZ||0);
   for(const e of entries){
-   const anchor=anchors[e.name];
-   if(anchor){
-    // Matching segment angles alone leaves Mixamo feet under the floor:
-    // reposition the actual joint to the furniture-space IK target.
-    target.set(anchor[0],anchor[2]+elevation,anchor[1]);
-    e.bone.parent.worldToLocal(target);
-    e.bone.position.lerp(target,weight);
-    e.bone.updateMatrixWorld(true);
-   }
    const from=J[e.from],to=J[e.to];if(!from||!to)continue;
    direction.set(to[0]-from[0],to[2]-from[2],to[1]-from[1]);
    if(direction.lengthSq()<1e-8)continue;
@@ -115,6 +108,17 @@ export function createHomeBoneRig(root){
    local.copy(parentWorld).invert().multiply(boneWorld);
    if(Number.isFinite(local.x+local.y+local.z+local.w))e.bone.quaternion.slerp(local,weight);
    e.bone.updateMatrixWorld(true);
+  }
+  // Some real Mixamo models have coincident toe/foot bone origins. These
+  // bones are absent from directional entries but still move the skinned feet.
+  // Apply sockets to every named joint in anatomical parent-to-child order.
+  for(const name of ANCHOR_BONES){
+   const bone=byName.get(name),anchor=anchors[name];
+   if(!bone?.parent||!anchor||anchor.length!==3||!anchor.every(Number.isFinite))continue;
+   target.set(anchor[0],anchor[2]+elevation,anchor[1]);
+   bone.parent.worldToLocal(target);
+   bone.position.lerp(target,weight);
+   bone.updateMatrixWorld(true);
   }
   return true;
  }
