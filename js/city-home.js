@@ -24,6 +24,12 @@ const CityHome=(()=>{
  ['mirror','Espelho','Decoração',270,.85,.13,1.58,'#a8c6d3','#506d7a'],
  ['toilet','Vaso sanitário','Banheiro',690,.5,.73,.81,'#f3f4f4','#bec4c7'],
  ['shower','Box de banho','Banheiro',1550,.9,.9,1.95,'#b7dee8','#789eaa'],
+ ['plant','Planta ornamental','Decoração',220,.44,.44,.74,'#469568','#42614c'],
+ ['bookstack','Livros decorativos','Decoração',85,.34,.26,.2,'#c68664','#b26d45'],
+ ['microwave','Micro-ondas','Cozinha',510,.48,.37,.32,'#e6e3df','#aab5c1'],
+ ['lampdesk','Abajur','Decoração',370,.32,.32,.58,'#ffdb9e','#c3ab8f'],
+ ['lamp','Luminária de chão','Decoração',640,.4,.4,1.68,'#ffdfae','#897c6c'],
+ ['sectional','Sofá modular','Sala',2100,2.45,.9,.87,'#788f9c','#526777'],
  ];
  const defs=Object.fromEntries(catalog.map(([kind,name,category,price,w,d,h,top,side])=>[kind,{kind,name,category,price,w,d,h,top,side}]));
  const KEY='cityofgod.home-furniture.v1',MAX=220;
@@ -31,7 +37,8 @@ const CityHome=(()=>{
  // while still rejecting any true intersection.
  const WALL_GAP=.025,CONTACT_GAP=.012,SNAP_RANGE=.34;
  const customColors=new Set(['sofa','couch','chair','table','tv','screen','rug','shelf','cabinet','fridge',
-   'stove','sink','counter','bed','mattress','wardrobe','desk','studentdesk','mirror','toilet','shower']);
+   'stove','sink','counter','bed','mattress','wardrobe','desk','studentdesk','mirror','toilet','shower',
+   'plant','bookstack','microwave','lampdesk','lamp','sectional']);
  const colorValid=c=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c);
  const copy=o=>JSON.parse(JSON.stringify(o));
  const safeId=()=>String(Date.now())+'-'+Math.random().toString(36).slice(2,10);
@@ -51,6 +58,7 @@ const CityHome=(()=>{
  const isStored=r=>r.status==='stored';
  const numericRow=(r)=>{
    const base=defs[r.kind];
+   if(r.supportId!=null&&typeof r.supportId!=='string')return false;
    return !!base&&typeof r.id==='string'&&r.id.length<110&&['placed','stored','sold'].includes(r.status)&&
     [r.x,r.y,r.rot,r.w,r.d,r.h,r.z].every(Number.isFinite)&&Number.isInteger(r.floor)&&r.floor>=0&&r.floor<20&&
     r.w>0&&r.d>0&&r.w<8&&r.d<8;
@@ -73,7 +81,7 @@ const CityHome=(()=>{
    return {id,kind:b.kind,status,x:finite(b.x),y:finite(b.y),z:finite(b.z),
     rot:finite(b.rot),w:finite(b.w,.8),d:finite(b.d,.8),h:finite(b.h,.8),
     floor:Math.max(0,Math.round(b.floor||0)),top:b.top||defs[b.kind].top,side:b.side||defs[b.kind].side,
-    solid:b.solid!==false};
+    solid:b.solid!==false,supportId:b.supportId||null};
  }
  function normalize(H){
    const parts=boxes.filter(b=>b.house===H&&eligible(b)&&!b.homeManaged);
@@ -168,11 +176,27 @@ const CityHome=(()=>{
    }
    return true;
  }
- function check(H,proposed,ignoreId=null){
+ function check(H,proposed,ignoreId=null,ignorePlayer=false){
    if(!owned(H))return {ok:false,text:'Você não é dono deste imóvel'};
    if(!numericRow(proposed))return {ok:false,text:'Dimensões inválidas'};
    if(proposed.floor>=Math.max(1,H.architecture?.levels?.length||(H.upper?2:1)))return {ok:false,text:'Andar inválido'};
    const P=corners(proposed),pad=WALL_GAP*.6,level=H.architecture?.levels?.[proposed.floor];
+   if(proposed.supportId){
+     if(!['plant','bookstack','microwave','lampdesk'].includes(proposed.kind))
+       return {ok:false,text:'Este objeto não pode ser apoiado'};
+     const host=get(H)?.items.find(r=>r.id===proposed.supportId);
+     if(!host||host.status!=='placed'||host.floor!==proposed.floor||
+       !['table','desk','studentdesk','counter','cabinet','shelf'].includes(host.kind))
+       return {ok:false,text:'Superfície de apoio inválida'};
+     const dx=proposed.x-host.x,dy=proposed.y-host.y,
+       c=Math.cos(host.rot||0),q=Math.sin(host.rot||0),
+       u=dx*c+dy*q,v=-dx*q+dy*c;
+     if(Math.abs(u)>Math.max(.08,(host.w-proposed.w)/2-.04)||
+         Math.abs(v)>Math.max(.08,(host.d-proposed.d)/2-.04))
+       return {ok:false,text:'Mantenha o objeto dentro da superfície'};
+     if(Math.abs(proposed.z-(host.z+host.h))>.08)
+       return {ok:false,text:'Altura de apoio incorreta'};
+   }
    if(level){
      const local=H.architecture.toLocal;
      const inside=r=>P.every(([x,y])=>{const [u,v]=local(x,y);return u>r.x0+pad&&u<r.x1-pad&&v>r.y0+pad&&v<r.y1-pad;});
@@ -210,13 +234,16 @@ const CityHome=(()=>{
      }
    }
    const player=window.__game?.player;
-   if(player&&(player.floor||0)===proposed.floor&&proposed.solid!==false){
+   if(!ignorePlayer&&player&&(player.floor||0)===proposed.floor&&proposed.solid!==false){
      const actor={kind:'chair',x:player.x,y:player.y,rot:0,w:.65,d:.65};
      if(overlap(actor,proposed,.15))return {ok:false,text:'Libere espaço para o personagem'};
    }
    const data=get(H);
    for(const row of data?.items||[]){
      if(row.id===ignoreId||row.status!=='placed'||row.floor!==proposed.floor)continue;
+     if(proposed.supportId===row.id)continue;
+     if(proposed.supportId&&row.z+row.h<=proposed.z+.01)continue;
+     if(row.supportId&&proposed.z+proposed.h<=row.z+.01)continue;
      if(['rug','mirror','screen','tv'].includes(row.kind)||['rug','mirror','screen','tv'].includes(proposed.kind))continue;
      if(overlap(row,proposed))return {ok:false,text:'Há outro móvel ocupando esse espaço'};
    }
@@ -292,13 +319,24 @@ const CityHome=(()=>{
    const proposed={...old,x:Math.round(finite(next.x,NaN)*100)/100,y:Math.round(finite(next.y,NaN)*100)/100,
       rot:finite(next.rot,old.rot)};
    const validation=check(H,proposed,id);if(!validation.ok)return validation;
-   return commit(H,items=>Object.assign(items.find(i=>i.id===id),{x:proposed.x,y:proposed.y,rot:proposed.rot}));
+   return commit(H,items=>{
+     Object.assign(items.find(i=>i.id===id),{x:proposed.x,y:proposed.y,rot:proposed.rot});
+     const dx=proposed.x-old.x,dy=proposed.y-old.y;
+     for(const child of items.filter(i=>i.supportId===id&&i.status==='placed')){
+       child.x+=dx;child.y+=dy;child.rot+=proposed.rot-old.rot;
+     }
+   });
  }
  function store(H,id){
    if(!owned(H))return {ok:false,text:'Acesso negado'};
    sync(H);const item=find(H,id);
    if(!item||item.status!=='placed')return {ok:false,text:'Móvel não está no ambiente'};
-   return commit(H,items=>{items.find(i=>i.id===id).status='stored';});
+   return commit(H,items=>{
+     items.find(i=>i.id===id).status='stored';
+     for(const child of items.filter(i=>i.supportId===id&&i.status==='placed')){
+       child.status='stored';child.supportId=null;child.z=0;
+     }
+   });
  }
  function buy(H,kind,chosenColor=null){
    if(!owned(H))return {ok:false,text:'Acesso negado'};
@@ -312,7 +350,7 @@ const CityHome=(()=>{
    const homePoint=H.architecture?H.architecture.toWorld(H.architecture.width*.25,H.architecture.depth*.25):
      [(H.x0+H.x1)/2,(H.y0+H.y1)/2];
    data.items.push({...d,top:selectedColor,side:selectedColor,id:'purchased-'+safeId(),status:'stored',
-     x:homePoint[0],y:homePoint[1],rot:0,z:0,floor,solid:!['rug','mirror','screen','tv'].includes(kind)});
+     x:homePoint[0],y:homePoint[1],rot:0,z:0,floor,solid:!['rug','mirror','screen','tv','plant','bookstack','microwave','lampdesk'].includes(kind)});
    if(!persist()){
      data.items=old;CityLife.credit(d.price,'Estorno Bellavista Home');return {ok:false,text:'Erro ao salvar a compra; valor estornado'};
    }
@@ -325,7 +363,7 @@ const CityHome=(()=>{
    const item=find(H,id);if(!item||item.status!=='stored')return {ok:false,text:'Móvel não está guardado'};
    const floor=Math.max(0,Math.round(finite(next.floor,0)));
    const row={...item,status:'placed',x:Math.round(next.x*100)/100,y:Math.round(next.y*100)/100,
-       rot:finite(next.rot,0),floor,z:H.architecture?.levels?.[floor]?.z||floor*(H.floorHeight||3)};
+       rot:finite(next.rot,0),floor,z:H.architecture?.levels?.[floor]?.z||floor*(H.floorHeight||3),supportId:null};
    const validation=check(H,row,id);if(!validation.ok)return validation;
    return commit(H,items=>Object.assign(items.find(i=>i.id===id),row));
  }
@@ -333,7 +371,12 @@ const CityHome=(()=>{
    if(!owned(H))return {ok:false,text:'Acesso negado'};
    sync(H);const row=find(H,id);if(!row||row.status==='sold')return {ok:false,text:'Móvel indisponível'};
    const value=Math.round((defs[row.kind]?.price||0)*.5);
-   const result=commit(H,items=>{items.find(i=>i.id===id).status='sold';});
+   const result=commit(H,items=>{
+     items.find(i=>i.id===id).status='sold';
+     for(const child of items.filter(i=>i.supportId===id&&i.status==='placed')){
+       child.status='stored';child.supportId=null;child.z=0;
+     }
+   });
    if(result.ok){undoLog.delete(key(H));CityLife.credit(value,'Venda de móvel · '+label(row.kind));result.text='Vendido por '+CityLife.money(value);}
    return result;
  }
@@ -352,11 +395,46 @@ const CityHome=(()=>{
    }
    refresh(H);return {ok:true,text:'Última mudança de decoração desfeita'};
  }
+ function mountOn(H,id,hostId){
+   if(!owned(H))return {ok:false,text:'Acesso negado'};
+   sync(H);const item=find(H,id),host=find(H,hostId);
+   if(!item||!host||id===hostId||item.status==='sold')return {ok:false,text:'Item inválido'};
+   const candidates=[[0,0],[-.46,0],[.46,0],[0,-.38],[0,.38],
+     [-.46,-.38],[.46,-.38],[-.46,.38],[.46,.38]];
+   let candidate=null;
+   for(const [u,v] of candidates){
+     const rot=host.rot||0,c=Math.cos(rot),sn=Math.sin(rot);
+     const trial={...item,x:host.x+u*c-v*sn,y:host.y+u*sn+v*c,z:host.z+host.h,
+       floor:host.floor,rot:host.rot,status:'placed',supportId:host.id};
+     if(check(H,trial,item.id).ok){candidate=trial;break;}
+   }
+   if(!candidate)return {ok:false,text:'Não há espaço livre nessa superfície'};
+   return commit(H,items=>Object.assign(items.find(r=>r.id===id),candidate));
+ }
+ function restoreDesign(H,rows){
+   if(!owned(H))return {ok:false,text:'Acesso negado'};
+   sync(H);if(!Array.isArray(rows)||rows.length>220)return {ok:false,text:'Projeto inválido'};
+   const state=get(H),original=state.items,updates=new Map();
+   for(const row of rows){
+     const current=original.find(x=>x.id===row.id);
+     if(!current||current.kind!==row.kind||current.status==='sold'||
+       ![row.x,row.y,row.z,row.rot,row.floor].every(Number.isFinite))
+       return {ok:false,text:'O projeto exige itens ausentes ou inválidos'};
+     updates.set(row.id,{...current,x:row.x,y:row.y,z:row.z,rot:row.rot,floor:row.floor,
+        status:'placed',top:row.top,side:row.side});
+   }
+   state.items=original.map(r=>updates.get(r.id)||r);
+   try{
+     for(const r of updates.values()){const valid=check(H,r,r.id,true);if(!valid.ok)
+       return {ok:false,text:'Projeto não cabe: '+valid.text};}
+   }finally{state.items=original;}
+   return commit(H,items=>items.forEach(row=>{const u=updates.get(row.id);if(u)Object.assign(row,u);}));
+ }
  function nearbyItems(H,floor){return boxes.filter(b=>b.house===H&&b.homeManaged&&(b.floor||0)===floor);}
  function inventory(H){return get(H)?.items.filter(i=>i.status==='stored')||[];}
  function placed(H){return get(H)?.items.filter(i=>i.status==='placed')||[];}
  return {catalog:defs,list:Object.values(defs),init,sync,tick,houseAt,owned,key,inventory,placed,nearbyItems,
-   find,check,snap,move,store,buy,place,sell,recolor,undo,refresh,
+   find,check,snap,move,store,buy,place,sell,recolor,mountOn,restoreDesign,undo,refresh,
    get saved(){return saves;},get active(){return loaded;}};
 })();
 window.CityHome=CityHome;

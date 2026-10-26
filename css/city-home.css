@@ -119,3 +119,31 @@ body.city-home-open #view:active{cursor:grabbing!important;}
  .home-catalog-detail{gap:5px!important}
  .home-product-head strong{font-size:11px}
 }
+
+/* City Home Plus 2: advanced interior tabs and functional home panels. */
+#city-home-builder .home-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:4px;padding:9px}
+#city-home-builder .home-tabs button{font-size:10px;min-height:35px;padding:5px 3px}
+.home-plus-tile{display:flex;flex-wrap:wrap;align-items:center;gap:7px;background:linear-gradient(120deg,#213241bb,#182635bb);
+ padding:10px;border:1px solid #ffffff21;border-radius:12px;margin:8px 0;font-size:11px}
+.home-plus-tile>b{flex:1;min-width:100px;font-weight:800}.home-plus-tile>small{color:#89c9cc}
+#city-home-builder .home-plus-button{background:#245566!important;color:#eaf8fb!important;
+ padding:7px 9px;font-size:10px;font-weight:750;border:1px solid #81d6d07c!important}
+#city-home-builder .home-plus-button:hover{background:#277c88!important}
+.home-finish-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;width:100%}
+.home-finish-option{display:flex;flex-wrap:wrap;gap:4px;align-items:center;background:#121d2cc7;
+ border:1px solid #7798ae36;padding:6px;border-radius:10px;min-width:0}
+.home-finish-option i{display:block;width:35px;height:26px;border-radius:5px;border:1px solid #fff6}
+.home-finish-option small{flex:1;min-width:55px;font-size:10px;color:#bdd7de}
+.home-finish-option .home-plus-button{font-size:9px!important;padding:5px 7px!important}
+.home-plus-list{display:grid;gap:4px}
+.home-plus-actions{display:flex;flex-wrap:wrap;gap:5px;width:100%}
+.home-plus-label{display:grid;gap:5px;font-size:11px;color:#b1ced5;margin:10px 0}
+.home-plus-label input{padding:11px 12px;border-radius:9px;background:#081924;
+ border:1px solid #69a3ac99;color:#fff;outline-offset:3px;font:12px system-ui}
+.home-condition{display:flex;align-items:center;gap:12px;margin:14px 0;
+ border-radius:14px;background:#22696854;border:1px solid #72c9b579;padding:15px}
+.home-condition strong{font-size:30px;font-weight:850;color:#8affcf}
+.home-condition span{color:#dbf1e9;font-size:12px}
+#city-home-builder .home-shop-content>h3{font-size:14px;margin:14px 4px 6px;color:#d4fff3}
+#city-home-builder .home-shop-content>p{color:#b6d1db;line-height:1.5;font-size:11px}
+@media(max-height:750px){#city-home-builder .home-tabs button{min-height:28px;padding:3px}}

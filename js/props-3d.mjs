@@ -19,6 +19,45 @@ export function createProps(THREE, scene, bridge) {
   const CHROME = '#c9ced2', DARK = '#2b2d30', WHITE = '#ecebe6', WOOD = '#8a6446', WOODL = '#b08a62';
   const M = {};
   M.chair={dims:[.5,.85,.55],tinted:true,make(k,c){chair(k,0,0,0,c);}};
+  M.plant={dims:[.44,.74,.44],tinted:true,make(k,c){
+    k.cyl(0,0,0,.15,.27,c||'#a07853',14);
+    k.cyl(0,.27,0,.035,.59,'#386d48',8);
+    for(let i=0;i<7;i++){const a=i*Math.PI*2/7;
+      k.sph(Math.cos(a)*.12,.51+Math.sin(i*17)*.1,Math.sin(a)*.12,.16,
+       i%2?'#357b53':'#5ca77a');}
+  }};
+  M.bookstack={dims:[.34,.2,.26],tinted:true,make(k,c){
+    for(let i=0;i<4;i++){
+      k.box(-.16,.02+i*.05,-.12,.16,.06+i*.05,.12,i===0?(c||'#bd805d'):i%2?'#567891':'#d5aa67',.01);
+      k.box(-.15,.04+i*.05,-.123,.15,.045+i*.05,-.12,'#ece2c8');
+    }
+  }};
+  M.microwave={dims:[.48,.32,.37],tinted:true,make(k,c){
+    k.box(-.24,0,-.18,.24,.32,.18,c||'#dce1e5',.035);
+    k.box(-.205,.07,.183,.105,.275,.194,'#212c38',.01);
+    k.box(.14,.07,.185,.21,.26,.195,'#333f4a',.006);
+    for(let y=.1;y<.24;y+=.055)k.sph(.175,y,.195,.008,'#a8e4fd');
+  }};
+  M.lampdesk={dims:[.32,.58,.32],tinted:true,make(k,c){
+    k.cyl(0,0,0,.1,.04,'#8b7a68',12);
+    k.cyl(0,.03,0,.025,.34,'#b7ac91',10);
+    k.cyl(0,.29,0,.075,.56,c||'#efd3ac',14,.15);
+    k.sph(0,.42,0,.085,'#fff2cb',.8);
+  }};
+  M.lamp={dims:[.4,1.68,.4],tinted:true,make(k,c){
+    k.cyl(0,0,0,.18,.05,'#8a8078',14);
+    k.cyl(0,.04,0,.035,1.36,'#b4b2b0',10);
+    k.cyl(0,1.28,0,.12,1.67,c||'#f6daa9',16,.19);
+    k.sph(0,1.43,0,.13,'#ffecc4');
+  }};
+  M.sectional={dims:[2.45,.87,.9],tinted:true,make(k,c){
+    const x=c||'#728b99',dark=new THREE.Color(col(x)).multiplyScalar(.78);
+    k.box(-1.22,.16,-.43,1.22,.52,.43,x,.13);
+    k.box(-1.22,.5,-.45,1.22,.87,-.21,dark,.065);
+    k.box(-1.22,.31,-.44,-.99,.68,.44,x,.06);
+    k.box(.99,.31,-.44,1.22,.68,.44,x,.06);
+    for(let i=0;i<3;i++)k.box(-1.02+i*.7,.43,-.18,-.35+i*.7,.57,.38,x,.06);
+  }};
   M.studentdesk={dims:[1.2,.75,.65],tinted:true,make(k,c){
     for(const x of [-.5,.5])for(const z of [-.23,.23])k.cyl(x,0,z,.025,.71,'#687780',6);
     k.box(-.6,.7,-.325,.6,.75,.325,c||'#bf9b68',.025);k.box(-.18,.75,-.13,.14,.765,.1,'#e8e4da');

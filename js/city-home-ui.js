@@ -105,9 +105,9 @@ const CityHomeUI=(()=>{
    if(!active||!H)return;
    const root=ensure();
    const data=CityHome.placed(H),stock=CityHome.inventory(H),balance=CityLife.funds;
-   const tabs=['shop','stock','edit'];
+   const tabs=['shop','stock','edit','renovate','lighting','blueprints','living','guests','maintenance'];
    const nav=tabs.map(t=>'<button data-home-action="tab" data-value="'+t+'" class="'+(tab===t?'on':'')+'">'+
-     ({shop:'🛒 Loja',stock:'📦 Estoque',edit:'🏡 Ambientes'})[t]+'</button>').join('');
+     ({shop:'🛒 Loja',stock:'📦 Estoque',edit:'🏡 Ambientes',renovate:'🎨 Reforma',lighting:'💡 Luz',blueprints:'📐 Projetos',living:'🛋️ Viver',guests:'🔐 Convites',maintenance:'🧽 Cuidar'})[t]+'</button>').join('');
    let rows='';
    if(tab==='shop'){
      rows='<p class="home-copy">Veja o modelo 3D, escolha o acabamento e compre para sua casa.</p>'+
@@ -115,12 +115,13 @@ const CityHomeUI=(()=>{
    }else if(tab==='stock'){
      rows=stock.length?stock.map(item=>'<div class="home-product">'+photo(item.kind,item.top)+'<div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>Pronto para posicionar</small></div>'+
       '<button data-home-action="place" data-value="'+uiId(item.id)+'">Colocar</button><button class="quiet" data-home-action="sell" data-value="'+uiId(item.id)+'">Vender</button></div>').join(''):'<p class="home-empty">O estoque está vazio. Guarde um móvel ou compre novos na loja.</p>';
-   }else{
+   }else if(tab==='edit'){
      const onFloor=data.filter(item=>item.floor===floor);
      rows='<p class="home-copy">Clique em um móvel no ambiente para arrastar e girar, ou selecione aqui.</p>'+
        (onFloor.length?onFloor.map(item=>'<div class="home-product">'+photo(item.kind,item.top)+'<div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>'+Math.round(item.x)+', '+Math.round(item.y)+' · '+Math.round(item.rot*180/Math.PI)+'°</small></div>'+
         '<button data-home-action="move" data-value="'+uiId(item.id)+'">Mover</button><button class="quiet" data-home-action="store" data-value="'+uiId(item.id)+'">Guardar</button></div>').join(''):'<p class="home-empty">Sem móveis neste andar.</p>');
    }
+   else rows=window.CityHomePlusUI?.render(H,tab,floor)||'<p>Indisponível</p>';
    const fcount=H.architecture?.levels?.length||(H.upper?2:1);
    const previousScroll=root.querySelector('.home-shop-content')?.scrollTop||0;
    root.innerHTML='<div class="home-header"><div><span>CITY OF GOD · INTERIORES</span><h2>City Home</h2><p>'+esc(CityRealty.name(H))+' · '+(floor+1)+'º pavimento</p></div><button class="home-close" data-home-action="close" aria-label="Sair do modo decoração">✕</button></div>'+
@@ -140,6 +141,14 @@ const CityHomeUI=(()=>{
    const el=document.createElement('aside');el.id='city-home-builder';el.hidden=true;el.setAttribute('aria-label','Modo decoração da casa');
    document.body.appendChild(el);panel=el;
    el.addEventListener('click',e=>{
+     const extra=e.target.closest('[data-home-extra]');
+     if(extra){
+       const result=window.CityHomePlusUI?.act(H,extra.dataset.homeExtra);
+       if(extra.dataset.homeExtra.startsWith('use|')&&result?.ok){
+         close();message(result.text,true);return;
+       }
+       renderPanel();message(result?.text||'Ação concluída',!!result?.ok);return;
+     }
      const btn=e.target.closest('[data-home-action]');if(!btn)return;
      const action=btn.dataset.homeAction,value=decodeURIComponent(btn.dataset.value||'');
      if(action==='close'){close();return;}
@@ -284,7 +293,7 @@ const CityHomeUI=(()=>{
    const p=window.__game?.player,now=typeof performance!=='undefined'?performance.now():Date.now();
    if(now-lastCheck<700)return;lastCheck=now;
    const home=canStart()?inside(p):null;
-   if(home)CityHome.sync(home);
+   if(home){CityHome.sync(home);window.CityHomePlus?.tick(p);}
    if(entry){entry.hidden=!home;}
  }
  function draw(h){

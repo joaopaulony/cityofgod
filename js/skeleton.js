@@ -114,6 +114,21 @@ function animate(a, dt) {
     p = blendPose(p, rp, w);
     if (a.reloadT >= RELOAD.dur) a.reloadT = -1;
   }
+  // Domestic activity animation uses the same procedural skeleton and IK.
+  // The player can walk away: actions naturally terminate after their duration.
+  if(a.homeAction){
+    const state=a.homeAction;
+    state.t=Math.max(0,state.t+Math.max(0,dt));
+    const seated=['sit','watch','work'].includes(state.kind),sleep=state.kind==='sleep';
+    const pose=P({crouch:sleep?.68:seated?.52:.12,
+      lean:sleep?.57:seated?.09:.17,bz:sleep?.75:seated?.98:1.28,
+      bx:.10,by:-.1,pitch:sleep?-.25:0,
+      twist:Math.sin(state.t*(seated?1.4:4))*(seated?.035:.18),
+      headPitch:sleep?.36:seated?.09:.17,lhHG:0});
+    const blend=Math.min(1,state.t/.35,(state.duration-state.t)/.45);
+    p=blendPose(p,pose,Math.max(0,blend));
+    if(state.t>=state.duration)a.homeAction=null;
+  }
   if (!a.armed) p = Object.assign({}, p, { lhHG: 0 });
   if(a.crouching){p.crouch+=.34;p.lean+=.1;p.bz-=.24;}
   if(a.traversal){const w=Math.sin(Math.PI*a.traversal.t/a.traversal.duration);p.lean+=.3*w;p.crouch+=.1*w;}

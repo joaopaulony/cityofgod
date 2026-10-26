@@ -58,3 +58,28 @@ Executar:
 - npm run build:site
 
 Os testes automatizados checam encaixe em casas rotacionadas, passagem de portas, cor e saldo após compra, persistência e ponte com o renderizador. Recomenda-se também conferir o aspecto das miniaturas, zoom e paredes dentro da casa em um navegador real.
+
+
+## City Home Plus — interiores funcionais (sem decoração externa)
+
+Esta etapa amplia exclusivamente o interior das residências compradas. Disponível pelo modo Decoração (F7).
+
+**Reforma:** aba Reforma permite aplicar oito combinações de parede e piso separadamente, por cômodo real e por andar, com custo proporcional à área. Sem reforma, o acabamento original do prédio é preservado. A geometria interna da arquitetura é reconstruída quando muda a versão dos acabamentos.
+
+**Iluminação:** 12 luminárias configuráveis por propriedade (cores quente, neutra, luz do dia, roxo e ciano), com controle de brilho e interruptor. No 3D, no máximo duas luzes pontuais do interior visível ficam ativas simultaneamente, sem sombras dinâmicas adicionais. Não muda os postes da cidade.
+
+**Objetos apoiados e móveis modulares:** novas peças no catálogo (plantas, pilhas de livros, micro-ondas, abajures, luminárias e sofás modulares). A aba Viver permite apoiar objetos pequenos sobre mesas, balcões, escrivaninhas e estantes. A colocação respeita limites de superfície, evita colisão entre peças pequenas e guarda seus IDs de apoio. Ao deslocar ou guardar o móvel-base, os itens apoiados acompanham o movimento ou retornam ao estoque. Sofás modulares e balcões podem compor conjuntos com o encaixe magnético já existente; ainda não possuem costura dinâmica de malhas.
+
+**Atividades domésticas:** a aba Viver permite interagir com camas, cadeiras, sofás, televisão, fogão, geladeira, pia, chuveiro e outros itens já colocados. Aproveita as necessidades existentes em CityLife e aciona poses procedurais curtas no personagem. Interações ainda não incluem animações de mãos detalhadas, reconhecimento de todos os obstáculos nem navegação autônoma por NPCs.
+
+**Projetos:** até seis projetos por propriedade; armazenam posicionamento e acabamentos e podem ser restaurados apenas com os móveis que o jogador já possui. Aplicar um projeto não compra nem cria objetos.
+
+**Convidados:** modo privado ou amigos e lista local de até dez nomes. Trata-se de uma preferência preparada para futura integração com contas e convites de NPCs/jogadores. **Não concede acesso a outros jogadores de verdade e não substitui validação de permissão no servidor.**
+
+**Manutenção:** nível de conservação, desgaste por dias do jogo, serviços de limpeza e reparo pagos, valor estimado do imóvel com móveis e reformas. As contas gerais continuam no CitySim. A avaliação do imóvel é informativa; revenda imobiliária não foi implementada nesta etapa.
+
+**Persistência:** localStorage com chave `cityofgod.home-plus.v1` para reformas, lâmpadas e manutenção, e `cityofgod.home-designs.v1` para projetos. O mobiliário continua em `cityofgod.home-furniture.v1`. Nada disso é sincronizado entre usuários ou servidores; limpar dados locais perde as alterações.
+
+**Performance:** iluminação ativa limitada a dois PointLights sem sombras, decoração e acabamentos regenerados apenas em mudança relevante, modelos 3D procedurais já usados no projeto, dados versionados por residência, limite de 220 objetos por casa.
+
+**Testes:** `node --test tests/city-home-plus.test.cjs`, a suíte completa do GitHub e o build estático. Validação visual no navegador ainda é necessária para aparências finais e o alinhamento das poses.
