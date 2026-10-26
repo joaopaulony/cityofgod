@@ -18,7 +18,7 @@
    const pt=H.architecture.toLocal(x,y);
    // Rooms, not balcony/outdoor polygons. The highest occupied floor has a roof;
    // lower floors are protected by the upper slab.
-   return H.architecture.levels?.some(l=>((l.z??l.floor*(H.floorHeight||3))+(H.floorHeight||3))>z+.01&&
+   return H.architecture.levels?.some(l=>((l.z??((l.floor||0)*(H.floorHeight||3)))+(H.floorHeight||3))>z+.01&&
      l.rooms?.some(r=>inRect(r,pt[0],pt[1],.04)))||false;
   }
   if(z>(H.h||3)+.6)return false;
