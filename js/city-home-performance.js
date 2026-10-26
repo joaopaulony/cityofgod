@@ -23,9 +23,10 @@ const CityHomePerformance=(()=>{
   const f=item.floor||0,bed=kind==='sleep',seat=kind==='sit'||kind==='toilet';
   // Sofa faces +V; chair and toilet face -V; bed entered from the side. Seated actors rotate to face outward before moving hips backwards.
   const front=item.kind==='chair'||item.kind==='toilet'?-1:1;
+  const clearance=seat?.52:.34;
   const choices=bed?[[item.w/2+.56,0],[-item.w/2-.56,0]]:
-   [[0,front*(item.d/2+.52)],[-Math.min(item.w*.18,.35),front*(item.d/2+.52)],
-    [Math.min(item.w*.18,.35),front*(item.d/2+.52)]];
+   [[0,front*(item.d/2+clearance)],[-Math.min(item.w*.18,.35),front*(item.d/2+clearance)],
+    [Math.min(item.w*.18,.35),front*(item.d/2+clearance)]];
   if(!bed&&!seat)choices.push([item.w/2+.54,0],[-item.w/2-.54,0]);
   let best=null;
   for(const [u,v] of choices){
@@ -98,6 +99,9 @@ const CityHomePerformance=(()=>{
    const seatHeight=bed?Math.min(.55,Math.max(.32,item.h*.73)):toilet?.43:item.kind==='chair'?.45:.43;
    const seatWeight=anim.occupied,reclineWeight=anim.reclining;
    const pelvis=[target.x,target.y,seatHeight+anim.breathe*seatWeight];
+   // The feet must follow the sit-down step instead of staying at the distant
+   // walking socket: otherwise the thighs are longer than the IK chain.
+   const footLine=position(item,0,(item.kind==='chair'||toilet?-1:1)*(item.d/2+.16));
    const lateral=[-fwd[1],fwd[0],0],body=[...pelvis];
    const newChest=[body[0]+fwd[0]*.06,body[1]+fwd[1]*.06,body[2]+.47];
    const neck=[newChest[0],newChest[1],newChest[2]+.12],head=[neck[0]+fwd[0]*.025,neck[1]+fwd[1]*.025,neck[2]+.14];
@@ -107,10 +111,17 @@ const CityHomePerformance=(()=>{
     const sign=side==='L'?1:-1;
     const hip=[pelvis[0]+lateral[0]*sign*.11,pelvis[1]+lateral[1]*sign*.11,pelvis[2]];
     move(J,'hip'+side,hip,seatWeight);
-    const anchor=original['ank'+side],baseHip=J['hip'+side];
+    const baseHip=J['hip'+side];
+    const planted=original['ank'+side];
+    const foot=bed?planted:[footLine.x+lateral[0]*sign*.11,
+      footLine.y+lateral[1]*sign*.11,.08];
+    const anchor=vec(planted,foot,seatWeight);
     const knee=poleIK(baseHip,anchor,.46,.45,[fwd[0],fwd[1],.25]);
     move(J,'knee'+side,knee.mid,seatWeight);
-    // Foot remains planted at the docking position, barring bed recline.
+    if(!bed){
+     move(J,'ank'+side,knee.end,seatWeight);
+     move(J,'toe'+side,[knee.end[0]+fwd[0]*.16,knee.end[1]+fwd[1]*.16,.03],seatWeight);
+    }
    }
    move(J,'chest',newChest,seatWeight);move(J,'neck',neck,seatWeight);move(J,'head',head,seatWeight);
    for(const side of ['L','R']){
@@ -121,8 +132,10 @@ const CityHomePerformance=(()=>{
    }
    if(bed&&reclineWeight>0){
     const direction=[-v[0],-v[1],0],foot=[v[0],v[1],0];
-    const sleepPelvis=[target.x,target.y,Math.max(.48,item.h*.75)];
-    const sleepChest=[sleepPelvis[0]+direction[0]*.44,sleepPelvis[1]+direction[1]*.44,sleepPelvis[2]+.015];
+    // Bed GLB surface is at 0.52-0.60 m with a blanket at 0.57 m;
+    // lift the joint above the blanket so the torso doesn't sink into it.
+    const sleepPelvis=[target.x,target.y,Math.max(.64,item.h*.93)];
+    const sleepChest=[sleepPelvis[0]+direction[0]*.44,sleepPelvis[1]+direction[1]*.44,sleepPelvis[2]+.04+anim.breathe];
     const sleepNeck=[sleepChest[0]+direction[0]*.12,sleepChest[1]+direction[1]*.12,sleepChest[2]+.015];
     const sleepHead=[sleepNeck[0]+direction[0]*.15,sleepNeck[1]+direction[1]*.15,sleepNeck[2]+.04];
     const side=[-direction[1],direction[0]];
@@ -147,7 +160,7 @@ const CityHomePerformance=(()=>{
    const active=anim.reach;
    if(!active)return J;
    const mid=position(item,0,item.d*.12),left=[-fwd[1],fwd[0]];
-   const reachHeight=kind==='cook'?.88:kind==='wash'?.92:kind==='work'?.75:1.42;
+   const reachHeight=kind==='cook'?Math.min(1.04,Math.max(.82,item.h+.03)):kind==='wash'?.92:kind==='work'?.75:1.42;
    const swing=Math.sin(anim.phase),r=Math.cos(anim.phase*.72);
    move(J,'chest',[J.chest[0]+fwd[0]*.055,J.chest[1]+fwd[1]*.055,J.chest[2]-.025],active);
    for(const [side,sign] of [['L',1],['R',-1]]){
