@@ -29,12 +29,13 @@ export function createHomeBoneRig(root){
   const v=child?child.getWorldPosition(new THREE.Vector3()):p.clone().add(new THREE.Vector3(0,.1,0));
   const dir=v.sub(p);
   if(dir.lengthSq()<1e-8)continue;
-  entries.push({bone,from,to,dir:dir.normalize(),bind:bone.getWorldQuaternion(new THREE.Quaternion())});
+  entries.push({bone,child:child||null,from,to,bindDirection:dir.normalize()});
  }
  const hip=byName.get('Hips');
  const point=new THREE.Vector3(),parentWorld=new THREE.Quaternion(),rootWorld=new THREE.Quaternion();
- const direction=new THREE.Vector3(),rest=new THREE.Vector3(),delta=new THREE.Quaternion();
- const boneWorld=new THREE.Quaternion(),local=new THREE.Quaternion(),target=new THREE.Vector3();
+ const direction=new THREE.Vector3(),actual=new THREE.Vector3(),delta=new THREE.Quaternion();
+ const boneWorld=new THREE.Quaternion(),local=new THREE.Quaternion(),target=new THREE.Vector3(),
+  childPosition=new THREE.Vector3(),bonePosition=new THREE.Vector3();
  const originalHip=hip.position.clone();
  let active=false;
  function apply(a){
@@ -60,9 +61,18 @@ export function createHomeBoneRig(root){
    direction.set(to[0]-from[0],to[2]-from[2],to[1]-from[1]);
    if(direction.lengthSq()<1e-8)continue;
    direction.normalize();
-   rest.copy(e.dir).applyQuaternion(rootWorld);
-   delta.setFromUnitVectors(rest,direction);
-   boneWorld.copy(rootWorld).multiply(e.bind);
+   // Measure the live MIXAMO bone segment *after* its parent was modified.
+   // A saved world bind rotation cannot be applied independently on every
+   // spine joint: it cancels the parent's tilt and leaves the actor upright.
+   if(e.child){
+    e.bone.getWorldPosition(bonePosition);
+    e.child.getWorldPosition(childPosition);
+    actual.subVectors(childPosition,bonePosition);
+   }else actual.copy(e.bindDirection).applyQuaternion(rootWorld);
+   if(actual.lengthSq()<1e-8)continue;
+   actual.normalize();
+   delta.setFromUnitVectors(actual,direction);
+   e.bone.getWorldQuaternion(boneWorld);
    boneWorld.premultiply(delta);
    e.bone.parent.getWorldQuaternion(parentWorld);
    local.copy(parentWorld).invert().multiply(boneWorld);
