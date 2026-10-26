@@ -70,6 +70,10 @@ const variants=[
       player:{x:player.x,y:player.y},furniture3d:window.cityVehicles?.props3d?.furniture??null,
       architecture3d:window.cityVehicles?.architecture3d?.properties??null};
    },{kind});
+   if(!setup.error){
+    await page.screenshot({path:OUT+'/'+phase+'-staged.png'});
+    fs.writeFileSync(OUT+'/'+phase+'-setup.json',JSON.stringify(setup,null,2));
+   }
    assert.ok(!setup.error,JSON.stringify(setup));
    assert.equal(setup.houseInside,true,'Player and furniture must be inside visible house: '+JSON.stringify(setup));
    assert.ok(setup.furniture3d>0,'3D furniture not rendered: '+JSON.stringify(setup));
@@ -100,6 +104,9 @@ const variants=[
        .every(arr=>arr.every(Number.isFinite)),
       fixture:{x:item.x,y:item.y,w:item.w,d:item.d,h:item.h,rot:item.rot}};
     },{kind,phase,time:times[i]});
+    frames.push(report);
+    await page.screenshot({path:OUT+'/'+phase+'-'+String(i+1).padStart(2,'0')+'.png'});
+    fs.writeFileSync(OUT+'/report.partial.json',JSON.stringify({status:info,frames},null,2));
     assert.ok(report.finite&&report.character?.visible&&report.rendered?.ready,
       'Real WebGL character missing: '+JSON.stringify(report));
     assert.ok(report.houseInside&&report.furniture3d>0,
@@ -124,8 +131,6 @@ const variants=[
        'Hands are too far above/below stove: '+JSON.stringify(report));
      }
     }
-    frames.push(report);
-    await page.screenshot({path:OUT+'/'+phase+'-'+String(i+1).padStart(2,'0')+'.png'});
    }
    await page.evaluate(()=>{cityVehicleBridge.player.homeAction=null;tick(.016);});
   }
