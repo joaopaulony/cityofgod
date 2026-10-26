@@ -43,6 +43,7 @@ test('seating uses an unobstructed front socket with an exact target',()=>{
  assert.ok(Math.hypot(a.points.at(-1).x-a.stand.x,a.points.at(-1).y-a.stand.y)<.001);
  const ch=f.window.CityHomePerformance.approach(f.H,f.player,f.chair,'sit');
  assert.ok(ch&&ch.stand.y<f.chair.y,'chair back is opposite sofa back');
+ assert.ok(Math.sin(a.face)>.9&&Math.sin(ch.face)<-.9,'sit animation must face outward, away from backrest');
 });
 test('the sleep approach enters from the bed side rather than walking through mattress',()=>{
  const f=fixture(),a=f.window.CityHomePerformance.approach(f.H,f.player,f.bed,'sleep');
@@ -56,7 +57,7 @@ test('arrival, alignment, activity and cancellation never grant early rewards',(
  for(let i=0;i<900&&routine.active;i++){
   routine.tick(.04,f.player,(x,y)=>[x,y],false);
   if(f.player.homeAction){
-   aligned=true;assert.ok(Math.abs(Math.atan2(Math.sin(Math.atan2(f.sofa.y-f.player.y,f.sofa.x-f.player.x)-f.player.face),Math.cos(Math.atan2(f.sofa.y-f.player.y,f.sofa.x-f.player.x)-f.player.face)))<.12,'must face the sofa');
+   aligned=true;assert.ok(Math.sin(f.player.face)>.9,'must rotate to face outward from the sofa');
    assert.equal(f.completed(),0);
   }
  }
@@ -70,7 +71,7 @@ test('arrival, alignment, activity and cancellation never grant early rewards',(
 });
 test('sit: hips lower into sofa, legs remain grounded and hands follow knees',()=>{
  const f=fixture(),p=f.window.CityHomePerformance;
- const a={x:7,y:6.98,face:-Math.PI/2,homeAction:{kind:'sit',item:f.sofa,t:2,duration:p.duration('sit'),socket:{u:0,v:1}}};
+ const a={x:7,y:6.98,face:Math.PI/2,homeAction:{kind:'sit',item:f.sofa,t:2,duration:p.duration('sit'),socket:{u:0,v:1}}};
  const J=joints(a.x,a.y);p.apply(a,J);
  assert.ok(J.pelvis[2]>.35&&J.pelvis[2]<.56);
  assert.ok(Math.abs(J.ankL[2]-.08)<1e-6&&Math.abs(J.ankR[2]-.08)<1e-6);

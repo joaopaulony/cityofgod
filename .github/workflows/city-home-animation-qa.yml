@@ -1,0 +1,42 @@
+name: City Home animation - targeted Chrome QA
+on:
+  pull_request:
+    paths:
+      - 'js/city-home-performance.js'
+      - 'js/home-bone-rig.mjs'
+      - 'js/city-home-routine.js'
+      - 'js/game.js'
+      - 'js/character-webgl.mjs'
+      - 'tests/city-home-performance*'
+      - 'tools/judge-city-home.cjs'
+      - '.github/workflows/city-home-animation-qa.yml'
+permissions:
+  contents: read
+jobs:
+  home-animation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: City Home official judge
+        run: npm run judge:home
+      - name: Compile actual browser bundle
+        run: npm run build
+      - name: Install headless Chrome driver
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Inspect choreographies in Chrome and capture screenshots
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/city-home-animation.log 2>&1 &
+          sleep 2
+          node tests/city-home-performance-browser.cjs
+      - name: Save scene screenshots and geometric report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-home-animation-chrome
+          path: artifacts/city-home-animation/
+          if-no-files-found: ignore

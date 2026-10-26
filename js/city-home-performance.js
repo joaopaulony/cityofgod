@@ -21,7 +21,7 @@ const CityHomePerformance=(()=>{
  function approach(H,actor,item,kind){
   if(!window.CityHomeNav)return null;
   const f=item.floor||0,bed=kind==='sleep',seat=kind==='sit'||kind==='toilet';
-  // Sofa faces +V; chair and toilet face -V; bed entered from the side.
+  // Sofa faces +V; chair and toilet face -V; bed entered from the side. Seated actors rotate to face outward before moving hips backwards.
   const front=item.kind==='chair'||item.kind==='toilet'?-1:1;
   const choices=bed?[[item.w/2+.56,0],[-item.w/2-.56,0]]:
    [[0,front*(item.d/2+.52)],[-Math.min(item.w*.18,.35),front*(item.d/2+.52)],
@@ -46,7 +46,7 @@ const CityHomePerformance=(()=>{
       CityHomeNav.furnitureBlocked(H,f,q[0],q[1],null)){clear=false;break;}
    }
    if(!clear)continue;
-   const heading=Math.atan2(item.y-p.y,item.x-p.x);
+   const heading=Math.atan2(item.y-p.y,item.x-p.x)+(seat&&!bed?Math.PI:0);
    const candidate={...path,points:[...path.points,{x:p.x,y:p.y}],
      stand:p,face:heading,seat:seat||bed,socket:{u,v}};
    if(!best||candidate.distance<best.distance)best=candidate;
