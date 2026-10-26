@@ -45,6 +45,58 @@ const CityHomeUI=(()=>{
    oldFloor=null;oldCamera=null;lastCheck=0;tick();
  }
  const tintPresets=['#627d9b','#ae8273','#728e77','#c9b18b','#9675a8','#d3d8dd'];
+ const chosenPaint=Object.create(null);
+ let photoSerial=0,inspected=null;
+ const paintOf=kind=>chosenPaint[kind]||CityHome.catalog[kind]?.top||'#8a98ad';
+ function photo(kind,color,large=false){
+   const fallback={sofa:'🛋️',couch:'🛋️',chair:'🪑',table:'🪑',tv:'📺',screen:'🖥️',
+     rug:'◈',shelf:'📚',cabinet:'🚪',fridge:'🧊',stove:'🍳',sink:'🚰',counter:'🗄️',
+     bed:'🛏️',mattress:'🛏️',wardrobe:'🚪',desk:'🖥️',studentdesk:'📚',mirror:'🪞',
+     toilet:'🚽',shower:'🚿'};
+   return '<span class="home-photo'+(large?' home-photo-large':'')+'">'+
+     '<span class="home-photo-placeholder">'+(fallback[kind]||'◈')+'</span><img alt="Modelo 3D '+esc(CityHome.catalog[kind]?.name||kind)+
+     '" data-preview-kind="'+kind+'" data-preview-color="'+esc(color)+'"></span>';
+ }
+ function palette(kind){
+   const active=paintOf(kind);
+   return '<div class="home-finish" role="group" aria-label="Cor de '+esc(CityHome.catalog[kind].name)+'">'+
+     '<span>Acabamento</span>'+tintPresets.map(color=>
+       '<button type="button" class="home-swatch '+(color.toLowerCase()===active.toLowerCase()?'on':'')+
+       '" data-home-action="variant" data-value="'+kind+'" data-color="'+color+
+       '" style="--swatch:'+color+'" title="Cor '+color+'" aria-label="Cor '+color+'" aria-pressed="'+
+       String(color.toLowerCase()===active.toLowerCase())+'"></button>').join('')+
+     '<label class="home-custom-color" title="Escolher outra cor"><input type="color" data-home-color="'+kind+
+     '" value="'+active+'" aria-label="Cor personalizada"></label></div>';
+ }
+ function card(o,balance){
+   const color=paintOf(o.kind);
+   return '<article class="home-product home-catalog-card">'+
+     '<button type="button" class="home-photo-button" data-home-action="inspect" data-value="'+o.kind+
+       '" aria-label="Ver '+esc(o.name)+'">'+photo(o.kind,color,true)+'</button>'+
+     '<div class="home-catalog-detail"><div class="home-product-head"><strong>'+esc(o.name)+
+       '</strong><small>'+esc(o.category)+' · '+o.w.toFixed(2)+' × '+o.d.toFixed(2)+' m</small></div>'+
+     palette(o.kind)+
+     '<div class="home-buy-row"><strong class="home-price">'+money(o.price)+'</strong>'+
+     '<button data-home-action="buy" data-value="'+o.kind+'" '+(balance<o.price?'disabled':'')+'>Comprar</button></div>'+
+     (inspected===o.kind?'<p class="home-inspection">Prévia do móvel real do jogo. Você receberá a cor escolhida.</p>':'')+
+     '</div></article>';
+ }
+ function previews(){
+   const current=++photoSerial,images=[...panel.querySelectorAll('img[data-preview-kind]')];let i=0;
+   function step(){
+     if(current!==photoSerial||!active)return;
+     let count=0;
+     while(i<images.length&&count<2){
+       const img=images[i++];
+       if(!img.isConnected)continue;
+       const data=window.cityVehicles?.furnitureThumbnail?.(img.dataset.previewKind,img.dataset.previewColor);
+       if(data){img.src=data;img.parentElement?.classList.add('loaded');}
+       count++;
+     }
+     if(i<images.length)requestAnimationFrame(step);
+   }
+   requestAnimationFrame(step);
+ }
  function applyFloor(){
    const p=window.__game?.player;if(!active||!p||!H)return;
    p.floor=floor;p.floorZ=H.architecture?.levels?.[floor]?.z||floor*(H.floorHeight||3);
@@ -58,21 +110,19 @@ const CityHomeUI=(()=>{
      ({shop:'🛒 Loja',stock:'📦 Estoque',edit:'🏡 Ambientes'})[t]+'</button>').join('');
    let rows='';
    if(tab==='shop'){
-     rows='<p class="home-copy">Compre para o estoque desta casa e posicione onde quiser.</p><div class="home-catalog">'+
-      CityHome.list.map(o=>'<div class="home-product"><span class="home-item-symbol">'+
-       ({Quarto:'🛏️',Sala:'🛋️',Cozinha:'🍽️',Banheiro:'🚿',Decoração:'🪴',Escritório:'💻'})[o.category]+
-       '</span><div><strong>'+esc(o.name)+'</strong><small>'+esc(o.category)+'</small></div><span class="home-price">'+money(o.price)+'</span>'+
-       '<button data-home-action="buy" data-value="'+o.kind+'" '+(balance<o.price?'disabled':'')+'>Comprar</button></div>').join('')+'</div>';
+     rows='<p class="home-copy">Veja o modelo 3D, escolha o acabamento e compre para sua casa.</p>'+
+       '<div class="home-catalog">'+CityHome.list.map(o=>card(o,balance)).join('')+'</div>';
    }else if(tab==='stock'){
-     rows=stock.length?stock.map(item=>'<div class="home-product"><span class="home-item-symbol">📦</span><div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>Pronto para posicionar</small></div>'+
+     rows=stock.length?stock.map(item=>'<div class="home-product">'+photo(item.kind,item.top)+'<div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>Pronto para posicionar</small></div>'+
       '<button data-home-action="place" data-value="'+uiId(item.id)+'">Colocar</button><button class="quiet" data-home-action="sell" data-value="'+uiId(item.id)+'">Vender</button></div>').join(''):'<p class="home-empty">O estoque está vazio. Guarde um móvel ou compre novos na loja.</p>';
    }else{
      const onFloor=data.filter(item=>item.floor===floor);
      rows='<p class="home-copy">Clique em um móvel no ambiente para arrastar e girar, ou selecione aqui.</p>'+
-       (onFloor.length?onFloor.map(item=>'<div class="home-product"><span class="home-item-symbol">🏠</span><div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>'+Math.round(item.x)+', '+Math.round(item.y)+' · '+Math.round(item.rot*180/Math.PI)+'°</small></div>'+
+       (onFloor.length?onFloor.map(item=>'<div class="home-product">'+photo(item.kind,item.top)+'<div><strong>'+esc(CityHome.catalog[item.kind].name)+'</strong><small>'+Math.round(item.x)+', '+Math.round(item.y)+' · '+Math.round(item.rot*180/Math.PI)+'°</small></div>'+
         '<button data-home-action="move" data-value="'+uiId(item.id)+'">Mover</button><button class="quiet" data-home-action="store" data-value="'+uiId(item.id)+'">Guardar</button></div>').join(''):'<p class="home-empty">Sem móveis neste andar.</p>');
    }
    const fcount=H.architecture?.levels?.length||(H.upper?2:1);
+   const previousScroll=root.querySelector('.home-shop-content')?.scrollTop||0;
    root.innerHTML='<div class="home-header"><div><span>CITY OF GOD · INTERIORES</span><h2>City Home</h2><p>'+esc(CityRealty.name(H))+' · '+(floor+1)+'º pavimento</p></div><button class="home-close" data-home-action="close" aria-label="Sair do modo decoração">✕</button></div>'+
     '<div class="home-summary"><span>Saldo disponível</span><strong>'+money(balance)+'</strong><span>'+data.length+' móveis em uso · '+stock.length+' no estoque</span></div>'+
     '<div class="home-tabs">'+nav+'</div><div class="home-shop-content">'+rows+'</div>'+
@@ -82,6 +132,8 @@ const CityHomeUI=(()=>{
     '<div id="city-home-status" class="home-status" data-ok="1">'+(draft?'Movimente e confirme a peça':'Selecione um móvel para começar')+'</div>'+
     '<div class="home-footer-actions"><button data-home-action="grid">'+(grid?'▦ Grade ligada':'▦ Grade desligada')+'</button><button data-home-action="undo">↶ Desfazer</button><button data-home-action="confirm" class="primary">✓ Confirmar</button></div>'+
     '<small>Arrastar: mover · R: girar 45° · Shift+R: livre · Scroll: zoom · Botão direito: câmera · Q/E: girar câmera · Delete: guardar · Ctrl+Z: desfazer · Esc: sair</small></div>';
+   const body=root.querySelector('.home-shop-content');if(body)body.scrollTop=previousScroll;
+   previews();
  }
  function ensure(){
    if(panel&&panel.isConnected)return panel;
@@ -95,7 +147,9 @@ const CityHomeUI=(()=>{
      if(action==='floor'){floor=Number(value);draft=null;applyFloor();renderPanel();return;}
      if(action==='grid'){grid=!grid;renderPanel();return;}
      if(action==='undo'){const r=CityHome.undo(H);renderPanel();message(r.text,r.ok);return;}
-     if(action==='buy'){const r=CityHome.buy(H,value);renderPanel();message(r.text,r.ok);return;}
+     if(action==='buy'){const r=CityHome.buy(H,value,paintOf(value));renderPanel();message(r.text,r.ok);return;}
+     if(action==='variant'){chosenPaint[value]=btn.dataset.color;renderPanel();return;}
+     if(action==='inspect'){inspected=inspected===value?null:value;renderPanel();return;}
      if(action==='move'){beginMove(value);return;}
      if(action==='place'){beginPlace(value);return;}
      if(action==='confirm'){confirm();return;}
@@ -106,6 +160,12 @@ const CityHomeUI=(()=>{
      }
      if(action==='store'){const r=CityHome.store(H,value);clean();renderPanel();message(r.text,r.ok);return;}
      if(action==='sell'){const r=CityHome.sell(H,value);clean();renderPanel();message(r.text,r.ok);return;}
+   });
+   el.addEventListener('change',e=>{
+     const input=e.target.closest('input[data-home-color]');
+     if(!input)return;
+     chosenPaint[input.dataset.homeColor]=input.value;
+     renderPanel();
    });
    return el;
  }
@@ -131,6 +191,9 @@ const CityHomeUI=(()=>{
    if(draft){
      draft.x=grid?Math.round(pp[0]*2)/2:Math.round(pp[0]*100)/100;
      draft.y=grid?Math.round(pp[1]*2)/2:Math.round(pp[1]*100)/100;
+     const magnet=CityHome.snap(H,draft,draft.mode==='move'?draft.id:null);
+     draft.x=magnet.item.x;draft.y=magnet.item.y;
+     draft.snapGuides=magnet.guides;
      const outcome=test(),el=document.getElementById('city-home-status');
      if(el){el.textContent=outcome?.text||'Posicionando';el.dataset.ok=outcome?.ok?'1':'0';}
    }
@@ -253,6 +316,10 @@ const CityHomeUI=(()=>{
      const center=proj(draft.x,draft.y,draft.z||0);
      h.textAlign='center';h.fillStyle='#fff';h.font='700 13px system-ui';
      h.fillText(CityHome.catalog[draft.kind]?.name||'Móvel',center.x,center.y-14);
+     if(draft.snapGuides?.length){
+       h.fillStyle='#a2ffcf';h.font='700 11px system-ui';
+       h.fillText('⌖ Encaixado: '+[...new Set(draft.snapGuides)].join(' + '),center.x,center.y-31);
+     }
    }
    h.restore();
  }

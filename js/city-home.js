@@ -27,6 +27,12 @@ const CityHome=(()=>{
  ];
  const defs=Object.fromEntries(catalog.map(([kind,name,category,price,w,d,h,top,side])=>[kind,{kind,name,category,price,w,d,h,top,side}]));
  const KEY='cityofgod.home-furniture.v1',MAX=220;
+ // Small contact tolerance lets a sofa nearly touch a wall or another sofa
+ // while still rejecting any true intersection.
+ const WALL_GAP=.025,CONTACT_GAP=.012,SNAP_RANGE=.34;
+ const customColors=new Set(['sofa','couch','chair','table','tv','screen','rug','shelf','cabinet','fridge',
+   'stove','sink','counter','bed','mattress','wardrobe','desk','studentdesk','mirror','toilet','shower']);
+ const colorValid=c=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c);
  const copy=o=>JSON.parse(JSON.stringify(o));
  const safeId=()=>String(Date.now())+'-'+Math.random().toString(36).slice(2,10);
  const finite=(v,d=0)=>Number.isFinite(v)?v:d;
@@ -150,7 +156,7 @@ const CityHome=(()=>{
   const c=Math.cos(r.rot),s=Math.sin(r.rot),w=r.w/2,d=r.d/2;
   return [[-w,-d],[w,-d],[w,d],[-w,d]].map(([x,y])=>[r.x+x*c-y*s,r.y+x*s+y*c]);
  }
- function overlap(a,b,margin=.04){
+ function overlap(a,b,margin=CONTACT_GAP){
    const pa=corners(a),pb=corners(b),axes=[];
    for(const list of [pa,pb])for(let i=0;i<2;i++){
      const p=list[i],q=list[i+1],dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1;
@@ -166,24 +172,40 @@ const CityHome=(()=>{
    if(!owned(H))return {ok:false,text:'Você não é dono deste imóvel'};
    if(!numericRow(proposed))return {ok:false,text:'Dimensões inválidas'};
    if(proposed.floor>=Math.max(1,H.architecture?.levels?.length||(H.upper?2:1)))return {ok:false,text:'Andar inválido'};
-   const P=corners(proposed),pad=.12,level=H.architecture?.levels?.[proposed.floor];
+   const P=corners(proposed),pad=WALL_GAP*.6,level=H.architecture?.levels?.[proposed.floor];
    if(level){
      const local=H.architecture.toLocal;
      const inside=r=>P.every(([x,y])=>{const [u,v]=local(x,y);return u>r.x0+pad&&u<r.x1-pad&&v>r.y0+pad&&v<r.y1-pad;});
      if(!level.rooms.some(r=>r.use!=='circulation'&&inside(r)))
        return {ok:false,text:'Coloque dentro de um cômodo, sem atravessar paredes'};
-     for(const wall of level.segments||[]){
-       if(!wall.door)continue;
-       const x=(wall.x1+wall.x2)/2,y=(wall.y1+wall.y2)/2;
-       if(Math.hypot(x-proposed.x,y-proposed.y)<Math.max(proposed.w,proposed.d)*.5+.85)
+     // Older generated templates expose world-space door segments instead of
+     // architectural openings. Keep their 0.9m aisle safety zone as well.
+     if(!level.walls?.length)for(const wall of level.segments||[])if(wall.door){
+       const dx=wall.x2-wall.x1,dy=wall.y2-wall.y1;
+       if(overlap(proposed,{x:(wall.x1+wall.x2)/2,y:(wall.y1+wall.y2)/2,
+         w:Math.hypot(dx,dy)+.3,d:.9,rot:Math.atan2(dy,dx)},0))
          return {ok:false,text:'Mantenha a passagem da porta livre'};
+     }
+     // Architectural openings are in level.walls (local coordinates); use
+     // their true width and orientation instead of a large radial exclusion.
+     for(const wall of level.walls||[]){
+       const wx=wall.b[0]-wall.a[0],wy=wall.b[1]-wall.a[1],len=Math.hypot(wx,wy)||1;
+       for(const door of wall.openings||[])if(door.kind==='door'){
+         const v=door.at/len,u=H.architecture.toWorld(wall.a[0]+wx*v,wall.a[1]+wy*v);
+         const dir=H.architecture.toWorld(wall.a[0]+wx/len,wall.a[1]+wy/len);
+         const origin=H.architecture.toWorld(wall.a[0],wall.a[1]);
+         if(overlap(proposed,{x:u[0],y:u[1],w:(door.width||1.1)+.30,d:.85,
+           rot:Math.atan2(dir[1]-origin[1],dir[0]-origin[0])},0))
+           return {ok:false,text:'Mantenha a passagem da porta livre'};
+       }
      }
    }else{
      if(!P.every(([x,y])=>x>H.x0+pad&&x<H.x1-pad&&y>H.y0+pad&&y<H.y1-pad))
        return {ok:false,text:'O móvel deve ficar dentro da casa'};
      for(const wall of H.segs||[])if(wall.door){
-       const mx=(wall.x1+wall.x2)/2,my=(wall.y1+wall.y2)/2;
-       if(Math.hypot(mx-proposed.x,my-proposed.y)<Math.max(proposed.w,proposed.d)*.5+.75)
+       const dx=wall.x2-wall.x1,dy=wall.y2-wall.y1;
+       if(overlap(proposed,{x:(wall.x1+wall.x2)/2,y:(wall.y1+wall.y2)/2,
+         w:Math.hypot(dx,dy)+.25,d:.9,rot:Math.atan2(dy,dx)},0))
          return {ok:false,text:'Não bloqueie as portas'};
      }
    }
@@ -199,6 +221,57 @@ const CityHome=(()=>{
      if(overlap(row,proposed))return {ok:false,text:'Há outro móvel ocupando esse espaço'};
    }
    return {ok:true,text:'Posição válida'};
+ }
+ // Magnet alignment is calculated in property-local coordinates, so it also
+ // works correctly for rotated houses and non-axis-aligned world streets.
+ function snap(H,requested,ignoreId=null){
+   const base={...requested};
+   const arch=H?.architecture,level=arch?.levels?.[base.floor||0];
+   const toLocal=arch?.toLocal||((x,y)=>[x,y]);
+   const toWorld=arch?.toWorld||((x,y)=>[x,y]);
+   const localCorners=row=>corners(row).map(([x,y])=>toLocal(x,y));
+   const bounds=pts=>({
+     x0:Math.min(...pts.map(p=>p[0])),x1:Math.max(...pts.map(p=>p[0])),
+     y0:Math.min(...pts.map(p=>p[1])),y1:Math.max(...pts.map(p=>p[1]))
+   });
+   const orig=toLocal(base.x,base.y),r=bounds(localCorners(base));
+   const room=level?.rooms.find(t=>t.use!=='circulation'&&orig[0]>=t.x0-.08&&orig[0]<=t.x1+.08&&orig[1]>=t.y0-.08&&orig[1]<=t.y1+.08);
+   const limits=room||!arch?room||{x0:H.x0,y0:H.y0,x1:H.x1,y1:H.y1}:null;
+   const axes=[[],[]],axis=(k,value,source)=>{
+     if(Number.isFinite(value)&&Math.abs(value)<=SNAP_RANGE)
+       axes[k].push({delta:value,source});
+   };
+   if(limits){
+     axis(0,limits.x0+WALL_GAP-r.x0,'parede');
+     axis(0,limits.x1-WALL_GAP-r.x1,'parede');
+     axis(1,limits.y0+WALL_GAP-r.y0,'parede');
+     axis(1,limits.y1-WALL_GAP-r.y1,'parede');
+   }
+   for(const item of get(H)?.items||[]){
+     if(item.id===ignoreId||item.status!=='placed'||item.floor!==(base.floor||0))continue;
+     if(['rug','mirror','tv','screen'].includes(base.kind)||['rug','mirror','tv','screen'].includes(item.kind))continue;
+     const b=bounds(localCorners(item));
+     const xCross=Math.min(r.x1,b.x1)-Math.max(r.x0,b.x0);
+     const yCross=Math.min(r.y1,b.y1)-Math.max(r.y0,b.y0);
+     if(yCross>Math.min(base.d,item.d)*.2){
+       axis(0,b.x1+CONTACT_GAP+.012-r.x0,'móvel');
+       axis(0,b.x0-CONTACT_GAP-.012-r.x1,'móvel');
+     }
+     if(xCross>Math.min(base.w,item.w)*.2){
+       axis(1,b.y1+CONTACT_GAP+.012-r.y0,'móvel');
+       axis(1,b.y0-CONTACT_GAP-.012-r.y1,'móvel');
+     }
+   }
+   for(const list of axes)list.sort((a,b)=>Math.abs(a.delta)-Math.abs(b.delta));
+   const variants=[[axes[0][0],axes[1][0]],[axes[0][0],null],[null,axes[1][0]]];
+   for(const selected of variants){
+     if(!selected.some(Boolean))continue;
+     const [x,y]=toWorld(orig[0]+(selected[0]?.delta||0),orig[1]+(selected[1]?.delta||0));
+     const candidate={...base,x:Math.round(x*1000)/1000,y:Math.round(y*1000)/1000};
+     if(check(H,candidate,ignoreId).ok)
+       return {item:candidate,snapped:true,guides:selected.filter(Boolean).map(e=>e.source)};
+   }
+   return {item:base,snapped:false,guides:[]};
  }
  const stashUndo=H=>{
    const k=key(H),log=undoLog.get(k)||[];
@@ -227,16 +300,18 @@ const CityHome=(()=>{
    if(!item||item.status!=='placed')return {ok:false,text:'Móvel não está no ambiente'};
    return commit(H,items=>{items.find(i=>i.id===id).status='stored';});
  }
- function buy(H,kind){
+ function buy(H,kind,chosenColor=null){
    if(!owned(H))return {ok:false,text:'Acesso negado'};
    sync(H);const d=defs[kind],data=get(H);
    if(!d||!data)return {ok:false,text:'Produto indisponível'};
    if(data.items.filter(r=>r.status!=='sold').length>=MAX)return {ok:false,text:'Inventário da casa cheio'};
+   if(chosenColor!==null&&(!customColors.has(kind)||!colorValid(chosenColor)))return {ok:false,text:'Acabamento inválido'};
    if(!CityLife.debit(d.price,'Bellavista Home · '+d.name))return {ok:false,text:'Saldo insuficiente'};
    const old=copy(data.items),floor=0;
+   const selectedColor=chosenColor||d.top;
    const homePoint=H.architecture?H.architecture.toWorld(H.architecture.width*.25,H.architecture.depth*.25):
      [(H.x0+H.x1)/2,(H.y0+H.y1)/2];
-   data.items.push({...d,id:'purchased-'+safeId(),status:'stored',
+   data.items.push({...d,top:selectedColor,side:selectedColor,id:'purchased-'+safeId(),status:'stored',
      x:homePoint[0],y:homePoint[1],rot:0,z:0,floor,solid:!['rug','mirror','screen','tv'].includes(kind)});
    if(!persist()){
      data.items=old;CityLife.credit(d.price,'Estorno Bellavista Home');return {ok:false,text:'Erro ao salvar a compra; valor estornado'};
@@ -264,7 +339,7 @@ const CityHome=(()=>{
  }
  function recolor(H,id,color){
    if(!owned(H))return {ok:false,text:'Acesso negado'};
-   if(!/^#[a-f\d]{6}$/i.test(color))return {ok:false,text:'Cor inválida'};
+   if(!colorValid(color))return {ok:false,text:'Cor inválida'};
    const row=find(H,id);if(!row||row.status!=='placed')return {ok:false,text:'Selecione um móvel'};
    return commit(H,items=>{const item=items.find(i=>i.id===id);item.top=color;item.side=color;});
  }
@@ -281,7 +356,7 @@ const CityHome=(()=>{
  function inventory(H){return get(H)?.items.filter(i=>i.status==='stored')||[];}
  function placed(H){return get(H)?.items.filter(i=>i.status==='placed')||[];}
  return {catalog:defs,list:Object.values(defs),init,sync,tick,houseAt,owned,key,inventory,placed,nearbyItems,
-   find,check,move,store,buy,place,sell,recolor,undo,refresh,
+   find,check,snap,move,store,buy,place,sell,recolor,undo,refresh,
    get saved(){return saves;},get active(){return loaded;}};
 })();
 window.CityHome=CityHome;

@@ -18,10 +18,10 @@ export function createProps(THREE, scene, bridge) {
   // ======================= modelos (frente = +z, centro na base, medidas nominais) =======================
   const CHROME = '#c9ced2', DARK = '#2b2d30', WHITE = '#ecebe6', WOOD = '#8a6446', WOODL = '#b08a62';
   const M = {};
-  M.chair={dims:[.5,.85,.55],make(k){chair(k,0,0,0);}};
-  M.studentdesk={dims:[1.2,.75,.65],make(k){
+  M.chair={dims:[.5,.85,.55],tinted:true,make(k,c){chair(k,0,0,0,c);}};
+  M.studentdesk={dims:[1.2,.75,.65],tinted:true,make(k,c){
     for(const x of [-.5,.5])for(const z of [-.23,.23])k.cyl(x,0,z,.025,.71,'#687780',6);
-    k.box(-.6,.7,-.325,.6,.75,.325,'#bf9b68',.025);k.box(-.18,.75,-.13,.14,.765,.1,'#e8e4da');
+    k.box(-.6,.7,-.325,.6,.75,.325,c||'#bf9b68',.025);k.box(-.18,.75,-.13,.14,.765,.1,'#e8e4da');
   }};
   M.hospitalbed={dims:[1.15,.9,2.05],make(k){
     for(const x of [-.43,.43])for(const z of [-.75,.75]){k.cyl(x,.1,z,.035,.48,'#9aa8ae',8);k.sph(x,.1,z,.09,'#3c464d');}
@@ -97,8 +97,8 @@ export function createProps(THREE, scene, bridge) {
     for (let i = 0; i < 26; i++) { const a = i / 26 * TAU, g = k.box(-0.012, 0.02, -0.03, 0.012, 0.19, 0.03, '#141416'); g.rotateY(-a); g.translate(Math.cos(a) * 0.345, 0, Math.sin(a) * 0.345); }
     k.cyl(0, 0.03, 0, 0.17, 0.05, '#5a4a36', 18);
   } };
-  M.mattress = { dims: [1.9, 0.2, 1.4], make(k) {
-    k.box(-0.95, 0, -0.7, 0.95, 0.2, 0.7, '#cdbfa4', 0.06);
+  M.mattress = { dims: [1.9, 0.2, 1.4], tinted:true, make(k,c) {
+    k.box(-0.95, 0, -0.7, 0.95, 0.2, 0.7, c||'#cdbfa4', 0.06);
     for (let x = -0.75; x <= 0.76; x += 0.3) for (let z = -0.5; z <= 0.51; z += 0.33) k.cyl(x, 0.195, z, 0.018, 0.205, '#a89a80', 6);
     for (const [x, z, r] of [[0.3, 0.1, 0.32], [-0.5, -0.25, 0.2], [0.65, -0.4, 0.15]]) k.cyl(x, 0.2, z, r, 0.204, '#9c8562', 16);
     k.box(-0.95, 0.07, 0.69, 0.95, 0.13, 0.705, '#8e7d62');
@@ -148,26 +148,26 @@ export function createProps(THREE, scene, bridge) {
   } };
   M.cup = { dims: [0.09, 0.09, 0.11], tinted: true, make(k, c) { const g = new THREE.CylinderGeometry(0.045, 0.032, 0.11, 14, 1, true); g.rotateX(Math.PI / 2); g.translate(0, 0.04, 0); k.raw(g, c); const l = new THREE.CylinderGeometry(0.047, 0.047, 0.012, 14); l.rotateX(Math.PI / 2); l.translate(0, 0.045, 0.058); k.raw(l, '#f4f2ec'); k.cylZ(0.02, 0.07, 0.05, 0.12, 0.004, '#e8e2d0', 5); } };
   // ---------- móveis ----------
-  M.fridge = { dims: [0.72, 1.8, 0.7], face: 'any', make(k) {
-    k.box(-0.36, 0.04, -0.35, 0.36, 1.8, 0.35, '#e8e6e0', 0.035); k.box(-0.34, 0, -0.32, 0.34, 0.06, 0.3, DARK);
+  M.fridge = { dims: [0.72, 1.8, 0.7], face: 'any', tinted:true, make(k,c) {
+    k.box(-0.36, 0.04, -0.35, 0.36, 1.8, 0.35, c||'#e8e6e0', 0.035); k.box(-0.34, 0, -0.32, 0.34, 0.06, 0.3, DARK);
     k.box(-0.35, 1.18, 0.33, 0.35, 1.2, 0.36, '#9c9a94');
     k.box(0.25, 0.5, 0.35, 0.28, 1.08, 0.39, CHROME, 0.01); k.box(0.25, 1.28, 0.35, 0.28, 1.6, 0.39, CHROME, 0.01);
   } };
-  M.stove = { dims: [0.75, 0.9, 0.62], face: 'any', make(k) {
-    k.box(-0.375, 0, -0.31, 0.375, 0.87, 0.31, '#e9e6df', 0.02); k.box(-0.37, 0.87, -0.3, 0.37, 0.9, 0.3, '#1d1e20');
+  M.stove = { dims: [0.75, 0.9, 0.62], face: 'any', tinted:true, make(k,c) {
+    k.box(-0.375, 0, -0.31, 0.375, 0.87, 0.31, c||'#e9e6df', 0.02); k.box(-0.37, 0.87, -0.3, 0.37, 0.9, 0.3, '#1d1e20');
     for (const [x, z] of [[-0.17, -0.13], [0.17, -0.13], [-0.17, 0.13], [0.17, 0.13]]) { k.cyl(x, 0.9, z, 0.09, 0.91, '#4a4c50', 18); k.cyl(x, 0.91, z, 0.04, 0.915, '#2a2b2e', 12); }
     k.box(-0.3, 0.12, 0.31, 0.3, 0.6, 0.32, '#2a2d32'); k.cylX(-0.26, 0.26, 0.66, 0.335, 0.015, CHROME);
     for (let i = 0; i < 4; i++) k.cylZ(-0.24 + i * 0.16, 0.78, 0.31, 0.34, 0.025, '#3a3c40', 10);
-    k.box(-0.375, 0.9, -0.31, 0.375, 1.0, -0.27, '#e9e6df', 0.01);
+    k.box(-0.375, 0.9, -0.31, 0.375, 1.0, -0.27, c||'#e9e6df', 0.01);
   } };
-  M.sink = { dims: [0.8, 0.86, 0.58], face: 'any', make(k) {
-    k.box(-0.4, 0.06, -0.29, 0.4, 0.82, 0.27, WHITE, 0.01); k.box(-0.38, 0, -0.27, 0.38, 0.06, 0.24, DARK);
+  M.sink = { dims: [0.8, 0.86, 0.58], face: 'any', tinted:true, make(k,c) {
+    k.box(-0.4, 0.06, -0.29, 0.4, 0.82, 0.27, c||WHITE, 0.01); k.box(-0.38, 0, -0.27, 0.38, 0.06, 0.24, DARK);
     k.box(-0.005, 0.1, 0.27, 0.005, 0.78, 0.28, '#b8b4aa'); for (const s of [-1, 1]) k.box(s * 0.05 - 0.008, 0.6, 0.27, s * 0.05 + 0.008, 0.72, 0.3, CHROME);
     k.box(-0.42, 0.82, -0.3, 0.42, 0.86, 0.3, '#d8d4cc'); k.box(-0.24, 0.84, -0.17, 0.24, 0.865, 0.17, '#9ca2a6');
     k.cyl(0, 0.86, -0.22, 0.02, 1.08, CHROME, 8); k.cylZ(0, 1.07, -0.22, -0.08, 0.016, CHROME, 8);
   } };
-  M.counter = { dims: [2.8, 0.9, 0.6], face: 'short', make(k) {
-    const W = 1.4; k.box(-W, 0.08, -0.3, W, 0.86, 0.28, WHITE, 0.01); k.box(-W + 0.02, 0, -0.27, W - 0.02, 0.08, 0.24, DARK);
+  M.counter = { dims: [2.8, 0.9, 0.6], face: 'short', tinted:true, make(k,c) {
+    const W = 1.4; k.box(-W, 0.08, -0.3, W, 0.86, 0.28, c||WHITE, 0.01); k.box(-W + 0.02, 0, -0.27, W - 0.02, 0.08, 0.24, DARK);
     for (let x = -W + 0.6; x < W; x += 0.6) k.box(x - 0.005, 0.1, 0.28, x + 0.005, 0.84, 0.29, '#b8b4aa');
     for (let x = -W + 0.3; x < W; x += 0.6) { k.box(x - 0.08, 0.72, 0.28, x + 0.08, 0.735, 0.31, CHROME); }
     k.box(-W - 0.02, 0.86, -0.31, W + 0.02, 0.9, 0.31, '#4a4642');
@@ -185,29 +185,29 @@ export function createProps(THREE, scene, bridge) {
     k.box(-0.715, 0.06, -0.31, 0.715, 1.85, 0.29, w, 0.01); k.box(-0.7, 0, -0.29, 0.7, 0.06, 0.27, dk); k.box(-0.74, 1.85, -0.32, 0.74, 1.92, 0.31, dk);
     k.box(-0.006, 0.1, 0.29, 0.006, 1.82, 0.3, dk); for (const s of [-1, 1]) { k.box(s * 0.07 - 0.012, 0.8, 0.29, s * 0.07 + 0.012, 1.15, 0.32, CHROME); k.box(s * 0.36 - 0.28, 0.15, 0.29, s * 0.36 + 0.28, 1.75, 0.295, new THREE.Color(col(w)).multiplyScalar(1.08)); }
   } };
-  M.shelf = { dims: [2.5, 1.9, 0.45], face: 'short', make(k) {
+  M.shelf = { dims: [2.5, 1.9, 0.45], face: 'short', tinted:true, make(k,c) {
     const W = 1.25, r = (a => () => (a = (a * 16807) % 2147483647) / 2147483647)(7), BOOK = ['#9a2f2a', '#2f5a8a', '#3d7a4a', '#c8a03a', '#6a4a8a', '#e8e0d0', '#2a2a2a', '#b85a2a'];
-    k.box(-W, 0, -0.22, -W + 0.04, 1.9, 0.22, WOOD); k.box(W - 0.04, 0, -0.22, W, 1.9, 0.22, WOOD); k.box(-W, 0, -0.22, W, 1.9, -0.2, '#6e4e36');
-    for (let y = 0; y <= 1.86; y += 0.465) { k.box(-W, y, -0.22, W, y + 0.035, 0.22, WOOD); if (y > 1.8) break;
+    k.box(-W, 0, -0.22, -W + 0.04, 1.9, 0.22, c||WOOD); k.box(W - 0.04, 0, -0.22, W, 1.9, 0.22, c||WOOD); k.box(-W, 0, -0.22, W, 1.9, -0.2, '#6e4e36');
+    for (let y = 0; y <= 1.86; y += 0.465) { k.box(-W, y, -0.22, W, y + 0.035, 0.22, c||WOOD); if (y > 1.8) break;
       for (let x = -W + 0.08; x < W - 0.12;) { const bw = 0.03 + r() * 0.04, bh = 0.24 + r() * 0.14; if (r() < 0.12) { x += 0.15; continue; } k.box(x, y + 0.035, -0.17, x + bw, y + 0.035 + bh, 0.13, BOOK[(r() * BOOK.length) | 0]); x += bw + 0.004; } }
   } };
-  M.desk = { dims: [1.1, 0.74, 0.62], face: 'short', make(k) {
-    k.box(-0.55, 0.7, -0.31, 0.55, 0.74, 0.31, WOODL, 0.01); for (const s of [-1, 1]) k.box(s * 0.53 - 0.02, 0, -0.29, s * 0.53 + 0.02, 0.7, 0.29, WOODL);
+  M.desk = { dims: [1.1, 0.74, 0.62], face: 'short', tinted:true, make(k,c) {
+    k.box(-0.55, 0.7, -0.31, 0.55, 0.74, 0.31, c||WOODL, 0.01); for (const s of [-1, 1]) k.box(s * 0.53 - 0.02, 0, -0.29, s * 0.53 + 0.02, 0.7, 0.29, c||WOODL);
     k.box(0.15, 0.45, -0.29, 0.51, 0.7, 0.29, WOOD); k.box(0.2, 0.55, 0.29, 0.46, 0.65, 0.3, '#5a3e2a');
     k.box(-0.3, 0.74, -0.05, 0.1, 0.755, 0.22, '#3a3d42'); k.box(-0.3, 0.755, -0.06, 0.1, 1.0, -0.05, '#1c1f24'); k.box(-0.28, 0.77, -0.049, 0.08, 0.98, -0.045, '#3c6a8a');
     // cadeira de escritório na frente
     k.cyl(0, 0, 0.6, 0.05, 0.05, DARK, 5); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; k.box(Math.cos(a) * 0.22 - 0.02, 0.02, 0.6 + Math.sin(a) * 0.22 - 0.02, Math.cos(a) * 0.22 + 0.02, 0.05, 0.6 + Math.sin(a) * 0.22 + 0.02, DARK); }
     k.cyl(0, 0.05, 0.6, 0.025, 0.42, '#6a6e72', 8); k.box(-0.23, 0.42, 0.38, 0.23, 0.5, 0.82, '#2f3540', 0.04); k.box(-0.21, 0.5, 0.78, 0.21, 0.98, 0.84, '#2f3540', 0.04);
   } };
-  M.table = { dims: [1.5, 0.75, 1.1], face: 'any', make(k) {
-    k.box(-0.75, 0.71, -0.55, 0.75, 0.75, 0.55, '#a07650', 0.015); for (const x of [-0.66, 0.66]) for (const z of [-0.46, 0.46]) k.box(x - 0.035, 0, z - 0.035, x + 0.035, 0.71, z + 0.035, '#7a5638');
-    for (const x of [-0.35, 0.35]) for (const s of [-1, 1]) chair(k, x, s * 0.78, s < 0 ? 0 : Math.PI);
+  M.table = { dims: [1.5, 0.75, 1.1], face: 'any', tinted:true, make(k,c) {
+    k.box(-0.75, 0.71, -0.55, 0.75, 0.75, 0.55, c||'#a07650', 0.015); for (const x of [-0.66, 0.66]) for (const z of [-0.46, 0.46]) k.box(x - 0.035, 0, z - 0.035, x + 0.035, 0.71, z + 0.035, '#7a5638');
+    for (const x of [-0.35, 0.35]) for (const s of [-1, 1]) chair(k, x, s * 0.78, s < 0 ? 0 : Math.PI,c);
     k.cyl(0, 0.75, 0, 0.06, 0.93, '#e8e2d4', 12); for (let i = 0; i < 3; i++) k.sph((i - 1) * 0.04, 0.97, (i % 2) * 0.03, 0.04, '#d84a5a');
     for (const x of [-0.35, 0.35]) for (const s of [-1, 1]) k.cyl(x, 0.75, s * 0.32, 0.12, 0.76, '#f4f2ec', 18);
   } };
   M.sofa = { dims: [2.1, 0.56, 0.85], face: 'short', tinted: true, make(k, c) { sofaModel(k, c || '#5d6e82', 2.1, 0.85, false); } };
-  M.tv = { dims: [1.1, 0.55, 0.45], face: 'any', make(k) {
-    k.box(-0.55, 0.05, -0.22, 0.55, 0.5, 0.22, '#3a2e26', 0.01); k.box(-0.53, 0, -0.2, 0.53, 0.05, 0.2, DARK);
+  M.tv = { dims: [1.1, 0.55, 0.45], face: 'any', tinted:true, make(k,c) {
+    k.box(-0.55, 0.05, -0.22, 0.55, 0.5, 0.22, c||'#3a2e26', 0.01); k.box(-0.53, 0, -0.2, 0.53, 0.05, 0.2, DARK);
     for (const s of [-1, 1]) k.box(s * 0.27 - 0.25, 0.1, 0.22, s * 0.27 + 0.25, 0.45, 0.225, '#4a3c32');
     k.box(-0.06, 0.5, -0.12, 0.06, 0.55, -0.02, DARK); k.box(-0.015, 0.55, -0.08, 0.015, 0.62, -0.06, DARK);
     k.box(-0.52, 0.6, -0.1, 0.52, 1.2, -0.06, '#151618', 0.01); k.box(-0.5, 0.62, -0.06, 0.5, 1.18, -0.055, '#1d2b3a');
@@ -221,33 +221,33 @@ export function createProps(THREE, scene, bridge) {
     for (const s of [-1, 1]) k.box(s * 0.38 - 0.32, 0.52, -0.98, s * 0.38 + 0.32, 0.66, -0.6, '#f8f6f0', 0.06);
     k.box(-0.86, 0.1, -1.12, 0.86, 1.15, -1.03, '#6e4e36', 0.02); k.box(-0.78, 0.4, -1.04, 0.78, 1.05, -1.0, new THREE.Color(col(blanket)).multiplyScalar(0.6), 0.03);
   } };
-  M.toilet = { dims: [0.45, 0.45, 0.7], face: 'long', make(k) {
-    k.box(-0.2, 0.4, -0.35, 0.2, 0.8, -0.17, '#f4f2ec', 0.04); k.box(-0.21, 0.79, -0.36, 0.21, 0.82, -0.16, '#e8e6e0', 0.01); k.cyl(0, 0.82, -0.26, 0.025, 0.835, CHROME, 8);
+  M.toilet = { dims: [0.45, 0.45, 0.7], face: 'long', tinted:true, make(k,c) {
+    k.box(-0.2, 0.4, -0.35, 0.2, 0.8, -0.17, c||'#f4f2ec', 0.04); k.box(-0.21, 0.79, -0.36, 0.21, 0.82, -0.16, '#e8e6e0', 0.01); k.cyl(0, 0.82, -0.26, 0.025, 0.835, CHROME, 8);
     k.cyl(0, 0, -0.04, 0.12, 0.3, '#eceae4', 16, 0.15); k.sph(0, 0.33, 0.02, 0.19, '#f4f2ec', 0.45, undefined, 1, 1.35);
     k.box(-0.19, 0.4, -0.17, 0.19, 0.43, 0.28, '#f8f6f2', 0.06);
   } };
-  M.shower = { dims: [0.85, 1.9, 0.85], face: 'any', make(k) {
+  M.shower = { dims: [0.85, 1.9, 0.85], face: 'any', tinted:true, make(k,c) {
     k.box(-0.425, 0, -0.425, 0.425, 0.08, 0.425, '#f4f2ec', 0.02); k.cyl(0, 0.08, 0, 0.04, 0.085, '#9ca0a4', 10);
-    k.box(-0.425, 0, -0.425, 0.425, 1.95, -0.4, '#dfe8ea'); k.box(-0.425, 0, -0.425, -0.4, 1.95, 0.425, '#dfe8ea');
+    k.box(-0.425, 0, -0.425, 0.425, 1.95, -0.4, c||'#dfe8ea'); k.box(-0.425, 0, -0.425, -0.4, 1.95, 0.425, c||'#dfe8ea');
     for (let y = 0.3; y < 1.95; y += 0.3) { k.box(-0.42, y, -0.401, 0.42, y + 0.006, -0.398, '#b8c4c8'); k.box(-0.401, y, -0.42, -0.398, y + 0.006, 0.42, '#b8c4c8'); }
     k.cyl(0.1, 0.9, -0.39, 0.012, 1.95, CHROME, 8); k.cylZ(0.1, 1.95, -0.39, -0.25, 0.012, CHROME, 8); k.cyl(0.1, 1.9, -0.25, 0.07, 1.93, CHROME, 14);
     k.box(-0.425, 0.08, 0.41, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass'); k.box(0.41, 0.08, -0.425, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass');
     k.box(0.405, 0.08, 0.405, 0.43, 1.95, 0.43, CHROME); k.box(-0.43, 1.93, 0.405, 0.43, 1.96, 0.43, CHROME);
   } };
-  M.mirror = { dims: [0.85, 1.6, 0.1], face: 'short', make(k) { k.box(-0.38, 0.85, -0.05, 0.38, 1.55, 0.0, '#f0ece2', 0.02); k.box(-0.34, 0.89, 0.0, 0.34, 1.51, 0.01, '#b8ccd6'); } };
+  M.mirror = { dims: [0.85, 1.6, 0.1], face: 'short', tinted:true, make(k,c) { k.box(-0.38, 0.85, -0.05, 0.38, 1.55, 0.0, c||'#f0ece2', 0.02); k.box(-0.34, 0.89, 0.0, 0.34, 1.51, 0.01, '#b8ccd6'); } };
   M.rug = { dims: [1.5, 0.02, 1.05], face: 'any', tinted: true, make(k, c) {
     const base = c || '#8c7665', dk = new THREE.Color(col(base)).multiplyScalar(0.65), lt = new THREE.Color(col(base)).lerp(new THREE.Color(1, 0.95, 0.85), 0.4);
     k.box(-0.75, 0, -0.525, 0.75, 0.012, 0.525, dk); k.box(-0.66, 0.012, -0.44, 0.66, 0.016, 0.44, base);
     for (let i = -2; i <= 2; i++) k.box(i * 0.24 - 0.04, 0.016, -0.36, i * 0.24 + 0.04, 0.018, 0.36, lt);
   } };
-  M.screen = { dims: [1.2, 0.7, 0.1], face: 'short', make(k) { k.box(-0.6, 0, -0.05, 0.6, 0.7, 0.0, '#151618', 0.01); k.box(-0.57, 0.03, 0.0, 0.57, 0.67, 0.006, '#1d2b3a'); } };
+  M.screen = { dims: [1.2, 0.7, 0.1], face: 'short', tinted:true, make(k,c) { k.box(-0.6, 0, -0.05, 0.6, 0.7, 0.0, c||'#151618', 0.01); k.box(-0.57, 0.03, 0.0, 0.57, 0.67, 0.006, '#1d2b3a'); } };
   // cadeira de jantar virada p/ rot
-  function chair(k, x, z, rot) {
+  function chair(k, x, z, rot,paint=null) {
     const c = Math.cos(rot), s = Math.sin(rot), P = (u, v) => [x + u * c + v * s, z - u * s + v * c];
     const parts = [];
     const bx = (u0, y0, v0, u1, y1, v1, cl, r = 0) => { const [ax, az] = P((u0 + u1) / 2, (v0 + v1) / 2), g = k.box(-Math.abs(u1 - u0) / 2, y0, -Math.abs(v1 - v0) / 2, Math.abs(u1 - u0) / 2, y1, Math.abs(v1 - v0) / 2, cl, r); g.rotateY(rot); g.translate(ax, 0, az); };
-    bx(-0.21, 0.43, -0.21, 0.21, 0.47, 0.21, '#7a5638', 0.01); for (const u of [-0.18, 0.18]) for (const v of [-0.18, 0.18]) bx(u - 0.02, 0, v - 0.02, u + 0.02, 0.43, v + 0.02, '#6a4a30');
-    bx(-0.2, 0.47, 0.18, 0.2, 0.92, 0.22, '#7a5638', 0.01); bx(-0.19, 0.47, -0.19, 0.19, 0.5, 0.19, '#c8b89a', 0.02);
+    bx(-0.21, 0.43, -0.21, 0.21, 0.47, 0.21, paint||'#7a5638', 0.01); for (const u of [-0.18, 0.18]) for (const v of [-0.18, 0.18]) bx(u - 0.02, 0, v - 0.02, u + 0.02, 0.43, v + 0.02, '#6a4a30');
+    bx(-0.2, 0.47, 0.18, 0.2, 0.92, 0.22, paint||'#7a5638', 0.01); bx(-0.19, 0.47, -0.19, 0.19, 0.5, 0.19, '#c8b89a', 0.02);
   }
   function sofaModel(k, fabric, W, D, worn) {
     const f = col(fabric), dk = f.clone().multiplyScalar(0.78), hw = W / 2, hd = D / 2;
@@ -419,8 +419,53 @@ export function createProps(THREE, scene, bridge) {
     Object.assign(state, { objects, furniture, lamps: lamps.length, ms: +(performance.now() - t0).toFixed(1) });
   }
 
+  // Product photography: render the *same* procedural 3D mesh used in the city.
+  // A single offscreen renderer is reused and all temporary geometries are
+  // disposed after each shot. Results are cached (bounded) for quick recoloring.
+  let photoRenderer=null;
+  const photoCache=new Map();
+  function thumbnail(name,color){
+    const def=M[name];if(!def)return null;
+    const tint=def.tinted && /^#[0-9a-f]{6}$/i.test(color||'')?color:null;
+    const id=name+'|'+(tint||'original');
+    if(photoCache.has(id))return photoCache.get(id);
+    const scene2=new THREE.Scene(),geometries=[],materials=[];
+    try{
+      if(!photoRenderer){
+        photoRenderer=new THREE.WebGLRenderer({canvas:document.createElement('canvas'),antialias:true,
+          alpha:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
+        photoRenderer.setSize(156,124,false);photoRenderer.setPixelRatio(1);
+      }
+      photoRenderer.setClearColor(0x091827,0);
+      const shapes=Kit();def.make(shapes,tint||undefined);
+      const meshes=shapes.done();
+      for(const [type,geo] of Object.entries(meshes)){
+        geometries.push(geo);
+        const mat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,
+          transparent:type==='glass',opacity:type==='glass'?.36:1,depthWrite:type!=='glass'});
+        materials.push(mat);
+        scene2.add(new THREE.Mesh(geo,mat));
+      }
+      const bounds=new THREE.Box3().setFromObject(scene2);
+      const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+      const span=Math.max(.7,size.y*1.15,Math.hypot(size.x,size.z)*.83);
+      const camera=new THREE.OrthographicCamera(-span*1.5,span*1.5,span*1.16,-span*1.16,.01,70);
+      camera.position.copy(center).add(new THREE.Vector3(span*2.2,span*1.65,span*2.4));
+      camera.lookAt(center);
+      scene2.add(new THREE.HemisphereLight(0xf7fbff,0x526276,2.35));
+      const light=new THREE.DirectionalLight(0xfff4e2,3.4);
+      light.position.set(3,7,5);scene2.add(light);
+      photoRenderer.render(scene2,camera);
+      const url=photoRenderer.domElement.toDataURL('image/png');
+      photoCache.set(id,url);
+      if(photoCache.size>72)photoCache.delete(photoCache.keys().next().value);
+      return url;
+    }catch(error){console.warn('Furniture preview failed',name,error);return null;}
+    finally{for(const geo of geometries)geo.dispose();for(const mat of materials)mat.dispose();}
+  }
+
   return {
-    state,
+    state,thumbnail,
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(150, Math.hypot(halfW, halfH) + 22);

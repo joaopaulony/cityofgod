@@ -293,7 +293,8 @@ function initRenderer(){
   try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
   catch(error){console.error('Vegetação 3D falhou',error);window.VEG3D=false;}
   // objetos da rua, móveis, postes, semáforos e meio-fio (props-3d.mjs)
-  try{props3d=createProps(THREE,scene,bridge);system.props3d=props3d.state;}
+  try{props3d=createProps(THREE,scene,bridge);system.props3d=props3d.state;
+   system.furnitureThumbnail=(kind,color)=>props3d.thumbnail(kind,color);}
   catch(error){console.error('Objetos 3D falharam',error);}
   // janelas, portas, cercas, sebes, toldos e degraus (house-3d.mjs)
   try{house3d=createHouse3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});system.house3d=house3d.state;}

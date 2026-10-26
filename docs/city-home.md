@@ -39,3 +39,22 @@ Nesta versão, a propriedade, dinheiro e decoração são dados locais no navega
 ## Testes
 
 Executar node --test tests/city-home.test.cjs e a suíte do GitHub Actions. A validação de interface é principalmente estrutural; inspecionar seleção por mouse, andares, colisão e desempenho visualmente no navegador.
+
+## Acabamento e encaixe de móveis — rodada de polimento
+
+- A tolerância para encostar os móveis nas paredes agora é de aproximadamente 2,5 cm, e o afastamento entre móveis alinhados fica em aproximadamente 2,4 cm.
+- O alinhamento magnético funciona no sistema de coordenadas da propriedade, inclusive em casas com rotação no mundo.
+- As portas são verificadas pela localização das aberturas no plano arquitetônico, e não por um raio grande ao redor da parede.
+- A aproximação é uma sugestão de posicionamento: nunca supera colisões reais ou autorização do proprietário.
+- Móveis com superfície customizável ganharam cor no catálogo e são entregues na tonalidade escolhida. A escolha também é persistida no estoque da residência.
+- As miniaturas usam o modelo 3D procedural real do mobiliário, fotografado de uma câmera ortográfica isolada, com luzes e fundo transparente.
+- As imagens são geradas progressivamente, duas por quadro, com cache limitado e descarte das geometrias temporárias. Há fallback com ícones identificáveis quando WebGL não puder produzir uma prévia.
+- A interface permite escolher uma paleta de seis tons ou abrir o seletor de cor personalizada antes de comprar. O preço permanece o mesmo para os acabamentos disponíveis.
+
+## Testes desta rodada
+
+Executar:
+- node --test tests/city-home.test.cjs tests/city-home-polish.test.cjs
+- npm run build:site
+
+Os testes automatizados checam encaixe em casas rotacionadas, passagem de portas, cor e saldo após compra, persistência e ponte com o renderizador. Recomenda-se também conferir o aspecto das miniaturas, zoom e paredes dentro da casa em um navegador real.
