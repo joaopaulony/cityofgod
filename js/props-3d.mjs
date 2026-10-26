@@ -394,7 +394,7 @@ export function createProps(THREE, scene, bridge) {
       k.list.forEach((b, i) => {
         let rot = b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0), sx = b.w / W, sz = b.d / D;
         const H = b.house, face = k.def.face;
-        if (H && face) {   // vira a frente (+z) p/ o centro do cômodo
+        if (H && face && !b.homeManaged) {   // vira a frente (+z) p/ o centro do cômodo
           const hx = (b.roomCenter?.[0]??(H.x0 + H.x1) / 2) - b.x, hy = (b.roomCenter?.[1]??(H.y0 + H.y1) / 2) - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);
           const cand = [[0, -s, c], [1, -c, -s], [2, s, -c], [3, c, s]].filter(([qq]) => face === 'any' ? true : face === 'short' ? (b.w >= b.d ? qq % 2 === 0 : qq % 2 === 1) : (b.w >= b.d ? qq % 2 === 1 : qq % 2 === 0));
           let best = cand[0], bd = -Infinity; for (const cd of cand) { const d = cd[1] * hx + cd[2] * hy; if (d > bd) { bd = d; best = cd; } }

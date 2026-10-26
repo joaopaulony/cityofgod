@@ -723,6 +723,16 @@ function frame(now) {
 }
 function tick(dt) {
   if(window.cityCharacterEditorOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
+  // Build/Buy mode: freeze character, physics and game clock while showing the live interior.
+  if(window.CityHomeUI?.active){
+    cam.update(dt);
+    render();
+    window.cityVehicles?.render();
+    h.clearRect(0,0,hudC.width,hudC.height);
+    window.CityHomeUI.draw(h);
+    input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
+    return;
+  }
   // Pause gameplay while the full map owns the mouse and keyboard.
   if(wmap.open){
     if(input.hit('m')||input.hit('escape'))wmapToggle();
@@ -764,6 +774,8 @@ function tick(dt) {
   }
   window.cityVehicles?.update(dt);
   updatePlayer(dt);
+  window.CityHome?.tick(player);
+  window.CityHomeUI?.tick();
   window.CityGPS?.tick(player);
   CityLife.tick(dt,player);
   CitySim.tick();
@@ -836,3 +848,4 @@ for (const H of houses) if (!H.architecture&&Math.hypot((H.x0 + H.x1) / 2 - play
 requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };
 CityUI.mount();
+window.CityHomeUI?.mount();

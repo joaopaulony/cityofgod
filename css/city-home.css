@@ -1,0 +1,76 @@
+/* City Home — premium Sims-inspired Buy/Build mode. */
+#city-home-entry{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);
+ z-index:13;border:1px solid #8ad1c6b9;padding:11px 17px;border-radius:13px;
+ color:#eafff9;background:linear-gradient(125deg,#163e44f2,#152331f2);
+ box-shadow:0 10px 25px #0009;font:700 13px system-ui;cursor:pointer;backdrop-filter:blur(10px);}
+#city-home-entry:hover{border-color:#a7ffe1;background:#235a59;}
+#city-home-entry[hidden],#city-home-builder[hidden]{display:none!important;}
+body.city-home-open #city-controls,body.city-home-open #city-toast,
+body.city-home-open #city-phone-layer,body.city-home-open #city-wheel-layer,
+body.city-home-open #city-home-entry,body.city-home-open #chat,
+body.city-home-open #keys{display:none!important;}
+body.city-home-open #view{cursor:crosshair!important;}
+body.city-home-open #view:active{cursor:grabbing!important;}
+#city-home-builder{position:fixed;right:14px;top:14px;bottom:14px;width:min(365px,calc(100vw - 25px));
+ z-index:45;display:flex;flex-direction:column;color:#eef7f9;box-sizing:border-box;
+ border:1px solid #96d9d575;border-radius:24px;background:
+ radial-gradient(ellipse at 100% 0%,#2865675e,transparent 62%),#101b28f7;
+ box-shadow:0 25px 90px #000b,inset 0 1px #d5fff33b;font:12px/1.4 system-ui,sans-serif;
+ overflow:hidden;backdrop-filter:blur(22px);}
+#city-home-builder button{font:inherit;color:inherit;border:1px solid #bde2dd55;
+ border-radius:9px;background:#ffffff15;cursor:pointer;padding:8px 10px;transition:background .15s;}
+#city-home-builder button:hover{background:#5aaeb65b;border-color:#b3fff2;}
+#city-home-builder button:focus-visible{outline:2px solid #a0ffee;outline-offset:2px}
+#city-home-builder button:disabled{cursor:not-allowed;opacity:.34}
+#city-home-builder button.primary,#city-home-builder .home-product button:not(.quiet){
+ background:linear-gradient(130deg,#51dcbf,#248c9a);color:#072530;
+ border-color:#87f6df;font-weight:800}
+#city-home-builder .home-product button.quiet{background:#ffffff0d;color:#b9ced6}
+.home-header{padding:20px 18px 14px;display:flex;justify-content:space-between;align-items:start;
+ border-bottom:1px solid #ffffff23;}
+.home-header span{font-size:9px;color:#81dcda;letter-spacing:.16em;font-weight:800}
+.home-header h2{margin:4px 0;font-size:27px;line-height:1.1;font-weight:800;letter-spacing:-.5px}
+.home-header p{margin:3px 0 0;color:#a8c9cc;font-size:11px}
+#city-home-builder .home-close{border-radius:50%;width:35px;height:35px;font-size:17px!important}
+.home-summary{padding:11px 19px;background:#06192499;display:grid;gap:1px}
+.home-summary>span{font-size:11px;color:#9ab6c2}
+.home-summary strong{font-size:19px;color:#85ffe0}
+.home-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:12px 12px 8px}
+#city-home-builder .home-tabs button{border-radius:10px;font-size:11px;font-weight:700;padding:9px 4px}
+#city-home-builder .home-tabs .on{background:#276d79;border-color:#7dd5d5}
+.home-shop-content{padding:8px 12px 15px;overflow-y:auto;min-height:0;flex:1;
+ scrollbar-color:#497279 transparent}
+.home-copy{font-size:11px;color:#a7c3ce;margin:4px 7px 12px}
+.home-catalog{display:grid;gap:6px}
+.home-product{display:flex;gap:7px;align-items:center;background:#ffffff0b;border:1px solid #ffffff18;
+ border-radius:11px;padding:8px 7px;min-height:44px;transition:border-color .15s}
+.home-product:hover{border-color:#91d6d062}
+.home-item-symbol{background:linear-gradient(145deg,#284955,#1c293a);border:1px solid #95cbc74c;
+ border-radius:9px;font-size:19px;width:35px;height:35px;flex-shrink:0;display:grid;place-items:center}
+.home-product>div{flex:1;min-width:0;display:grid;gap:3px}
+.home-product strong{font-size:11px;font-weight:750;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.home-product small{font-size:10px;color:#94b2ba}
+.home-price{font-size:10px;white-space:nowrap;color:#8ae8ca;font-weight:750}
+#city-home-builder .home-product button{padding:6px 7px;border-radius:7px;font-size:10px}
+.home-empty{font-size:12px;color:#a8c6d0;text-align:center;padding:24px 13px;line-height:1.6}
+.home-footer{flex-shrink:0;border-top:1px solid #ffffff30;padding:12px 14px 14px;background:#0a1a27d8;}
+.home-floor-control{display:flex;align-items:center;gap:5px;overflow-x:auto;padding-bottom:9px}
+.home-floor-control>span{font-weight:750;margin-right:6px;color:#bad1d5}
+#city-home-builder .home-floor-control button{min-width:30px;padding:5px}
+#city-home-builder .home-floor-control button.on{background:#367f88;border-color:#92e5df}
+.home-status{padding:9px 10px;margin-bottom:10px;border-radius:9px;background:#207b715c;
+ color:#b4ffe3;font-size:11px}
+.home-status[data-ok="0"]{background:#843c4c66;color:#ffb3bf}
+.home-footer-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+#city-home-builder .home-footer-actions button{font-size:10px;padding:9px 3px}
+.home-footer>small{display:block;margin-top:12px;color:#8ca8b7;font-size:10px;line-height:1.5}
+@media(max-width:660px){
+ #city-home-builder{width:min(310px,calc(100vw - 12px));right:6px;top:6px;bottom:6px;border-radius:16px}
+ .home-header{padding:12px}.home-header h2{font-size:21px}
+ .home-product{padding:5px}.home-item-symbol{width:29px;height:29px;font-size:15px}
+ .home-product button{font-size:9px!important;padding:5px!important}
+ .home-footer{padding:8px}.home-footer>small{font-size:9px}
+}
+.home-color-palette{margin:0 13px 6px;padding:8px 6px;display:flex;align-items:center;gap:6px;border-top:1px solid #ffffff2b}
+.home-color-palette>span{margin-right:auto;font-size:10px;color:#b9d3da;font-weight:750}
+#city-home-builder .home-color-palette button{width:24px;height:24px;min-width:24px;min-height:24px;padding:0;border-radius:50%;border:2px solid #fff9}

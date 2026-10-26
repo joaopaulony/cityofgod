@@ -49,7 +49,7 @@ const CityRealty=(()=>{
      '<h2>🏠 '+name(H)+'</h2><p>Localização: '+Math.round(H.doorPt[0])+', '+Math.round(H.doorPt[1])+'</p>'+
      '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+
      '<div class="city-property-value">'+(mine?'Sua propriedade':CityLife.money(cost))+'</div>'+
-     (mine?'<p>Este imóvel já pertence ao personagem e aparece no mapa.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
+     (mine?'<p>Este imóvel já pertence ao personagem e aparece no mapa. Entre na casa e use F7 para decorar e comprar móveis.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
        '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>')+
      '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;
@@ -63,6 +63,7 @@ const CityRealty=(()=>{
    owned[id(H)]={id:id(H),name:name(H),x:H.doorPt[0],y:H.doorPt[1],price:cost,at:Date.now()};
    try{localStorage.setItem(KEY,JSON.stringify(owned));}catch(_){}
    if(typeof H.furnishOnPurchase==='function')H.furnishOnPurchase();
+   window.CityHome?.sync(H);
    if(typeof CitySim!=='undefined'&&CitySim.data){
      CitySim.data.home={name:name(H),x:H.front?.[0]??H.doorPt[0],y:H.front?.[1]??H.doorPt[1],price:cost};
      CitySim.save();
