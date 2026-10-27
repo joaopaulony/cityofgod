@@ -1,8 +1,6 @@
 # City of God — pets animados Quaternius
 
-O catálogo **F8** contém **18 companheiros**: Yorkshire, Rottweiler,
-Lulu da Pomerânia, Gato felpudo, Gato esguio e Siamês (modelos procedurais
-existentes), mais os 12 modelos Quaternius CC0:
+O catálogo **F8** contém **14 companheiros**: 12 modelos Quaternius CC0, mais Shar Pei CC BY 4.0 e Benny CC BY-SA 3.0. Os seis modelos procedurais antigos foram desativados:
 
 1. Alpaca (Alpaca)
 2. Touro (Bull)
@@ -52,3 +50,8 @@ usa um único renderer, reutilizado entre cards.
 O limite existente de seis animais por casa e a lógica de seguir,
 retornar, esperar, passar pelas portas e salvar no navegador permanecem.
 A plataforma ainda não oferece sincronização multiplayer autoritativa.
+
+## Substituição dos seis pets procedurais
+Desde a atualização, o F8 não lista mais Yorkshire, Rottweiler procedural, Lulu da Pomerânia e os três gatos geométricos. Dados antigos de adoção são arquivados automaticamente em `cityofgod.retired-pets-backup.v1` antes de serem filtrados do save ativo.
+
+O Shar Pei possui `standing_idle`, `walking_cycle` e `sitting_idle`. Benny possui `idle`, `run`, `attack`, `attack2`, `flinch` e `die`. Benny não possui caminhada própria, portanto a corrida animada é reproduzida mais lentamente durante o passeio.

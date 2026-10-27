@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {PET_BREEDS} from '../js/pet-catalog.mjs';
 import {createAnimatedPet} from '../js/pet-animated.mjs';
-const breeds=PET_BREEDS.filter(b=>b.model),items=[],errors=[];
+const breeds=PET_BREEDS.filter(b=>['Alpaca','Bull','Cow','Deer','Donkey','Fox','Horse','Horse_White','Husky','ShibaInu','Stag','Wolf'].includes(b.model)),items=[],errors=[];
 const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
 renderer.setSize(470,300,false);renderer.setPixelRatio(1);renderer.setClearColor('#e6ebe0');
 const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x9ba88e,2.5));

@@ -1,5 +1,4 @@
 import * as T from 'three';
-import {buildPet} from './pet-model.mjs';
 import {createAnimatedPet,isAnimatedBreed} from './pet-animated.mjs';
 import {petBreed} from './pet-catalog.mjs';
 import {createPetController} from './pet-behavior.mjs';
@@ -17,7 +16,7 @@ export function createPets(scene,bridge){
   render(){
    for(const pet of controller.pets){
     let model=models.get(pet.id);
-    if(!model){model=isAnimatedBreed(pet.breed)?createAnimatedPet(pet.breed,pet.color):buildPet(pet.breed,pet.color);models.set(pet.id,model);scene.add(model.root);}
+    if(!model){model=createAnimatedPet(pet.breed,pet.color);models.set(pet.id,model);scene.add(model.root);}
     const H=pet.homeHouse,inHouse=H&&(H.contains?H.contains(pet.x,pet.y,pet.floor):pet.x>H.x0&&pet.x<H.x1&&pet.y>H.y0&&pet.y<H.y1);
     model.root.visible=pet.visible&&Math.hypot(pet.x-bridge.cam.x,pet.y-bridge.cam.y)<65&&(!inHouse||H.inside&&pet.floor===(bridge.player.floor||0)||!!pet.stairTravel&&H.inside);
     model.root.position.set(pet.x,pet.floorZ||0,pet.y);model.root.rotation.y=-pet.face;
@@ -59,7 +58,7 @@ export function createPets(scene,bridge){
     });
     return placeholder;
    }
-   const url=capture(buildPet(breed,color));photos.set(key,url);return url;
+   throw Error('O catálogo só contém modelos 3D importados');
   },
   releaseControls(){bridge.releaseControls?.();bridge.player.wantShot=false;bridge.player.aiming=false;},
   otherModal:()=>!!(window.CityHomeUI?.active||window.cityCharacterEditorOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen),
