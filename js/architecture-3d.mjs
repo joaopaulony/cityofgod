@@ -250,7 +250,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const w of level.walls){
     const facing=w.normal[0]*camera[0]+w.normal[1]*camera[1],h=w.ext?(facing>0?.55:A.floorHeight):.75;
     const roomId=(w.rooms||[]).find(id=>level.rooms.some(r=>r.id===id))||level.rooms[0]?.id;
-    const color=custom&&roomId?CityHomePlus.surface(e.H,floor,roomId).wall:null;
+    const color=custom&&roomId?CityHomePlus.surface(e.H,floor,roomId)?.wall:null;
     buildWall(kit,w,level.z,h,color||(w.ext?'#e7e0d2':'#e5ddcc'),true,e.innerDoors,e.glass,{},e.innerWindows);
   }
   const flight=base=>{const s=base.stair;for(let i=0;i<15;i++){const y=s.y+1.35-i*.18,z=base.z+(i+1)*A.floorHeight/15;kit.box(s.x-.45,base.z,y-.18,s.x+.45,z,y,'#b39b77',0,'wood');}for(const x of [s.x-.48,s.x+.48])for(let i=0;i<8;i++){const y=s.y+1.3-i*.36,z=base.z+i*A.floorHeight/8;kit.box(x-.02,z,y-.02,x+.02,z+.9,y+.02,'#ded3bf',0,'trim');}};

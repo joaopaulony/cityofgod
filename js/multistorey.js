@@ -125,6 +125,21 @@ function upstairsHouseAt(x,y){
   return houses.find(H=>H.stair&&(H.architecture?H.contains(x,y):x>H.x0+.15&&x<H.x1-.15&&
     y>H.y0+.15&&y<H.y1-.15))||null;
 }
+function houseStairProximity(p){
+  if(!p||p.stairTravel)return null;
+  const H=upstairsHouseAt(p.x,p.y);
+  if(!H?.stair)return null;
+  if(H.architecture){
+    const floor=p.floor||0,levels=H.architecture.levels,s=levels[floor]?.stair;
+    if(!s)return null;
+    const down=floor>0?Math.hypot(p.x-s.top[0],p.y-s.top[1]):Infinity;
+    const up=floor<levels.length-1?Math.hypot(p.x-s.bottom[0],p.y-s.bottom[1]):Infinity;
+    const distance=Math.min(down,up);
+    return distance<1.1?{distance,label:down<up?'Descer escada':'Subir escada'}:null;
+  }
+  const distance=Math.hypot(p.x-H.stair.x,p.y-H.stair.y);
+  return distance<1.05?{distance,label:p.floor===1?'Descer escada':'Subir escada'}:null;
+}
 function updateHouseStairs(p,dt,activate){
   if(p.stairTravel){
     const tr=p.stairTravel;

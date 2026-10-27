@@ -1,7 +1,7 @@
 // Review controls operate on real streamed properties; no separate demo scene.
 'use strict';
 if(new URLSearchParams(location.search).get('architectureTest')==='1'){
- const ui=document.createElement('aside');ui.style.cssText='position:fixed;left:14px;top:14px;z-index:80;width:290px;padding:14px;background:#162b30ee;color:#f2ebdc;border-radius:10px;font:13px system-ui';
+ const ui=document.createElement('aside');ui.id='architecture-review-tools';ui.style.cssText='position:fixed;left:14px;top:14px;z-index:80;width:290px;padding:14px;background:#162b30ee;color:#f2ebdc;border-radius:10px;font:13px system-ui';
  ui.innerHTML='<b>Revisão dos imóveis · mapa principal</b><div style="margin-top:8px"><label>Tipo de imóvel <select id="property-type"></select></label></div><div id="property-actions"></div><pre id="property-report" style="white-space:pre-wrap"></pre>';document.body.append(ui);
  const type=ui.querySelector('select'),report=ui.querySelector('pre'),actions=ui.querySelector('#property-actions');
  const labels={house:'Casa',bungalow:'Bangalô',poor:'Casa popular',mansion:'Mansão',rural:'Casa rural',shop:'Loja',office:'Escritórios',condo:'Condomínio',deco:'Hotel art déco',projects:'Habitação coletiva',warehouse:'Galpão',airport:'Aeroporto',hospital:'Hospital',police:'Delegacia',military:'Batalhão',cityhall:'Prefeitura',school:'Escola'};

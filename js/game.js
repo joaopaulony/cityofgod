@@ -733,6 +733,12 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
+  if(window.CityRealty?.dialogOpen){
+    cam.update(dt);render();window.cityVehicles?.render();
+    h.clearRect(0,0,hudC.width,hudC.height);
+    input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
+    return;
+  }
   // Pause gameplay while the full map owns the mouse and keyboard.
   if(wmap.open){
     if(input.hit('m')||input.hit('escape'))wmapToggle();
@@ -743,7 +749,7 @@ function tick(dt) {
     }
   }
   T += dt;
-  st.clock += dt; hud.msgT -= dt;
+  st.clock += dt; hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
   // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
   envTick(dt, st.clock);
   if (st.night !== ENV.night) st.night = world.night = ENV.night;
@@ -759,13 +765,19 @@ function tick(dt) {
   if (input.hit('k')) { envSetWeather(ENV.weather + 1); hud.msg = 'Clima: ' + envWeather().name; hud.msgT = 2; }
   // Veiculo tem prioridade ao entrar/sair; casas preservam F fora dele.
   const interactPressed=input.hit('f');
+  const nearbyHouse=findHouseInteraction(player);
+  const nearbyStair=houseStairProximity(player);
+  const houseDistance=nearbyHouse?Math.hypot(nearbyHouse.obj.x-player.x,nearbyHouse.obj.y-player.y):Infinity;
+  const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
+  const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
+    ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
   const vehicleMessage=interactPressed?window.cityVehicles?.interact():false;
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
   const realtyOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
-  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed&&houseAction==='stair');
+  if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&houseAction==='object'&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
@@ -825,13 +837,20 @@ function tick(dt) {
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player)||interactionPrompt(player);
+  const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
+  const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
+  const otherPrompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const prompt=otherPrompt||
+    (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){
-    h.save();h.font='600 14px sans-serif';h.textAlign='center';
-    const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
-    h.fillStyle='rgba(20,19,16,.84)';h.fillRect(x,y,w,29);
-    h.strokeStyle='rgba(215,185,127,.54)';h.strokeRect(x+.5,y+.5,w-1,28);
-    h.fillStyle='#f3dfb6';h.fillText(prompt,hudC.width/2,y+20);
+    h.save();h.font='700 13px "Arial Narrow",sans-serif';h.textAlign='center';
+    const alternate=!otherPrompt&&secondaryHousePrompt?'Shift+F · '+secondaryHousePrompt.replace(/^F\s*·\s*/,''):'';
+    const w=Math.min(hudC.width-24,Math.max(h.measureText(prompt).width,h.measureText(alternate).width)+30);
+    const x=hudC.width/2-w/2,y=hudC.height-(alternate?117:100);
+    h.fillStyle='rgba(22,38,39,.82)';h.beginPath();h.roundRect(x,y,w,alternate?47:30,11);h.fill();
+    h.strokeStyle='rgba(210,244,222,.68)';h.stroke();
+    h.fillStyle='#f3fff3';h.fillText(prompt,hudC.width/2,y+20,w-18);
+    if(alternate){h.fillStyle='#bad9c8';h.font='700 11px "Arial Narrow",sans-serif';h.fillText(alternate,hudC.width/2,y+38,w-18);}
     h.restore();
   }
   input.endFrame();

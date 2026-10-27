@@ -1,0 +1,141 @@
+/* Miami HUD and home management: one visual hierarchy across play, shop and phone. */
+:root{--miami-ink:#14252a;--miami-green:#47be92;--miami-mint:#c9f2dd;--miami-cream:#f3f0e5;--miami-line:#b8d5ca}
+body{font-family:"Trebuchet MS","Segoe UI",sans-serif}
+#chat{top:15px!important;bottom:auto!important;left:17px!important;width:min(320px,36vw)!important;
+ background:linear-gradient(90deg,#091512a3,#0915124a 76%,transparent)!important;border:0!important;
+ box-shadow:none!important;pointer-events:none}
+#chat .tabs{display:none!important}
+#chat .log{height:auto;max-height:91px;overflow:hidden;padding:7px 9px;
+ color:#f9fff7;font:600 13px/1.4 "Arial Narrow","Trebuchet MS",sans-serif;text-shadow:0 1px 3px #000,0 0 8px #000}
+#chat input{pointer-events:auto;margin:1px 8px 5px;width:calc(100% - 16px);max-width:220px;
+ background:#12261f9c;border:1px solid #d9f9e76d;border-radius:7px;color:#fff;font-size:11px;opacity:.82}
+body.city-modal #city-home-entry,body.city-home-open #city-property-dialog{display:none!important}
+body.city-property-open #city-controls,body.city-property-open #chat,body.city-property-open #city-home-entry{display:none!important}
+body.city-home-open #architecture-review-tools{display:none!important}
+#city-home-entry{bottom:155px}
+#city-controls{right:18px;bottom:15px;gap:7px}
+#city-controls button{min-width:83px;min-height:65px;border:1px solid #f3f8f0a3;border-radius:17px;
+ background:linear-gradient(155deg,#3b4c4bba,#172728dd);box-shadow:inset 0 1px #ffffff58,0 6px 20px #0008;
+ color:#fff;font:800 10px "Arial Narrow","Trebuchet MS",sans-serif;text-shadow:0 1px 3px #0008}
+#city-controls b{display:grid;place-items:center;height:26px;margin-bottom:3px}
+#city-controls .city-svg-icon{width:25px;height:25px}
+#city-toast{top:22px;right:auto;left:50%;transform:translateX(-50%);max-width:min(460px,82vw);
+ text-align:center;background:#193632ee;border:1px solid #b8f2d4aa;border-radius:16px;color:#f8fff7;
+ box-shadow:0 8px 30px #0008;font:700 13px "Trebuchet MS",sans-serif}
+
+/* Vector icons are hand authored, so one sprite replaces 25 emoji/raster assets. */
+.city-svg-icon{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;
+ stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+#city-phone{box-sizing:border-box;border-color:#222f36;border-radius:47px;background-color:#0d262b;
+ box-shadow:0 0 0 2px #bdc9c0,0 20px 55px #000b,0 0 0 6px #131d20}
+#city-phone.city-case-graphite{border-color:#222f36}
+#city-phone .city-phone-top,#city-phone .city-phone-footer{background:#13252a7a;border-color:#ffffff28}
+#city-phone .city-home-hero{background:radial-gradient(circle at 90% 5%,#8de4b87a,transparent 53%),
+ linear-gradient(140deg,#254c50,#123138 65%,#152a37);border:1px solid #d9f6e484}
+#city-phone .city-home-hero strong{font:800 27px "Arial Narrow","Trebuchet MS",sans-serif;letter-spacing:.02em}
+#city-phone .city-hero-stats b{color:#ceffdc;background:#0b3530a9}
+#city-phone .city-app-grid{gap:14px 5px}
+#city-phone .city-app{font:700 10px "Trebuchet MS",sans-serif;color:#f8fffb;line-height:1.18}
+#city-phone .city-app-icon{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 5px;
+ border:1px solid #f2fff9a0;border-radius:17px;background:linear-gradient(145deg,#7fcaae,#24685f)!important;
+ box-shadow:inset 0 2px #ffffff7d,inset 0 -3px #0e363774,0 6px 12px #0006}
+#city-phone .city-app .city-svg-icon{width:29px;height:29px;stroke-width:1.85;filter:drop-shadow(0 2px 2px #0007)}
+#city-phone .city-app[data-app="social"] .city-app-icon,
+#city-phone .city-app[data-app="dating"] .city-app-icon{background:linear-gradient(145deg,#f39d98,#b75982)!important}
+#city-phone .city-app[data-app="bank"] .city-app-icon,
+#city-phone .city-app[data-app="wallet"] .city-app-icon{background:linear-gradient(145deg,#8ccdd7,#286a86)!important}
+#city-phone .city-app[data-app="cars"] .city-app-icon,
+#city-phone .city-app[data-app="taxi"] .city-app-icon{background:linear-gradient(145deg,#eac47a,#9d6a39)!important}
+#city-phone .city-app[data-app="map"] .city-app-icon,
+#city-phone .city-app[data-app="gps"] .city-app-icon{background:linear-gradient(145deg,#9fc4a7,#53786e)!important}
+#city-phone .city-home-dock{background:#e8f7ea30;border-color:#ffffff69}
+#city-phone .city-home-dock button{display:grid;justify-items:center;align-content:center;gap:4px;min-width:52px}
+#city-phone .city-home-dock .city-svg-icon{width:25px;height:25px}
+#city-phone .city-home-dock button:focus-visible,#city-phone .city-app:focus-visible{outline:2px solid #bafada;outline-offset:2px}
+
+/* The main four tasks stay visible; less frequent tools have their own drawer. */
+#city-home-builder{width:min(470px,calc(100vw - 24px));right:12px;top:12px;bottom:12px;
+ color:var(--miami-ink);border:1px solid #d3e5d9;border-radius:21px;
+ background:var(--miami-cream);box-shadow:0 22px 70px #07161bb8,inset 0 1px #fff;
+ font:12px/1.42 "Trebuchet MS","Segoe UI",sans-serif;backdrop-filter:none}
+#city-home-builder button{color:var(--miami-ink);background:#ffffffc9;border-color:#a8c6bc}
+#city-home-builder button:hover{background:#e0f9ea;border-color:#358a75}
+#city-home-builder button:focus-visible{outline:2px solid #288873}
+#city-home-builder button.primary,#city-home-builder .home-product button:not(.quiet){
+ background:#208d72;color:#fff;border-color:#14725d}
+#city-home-builder button:disabled{opacity:.48}
+#city-home-builder .home-header{padding:17px 19px 13px;border-bottom:1px solid #cadbd3;background:#fbfcf4}
+#city-home-builder .home-header span{color:#388571;font-size:9px}
+#city-home-builder .home-header h2{font:800 26px "Arial Narrow","Trebuchet MS",sans-serif;color:#143b36}
+#city-home-builder .home-header p{font-size:12px;color:#617872}
+#city-home-builder .home-close{background:#e8f0e9;color:#214b43;border-color:#c5d9ce}
+#city-home-builder .home-summary{padding:8px 19px;background:#e6f4e9;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 9px}
+#city-home-builder .home-summary>span{font-size:10px;color:#536d65}
+#city-home-builder .home-summary>span:last-child{width:100%}
+#city-home-builder .home-summary strong{font:800 18px "Arial Narrow","Trebuchet MS",sans-serif;color:#116e56}
+#city-home-builder .home-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:10px 11px 8px;background:#fbfcf4}
+#city-home-builder .home-tabs button{min-height:40px;padding:6px 3px;font-size:10px;font-weight:800;line-height:1.15}
+#city-home-builder .home-tabs .on,#city-home-builder .home-secondary-tabs .on{
+ background:#1d8069;color:#fff;border-color:#1a705c}
+#city-home-builder .home-more{border-block:1px solid #c9ddd2;background:#eef5eb}
+#city-home-builder .home-more summary,#city-home-builder .home-help summary{cursor:pointer;list-style:none;padding:8px 14px;
+ font-weight:800;font-size:11px;color:#376b5d}
+#city-home-builder .home-more summary::after,#city-home-builder .home-help summary::after{content:"⌄";float:right}
+#city-home-builder .home-more[open] summary::after,#city-home-builder .home-help[open] summary::after{content:"⌃"}
+#city-home-builder .home-secondary-tabs{padding:6px 11px 10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+#city-home-builder .home-secondary-tabs button{font-size:10px;min-height:34px;padding:5px 3px}
+#city-home-builder .home-shop-content{padding:12px 13px 20px;scrollbar-color:#9fcabb transparent}
+#city-home-builder .home-section-head{display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:12px}
+#city-home-builder .home-section-head small{font-size:9px;color:#408b78;font-weight:900;letter-spacing:.12em}
+#city-home-builder .home-section-head h3{font:800 19px "Arial Narrow","Trebuchet MS",sans-serif;color:#153d37;margin:1px 0 2px}
+#city-home-builder .home-section-head p{font-size:11px;color:#63796e;margin:0}
+#city-home-builder .home-section-head>strong{white-space:nowrap;font-size:10px;color:#2d7964}
+#city-home-builder .home-categories{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:0 1px 10px;margin-bottom:2px}
+#city-home-builder .home-categories button{flex:none;border-radius:18px;padding:6px 10px;font-size:10px;font-weight:800}
+#city-home-builder .home-categories .on{background:#1d8069;color:#fff;border-color:#1a705c}
+#city-home-builder .home-catalog{gap:10px}
+#city-home-builder .home-product{background:#fff;border:1px solid #d3dfd4;border-radius:13px;box-shadow:0 3px 8px #486d4e1a;color:#233e38}
+#city-home-builder .home-product:hover{border-color:#83c6ae}
+#city-home-builder .home-product strong{font-size:12px}
+#city-home-builder .home-product small,#city-home-builder .home-product-head small{color:#677c75}
+#city-home-builder .home-catalog-card{min-height:123px}
+#city-home-builder .home-catalog-card .home-photo-button{background:linear-gradient(145deg,#edf4e9,#c9dfd0)!important;border-color:#c4d8cb!important}
+#city-home-builder .home-photo{background:linear-gradient(145deg,#e9f3e7,#c9dfd0);border-color:#bfdbcc}
+#city-home-builder .home-photo-placeholder{color:#44846e}
+#city-home-builder .home-finish>span{color:#55756a}
+#city-home-builder .home-buy-row .home-price{color:#14775c;font-size:12px}
+#city-home-builder .home-empty,#city-home-builder .home-copy{color:#657c73}
+#city-home-builder .home-footer{padding:9px 12px 10px;background:#fbfcf5;border-top-color:#cadbd3}
+#city-home-builder .home-floor-control{padding-bottom:5px}
+#city-home-builder .home-floor-control>span{color:#536f63}
+#city-home-builder .home-floor-control button.on{background:#218469;color:#fff}
+#city-home-builder .home-status{margin:4px 0 7px;padding:6px 9px;background:#dbf4e3;color:#185e4c;font-size:11px}
+#city-home-builder .home-status[data-ok="0"]{background:#fbe2df;color:#992b38}
+#city-home-builder .home-footer-actions button{font-size:11px;padding:8px 2px}
+#city-home-builder .home-help{margin-top:6px;border-top:1px solid #d5e3d9}
+#city-home-builder .home-help summary{padding:5px 2px;color:#5e796e}
+#city-home-builder .home-help small{display:block;padding:2px 3px 5px;color:#556e64;font-size:10px;line-height:1.45}
+#city-home-builder .home-plus-tile,#city-home-builder .home-finish-option,#city-home-builder .home-pantry-status,
+#city-home-builder .home-pantry-stock span{background:#fff;border-color:#d4e4d8;color:#2a4a40!important}
+#city-home-builder .home-plus-tile small,#city-home-builder .home-plus-label,#city-home-builder .home-finish-option small{color:#5d756a}
+#city-home-builder .home-plus-button{background:#d6eee1!important;color:#185b48!important;border-color:#a1c9b4!important}
+#city-home-builder .home-condition{background:#e1f4e8;border-color:#aed7bc}
+#city-home-builder .home-condition strong{color:#147453}
+#city-home-builder .home-condition span{color:#355c47}
+#city-home-builder .home-shop-content>h3{color:#255b4d}
+#city-home-builder .home-shop-content>p{color:#657a6d}
+#city-home-builder .home-plus-label input{background:#fff;color:#183d36;border-color:#a7c9b6}
+@media(max-width:660px){
+ #city-home-builder{width:min(360px,calc(100vw - 8px));right:4px;top:4px;bottom:4px;border-radius:15px}
+ #city-home-builder .home-tabs button{font-size:9px;min-height:35px}
+ #city-home-builder .home-header{padding:11px 12px 8px}
+ #city-home-builder .home-header h2{font-size:21px}
+ #city-home-builder .home-summary{padding:6px 12px}
+ #city-home-builder .home-shop-content{padding:8px}
+ #city-home-builder .home-catalog-card .home-photo-button{flex-basis:88px;width:88px}
+ #city-controls{right:7px;bottom:7px;gap:4px}
+ #city-controls button{min-width:51px;min-height:48px;padding:5px 6px;font-size:0}
+ #city-controls b{height:32px;margin:0}
+ #city-controls .city-svg-icon{width:23px;height:23px}
+ #city-toast{top:12px}
+}

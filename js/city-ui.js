@@ -16,7 +16,7 @@ const CityUI = (() => {
   const contacts = { lucas: { name: 'Lucas', reply: 'O movimento da cidade está tranquilo. Precisando de alguma coisa, me avisa!' }, ana: { name: 'Ana', reply: 'Oi! Estou por aqui. Se cuida e não esquece de comer e beber água.' } };
   const labels = { hp:'Vida', food:'Fome', water:'Sede', stamina:'Fôlego', energy:'Energia', hygiene:'Higiene', bladder:'Banheiro' };
   let app = 'home', phoneOpen = false, wheelOpen = false, wheelChoice = 1, selectedContact = 'lucas', mounted = false;
-  let toastTimer, currentSt, messages = [], notes = '';
+  let toastTimer, currentSt, messages = [], notes = '', shownClock = '';
   const $ = id => document.getElementById(id);
   const safe = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const percent = value => Math.max(0, Math.min(100, Math.round(value * 100)));
@@ -24,6 +24,12 @@ const CityUI = (() => {
   const localWrite = (key, value) => { try { localStorage.setItem(key, value); } catch (_) {} };
   const minsToTime = clock => { const m = ((Math.floor(clock) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0'); };
   const blocked = () => phoneOpen || wheelOpen;
+  function syncClock(clock){
+    if(!phoneOpen)return;
+    const time=minsToTime(clock);if(time===shownClock)return;shownClock=time;
+    const status=$('city-phone-time'),hero=document.querySelector('.city-phone-hero-time');
+    if(status)status.textContent=time;if(hero)hero.textContent=time;
+  }
   function releaseControls() {
     if (typeof input !== 'undefined') { input.keys.clear(); input.pressed.clear(); input.lmb = false; input.rmb = false; }
     if (currentSt?.player) { currentSt.player.wantShot = false; currentSt.player.aiming = false; }
@@ -43,7 +49,9 @@ const CityUI = (() => {
   function togglePhone(force) {
     if (!mounted) return;
     const next = typeof force === 'boolean' ? force : !phoneOpen;
+    if(next&&window.CityHomeUI?.active)return;
     if (next && typeof wmap !== 'undefined' && wmap.open) { notify('Feche o mapa antes de abrir o celular'); return; }
+    if(next)window.CityRealty?.close?.();
     if (next) { closeWheel(false); releaseControls(); app = 'home'; }
     phoneOpen = next;
     $('city-phone-layer').hidden = !phoneOpen;
@@ -87,7 +95,8 @@ const CityUI = (() => {
       <div id="city-wheel-hint">Segure TAB ou U e solte · ou clique</div>`;
   }
   const btn = (action, label, extra = '') => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
-  const appBtn = (id, icon, title) => `<button type="button" class="city-app" data-app="${id}"><span class="city-app-icon">${icon}</span>${title}</button>`;
+  const icon = id => `<svg class="city-svg-icon" aria-hidden="true" viewBox="0 0 24 24"><use href="assets/ui/city-icons.svg#${id}"></use></svg>`;
+  const appBtn = (id, unused, title) => `<button type="button" class="city-app" data-app="${id}"><span class="city-app-icon">${icon(id)}</span>${title}</button>`;
   function renderNeeds() {
     const st = currentSt;
     return [['hp', st.hp], ['food', st.food], ['water', st.water], ['stamina',st.needs.stamina], ['energy',st.needs.energy], ['hygiene',st.needs.hygiene], ['bladder',1-st.needs.bladder]].map(([key, value]) => {
@@ -130,9 +139,10 @@ const CityUI = (() => {
     const title = appNames[app] || 'Início';
     $('city-phone-title').textContent = title;
     $('city-phone-time').textContent = minsToTime(currentSt.clock);
+    shownClock=minsToTime(currentSt.clock);
     let html = '';
     if (app === 'home') {
-      html = `<div class="city-home-hero"><span class="city-hero-eyebrow">SEU MUNDO, SEU RITMO</span><strong>City of God</strong><span>Descubra a cidade. Construa sua história.</span><div class="city-hero-stats">☀️ ${minsToTime(currentSt.clock)} <b>${CityLife.money(CityLife.funds)}</b></div></div>
+      html = `<div class="city-home-hero"><span class="city-hero-eyebrow">SEU MUNDO, SEU RITMO</span><strong>City of God</strong><span>Descubra a cidade. Construa sua história.</span><div class="city-hero-stats"><span>☀️ <span class="city-phone-hero-time">${minsToTime(currentSt.clock)}</span></span><b>${CityLife.money(CityLife.funds)}</b></div></div>
         <div class="city-phone-label">Aplicativos</div><div class="city-app-grid">
         ${appBtn('status','❤️','Status')}
         ${appBtn('bag','🎒','Mochila')}
@@ -160,7 +170,7 @@ const CityUI = (() => {
         ${appBtn('graphics','🎮','Gráficos')}
         ${appBtn('help','⚙️','Ajuda')}
         </div>
-        <div class="city-home-dock"><button data-app="calls">📞 <small>Ligações</small></button><button data-app="sms">💬 <small>Mensagens</small></button><button data-app="camera">📷 <small>Câmera</small></button><button data-app="browser">🌍 <small>Internet</small></button></div>`;
+        <div class="city-home-dock"><button data-app="calls">${icon('calls')}<small>Ligações</small></button><button data-app="sms">${icon('sms')}<small>Mensagens</small></button><button data-app="camera">${icon('camera')}<small>Câmera</small></button><button data-app="browser">${icon('browser')}<small>Internet</small></button></div>`;
     } else if (app === 'status') html = renderNeeds() + '<p class="city-help">Geladeiras, pias, camas, chuveiros e vasos sanitários das casas agora ajudam a manter o personagem.</p>';
     else if (app === 'bag') html = renderBag();
     else if (app === 'market') html = renderMarket();
@@ -170,7 +180,7 @@ const CityUI = (() => {
     else if (app === 'sms') html = renderMessages();
     else if (app === 'notes') html = `<p class="city-help">Notas privadas salvas no navegador.</p><textarea id="city-notes" maxlength="1000" aria-label="Anotações"></textarea><p class="city-help">Salvamento automático.</p>`;
     else if (app === 'help') html = `<div class="city-panel"><h3>Controles</h3><p>P: celular · TAB ou U: roda de equipamentos · I: mochila · M: mapa. Role o mouse para aproximar a câmera do personagem.</p>
-      <p>1–5: consumo rápido · F: interagir · R: recarregar o fuzil.</p><p>Clique ou toque nos botões de acesso da tela.</p>
+      <p>1–5: consumo rápido · F: interagir · Shift+F: ação alternativa quando porta e escada estão próximas · F7: decorar uma casa própria · R: recarregar o fuzil.</p><p>Clique ou toque nos botões de acesso da tela.</p>
       <p>Compras, empregos, imóveis, chamadas de NPCs e publicações são simulações locais salvas no navegador, ainda sem servidor multiplayer.</p></div>`;
     else if (CityApps.names[app]) html = CityApps.render(app);
     screen.innerHTML = html;
@@ -221,9 +231,9 @@ const CityUI = (() => {
     const root=document.createElement('div'); root.id='city-ui-root';
     root.innerHTML = `
       <div id="city-controls" aria-label="Ações do personagem">
-        <button type="button" data-action="bag" aria-label="Abrir mochila"><b>🎒</b>I · Mochila</button>
-        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos"><b>✊</b>Tab/U · Armas</button>
-        <button type="button" data-action="phone" aria-label="Abrir celular"><b>📱</b>P · Celular</button>
+        <button type="button" data-action="bag" aria-label="Abrir mochila"><b>${icon('bag')}</b>I · Mochila</button>
+        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos"><b>${icon('weapons')}</b>Tab/U · Armas</button>
+        <button type="button" data-action="phone" aria-label="Abrir celular"><b>${icon('phone')}</b>P · Celular</button>
       </div>
       <div id="city-toast" role="status" aria-live="polite"></div>
       <div id="city-phone-layer" hidden>
@@ -295,7 +305,7 @@ const CityUI = (() => {
       const r=CityLife.use(quickItems[Number(key)-1]); notify(r.text);
     }
   }
-  const api = { mount, notify, togglePhone, openWheel, closeWheel, refreshPhone:render, goApp:setApp, updatePhoneTheme, get phoneOpen(){return phoneOpen;}, get wheelOpen(){return wheelOpen;}, blocksGameInput:blocked, quickItems };
+  const api = { mount, notify, togglePhone, openWheel, closeWheel, refreshPhone:render, goApp:setApp, updatePhoneTheme,syncClock, get phoneOpen(){return phoneOpen;}, get wheelOpen(){return wheelOpen;}, blocksGameInput:blocked, quickItems };
   return api;
 })();
 window.CityUI = CityUI;

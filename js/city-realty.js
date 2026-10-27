@@ -19,6 +19,9 @@ const CityRealty=(()=>{
      }
      if(e.target.closest('[data-property-close]'))close();
    });
+   window.addEventListener('keydown',e=>{
+     if(e.key==='Escape'&&document.getElementById('city-property-dialog')?.hidden===false){e.preventDefault();close();}
+   });
  }
  const isOwned=H=>residential(H)&&!!owned[id(H)];
  const canFurnish=H=>!residential(H)||isOwned(H);
@@ -33,12 +36,15 @@ const CityRealty=(()=>{
    let found=null,dist=max;
    for(const H of houses){
      if(!residential(H))continue;
+     // The exterior property card must never steal F from an interior door or stair.
+     if(H.contains?.(p.x,p.y,p.floor||0))continue;
      const d=Math.hypot(p.x-H.doorPt[0],p.y-H.doorPt[1]);
      if(d<dist){found=H;dist=d;}
    }
    return found;
  }
  function panel(H){
+   window.CityUI?.togglePhone?.(false);
    selected=H;close(false);
    let el=document.getElementById('city-property-dialog');
    if(!el){el=document.createElement('div');el.id='city-property-dialog';document.body.appendChild(el);}
@@ -53,9 +59,11 @@ const CityRealty=(()=>{
        '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>')+
      '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;
+   document.body.classList.add('city-property-open');
+   el.querySelector('[data-property-close]')?.focus();
    return true;
  }
- function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;if(clear)selected=null;}
+ function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;document.body.classList.remove('city-property-open');if(clear)selected=null;}
  function buy(H){
    if(!residential(H)||isOwned(H))return {ok:false,text:'Imóvel indisponível'};
    const cost=price(H);
@@ -78,7 +86,8 @@ const CityRealty=(()=>{
    panel(H);return true;
  }
  function prompt(p){const H=nearby(p);return H?'F · '+(isOwned(H)?'Ver minha propriedade':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
- return {init,residential,isOwned,canFurnish,nearby,onInteract,prompt,buy,id,price,name,
+ return {init,residential,isOwned,canFurnish,nearby,onInteract,prompt,buy,id,price,name,close,
+  get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
 })();
 window.CityRealty=CityRealty;
