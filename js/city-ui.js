@@ -41,7 +41,12 @@ const CityUI = (() => {
   }
   function notify(message) {
     const el = $('city-toast');
-    if (!el) { if (typeof hud !== 'undefined') { hud.msg = message; hud.msgT = 2.4; } return; }
+    const inWorld=typeof hud !== 'undefined' && !(typeof wmap !== 'undefined' && wmap.open)
+      && !phoneOpen && !window.CityHomeUI?.active;
+    if (inWorld || !el) {
+      if (typeof hud !== 'undefined') { hud.msg = message; hud.msgT = 2.4; }
+      el?.classList.remove('show');clearTimeout(toastTimer);return;
+    }
     if (typeof hud !== 'undefined') hud.msgT = 0;
     el.textContent = message; el.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2900);

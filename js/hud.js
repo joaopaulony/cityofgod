@@ -14,6 +14,16 @@ function roundRect(g, x, y, w, h, r, fill, stroke) {
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); }
 }
 
+function drawHudHeadline(g, text, x, y, size, maxWidth, align='left') {
+  g.save();
+  g.font=`900 ${size}px "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif`;
+  g.textAlign=align;g.textBaseline='alphabetic';g.lineJoin='round';
+  g.lineWidth=Math.max(3,size*.18);g.strokeStyle='#080c0e';g.fillStyle='#fff';
+  g.shadowColor='#000';g.shadowBlur=Math.max(5,size*.3);
+  g.strokeText(text,x,y,maxWidth);g.fillText(text,x,y,maxWidth);
+  g.restore();
+}
+
 function drawHUD(h, W, H, st) {
   h.clearRect(0, 0, W, H);
   // HUD de mundo aberto: informação útil, sem os botões decorativos antigos.
@@ -96,13 +106,10 @@ function drawHUD(h, W, H, st) {
     h.fillText(loc.street||'Explorando a cidade',tx,subY);
     if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx,subY+16);}
   }
-  // Atalhos ficam em uma única notificação discreta acima do radar.
+  // Atalhos ficam acima do radar, com a mesma tipografia dos avisos.
   if(!window.CityUI?.blocksGameInput()){
-    const keys=compact?'I Mochila  ·  U Armas  ·  P Celular':'I Mochila   ·   TAB/U Armas   ·   P Celular';
-    const hintW=Math.min(W-mx-12,compact?Math.max(225,W-20):302),hintY=my-36;
-    round(mx,hintY,hintW,26,8,'rgba(82,90,94,.58)','rgba(255,255,255,.41)');
-    h.shadowBlur=0;h.fillStyle='#fff';h.textAlign='left';h.font='700 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';
-    h.fillText(keys,mx+10,hintY+17,hintW-20);
+    const keys=compact?'I Mochila  ·  U Armas':'I Mochila  ·  TAB/U Armas';
+    drawHudHeadline(h,keys,mx,my-14,compact?14:16,Math.min(W-mx-12,350));
   }
 
   // Mira só aparece armado e fora das interfaces.
@@ -119,11 +126,9 @@ function drawHUD(h, W, H, st) {
   // Avisos do mundo: tipografia branca grande, sem cartão opaco.
   if(hud.msgT>0){
     const alpha=clamp(hud.msgT,0,1);
-    h.globalAlpha=alpha;h.font=(compact?'900 18px':'900 27px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
-    h.textAlign='center';h.textBaseline='alphabetic';h.lineJoin='round';h.lineWidth=5;
-    h.shadowColor='#000';h.shadowBlur=8;h.strokeStyle='#090c0e';h.fillStyle='#fff';
-    const msgY=compact?150:115,msgW=Math.min(W-24,850);
-    h.strokeText(hud.msg,W/2,msgY,msgW);h.fillText(hud.msg,W/2,msgY,msgW);h.globalAlpha=1;
+    h.globalAlpha=alpha;
+    const msgY=compact?170:135,msgW=Math.min(W-24,850);
+    drawHudHeadline(h,hud.msg,W/2,msgY,compact?18:27,msgW,'center');h.globalAlpha=1;
   }
   h.restore();
 }
