@@ -4,19 +4,26 @@ export function mountPetUI(api){
  const entry=document.createElement('button');entry.id='city-pets-entry';entry.type='button';entry.textContent='🐾 Pets · F8';entry.onclick=()=>open();document.body.append(entry);
  const dialog=document.createElement('dialog');dialog.id='city-pets';dialog.setAttribute('aria-labelledby','city-pets-title');document.body.append(dialog);
  const chosen=new Map(),names=new Map();let lastFocus=null;
+ window.addEventListener('city-pet-portrait-ready',event=>{
+  const {breed,color,url}=event.detail||{};
+  if(!breed||!color||!url)return;
+  dialog.querySelectorAll('img[data-pet-preview]').forEach(img=>{
+   if(img.dataset.petPreview===breed+':'+color)img.src=url;
+  });
+ });
  const release=()=>{api.releaseControls();};
  function render(){
   const scroll=dialog.scrollTop;
   const family=api.controller.rows.map(row=>{
    const breed=petBreed(row.breed),pet=api.controller.pets.find(p=>p.id===row.id);
-   return `<article class="pet-family"><img src="${api.portrait(row.breed,row.color)}" alt="${esc(breed.name)}"><div><strong>${esc(row.name)}</strong><small>${esc(breed.name)} · ${esc(petColor(breed,row.color).name)}</small><p data-pet-status="${esc(row.id)}">${esc(pet?.status||'Em casa · fora desta região')}</p><div class="pet-commands">${[['follow','Chamar para passear'],['wait','Esperar aqui'],['home','Voltar para casa']].map(([cmd,label])=>`<button data-pet-command="${cmd}" data-pet-id="${esc(row.id)}" ${pet?.homeHouse?'':'disabled'}>${label}</button>`).join('')}</div></div></article>`;
+   return `<article class="pet-family"><img src="${api.portrait(row.breed,row.color)}" data-pet-preview="${esc(row.breed)}:${esc(row.color)}" alt="${esc(breed.name)}"><div><strong>${esc(row.name)}</strong><small>${esc(breed.name)} · ${esc(petColor(breed,row.color).name)}</small><p data-pet-status="${esc(row.id)}">${esc(pet?.status||'Em casa · fora desta região')}</p><div class="pet-commands">${[['follow','Chamar para passear'],['wait','Esperar aqui'],['home','Voltar para casa']].map(([cmd,label])=>`<button data-pet-command="${cmd}" data-pet-id="${esc(row.id)}" ${pet?.homeHouse?'':'disabled'}>${label}</button>`).join('')}</div></div></article>`;
   }).join('');
-  dialog.innerHTML=`<header><div><span class="pet-eyebrow">CITY OF GOD · COMPANHEIROS</span><h1 id="city-pets-title">Uma casa com mais vida.</h1><p>Cães e gatos para dividir a rotina e explorar a cidade com você.</p></div><button class="pet-close" data-pet-close aria-label="Fechar painel de pets">✕</button></header>
+  dialog.innerHTML=`<header><div><span class="pet-eyebrow">CITY OF GOD · COMPANHEIROS</span><h1 id="city-pets-title">Uma casa com mais vida.</h1><p>Cães, gatos e 12 novos animais 3D da Quaternius para explorar a cidade com você.</p></div><button class="pet-close" data-pet-close aria-label="Fechar painel de pets">✕</button></header>
   <section class="pet-family-section"><div class="pet-section-title"><h2>Sua família <span>${api.controller.count}</span></h2><div class="pet-commands"><button data-pet-command="follow" data-pet-id="all">🐾 Chamar todos</button><button data-pet-command="home" data-pet-id="all">Voltar para casa</button></div></div>${family||'<p class="pet-empty">Seu primeiro companheiro está logo abaixo. Entre em uma casa sua para recebê-lo.</p>'}</section>
-  <div class="pet-section-title"><h2>Encontre seu companheiro</h2><small>Até seis pets por casa · sem custo no jogo</small></div>
+  <div class="pet-section-title"><h2>Encontre seu companheiro · ${PET_BREEDS.length} animais</h2><small>Até seis pets por casa · sem custo no jogo</small></div>
   <section class="pet-catalog">${PET_BREEDS.map(b=>{
    const color=chosen.get(b.id)||b.colors[0].id;
-   return `<article class="pet-card"><div class="pet-portrait"><img src="${api.portrait(b.id,color)}" alt="${esc(b.name)}"></div><div class="pet-card-content"><span class="pet-type">${b.label}</span><h3>${b.name}</h3><label>Pelagem<select data-pet-color="${b.id}">${b.colors.map(c=>`<option value="${c.id}" ${c.id===color?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><label>Nome<input data-pet-name="${b.id}" maxlength="24" value="${esc(names.get(b.id)||b.names[0])}"></label><button class="pet-adopt" data-pet-adopt="${b.id}" ${api.controller.home?'':'disabled'}>Adicionar à família</button></div></article>`;
+   return `<article class="pet-card"><div class="pet-portrait"><img src="${api.portrait(b.id,color)}" data-pet-preview="${esc(b.id)}:${esc(color)}" alt="${esc(b.name)}"></div><div class="pet-card-content"><span class="pet-type">${b.label}</span><h3>${b.name}</h3><label>Pelagem<select data-pet-color="${b.id}">${b.colors.map(c=>`<option value="${c.id}" ${c.id===color?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><label>Nome<input data-pet-name="${b.id}" maxlength="24" value="${esc(names.get(b.id)||b.names[0])}"></label><button class="pet-adopt" data-pet-adopt="${b.id}" ${api.controller.home?'':'disabled'}>Adicionar à família</button></div></article>`;
   }).join('')}</section><footer>F8 abre este painel. Os pets passeiam a pé, seguem portas e caminhos livres e esperam quando você entra em um veículo.</footer>`;
   dialog.scrollTop=scroll;
  }

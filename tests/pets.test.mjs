@@ -31,8 +31,8 @@ function fixture(storage=new Map()){
  return {H,player,free,controller,tick,services,events,storage,door};
 }
 test('six distinct breeds have three valid coat variants and persistent household limits',()=>{
- const f=fixture();assert.equal(PET_BREEDS.filter(b=>b.species==='dog').length,3);assert.equal(PET_BREEDS.filter(b=>b.species==='cat').length,3);
- for(const b of PET_BREEDS){assert.equal(b.colors.length,3);assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);}
+ const f=fixture();assert.equal(PET_BREEDS.filter(b=>b.species==='dog'&&!b.model).length,3);assert.equal(PET_BREEDS.filter(b=>b.species==='cat'&&!b.model).length,3);
+ for(const b of PET_BREEDS.filter(b=>!b.model)){assert.equal(b.colors.length,3);assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);}
  assert.equal(f.controller.count,6);assert.equal(f.controller.adopt('siamese','seal','Extra').ok,false);
  assert.equal(f.controller.adopt('siamese','invalid','Extra').ok,false);
  assert.ok(f.controller.rows.every(p=>p.name==='Mel'));
@@ -40,7 +40,7 @@ test('six distinct breeds have three valid coat variants and persistent househol
  f.player.x=18;assert.equal(f.controller.adopt('siamese','seal','Rua').ok,false);
 });
 test('four connected legs retain bone lengths in walking, sitting, sniffing and sleeping',()=>{
- for(const breed of PET_BREEDS)for(const color of breed.colors){
+ for(const breed of PET_BREEDS.filter(b=>!b.model))for(const color of breed.colors){
   const model=buildPet(breed.id,color.id);assert.equal(model.legs.length,4);
   for(const action of ['idle','walk','run','sit','sniff','sleep'])for(let frame=0;frame<12;frame++){
    model.animate({clock:frame*.1,phase:frame*.6,speed:action==='walk'?.7:action==='run'?2:0,action},.05);model.root.updateMatrixWorld(true);
@@ -89,7 +89,7 @@ test('pets wait during a car trip and never snap to a distant owner',()=>{
  f.services.driving=()=>false;f.tick();assert.ok(Math.hypot(pet.x-start.x,pet.y-start.y)<.15);
 });
 test('six pets can follow together through the same doorway',()=>{
- const f=fixture();for(const b of PET_BREEDS)assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
+ const f=fixture();for(const b of PET_BREEDS.filter(b=>!b.model))assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
  f.controller.command('all','wait');
  for(const goal of [{x:3,y:7},{x:6,y:7},{x:6,y:11},{x:10,y:12}])for(let i=0;i<90;i++){
   const dx=goal.x-f.player.x,dy=goal.y-f.player.y,d=Math.hypot(dx,dy);

@@ -23,7 +23,7 @@ let browser;
   return {home:CityHome.key(H),position:found};
  });
  await page.locator('#city-pets-entry').click();await page.waitForSelector('#city-pets[open]');
- assert.equal(await page.locator('[data-pet-adopt]').count(),6);
+ assert.equal(await page.locator('[data-pet-adopt]').count(),18);
  await page.screenshot({path:'artifacts/pets/painel-no-jogo.png'});
  for(const id of ['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese']){
   await page.locator(`[data-pet-adopt="${id}"]`).click();
