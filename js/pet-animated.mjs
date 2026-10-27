@@ -79,13 +79,20 @@ export function createAnimatedPet(id,colorId='original'){
   if(disposed)return false;
   const instance=cloneSkeleton(gltf.scene);
   const bounds=new T.Box3().setFromObject(instance),size=bounds.getSize(new T.Vector3());
-  if(!Number.isFinite(size.y)||size.y<=.1||size.y>100)throw Error('Invalid GLTF dimensions: '+breed.model);
+  // FBX from Blender/Unity may use centimetres (100x glTF units).
+  // Protect against invalid/hostile bounds without rejecting legitimate FBX.
+  if(!Number.isFinite(size.y)||size.y<.01||size.y>100000||
+    !size.toArray().every(Number.isFinite))throw Error('Invalid model dimensions: '+breed.model+': '+size.toArray());
   const scale=breed.targetHeight/size.y;
-  // GLTF models face +Z; City of God pets face +X before root.rotation.y=-pet.face.
+  // City of God pet forward is +X; the authored models face +Z.
   instance.rotation.y=Math.PI/2;
   instance.scale.setScalar(scale);
-  instance.position.set(-(bounds.min.x+bounds.max.x)*.5*scale,-bounds.min.y*scale,
-    -(bounds.min.z+bounds.max.z)*.5*scale);
+  instance.updateMatrixWorld(true);
+  // Recalculate bounds AFTER rotation: offsets calculated in source axes
+  // caused high-scale FBX animals to appear far away or under the ground.
+  const oriented=new T.Box3().setFromObject(instance);
+  instance.position.set(-(oriented.min.x+oriented.max.x)*.5,
+    -oriented.min.y,-(oriented.min.z+oriented.max.z)*.5);
   instance.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
   materials=tintClonedMaterials(instance,colorId);
 
@@ -96,6 +103,7 @@ export function createAnimatedPet(id,colorId='original'){
   root.userData.assetStatus='ready';
   root.userData.clipNames=clips.map(c=>c.name);
   root.userData.scale=scale;
+  root.userData.rawSize=size.toArray();
   return true;
  }).catch(e=>{
   error=e;root.userData.assetStatus='fallback';root.userData.assetError=String(e);
