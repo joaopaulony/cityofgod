@@ -50,24 +50,43 @@ export function loadAnimalAsset(model){
  }
  return promises.get(model);
 }
-function tintClonedMaterials(object,colorId){
- if(colorId==='original')return [];
- const multiplier=colorId==='warm'?new T.Color('#f4dbc8'):new T.Color('#d1dce8');
- const cloned=[];
+function tintClonedMaterials(object,colorId,model){
+ if(colorId==='original'&&model!=='Benny')return [];
+ const multiplier=colorId==='warm'?new T.Color('#f4dbc8'):
+  colorId==='cool'?new T.Color('#d1dce8'):new T.Color('#ffffff');
+ const originalBenny=Object.freeze({
+  coat:'#242528',muzzle:'#af6b41',accents:'#ab7045',ears:'#282629'
+ });
+ const cloned=[],slots=[];
  object.traverse(child=>{
   if(!child.isMesh)return;
-  const one=m=>{
-   if(!m||!m.color)return m;
-   const copy=m.clone();
-   // Preserve facial details and contrast. Tint is intentionally subtle.
-   const lightness=copy.color.r+copy.color.g+copy.color.b;
-   if(lightness>.21){copy.color.lerp(copy.color.clone().multiply(multiplier),.35);}
+  const shade=m=>{
+   if(!m?.color)return m;
+   const copy=m.clone(),name=(m.name||'').toLowerCase();
+   slots.push({mesh:child.name,material:m.name,color:'#'+m.color.getHexString()});
+   if(model==='Benny'){
+    // Unity-source FBX uses untextured material slots. Recreate the
+    // characteristic black-and-tan coat rather than default white patches.
+    let color=originalBenny.coat;
+    if(/schnauze|mouth|muzzle/i.test(name))color=originalBenny.muzzle;
+    if(/hair2|brow|patch/i.test(name))color=originalBenny.accents;
+    if(/ear/i.test(name))color=originalBenny.ears;
+    copy.color.set(color);
+    copy.color.multiply(multiplier);
+    copy.roughness=.92;
+    copy.metalness=0;
+   }else{
+    if(copy.color.r+copy.color.g+copy.color.b>.21)
+     copy.color.lerp(copy.color.clone().multiply(multiplier),.35);
+   }
    cloned.push(copy);return copy;
   };
-  child.material=Array.isArray(child.material)?child.material.map(one):one(child.material);
+  child.material=Array.isArray(child.material)?child.material.map(shade):shade(child.material);
  });
+ object.userData.materialSlots=slots;
  return cloned;
 }
+
 export function createAnimatedPet(id,colorId='original'){
  const breed=petBreed(id);if(!breed?.model)throw Error('Not a Quaternius breed: '+id);
  const root=new T.Group();root.name='Pet:'+id;
@@ -94,7 +113,7 @@ export function createAnimatedPet(id,colorId='original'){
   instance.position.set(-(oriented.min.x+oriented.max.x)*.5,
     -oriented.min.y,-(oriented.min.z+oriented.max.z)*.5);
   instance.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-  materials=tintClonedMaterials(instance,colorId);
+  materials=tintClonedMaterials(instance,colorId,breed.model);
 
   animal=instance;root.add(animal);clips=gltf.animations;
   mixer=new T.AnimationMixer(instance);
@@ -104,6 +123,7 @@ export function createAnimatedPet(id,colorId='original'){
   root.userData.clipNames=clips.map(c=>c.name);
   root.userData.scale=scale;
   root.userData.rawSize=size.toArray();
+  root.userData.materialSlots=animal.userData.materialSlots||[];
   return true;
  }).catch(e=>{
   error=e;root.userData.assetStatus='fallback';root.userData.assetError=String(e);

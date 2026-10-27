@@ -3,6 +3,7 @@ const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const {spawn}=require('node:child_process');
 const out='artifacts/benny';
 fs.mkdirSync(out,{recursive:true});
 (async()=>{
@@ -36,7 +37,16 @@ fs.mkdirSync(out,{recursive:true});
    report.states.push({action,benny});
    await page.screenshot({path:path.join(out,'benny-'+action+'.png'),fullPage:true});
   }
-  await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'domcontentloaded',timeout:120000});
+  const gameUrl='http://127.0.0.1:4322/?seed=123';
+  try{await page.goto(gameUrl,{waitUntil:'domcontentloaded',timeout:120000});}
+  catch(error){
+   // Running the heavy 13-rig gallery can terminate the short-lived
+   // npm child server on CI. Reopen a direct Node server and retry once.
+   if(!String(error).includes('ERR_CONNECTION_REFUSED'))throw error;
+   const server=spawn(process.execPath,['tools/serve.mjs'],{stdio:'ignore',detached:true});
+   server.unref();await page.waitForTimeout(1800);
+   await page.goto(gameUrl,{waitUntil:'domcontentloaded',timeout:120000});
+  }
   await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,undefined,{timeout:120000});
   await page.evaluate(()=>{
    const H=__game.houses.find(H=>H.architecture&&CityRealty.residential(H));
