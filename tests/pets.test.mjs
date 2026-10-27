@@ -29,9 +29,9 @@ function fixture(storage=new Map()){
  const tick=()=>{door.doorAnim.open+=(door.doorAnim.target-door.doorAnim.open)*.3;controller.tick(.05);};
  return {H,player,free,controller,tick,services,events,storage,door};
 }
-test('six distinct breeds have three valid coat variants and persistent household limits',()=>{
- const f=fixture();assert.equal(PET_BREEDS.filter(b=>b.species==='dog'&&!b.model).length,3);assert.equal(PET_BREEDS.filter(b=>b.species==='cat'&&!b.model).length,3);
- for(const b of PET_BREEDS.filter(b=>!b.model)){assert.equal(b.colors.length,3);assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);}
+test('13 licensed pets remain after retiring six procedural breeds',()=>{
+ const f=fixture();assert.equal(PET_BREEDS.length,13);assert.ok(PET_BREEDS.every(b=>b.model));
+ for(const b of PET_BREEDS.slice(0,6)){assert.equal(b.colors.length,3);assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);}
  assert.equal(f.controller.count,6);assert.equal(f.controller.adopt('husky','original','Extra').ok,false);
  assert.equal(f.controller.adopt('husky','invalid','Extra').ok,false);
  assert.ok(f.controller.rows.every(p=>p.name==='Mel'));
@@ -79,7 +79,7 @@ test('pets wait during a car trip and never snap to a distant owner',()=>{
  f.services.driving=()=>false;f.tick();assert.ok(Math.hypot(pet.x-start.x,pet.y-start.y)<.15);
 });
 test('six pets can follow together through the same doorway',()=>{
- const f=fixture();for(const b of PET_BREEDS.filter(b=>!b.model))assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
+ const f=fixture();for(const b of PET_BREEDS.slice(0,6))assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
  f.controller.command('all','wait');
  for(const goal of [{x:3,y:7},{x:6,y:7},{x:6,y:11},{x:10,y:12}])for(let i=0;i<90;i++){
   const dx=goal.x-f.player.x,dy=goal.y-f.player.y,d=Math.hypot(dx,dy);
