@@ -47,7 +47,7 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
   });
   await page.locator('#city-pets-entry').click();
   await page.waitForSelector('#city-pets[open]');
-  assert.equal(await page.locator('[data-pet-adopt]').count(),18,'F8 shows all original + new animals');
+  assert.equal(await page.locator('[data-pet-adopt]').count(),14,'F8 shows all original + new animals');
   await page.locator('[data-pet-adopt="shibainu"]').scrollIntoViewIfNeeded();
   await page.waitForFunction(()=>document.querySelector('img[data-pet-preview="shibainu:original"]')?.src.startsWith('data:image/png'),undefined,{timeout:100000});
   await page.screenshot({path:out+'/catalogo-18-pets.png'});

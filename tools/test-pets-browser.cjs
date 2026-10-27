@@ -23,9 +23,9 @@ let browser;
   return {home:CityHome.key(H),position:found};
  });
  await page.locator('#city-pets-entry').click();await page.waitForSelector('#city-pets[open]');
- assert.equal(await page.locator('[data-pet-adopt]').count(),18);
+ assert.equal(await page.locator('[data-pet-adopt]').count(),14);
  await page.screenshot({path:'artifacts/pets/painel-no-jogo.png'});
- for(const id of ['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese']){
+ for(const id of ['sharpei','benny','shibainu','husky','fox','wolf']){
   await page.locator(`[data-pet-adopt="${id}"]`).click();
  }
  assert.equal(await page.evaluate(()=>CityPets.controller.count),6);
@@ -62,6 +62,6 @@ let browser;
  await page.keyboard.press('F8');await page.waitForSelector('#city-pets[open]');await page.keyboard.press('Escape');
  assert.equal(await page.locator('#city-pets').evaluate(e=>e.open),false);
  assert.deepEqual(errors,[]);
- const report={setup,before,walk,errors,checks:['six catalog cards','adopt six through UI','render pets inside a real home','call all through UI','walk through real doors and follow outdoors','reload persistence','F8 and Escape']};
+ const report={setup,before,walk,errors,checks:['fourteen real 3D catalog cards','adopt six through UI','render pets inside a real home','call all through UI','walk through real doors and follow outdoors','reload persistence','F8 and Escape']};
  fs.writeFileSync('artifacts/pets/browser-check.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));await browser.close();
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1;});
