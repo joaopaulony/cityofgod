@@ -1,0 +1,42 @@
+name: Quaternius animals - 3D browser QA
+on:
+  pull_request:
+    paths:
+      - 'assets/pets/quaternius/**'
+      - 'js/pet-*.mjs'
+      - 'js/pets-3d.mjs'
+      - 'tools/quaternius-*'
+      - 'tools/capture-quaternius.cjs'
+      - 'tests/quaternius-pets.test.mjs'
+      - '.github/workflows/quaternius-pets-qa.yml'
+permissions:
+  contents: read
+jobs:
+  animal-screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validate the 12 authentic animated glTF assets
+        run: node --test tests/quaternius-pets.test.mjs tests/pets.test.mjs
+      - name: Build game with all 18 pets and actual glTF files
+        run: npm run build:site
+      - name: Install browser automation
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Capture 12 animal models and game adoption in real Chrome/WebGL
+        run: |
+          npm start >/tmp/city-server.log 2>&1 &
+          sleep 3
+          node tools/capture-quaternius.cjs
+      - name: Upload real 3D screenshots and browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-of-god-quaternius-pets
+          path: artifacts/quaternius/
+          if-no-files-found: warn

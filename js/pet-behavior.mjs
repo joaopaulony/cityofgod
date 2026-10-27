@@ -68,7 +68,7 @@ export function createPetController(services){
   const floor=H.architecture?.levels?.[row.floor]?row.floor:0;
   const spot=safeSpot(H,floor,inside(H,player)?player:{x:(H.x0+H.x1)/2,y:(H.y0+H.y1)/2});if(!spot)return null;
   const pet={...row,...spot,floorZ:floor*(H.floorHeight||3),face:Math.random()*Math.PI*2,speed:0,phase:0,clock:0,
-   mode:'home',action:'idle',path:[],step:0,cursor:sequence,radius:row.breed==='rottweiler'?.19:.12,
+   mode:'home',action:'idle',path:[],step:0,cursor:sequence,radius:petBreed(row.breed)?.radius??(row.breed==='rottweiler'?.19:.12),
    timer:1+Math.random()*3,replan:0,stuck:0,homeHouse:H,homeLoaded:true,journey:[{...spot}],returnTrail:[],status:'Em casa',visible:true};
   pets.push(pet);return pet;
  }

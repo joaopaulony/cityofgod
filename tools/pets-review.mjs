@@ -2,7 +2,7 @@ import * as T from 'three';
 import {PET_BREEDS} from '../js/pet-catalog.mjs';
 import {buildPet} from '../js/pet-model.mjs';
 const items=[];
-for(const breed of PET_BREEDS){
+for(const breed of PET_BREEDS.filter(b=>!b.model)){
  const card=document.createElement('article');card.innerHTML=`<canvas></canvas><div><h2>${breed.name}</h2><p>${breed.colors.map(c=>c.name).join(' · ')}</p></div>`;document.querySelector('main').append(card);
  const renderer=new T.WebGLRenderer({canvas:card.querySelector('canvas'),antialias:true,preserveDrawingBuffer:true});renderer.setSize(410,265,false);renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.setClearColor('#edf0e4');
  const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x9ba88e,2.5));
