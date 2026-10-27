@@ -71,8 +71,22 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
       clips:o.userData.clipNames?.length,scale:o.userData.scale}))};
   });
   report.adoption={home,...state};
-  await page.reload({waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.CityPets?.controller.count===2,undefined,{timeout:120000});
+  // Release the heavy WebGL scene and reopen in the same browser context:
+  // localStorage persists while navigation is no longer blocked by GPU work.
+  const context=page.context();
+  fs.writeFileSync(out+'/browser-report.partial.json',JSON.stringify(report,null,2));
+  await page.close({runBeforeUnload:false});
+  const restored=await context.newPage();
+  restored.on('pageerror',e=>errors.push(e.message));
+  await restored.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:120000});
+  await restored.waitForFunction(()=>window.CityPets?.controller.count===2,undefined,{timeout:120000});
+  report.persistence=await restored.evaluate(()=>({
+    count:CityPets.controller.count,
+    breeds:CityPets.controller.rows.map(p=>p.breed),
+    storageRows:JSON.parse(localStorage.getItem('cityofgod.house-pets.v1')||'{}').pets?.length||0
+  }));
+  assert.deepEqual(report.persistence.breeds,['shibainu','husky']);
+  assert.equal(report.persistence.storageRows,2);
   assert.deepEqual(errors,[],'Runtime console errors');
   fs.writeFileSync(out+'/browser-report.json',JSON.stringify({...report,notes:'Captures from real Chrome WebGL; never an AI mockup.'},null,2));
   console.log('QUATERNIUS CHROME PASS: 12 models and 3 animations each; real F8 adopt and reload, screenshots saved');
