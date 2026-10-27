@@ -578,7 +578,7 @@ function updateHouseOpenings(dt, residents, night) {
     for (const s of H.architecture?H.architecture.openingSegments:H.segs) {
     if (s.doorAnim) {
       const mx = (s.x1 + s.x2) * 0.5, my = (s.y1 + s.y2) * 0.5;
-      if(s.unitId&&!window.CityBuildings?.canOpenDoor(H,s)){s.doorAnim.target=0;s.doorAnim.manual=true;}
+      if(s.unitId&&!globalThis.CityBuildings?.canOpenDoor(H,s)){s.doorAnim.target=0;s.doorAnim.manual=true;}
        if(s.ext&&!s.doorAnim.manual)s.doorAnim.target = (typeof CityRealty==='undefined'||CityRealty.canFurnish(H)) && residents.some(a => (a.floor||0)===(s.floor||0)&&Math.hypot(a.x - mx, a.y - my) < 1.55) ? 1 : 0;
       // As portas internas agora usam F; os moradores nao as abrem so ao passar.
       s.doorAnim.open += (s.doorAnim.target - s.doorAnim.open) * (1 - Math.exp(-dt * 5));
@@ -966,7 +966,7 @@ function houseDrawables(list, px, py) {
     if (b.floor===1)continue; // renders with the upper-floor layer only
     if (props3d(b)) continue;   // desenhado em 3D
     if (b.house && !b.exteriorFixture && (!b.house.inside || typeof CityRealty!=='undefined'&&!CityRealty.canFurnish(b.house))) continue;
-     if(b.house?.unitBuilding&&!window.CityBuildings?.canSeeFurniture(b.house,b,player))continue;
+     if(b.house?.unitBuilding&&!globalThis.CityBuildings?.canSeeFurniture(b.house,b,player))continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
     let d=depthOf(b.x,b.y)+bias;
     // Coberturas secundarias da varanda estao ABAIXO das aguas do telhado.
