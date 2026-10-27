@@ -1,21 +1,10 @@
 # City of God — pets animados Quaternius
 
-O catálogo **F8** contém **18 companheiros**: Yorkshire, Rottweiler,
-Lulu da Pomerânia, Gato felpudo, Gato esguio e Siamês (modelos procedurais
-existentes), mais os 12 modelos Quaternius CC0:
+Esta documentação descreve os **12 modelos originais Quaternius**. O novo catálogo de revisão substitui os seis modelos procedurais por **Benny, o Rottweiler** em FBX, totalizando 13 pets com rig quando o arquivo importado for validado. A chegada do Shar Pei depende de download autenticado no Sketchfab.
 
-1. Alpaca (Alpaca)
-2. Touro (Bull)
-3. Vaca (Cow)
-4. Cervo (Deer)
-5. Burro (Donkey)
-6. Raposa (Fox)
-7. Cavalo (Horse)
-8. Cavalo branco (Horse_White)
-9. Husky Siberiano (Husky)
-10. Shiba Inu (ShibaInu)
-11. Cervo de chifres (Stag)
-12. Lobo (Wolf)
+Os 12 animais Quaternius são: Alpaca, Touro, Vaca, Cervo, Burro, Raposa, Cavalo, Cavalo branco, Husky Siberiano, Shiba Inu, Cervo de chifres e Lobo.
+
+Consulte [Substituição dos animais procedurais](./retire-procedural-pets.md) para atribuição, limitações e migração.
 
 ### Animações
 Os 12 arquivos glTF contêm esqueleto e clipes `Idle`, `Idle_2`,

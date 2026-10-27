@@ -1,0 +1,39 @@
+name: Import licensed Benny FBX (one-time)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/import-benny-asset.yml'
+permissions:
+  contents: write
+jobs:
+  download:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
+      - name: Fetch original attributed Benny FBX from public project
+        run: |
+          mkdir -p assets/pets/thirdparty
+          curl --fail --location --silent --show-error --retry 3 \
+            'https://raw.githubusercontent.com/mengvf/Nintendoggos/master/Assets/Models/benny.fbx' \
+            --output assets/pets/thirdparty/Benny.fbx
+          python3 - <<'PY'
+          from pathlib import Path
+          asset = Path('assets/pets/thirdparty/Benny.fbx').read_bytes()
+          assert asset.startswith(b'Kaydara FBX Binary'), 'Not an FBX model'
+          assert len(asset) > 1000000, f'Truncated model: {len(asset)}'
+          print(f'FBX sourced: {len(asset)} bytes')
+          PY
+      - name: Save imported asset into review branch (do not merge to main)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/pets/thirdparty/Benny.fbx
+          if ! git diff --cached --quiet; then
+            git commit -m "assets(pets): import attributed Benny Rottweiler FBX"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi

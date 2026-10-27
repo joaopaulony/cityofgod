@@ -1,37 +1,44 @@
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {petBreed} from './pet-catalog.mjs';
-import {buildPet} from './pet-model.mjs';
 
 // The CC0 Quaternius pack ships skeletal glTF 2.0 files with embedded buffers.
 // Cache a shared source per species; clone the skeleton for each actor. No
 // animation or rendering state is shared across different adopted animals.
 const promises=new Map();
-const MODEL_ROOT='assets/pets/quaternius/';
+const EXTERNAL_MODELS=Object.freeze(['Benny']);
 export const QUATERNIUS_MODELS=Object.freeze([
  'Alpaca','Bull','Cow','Deer','Donkey','Fox','Horse','Horse_White','Husky','ShibaInu','Stag','Wolf'
 ]);
 export const isAnimatedBreed=id=>!!petBreed(id)?.model;
 
 export function clipForAction(action,clips){
- const names=new Set(clips.map(c=>typeof c==='string'?c:c.name));
- const one=(...options)=>options.find(n=>names.has(n))||'Idle';
+ const names=clips.map(c=>typeof c==='string'?c:c.name);
+ const choose=(...options)=>{
+  for(const token of options){const match=names.find(n=>n.toLowerCase()===token.toLowerCase()||n.toLowerCase().endsWith('|'+token.toLowerCase()));if(match)return match;}
+  return names.find(n=>/idle$/i.test(n))||names[0]||null;
+ };
  switch(action){
-  case 'walk': return one('Walk','Idle');
-  case 'run': return one('Gallop','Walk','Idle');
-  case 'sniff':return one('Eating','Idle_Headlow','Idle_2_HeadLow','Idle');
-  case 'sleep':return one('Idle_2_HeadLow','Idle_Headlow','Idle_2','Idle');
-  case 'sit':case 'wait':return one('Idle_2','Idle');
-  default:return one('Idle','Idle_2');
+  case 'walk':return choose('Walk','run','Gallop','Idle');
+  case 'run':return choose('Gallop','run','Walk','Idle');
+  case 'sniff':return choose('Eating','Idle_Headlow','Idle_2_HeadLow','idle');
+  case 'sleep':return choose('Idle_2_HeadLow','Idle_Headlow','Idle_2','idle');
+  case 'sit':case 'wait':return choose('Idle_2','idle');
+  default:return choose('Idle','Idle_2');
  }
 }
+
 export function loadAnimalAsset(model){
- if(!QUATERNIUS_MODELS.includes(model))return Promise.reject(new Error('Unknown animal: '+model));
+ if(!QUATERNIUS_MODELS.includes(model)&&!EXTERNAL_MODELS.includes(model))return Promise.reject(new Error('Unknown animal: '+model));
  if(!promises.has(model)){
-  const url=new URL('../assets/pets/quaternius/'+model+'.gltf',import.meta.url).href;
-  const loader=new GLTFLoader();
-  const loading=loader.loadAsync(url).then(gltf=>{
+  const imported=EXTERNAL_MODELS.includes(model);
+  const url=new URL(imported?'../assets/pets/thirdparty/'+model+'.fbx':
+    '../assets/pets/quaternius/'+model+'.gltf',import.meta.url).href;
+  const loader=imported?new FBXLoader():new GLTFLoader();
+  const loading=loader.loadAsync(url).then(result=>{
+   const gltf=imported?{scene:result,animations:result.animations||[]}:result;
    if(!gltf.scene||!gltf.animations?.length){
     // getObjectByProperty isSkinnedMesh does not work on bare THREE.Object3D
     let rigged=false;gltf.scene.traverse(o=>{if(o.isSkinnedMesh)rigged=true;});
@@ -64,13 +71,9 @@ function tintClonedMaterials(object,colorId){
 export function createAnimatedPet(id,colorId='original'){
  const breed=petBreed(id);if(!breed?.model)throw Error('Not a Quaternius breed: '+id);
  const root=new T.Group();root.name='Pet:'+id;
- // While the GLTF arrives, show a lightweight existing quadruped instead of
- // an invisible purchased animal. Existing procedural pets never change.
- const fallbackId=breed.species==='dog'?'pomeranian':breed.species==='wild'?'slimcat':'rottweiler';
- const fallbackColor=fallbackId==='pomeranian'?'orange':fallbackId==='slimcat'?'grey':'tan';
- const fallback=buildPet(fallbackId,fallbackColor);
- fallback.root.scale.setScalar(breed.targetHeight/.65);
- root.add(fallback.root);
+ // Show no imitation model while loading; never reintroduce the six
+ // procedural animals the user explicitly removed from the game.
+ root.userData.assetStatus='loading';
  let mixer=null,clipName='',clips=[],actionRef=null,animal=null,disposed=false,materials=[],error=null;
  const ready=loadAnimalAsset(breed.model).then(gltf=>{
   if(disposed)return false;
@@ -85,7 +88,7 @@ export function createAnimatedPet(id,colorId='original'){
     -(bounds.min.z+bounds.max.z)*.5*scale);
   instance.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
   materials=tintClonedMaterials(instance,colorId);
-  root.remove(fallback.root);fallback.dispose();
+
   animal=instance;root.add(animal);clips=gltf.animations;
   mixer=new T.AnimationMixer(instance);
   actionRef=mixer.clipAction(clips.find(c=>c.name==='Idle')||clips[0]);
@@ -98,9 +101,8 @@ export function createAnimatedPet(id,colorId='original'){
   error=e;root.userData.assetStatus='fallback';root.userData.assetError=String(e);
   return false;
  });
- root.userData.assetStatus='loading';
  function animate(pet,dt=1/60){
-  if(!mixer){fallback.animate(pet,dt);return;}
+  if(!mixer)return;
   const desired=clipForAction(pet.action,clips);
   if(desired!==clipName){
    const next=mixer.clipAction(clips.find(c=>c.name===desired));
@@ -118,7 +120,7 @@ export function createAnimatedPet(id,colorId='original'){
  function dispose(){
   disposed=true;mixer?.stopAllAction();if(animal)root.remove(animal);
   for(const m of materials)m.dispose();
-  if(!animal)fallback.dispose();
+
   root.removeFromParent();
  }
  return {root,breed,colors:breed.colors.find(c=>c.id===colorId)||breed.colors[0],ready,animate,dispose,
