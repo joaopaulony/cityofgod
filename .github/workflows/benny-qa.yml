@@ -1,5 +1,12 @@
 name: Benny Rottweiler - real Chrome 3D QA
 on:
+  push:
+    branches: [city-licensed-dogs-replacement]
+    paths:
+      - 'assets/pets/thirdparty/**'
+      - 'js/pet-animated.mjs'
+      - 'tools/capture-benny.cjs'
+      - '.github/workflows/benny-qa.yml'
   pull_request:
     paths:
       - 'assets/pets/thirdparty/**'
