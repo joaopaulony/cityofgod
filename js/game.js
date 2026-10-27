@@ -108,7 +108,7 @@ addEventListener('mouseup', e => {
 view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.17 : 1/1.17); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
 // ---------- chat ----------
-const logEl = document.getElementById('log'), say = document.getElementById('say');
+const logEl = document.getElementById('log'), say = document.getElementById('say'), chatBox = document.getElementById('chat');
 function chat(who, text) {
   const mins = Math.floor(st.clock) % 1440, t = `[${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}]`;
   const d = document.createElement('div'); d.innerHTML = `${t} <b></b> `; d.querySelector('b').textContent = who + ':'; d.append(text);
@@ -118,13 +118,23 @@ for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.hom
 if (world.arrival) { hud.msg = 'Bem-vindo! Você desembarcou no ' + world.arrival.airport; hud.msgT = 6; }
 chat('Sistema', world.open ? `voo pousou — você desembarcou no ${world.spawnName}. Pegue um carro e vá para a cidade. (G abre um mapa de teste)` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
+  if (document.activeElement === say && e.key === 'Escape') {
+    e.preventDefault(); say.value = ''; say.blur(); return;
+  }
+  if (window.cityCharacterEditorOpen) return;
   if (window.CityUI?.blocksGameInput()) return;
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' || e.repeat) return;
   if (document.activeElement === say) {
+    e.preventDefault();
     const t = say.value.trim(); say.value = ''; say.blur();
     if (t) { chat('Você', t); bubbles.push({ who: player, text: t, t: 4 }); }
-  } else { say.focus(); input.keys.clear(); }
+  } else if ([document.body,document.documentElement,view].includes(document.activeElement)) {
+    e.preventDefault();
+    chatBox.classList.add('chat-typing'); say.focus(); input.keys.clear();input.pressed.clear();
+  }
 });
+say.addEventListener('focus',()=>chatBox.classList.add('chat-typing'));
+say.addEventListener('blur',()=>chatBox.classList.remove('chat-typing'));
 const npcLines = ['alguém pra ajudar na entrega?', 'ouviu esses tiros?', 'o mercado fecha às 22h', 'to indo pro campo', 'cuidado com a mira aí!'];
 
 // ---------- efeitos ----------

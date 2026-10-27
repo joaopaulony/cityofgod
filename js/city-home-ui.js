@@ -357,7 +357,7 @@ const CityHomeUI=(()=>{
    CityHome.init();
    view=document.getElementById('view');
    entry=document.createElement('button');entry.id='city-home-entry';entry.type='button';
-   entry.textContent='▦ Modo Decoração · F7';entry.hidden=true;
+   entry.innerHTML='<svg class="city-svg-icon" aria-hidden="true"><use href="assets/ui/city-icons.svg#properties"></use></svg><span>F7 · Modo Decoração</span>';entry.hidden=true;
    entry.addEventListener('click',open);document.body.appendChild(entry);
    ensure();
    // Capture input on the play canvas before shooting/aiming listeners.

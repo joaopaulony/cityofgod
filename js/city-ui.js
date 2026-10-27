@@ -232,7 +232,7 @@ const CityUI = (() => {
     root.innerHTML = `
       <div id="city-controls" aria-label="Ações do personagem">
         <button type="button" data-action="bag" aria-label="Abrir mochila"><b>${icon('bag')}</b>I · Mochila</button>
-        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos"><b>${icon('weapons')}</b>Tab/U · Armas</button>
+        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos" aria-keyshortcuts="Tab U" title="Tab ou U"><b>${icon('weapons')}</b>Armas</button>
         <button type="button" data-action="phone" aria-label="Abrir celular"><b>${icon('phone')}</b>P · Celular</button>
       </div>
       <div id="city-toast" role="status" aria-live="polite"></div>

@@ -16,21 +16,14 @@ function drawHUD(h, W, H, st) {
   h.save(); h.imageSmoothingEnabled = true;
   const p = st.player, needs = st.needs || {}, compact = W < 740;
   const ms = compact ? Math.min(118, Math.max(90, W * .29)) : 164;
-  const mx = compact ? 10 : 20, my = Math.max(102, H - ms - (compact ? 16 : 24));
-  const panel = 'rgba(18,24,28,.58)', border = 'rgba(245,247,237,.43)';
-  const glow = 'rgba(171,215,184,.65)';
+  const mx = compact ? 10 : 18, my = Math.max(102, H - ms - (compact ? 14 : 18));
+  const panel = 'rgba(54,59,61,.53)', border = 'rgba(255,255,255,.47)';
   const round = (x,y,w,hh,r,fill,stroke) => roundRect(h,x,y,w,hh,r,fill,stroke);
 
   // Radar inferior esquerdo. Mantém os dados reais do worldmap.js, com NPCs e direção atual.
   wmapTick();
   h.save();
-  h.shadowColor='#020815';h.shadowBlur=25;h.shadowOffsetY=5;
-  round(mx-5,my-5,ms+10,ms+10,14,panel,border);h.restore();
-  // Linha de borda azul, relevo e texto discreto — radar com identidade própria.
-  h.save();h.strokeStyle=glow;h.lineWidth=2;h.beginPath();
-  h.moveTo(mx+10,my-5);h.lineTo(mx+ms*.45,my-5);h.stroke();h.restore();
-  h.save();
-  h.beginPath(); h.roundRect(mx,my,ms,ms,5); h.clip();
+  h.beginPath(); h.rect(mx,my,ms,ms); h.clip();
   drawMiniMap(h,mx,my,ms,p,st);
   h.restore();
   window.CityGPS?.drawMini(h,mx,my,ms,p);
@@ -45,42 +38,38 @@ function drawHUD(h, W, H, st) {
 
   // Vida, fôlego e necessidades vão cair/subir no loop real e são atualizadas aqui.
   const conditions=[
-    ['VIDA',st.hp,'#ee675f'],
-    ['FÔLEGO',needs.stamina??1,'#f4d47f'],
-    ['FOME',st.food,'#efb96e'],
-    ['SEDE',st.water,'#67c8e5'],
-    ['ENERGIA',needs.energy??1,'#a99beb'],
-    ['HIGIENE',needs.hygiene??1,'#8dddac'],
-    ['BANHEIRO',1-(needs.bladder??0),'#c6d2e1']
+    ['heart',st.hp,'#3bb9ee'],
+    ['shield',needs.stamina??1,'#65d59b'],
+    ['person',st.food,'#d6e0ec'],
+    ['bolt',needs.energy??1,'#52c9e9'],
+    ['food',st.water,'#e96b67'],
+    ['mood',needs.hygiene??1,'#8cce8c'],
+    ['group',1-(needs.bladder??0),'#c5d3e1']
   ];
-  const visible = compact ? conditions.slice(0,4) : conditions;
-  const nx = mx + ms + 16, nw = compact ? Math.max(48,Math.min(132,W-nx-12)) : 180;
-  const lineH=compact?22:23, ny=compact?Math.max(40,my-23-lineH*visible.length):Math.max(110,H-visible.length*lineH-29);
-  for(let i=0;i<visible.length;i++){
-    const [label,value,color]=visible[i], v=clamp(value,0,1), y=ny+i*lineH;
-    h.textBaseline='alphabetic';h.font=(compact?'700 9px':'700 10px')+' "Arial Narrow",sans-serif';
-    h.textAlign='left';h.lineWidth=3;h.strokeStyle='#10191dbb';h.strokeText(label,nx,y+9);h.fillStyle='#f3f5ec';h.fillText(label,nx,y+9);
-    h.textAlign='right';h.strokeText(Math.round(v*100)+'%',nx+nw,y+9);h.fillText(Math.round(v*100)+'%',nx+nw,y+9);
-    round(nx,y+12,nw,7,4,'#142028b8','#f3f5ef68');
-    if(v>.005) {
-      round(nx+1,y+13,Math.max(0,(nw-2)*v),5,3,v<.18?'#f45555':color);
+  const nx=mx+ms+11, barX=nx+26;
+  const barW=compact?Math.max(34,Math.min(115,W-barX-9)):140;
+  const lineH=compact?17:23, barH=compact?9:12;
+  const ny=my+(ms-conditions.length*lineH)/2;
+  for(let i=0;i<conditions.length;i++){
+    const [icon,value,color]=conditions[i], v=clamp(value,0,1), y=ny+i*lineH;
+    drawNeedIcon(h,icon,nx+10,y+barH/2+1,compact?.72:.88);
+    round(barX,y,barW,barH,barH/2,'rgba(66,68,72,.43)','rgba(255,255,255,.39)');
+    if(v>.005){
+      h.save();h.shadowColor=color;h.shadowBlur=compact?3:5;
+      round(barX+3,y+3,Math.max(1,(barW-6)*v),barH-6,(barH-6)/2,v<.16?'#f07069':color);
+      h.restore();
     }
-  }
-  if(compact){
-    h.font='600 10px system-ui';h.textAlign='left';h.textBaseline='alphabetic';
-    h.fillStyle='#e8f6f1';
-    h.fillText('⚡ '+Math.round((needs.energy??1)*100)+'%  🧼 '+Math.round((needs.hygiene??1)*100)+'%  🚻 '+Math.round((1-(needs.bladder??0))*100)+'%',mx,35);
   }
 
   // Identidade, horário dinâmico e dinheiro do jogador.
   const minute = ((Math.floor(st.clock)%1440)+1440)%1440;
   const clock = String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
   const tx=W-(compact?13:24), ty=compact?17:23;
-  h.textAlign='right';h.textBaseline='alphabetic';h.font='800 11px "Arial Narrow",sans-serif';h.fillStyle='#f0f5ee';
+  h.textAlign='right';h.textBaseline='alphabetic';h.font='800 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillStyle='#f0f5ee';
   h.shadowColor='#06100f';h.shadowBlur=8;
   h.fillText('CITY OF GOD  ·  LIVE',tx,ty);
   h.textAlign='right';h.textBaseline='alphabetic';
-  h.fillStyle='#f7f9f2';h.font=(compact?'800 25px':'800 34px')+' "Arial Narrow",Impact,sans-serif';
+  h.fillStyle='#f7f9f2';h.font=(compact?'800 25px':'800 34px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
   h.fillText(clock,tx,ty+32);
   h.fillStyle='#9de0ae';h.font=(compact?'800 15px':'800 19px')+' "Arial Narrow",sans-serif';
   h.fillText(CityLife.money(CityLife.funds),tx,ty+54);
@@ -106,10 +95,9 @@ function drawHUD(h, W, H, st) {
     const barW=compact?144:206, bx=W/2-barW/2, by=H-(compact?116:52);
     if(bx>mx+ms+6) {
       h.save();h.shadowColor='#000a';h.shadowBlur=16;round(bx,by,barW,37,11,panel,border);h.restore();
-      h.save();h.fillStyle='#a6dbba';h.beginPath();h.roundRect(bx,by+8,3,21,2);h.fill();h.restore();
-      h.textAlign='left';h.fillStyle='#e6eff5';h.font='700 11px system-ui';h.fillText(weapon,bx+11,by+14);
-      h.fillStyle='#e8c97e';h.font='700 13px system-ui';h.fillText(ammo,bx+11,by+29);
-      if(!compact){h.textAlign='right';h.fillStyle='#96afbd';h.font='11px system-ui';h.fillText('TAB/U · ARMAS',bx+barW-10,by+23);}
+      h.textAlign='left';h.fillStyle='#f6f8f7';h.font='800 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText(weapon,bx+10,by+14);
+      h.fillStyle='#f3d899';h.font='800 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText(ammo,bx+10,by+29);
+      if(!compact){h.textAlign='right';h.fillStyle='#d2d8d9';h.font='11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText('I / U / P · AÇÕES',bx+barW-10,by+23);}
     }
   }
 
@@ -131,6 +119,27 @@ function drawHUD(h, W, H, st) {
     const msgW=Math.min(W-24,Math.max(175,h.measureText(hud.msg).width+30)),msgY=Math.max(114,H*.25);
     round((W-msgW)/2,msgY-24,msgW,34,7,panel,border);
     h.fillStyle='#fce7ac';h.fillText(hud.msg,W/2,msgY-3);h.globalAlpha=1;
+  }
+  h.restore();
+}
+function drawNeedIcon(h, icon, x, y, scale=1) {
+  h.save();h.translate(x,y);h.scale(scale,scale);
+  h.fillStyle='#f8fcff';h.strokeStyle='#f8fcff';h.lineWidth=1.6;
+  h.lineCap='round';h.lineJoin='round';
+  if(icon==='heart'||icon==='mood'){
+    h.beginPath();h.moveTo(0,6);h.bezierCurveTo(-12,-1,-7,-8,0,-3);h.bezierCurveTo(7,-8,12,-1,0,6);h.fill();
+    if(icon==='mood'){h.strokeStyle='#4a5d59';h.lineWidth=1;h.beginPath();h.arc(-2,-1,.4,0,TAU);h.arc(2,-1,.4,0,TAU);h.moveTo(-2,2);h.quadraticCurveTo(0,4,2,2);h.stroke();}
+  }else if(icon==='shield'){
+    h.beginPath();h.moveTo(0,-7);h.lineTo(6,-5);h.lineTo(5,1);h.quadraticCurveTo(4,5,0,7);h.quadraticCurveTo(-4,5,-5,1);h.lineTo(-6,-5);h.closePath();h.fill();
+  }else if(icon==='person'){
+    h.beginPath();h.arc(0,-4,3,0,TAU);h.fill();h.beginPath();h.moveTo(-6,6);h.quadraticCurveTo(-5,0,0,0);h.quadraticCurveTo(5,0,6,6);h.closePath();h.fill();
+  }else if(icon==='bolt'){
+    h.beginPath();h.moveTo(1,-8);h.lineTo(-5,1);h.lineTo(-1,1);h.lineTo(-3,8);h.lineTo(6,-2);h.lineTo(1,-2);h.closePath();h.fill();
+  }else if(icon==='food'){
+    h.beginPath();h.arc(-2,1,4.5,0,TAU);h.arc(3,1,4.5,0,TAU);h.fill();h.beginPath();h.moveTo(0,-4);h.quadraticCurveTo(2,-8,5,-7);h.quadraticCurveTo(4,-4,0,-4);h.fill();
+  }else{
+    for(const [dx,dy,r] of [[-4,-4,2],[4,-4,2],[0,1,2]]){h.beginPath();h.arc(dx,dy,r,0,TAU);h.fill();}
+    h.beginPath();h.moveTo(-8,6);h.quadraticCurveTo(-8,2,-4,2);h.quadraticCurveTo(-1,2,0,5);h.quadraticCurveTo(1,2,4,2);h.quadraticCurveTo(8,2,8,6);h.closePath();h.fill();
   }
   h.restore();
 }

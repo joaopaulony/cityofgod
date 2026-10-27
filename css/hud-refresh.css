@@ -1,24 +1,37 @@
 /* Miami HUD and home management: one visual hierarchy across play, shop and phone. */
 :root{--miami-ink:#14252a;--miami-green:#47be92;--miami-mint:#c9f2dd;--miami-cream:#f3f0e5;--miami-line:#b8d5ca}
 body{font-family:"Trebuchet MS","Segoe UI",sans-serif}
-#chat{top:15px!important;bottom:auto!important;left:17px!important;width:min(320px,36vw)!important;
- background:linear-gradient(90deg,#091512a3,#0915124a 76%,transparent)!important;border:0!important;
+#chat{top:15px!important;bottom:auto!important;left:17px!important;width:min(355px,43vw)!important;
+ background:transparent!important;border:0!important;border-radius:0!important;
  box-shadow:none!important;pointer-events:none}
 #chat .tabs{display:none!important}
-#chat .log{height:auto;max-height:91px;overflow:hidden;padding:7px 9px;
- color:#f9fff7;font:600 13px/1.4 "Arial Narrow","Trebuchet MS",sans-serif;text-shadow:0 1px 3px #000,0 0 8px #000}
-#chat input{pointer-events:auto;margin:1px 8px 5px;width:calc(100% - 16px);max-width:220px;
- background:#12261f9c;border:1px solid #d9f9e76d;border-radius:7px;color:#fff;font-size:11px;opacity:.82}
+#chat .log{height:auto;max-height:96px;overflow:hidden;padding:0;
+ color:#fff;font:500 14px/1.35 "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
+ text-shadow:0 1px 3px #000,0 0 8px #000}
+#chat .log b{color:#fff}
+#chat input{display:none!important;pointer-events:auto;margin:6px 0 0;width:min(100%,330px);max-width:none;
+ background:#3e4546a8;border:1px solid #ffffff86;border-radius:7px;color:#fff;
+ font:600 14px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;opacity:1;box-shadow:0 5px 18px #0005}
+#chat.chat-typing{pointer-events:auto}
+#chat.chat-typing input{display:block!important}
 body.city-modal #city-home-entry,body.city-home-open #city-property-dialog{display:none!important}
 body.city-property-open #city-controls,body.city-property-open #chat,body.city-property-open #city-home-entry{display:none!important}
 body.city-home-open #architecture-review-tools{display:none!important}
-#city-home-entry{bottom:155px}
-#city-controls{right:18px;bottom:15px;gap:7px}
-#city-controls button{min-width:83px;min-height:65px;border:1px solid #f3f8f0a3;border-radius:17px;
- background:linear-gradient(155deg,#3b4c4bba,#172728dd);box-shadow:inset 0 1px #ffffff58,0 6px 20px #0008;
- color:#fff;font:800 10px "Arial Narrow","Trebuchet MS",sans-serif;text-shadow:0 1px 3px #0008}
+#city-home-entry{bottom:119px;border:1px solid #ffffff8c;border-radius:16px;
+ background:linear-gradient(145deg,#62676ba8,#3c4245b5);color:#fff;
+ box-shadow:inset 0 1px #ffffff7c,0 7px 18px #0005;
+ font:800 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
+ display:flex;align-items:center;gap:6px}
+#city-home-entry .city-svg-icon{width:17px;height:17px;stroke-width:2.2}
+#city-home-entry:hover{background:#747b7ccc;border-color:#fff}
+#city-controls{right:17px;bottom:13px;gap:7px}
+#city-controls button{min-width:86px;min-height:62px;border:1px solid #ffffff78;border-radius:16px;
+ background:linear-gradient(145deg,#81878b9c,#4b5255b0);box-shadow:inset 0 1px #ffffff72,0 6px 17px #0006;
+ color:#fff;font:700 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;text-shadow:0 1px 3px #0008;
+ backdrop-filter:blur(6px)}
+#city-controls button:hover,#city-controls button:focus-visible{background:#8e9799bd;border-color:#fff;outline:2px solid #fff9;outline-offset:2px}
 #city-controls b{display:grid;place-items:center;height:26px;margin-bottom:3px}
-#city-controls .city-svg-icon{width:25px;height:25px}
+#city-controls .city-svg-icon{width:27px;height:27px;stroke-width:2.3;filter:drop-shadow(0 2px 2px #0006)}
 #city-toast{top:22px;right:auto;left:50%;transform:translateX(-50%);max-width:min(460px,82vw);
  text-align:center;background:#193632ee;border:1px solid #b8f2d4aa;border-radius:16px;color:#f8fff7;
  box-shadow:0 8px 30px #0008;font:700 13px "Trebuchet MS",sans-serif}
@@ -125,7 +138,10 @@ body.city-home-open #architecture-review-tools{display:none!important}
 #city-home-builder .home-shop-content>h3{color:#255b4d}
 #city-home-builder .home-shop-content>p{color:#657a6d}
 #city-home-builder .home-plus-label input{background:#fff;color:#183d36;border-color:#a7c9b6}
-@media(max-width:660px){
+@media(max-width:670px){
+ #chat{display:block!important;left:8px!important;top:8px!important;width:min(310px,calc(100vw - 16px))!important}
+ body.map-open #chat,body.city-home-open #chat,body.city-property-open #chat{display:none!important}
+ #chat .log{font-size:12px;max-height:66px}
  #city-home-builder{width:min(360px,calc(100vw - 8px));right:4px;top:4px;bottom:4px;border-radius:15px}
  #city-home-builder .home-tabs button{font-size:9px;min-height:35px}
  #city-home-builder .home-header{padding:11px 12px 8px}
