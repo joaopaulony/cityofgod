@@ -1,0 +1,87 @@
+{
+  "setup": {
+    "home": "123:92_86_8x10",
+    "position": [
+      98.45,
+      84.85
+    ]
+  },
+  "before": [
+    {
+      "id": "8f6cec98-1975-473a-b865-5aad88c850f1",
+      "name": "Theo",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 98.45,
+      "y": 85.95,
+      "floor": 0
+    },
+    {
+      "id": "bb1b9814-3db0-4495-9d62-260e8d0331a5",
+      "name": "Thor",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 97.35,
+      "y": 84.85,
+      "floor": 0
+    },
+    {
+      "id": "eabb20f7-49d9-45a8-b3aa-bc568a052b8f",
+      "name": "Pipoca",
+      "mode": "home",
+      "action": "sit",
+      "status": "Em casa",
+      "x": 97.35,
+      "y": 85.95,
+      "floor": 0
+    },
+    {
+      "id": "8863ce10-ada1-4f58-b8c4-7007019ef7f9",
+      "name": "Amora",
+      "mode": "home",
+      "action": "sniff",
+      "status": "Em casa",
+      "x": 97.9,
+      "y": 86.5,
+      "floor": 0
+    },
+    {
+      "id": "b5de5f00-e241-4130-92ab-c5cebeb90f24",
+      "name": "Salem",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 96.25,
+      "y": 84.85,
+      "floor": 0
+    },
+    {
+      "id": "8cdb404a-6584-4880-a7a9-8f49a10030ec",
+      "name": "Suki",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 96.8,
+      "y": 86.5,
+      "floor": 0
+    }
+  ],
+  "walk": {
+    "distance": 1.2979752327361653,
+    "petInside": false,
+    "ownerInside": false,
+    "status": "Seguindo você"
+  },
+  "errors": [],
+  "checks": [
+    "six catalog cards",
+    "adopt six through UI",
+    "render pets inside a real home",
+    "call all through UI",
+    "walk through real doors and follow outdoors",
+    "reload persistence",
+    "F8 and Escape"
+  ]
+}

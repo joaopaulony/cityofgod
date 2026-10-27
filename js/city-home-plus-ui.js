@@ -5,8 +5,8 @@ const CityHomePlusUI=(()=>{
  const btn=(cmd,label,attrs='')=>'<button class="home-plus-button" data-home-extra="'+esc(cmd)+'" '+attrs+'>'+label+'</button>';
  const kinds=['bed','mattress','sofa','couch','sectional','chair','stove','fridge','toilet','shower','sink','tv','desk','microwave'];
  const label=kind=>({bed:'Dormir',mattress:'Descansar',sofa:'Sentar',couch:'Sentar',sectional:'Relaxar',
-  chair:'Sentar',stove:'Cozinhar',fridge:'Comer',toilet:'Usar banheiro',shower:'Tomar banho',
-  sink:'Lavar mãos',tv:'Assistir TV',desk:'Trabalhar',microwave:'Aquecer refeição'})[kind]||'Utilizar';
+  chair:'Sentar',stove:'Cozinhar',fridge:'Abrir geladeira',toilet:'Usar banheiro',shower:'Tomar banho',
+  sink:'Beber água',tv:'Assistir TV',desk:'Trabalhar',microwave:'Aquecer refeição'})[kind]||'Utilizar';
  function render(H,tab,floor){
    const p=CityHomePlus,info=p.data(H);
    if(tab==='renovate'){
@@ -133,7 +133,7 @@ const CityHomePlusUI=(()=>{
    if(kind==='eat'){
      const fridge=CityHome.placed(H).find(r=>r.kind==='fridge'&&r.floor===(window.__game?.player.floor||0));
      const chair=CityHome.placed(H).find(r=>['table','chair','sofa'].includes(r.kind)&&r.floor===(window.__game?.player.floor||0));
-     result=fridge?p.activity(H,fridge.id):chair?
+     result=fridge?p.activity(H,fridge.id,{action:'eat'}):chair?
        // Eat near a dining seat while keeping the food requirement.
        window.CityHomeKitchen?.eat(H)||{ok:false,text:'Sem refeições'}:
        {ok:false,text:'Instale uma geladeira ou mesa neste andar'};

@@ -126,6 +126,10 @@ function useHouseInteraction(p,st,time){
     return true;
   }
   let message='';
+  if(obj.homeId&&['bed','mattress','sofa','couch','sectional','chair','sink','stove','fridge','shower','toilet'].includes(kind)&&window.CityHomePlus){
+    const result=CityHomePlus.activity(H,obj.homeId);
+    st._interactionMessage=result.text;return true;
+  }
   if(kind==='door'||kind==='window'){
     const key=kind==='door'?'doorAnim':'windowAnim';
     const a=obj.seg[key]||(obj.seg[key]={open:0,target:0});a.manual=true;

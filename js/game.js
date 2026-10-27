@@ -58,6 +58,8 @@ window.cityVehicleBridge={
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
   collide, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  movePet:moveTo,petStairs:updateHouseStairs,
+  releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
   driving:()=>!!window.cityVehicles?.driver,
   get mapSize(){return MAP;}
 };
@@ -732,7 +734,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function tick(dt) {
-  if(window.cityCharacterEditorOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
+  if(window.cityCharacterEditorOpen||window.CityPets?.uiOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
   // Build/Buy mode: freeze character, physics and game clock while showing the live interior.
   if(window.CityHomeUI?.active){
     cam.update(dt);
@@ -811,7 +813,9 @@ function tick(dt) {
     const visiting=window.CityHomeVisitors?.tick(dt,n,(x,y,nx,ny)=>moveTo(x,y,nx,ny,.28,n.floor||0));
     if(!visiting)updateNPC(n,dt);
   }
-  updateHouseOpenings(dt, actors, st.night);
+  window.CityPets?.tick(dt);
+  const petActors=window.CityPets?.actors||[];
+  updateHouseOpenings(dt,petActors.length?[...actors,...petActors]:actors,st.night);
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   window.cityCharacters?.update(dt);
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }

@@ -4,7 +4,10 @@ const CityHomeRoutine=(()=>{
  let task=null,epoch=0;const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  const ANG=(to,from)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
  function cancel(message='',silent=false){
-   if(task?.player){task.player.homeAction=null;task.player.speed=0;task.player.running=false;task.player.armed=task.wasArmed;}
+   if(task?.player){
+     if(task.poseOrigin){task.player.x=task.poseOrigin.x;task.player.y=task.poseOrigin.y;}
+     task.player.homeAction=null;task.player.speed=0;task.player.running=false;task.player.armed=task.wasArmed;
+   }
    task=null;epoch++;
    if(message&&!silent)window.CityUI?.notify?.(message);
  }
@@ -21,6 +24,7 @@ const CityHomeRoutine=(()=>{
      elapsed:0,stuck:0,lastX:player.x,lastY:player.y,replans:0,
      houseVersion:typeof world!=='undefined'?world.version:0,wasArmed:!!player.armed};
    player.homeAction=null;player.wantShot=false;player.aiming=false;player.armed=false;
+   player.crouching=false;player.jump=null;player.traversal=null;player.actionZ=0;
    return {ok:true,text:'Indo até '+(window.CityHome?.catalog[item.kind]?.name||'móvel')+' · siga o percurso'};
  }
  function tick(dt,player,move,manual=false){
@@ -34,6 +38,17 @@ const CityHomeRoutine=(()=>{
    if(!furniture||furniture.status!=='placed'){cancel('O móvel não está mais disponível');return false;}
    if(t.stage==='pose'){
      t.elapsed+=dt;player.speed=0;player.aiming=false;player.wantShot=false;
+     if(player.homeAction)player.homeAction.t=Math.min(t.duration,t.elapsed);
+     if(t.poseTarget){
+       const u=clamp(Math.min(t.elapsed/.65,(t.duration-t.elapsed)/.65),0,1),w=u*u*(3-2*u);
+       player.x=t.poseOrigin.x+(t.poseTarget.x-t.poseOrigin.x)*w;
+       player.y=t.poseOrigin.y+(t.poseTarget.y-t.poseOrigin.y)*w;
+     }
+     if(['fridge','eat'].includes(t.kind)&&furniture.kind==='fridge'){
+       const u=clamp(Math.min((t.elapsed-.35)/.7,(t.duration-t.elapsed-.35)/.7),0,1),w=u*u*(3-2*u),rot=furniture.rot||0;
+       player.x=t.poseOrigin.x-(Math.sin(rot)*.34+Math.cos(rot)*.50)*w;
+       player.y=t.poseOrigin.y+(Math.cos(rot)*.34-Math.sin(rot)*.50)*w;
+     }
      player.face+=ANG(t.face,player.face)*clamp(dt*8,0,1);
      if(t.elapsed>=t.duration){
        const result=window.CityHomePlus?.completeActivity?.(t.H,t.itemId,t.kind,t.options);
@@ -50,10 +65,19 @@ const CityHomeRoutine=(()=>{
      t.replans++;t.houseVersion=world.version;
    }
    const point=t.points[t.step];
-   if(!point){t.stage='pose';t.elapsed=0;t.duration=t.kind==='sleep'?6:t.kind==='cook'?5:3.3;
-     player.homeAction={kind:t.kind,t:0,duration:t.duration};return true;}
+   if(!point){t.stage='pose';t.elapsed=0;t.duration=t.kind==='sleep'?6:t.kind==='cook'?5:4;
+     t.poseOrigin={x:player.x,y:player.y};
+     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep';
+     if(seated||sleep){
+       // The rendered pose enters the furniture; the collision actor returns
+       // to the accessible approach point on completion or cancellation.
+       t.poseTarget={x:furniture.x,y:furniture.y};
+       t.face=(furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):furniture.kind==='chair'?-Math.PI/2:Math.PI/2);
+     }
+     player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,
+       itemId:t.itemId,item:furniture,house:t.H,surface:sleep?furniture.h*1.05:furniture.h*.55};return true;}
    const dx=point.x-player.x,dy=point.y-player.y,d=Math.hypot(dx,dy);
-   if(d<.37){t.step++;return true;}
+   if(d<.08){t.step++;return true;}
    const rate=Math.min(d,1.42*dt),p=move(player.x+dx/d*rate,player.y+dy/d*rate);
    if(!p||!Number.isFinite(p[0])||!Number.isFinite(p[1])){cancel('Movimentação indisponível');return false;}
    const moved=Math.hypot(p[0]-player.x,p[1]-player.y);
@@ -76,12 +100,12 @@ const CityHomeRoutine=(()=>{
  function draw(h,W,H){
    if(!task)return;
    const t=task,w=286,x=W/2-w/2,y=74;
-   const progress=t.stage==='pose'?1:clamp(t.step/Math.max(1,t.points.length),0,1);
+   const progress=t.stage==='pose'?clamp(t.elapsed/t.duration,0,1):clamp(t.step/Math.max(1,t.points.length),0,1);
    h.save();h.fillStyle='#0c1b29e9';h.strokeStyle='#66c4c675';h.lineWidth=1.2;
    h.beginPath();h.roundRect(x,y,w,57,12);h.fill();h.stroke();
    h.font='700 12px system-ui';h.textAlign='left';h.fillStyle='#e9faf8';
    const label=({sit:'Sentar',sleep:'Dormir',cook:'Cozinhar',eat:'Comer',watch:'Assistir',
-     work:'Trabalhar',wash:'Higiene',toilet:'Banheiro'})[t.kind]||'Atividade';
+     work:'Trabalhar',wash:'Higiene',toilet:'Banheiro',drink:'Beber água',fridge:'Abrir geladeira'})[t.kind]||'Atividade';
    h.fillText((t.stage==='walk'?'↳ Indo até o móvel':'✓ '+label+' em andamento'),x+13,y+21);
    h.font='10px system-ui';h.fillStyle='#9bc9d1';
    h.fillText('WASD para cancelar · '+(t.stage==='walk'?'Caminhando':'Interagindo'),x+13,y+48);

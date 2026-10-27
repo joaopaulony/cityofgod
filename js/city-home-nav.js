@@ -123,7 +123,9 @@ const CityHomeNav=(()=>{
  }
  function approach(H,p,item){
    const f=item.floor||0,ang=item.rot||0,c=Math.cos(ang),s=Math.sin(ang);
-   const offsets=[
+   const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet'].includes(item.kind);
+   const clearance=item.kind==='stove'?.30:.42;
+   const offsets=item.kind==='fridge'?[[.15,item.d/2+.31],[.05,item.d/2+.31],[.25,item.d/2+.31]]:frontOnly?[[0,item.d/2+clearance],[.22,item.d/2+clearance],[-.22,item.d/2+clearance]]:[
      [0,item.d/2+.62],[0,-item.d/2-.62],
      [item.w/2+.62,0],[-item.w/2-.62,0],
      [.25,item.d/2+.58],[-.25,item.d/2+.58]];
@@ -132,6 +134,15 @@ const CityHomeNav=(()=>{
      const x=item.x+u*c-v*s,y=item.y+u*s+v*c;
      const attempt=route(H,p,{x,y},f,null);
      if(!attempt)continue;
+     const goal=attempt.points.at(-1);
+     const a=toLocal(H,goal.x,goal.y),b=toLocal(H,x,y);
+     let safe=doorway(H,f,a,b);
+     for(let i=0;i<=12&&safe;i++){
+       const u=a[0]+(b[0]-a[0])*i/12,v=a[1]+(b[1]-a[1])*i/12;
+       safe=inside(H,f,u,v)&&!furnitureBlocked(H,f,u,v,null);
+     }
+     if(!safe)continue;
+     attempt.points.push({x,y});
      const current={...attempt,stand:{x,y},face:Math.atan2(item.y-y,item.x-x)};
      if(!best||current.distance<best.distance)best=current;
    }

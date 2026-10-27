@@ -7,6 +7,7 @@ import {buildCartoon,npcLook,DEFAULT_LOOK} from './cartoon-character.mjs';
 import {installCartoonCreator,loadLook} from './cartoon-creator.mjs';
 import {createTombRig} from './tomb-rig.mjs';
 import {createCC3Rig} from './cc3-rig.mjs';
+import {createDomesticRig} from './domestic-rig.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
@@ -48,6 +49,7 @@ export function createCharacterSystem(scene,bridge){
  system.update=dt=>{
   if(!system.enabled)return;
   for(const [a,e] of entries){
+   e.domesticRig?.restore();
    if(e.cc3Rig){
     e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+(e.cc3YOffset||0),a.y);
@@ -105,6 +107,7 @@ export function createCharacterSystem(scene,bridge){
     // Generator faces +Z. Game face 0 points +X.
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.updateMatrixWorld(true);
+    e.domesticRig?.update(a);
     if(e.mixamo){
      e.root.updateMatrixWorld(true);
      e.gun.visible=a.armed&&!a.traversal;
@@ -119,7 +122,7 @@ export function createCharacterSystem(scene,bridge){
     }
    }
    if(e.mixamo&&!e.root.visible)e.gun.visible=false;
-   a.characterClip=clip;
+   a.characterClip=a.homeAction?'home_'+a.homeAction.kind:clip;
   }
   system.frames++;
  };
@@ -250,7 +253,7 @@ export function createCharacterSystem(scene,bridge){
     const cartoonRest=[];root.traverse(o=>{if(o.isBone)cartoonRest.push([o,o.position.clone(),o.quaternion.clone(),o.scale.clone()]);});
     const appearance=profile||(provider==='cartoon'?(a===bridge.player?loadLook()||DEFAULT_LOOK:npcLook(i)):null);
     if(provider==='cartoon'&&appearance)buildCartoon(root,appearance);
-    scene.add(root);entries.set(a,{root,mixer,spec,rest,cartoonRest,appearance,mixamo:true,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null});
+    scene.add(root);entries.set(a,{root,mixer,spec,rest,cartoonRest,appearance,mixamo:true,domesticRig:createDomesticRig(root),gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null});
    }
    system.models=manifest.models;system.ready=entries.has(bridge.player);system.status=provider==='realistic-base'||provider==='cartoon'||assets.has('megan')?'ready':'partial';
    if(provider==='realistic-base'){baseAssets=assets;installBaseEditor(system,bridge,assets);}

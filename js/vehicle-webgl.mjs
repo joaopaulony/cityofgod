@@ -11,6 +11,7 @@ import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createCharacterSystem} from './character-webgl.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
 import {createProps} from './props-3d.mjs';
+import {createPets} from './pets-3d.mjs';
 import {createHouse3D} from './house-3d.mjs';
 import {createArchitecture3D} from './architecture-3d.mjs';
 import {createAmbience} from './ambience-3d.mjs';
@@ -288,6 +289,7 @@ function initRenderer(){
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
  createCharacterSystem(scene,bridge);
+ createPets(scene,bridge);
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){
   try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
@@ -517,6 +519,7 @@ system.render=()=>{
   vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
  }
  props3d?.update(performance.now()/1000,bridge.gameTime||0);
+ window.CityPets?.render();
  architecture3d?.update();
  house3d?.update(performance.now()/1000);
  birds?.update();

@@ -217,6 +217,7 @@ const CityHomePlus=(()=>{
        state.needs.energy=Math.min(1,state.needs.energy+.3);
        state.needs.stamina=Math.min(1,state.needs.stamina+.42);
      }
+     if(kind==='drink')state.water=Math.min(1,(state.water||0)+.18);
      if(kind==='wash'&&state.needs)state.needs.hygiene=Math.min(1,state.needs.hygiene+.22);
      if(kind==='watch'&&state.needs)state.needs.energy=Math.min(1,state.needs.energy+.035);
      if(kind==='toilet'&&state.needs)state.needs.bladder=Math.max(0,state.needs.bladder-.7);
@@ -224,7 +225,7 @@ const CityHomePlus=(()=>{
    CityLife.save();
    return {ok:true,text:({
      sit:'Descansou no móvel',sleep:'Sono recuperado',watch:'Assistiu televisão',
-     work:'Usou o computador',wash:'Higiene restaurada',toilet:'Banheiro utilizado'
+     work:'Usou o computador',wash:'Higiene restaurada',toilet:'Banheiro utilizado',drink:'Bebeu água fresca · hidratação recuperada',fridge:'Geladeira aberta e fechada'
    })[kind]||'Atividade concluída'};
  }
  function activity(H,id,options={}){
@@ -233,9 +234,9 @@ const CityHomePlus=(()=>{
    if(!item)return {ok:false,text:'Móvel não está instalado'};
    const actions={bed:'sleep',mattress:'sleep',sofa:'sit',couch:'sit',
      sectional:'sit',chair:'sit',tv:'watch',screen:'watch',desk:'work',
-     studentdesk:'work',stove:'cook',fridge:'eat',microwave:'eat',
-     sink:'wash',shower:'wash',toilet:'toilet'};
-   const kind=actions[item.kind];
+     studentdesk:'work',stove:'cook',fridge:'fridge',microwave:'eat',
+     sink:'drink',shower:'wash',toilet:'toilet'};
+   const kind=item.kind==='fridge'&&options.action==='eat'?'eat':actions[item.kind];
    if(!kind)return {ok:false,text:'Esse móvel não possui interação'};
    if(!data(H).power&&['watch','work','cook','eat'].includes(kind))
      return {ok:false,text:'Ligue a energia da casa'};

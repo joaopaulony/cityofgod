@@ -118,16 +118,16 @@ function animate(a, dt) {
   // The player can walk away: actions naturally terminate after their duration.
   if(a.homeAction){
     const state=a.homeAction;
-    state.t=Math.max(0,state.t+Math.max(0,dt));
+    if(!state.managed)state.t=Math.max(0,state.t+Math.max(0,dt));
     const seated=['sit','watch','work'].includes(state.kind),sleep=state.kind==='sleep';
-    const pose=P({crouch:sleep?.68:seated?.52:.12,
-      lean:sleep?.57:seated?.09:.17,bz:sleep?.75:seated?.98:1.28,
+    const pose=P({crouch:0,
+      lean:.025,bz:1.28,
       bx:.10,by:-.1,pitch:sleep?-.25:0,
-      twist:Math.sin(state.t*(seated?1.4:4))*(seated?.035:.18),
-      headPitch:sleep?.36:seated?.09:.17,lhHG:0});
+      twist:Math.sin(state.t*1.4)*.015,
+      headPitch:0,lhHG:0});
     const blend=Math.min(1,state.t/.35,(state.duration-state.t)/.45);
     p=blendPose(p,pose,Math.max(0,blend));
-    if(state.t>=state.duration)a.homeAction=null;
+    if(!state.managed&&state.t>=state.duration)a.homeAction=null;
   }
   if (!a.armed) p = Object.assign({}, p, { lhHG: 0 });
   if(a.crouching){p.crouch+=.34;p.lean+=.1;p.bz-=.24;}
@@ -227,5 +227,63 @@ function solveSkeleton(a, p) {
   const aL = ik2(J.shL, handL, B.upper, B.fore, V.add(V.add(back, V.mul(left, 0.7)), [0, 0, -0.9]));
   const aR = ik2(J.shR, handR, B.upper, B.fore, V.add(V.add(back, V.mul(left, -0.7)), [0, 0, -0.9]));
   J.elbL = aL.mid; J.handL = aL.end; J.elbR = aR.mid; J.handR = aR.end;
+  if(a.homeAction) applyDomesticJoints(a,J,toW);
   return J;
+}
+
+// Targets are expressed in actor space, so furniture rotation and house floors
+// use the same coordinates as locomotion and the native IK adapters.
+function applyDomesticJoints(a,J,toW){
+  const s=a.homeAction,t=s.t||0,d=s.duration||4;
+  const ease=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
+  const w=ease(t/.65)*ease((d-t)/.65),wave=Math.sin(t*4);
+  const targets={},put=(n,p)=>targets[n]=toW(p);
+  const seated=['sit','watch','work','toilet'].includes(s.kind);
+  if(seated||s.kind==='sleep'){
+    const h=s.surface??.46;
+    if(s.kind==='sleep'){
+      // Supine: head toward the headboard, legs along the mattress.
+      for(const [n,p] of Object.entries({pelvis:[0,0,h+.14],chest:[-.38,0,h+.17],neck:[-.55,0,h+.19],head:[-.68,0,h+.22],
+        shL:[-.39,.19,h+.16],shR:[-.39,-.19,h+.16],hipL:[0,.1,h+.14],hipR:[0,-.1,h+.14],
+        kneeL:[.43,.11,h+.13],kneeR:[.43,-.11,h+.13],ankL:[.85,.11,h+.10],ankR:[.85,-.11,h+.10],
+        toeL:[.98,.11,h+.13],toeR:[.98,-.11,h+.13],elbL:[-.15,.34,h+.14],elbR:[-.15,-.34,h+.14],
+        handL:[.08,.33,h+.13],handR:[.08,-.33,h+.13]}))put(n,p);
+    }else{
+      const hip=h+.09;
+      for(const [n,p] of Object.entries({pelvis:[0,0,hip],chest:[.025,0,hip+.38],neck:[.025,0,hip+.53],head:[.04,0,hip+.66],
+        shL:[.025,.19,hip+.47],shR:[.025,-.19,hip+.47],hipL:[0,.1,hip],hipR:[0,-.1,hip],
+        kneeL:[.43,.13,hip-.04],kneeR:[.43,-.13,hip-.04],ankL:[.46,.13,Math.max(.08,hip-.48)],ankR:[.46,-.13,Math.max(.08,hip-.48)],
+        toeL:[.62,.13,.06],toeR:[.62,-.13,.06],elbL:[.13,.24,hip+.21],elbR:[.13,-.24,hip+.21],
+        handL:[.18,.15,hip+.07],handR:[.18,-.15,hip+.07]}))put(n,p);
+    }
+  }else{
+    let left=[.30,.18,1.05],right=[.34,-.18,1.05];
+    if(s.kind==='drink'){
+      const sip=ease((t-.9)/.6)*ease((d-t-.7)/.5);
+      right=[.40-.22*sip,-.10,1.05+.40*sip];
+      left=[.35,.15,.97];
+    }else if(s.kind==='cook'){
+      left=[.36,.17,1.04];right=[.37+Math.cos(t*5)*.035,-.06+Math.sin(t*5)*.045,1.15];
+    }else if(s.kind==='fridge'||s.kind==='eat'){
+      right=[.44,-.15-.17*Math.sin(Math.PI*clamp(t/1.5,0,1)),1.13];
+    }else if(s.kind==='wash'){
+      left=[.40,.055,.96+wave*.025];right=[.40,-.055,.96-wave*.025];
+    }
+    for(const [side,target] of [['L',left],['R',right]]){
+      const arm=ik2(J['sh'+side],toW(target),BODY.upper,BODY.fore,[0,0,-1]);
+      targets['elb'+side]=arm.mid;targets['hand'+side]=arm.end;
+    }
+    if((s.kind==='fridge'||s.kind==='eat')&&s.item){
+      const o=s.item,u=clamp(Math.min((t-.35)/.7,(d-t-.35)/.7),0,1),angle=-u*u*(3-2*u)*1.1;
+      const hx=(-.35+Math.cos(angle)*.615+Math.sin(angle)*.10)*o.w/.72;
+      const hy=(.35-Math.sin(angle)*.615+Math.cos(angle)*.10)*o.d/.7;
+      const c=Math.cos(o.rot||0),r=Math.sin(o.rot||0);
+      const hand=[o.x+hx*c-hy*r,o.y+hx*r+hy*c,(o.h||1.8)*.58];
+      const arm=ik2(J.shL,hand,BODY.upper,BODY.fore,[0,0,-1]);
+      targets.elbL=arm.mid;targets.handL=arm.end;
+      const rest=ik2(J.shR,toW([.05,-.24,1.0]),BODY.upper,BODY.fore,[0,0,-1]);
+      targets.elbR=rest.mid;targets.handR=rest.end;
+    }
+  }
+  for(const [n,p] of Object.entries(targets))J[n]=V.add(V.mul(J[n],1-w),V.mul(p,w));
 }

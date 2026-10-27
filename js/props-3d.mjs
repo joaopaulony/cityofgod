@@ -188,7 +188,13 @@ export function createProps(THREE, scene, bridge) {
   M.cup = { dims: [0.09, 0.09, 0.11], tinted: true, make(k, c) { const g = new THREE.CylinderGeometry(0.045, 0.032, 0.11, 14, 1, true); g.rotateX(Math.PI / 2); g.translate(0, 0.04, 0); k.raw(g, c); const l = new THREE.CylinderGeometry(0.047, 0.047, 0.012, 14); l.rotateX(Math.PI / 2); l.translate(0, 0.045, 0.058); k.raw(l, '#f4f2ec'); k.cylZ(0.02, 0.07, 0.05, 0.12, 0.004, '#e8e2d0', 5); } };
   // ---------- móveis ----------
   M.fridge = { dims: [0.72, 1.8, 0.7], face: 'any', tinted:true, make(k,c) {
-    k.box(-0.36, 0.04, -0.35, 0.36, 1.8, 0.35, c||'#e8e6e0', 0.035); k.box(-0.34, 0, -0.32, 0.34, 0.06, 0.3, DARK);
+    k.box(-0.36,.04,-.35,-.30,1.8,.35,c||WHITE);k.box(.30,.04,-.35,.36,1.8,.35,c||WHITE);
+    k.box(-.30,.04,-.35,.30,1.8,-.28,'#707a82');k.box(-.36,1.74,-.35,.36,1.8,.35,c||WHITE);
+    k.box(-.36,.04,-.35,.36,.10,.35,c||WHITE);
+    for(const h of [.45,.9,1.3])k.box(-.30,h,-.28,.30,h+.025,.29,'#dbe8ee');
+  } };
+  M.fridgeDoor={dims:[.72,1.8,.7],tinted:true,make(k,c){
+    k.box(-.35,.10,.32,.35,1.74,.37,c||'#e8e6e0',.02);
     k.box(-0.35, 1.18, 0.33, 0.35, 1.2, 0.36, '#9c9a94');
     k.box(0.25, 0.5, 0.35, 0.28, 1.08, 0.39, CHROME, 0.01); k.box(0.25, 1.28, 0.35, 0.28, 1.6, 0.39, CHROME, 0.01);
   } };
@@ -340,7 +346,9 @@ export function createProps(THREE, scene, bridge) {
       scene.add(m); meshes.push(m);
     }
     const bounds=new THREE.Box3();for(const geo of Object.values(geos)){geo.computeBoundingBox();bounds.union(geo.boundingBox);}
-    const k = { def, meshes, list: [], cap, bounds }; kinds.set(key, k); return k;
+    const k = { def, meshes, list: [], cap, bounds }; kinds.set(key, k);
+    if(name==='fridge')k.door=kindOf('fridgeDoor',color);
+    return k;
   }
 
   // poste de luz: modelo próprio em metros (braço ao longo de +x), lente que acende à noite
@@ -500,6 +508,7 @@ export function createProps(THREE, scene, bridge) {
       }
       photoRenderer.setClearColor(0x091827,0);
       const shapes=Kit();def.make(shapes,tint||undefined);
+      if(name==='fridge')M.fridgeDoor.make(shapes,tint||undefined);
       const meshes=shapes.done();
       for(const [type,geo] of Object.entries(meshes)){
         geometries.push(geo);
@@ -528,6 +537,11 @@ export function createProps(THREE, scene, bridge) {
     finally{for(const geo of geometries)geo.dispose();for(const mat of materials)mat.dispose();}
   }
 
+  // Reused activity props follow the IK hand or the installed furniture.
+  const cup=new THREE.Mesh(new THREE.CylinderGeometry(.045,.035,.11,16,1,true),new THREE.MeshStandardMaterial({color:0xdcefff,side:THREE.DoubleSide,roughness:.23}));
+  const pot=new THREE.Mesh(new THREE.CylinderGeometry(.14,.12,.14,20),new THREE.MeshStandardMaterial({color:0x454b54,metalness:.65,roughness:.35}));
+  const spoon=new THREE.Mesh(new THREE.CylinderGeometry(.009,.012,.23,8),new THREE.MeshStandardMaterial({color:0x9a704a,roughness:.8}));
+  cup.visible=pot.visible=spoon.visible=false;scene.add(cup,pot,spoon);
   return {
     state,thumbnail,
     update(now, T) {
@@ -536,6 +550,34 @@ export function createProps(THREE, scene, bridge) {
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
+      const action=bridge.player.homeAction;
+      cup.visible=!!(action?.kind==='drink'&&bridge.player.J?.handR);
+      if(cup.visible){
+        const p=bridge.player.domesticHands?.R||bridge.player.J.handR,face=bridge.player.face;
+        cup.position.set(p[0]+Math.cos(face)*.04,p[2]+(bridge.player.floorZ||0)+.075,p[1]+Math.sin(face)*.04);
+        cup.rotation.set(0,0,0);
+      }
+      pot.visible=spoon.visible=false;
+      if(action?.kind==='cook'){
+        const item=(bridge.boxes||[]).find(b=>b.house===action.house&&b.homeId===action.itemId);
+        if(item){
+          pot.visible=true;pot.position.set(item.x-Math.sin(item.rot||0)*item.d*.28,(item.z||0)+item.h+.07,item.y+Math.cos(item.rot||0)*item.d*.28);
+          const p=bridge.player.domesticHands?.R||bridge.player.J?.handR;
+          if(p){spoon.visible=true;spoon.position.set(p[0],p[2]+(bridge.player.floorZ||0)-.075,p[1]);spoon.rotation.z=.22;}
+        }
+      }
+      for(const k of kinds.values())if(k.door){
+        const base=new THREE.Matrix4(),hinge=new THREE.Matrix4(),rot=new THREE.Matrix4(),back=new THREE.Matrix4().makeTranslation(.35,0,-.35);
+        k.list.forEach((b,i)=>{
+          k.meshes[0].getMatrixAt(i,base);
+          const active=action&&action.house===b.house&&action.itemId===b.homeId&&['fridge','eat'].includes(action.kind);
+          const u=active?Math.max(0,Math.min(1,(action.t-.35)/.7,(action.duration-action.t-.35)/.7)):0;
+          hinge.makeTranslation(-.35,0,.35);rot.makeRotationY(-u*u*(3-2*u)*1.1);
+          base.multiply(hinge).multiply(rot).multiply(back);
+          for(const m of k.door.meshes)m.setMatrixAt(i,base);
+        });
+        for(const m of k.door.meshes){m.count=k.list.length;m.instanceMatrix.needsUpdate=true;}
+      }
       const roads = bridge.roads;
       if (Math.hypot(c.x - curbSync.x, c.y - curbSync.y) > 40 || roads !== curbSync.roads || (roads || []).length !== curbSync.n) { Object.assign(curbSync, { x: c.x, y: c.y, roads, n: (roads || []).length }); buildCurbs(c.x, c.y, 130); state.curbs = curbMesh ? curbMesh.geometry.index.count / 3 : 0; }
       matGlow.color.setScalar(night ? 1.6 : 0.55);
