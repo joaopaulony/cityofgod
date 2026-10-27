@@ -77,6 +77,26 @@ function tintClonedMaterials(object,colorId){
  });
  return cloned;
 }
+// The original 2013 FBX predates PBR materials; FBXLoader renders its old
+// glossy defaults as metallic white. Rebuild materials in matte dog colours
+// while retaining the authored UVs, meshes, rig and six animation clips.
+function matteBenny(instance){
+ const saved=[];
+ instance.traverse(mesh=>{
+  if(!mesh.isMesh)return;
+  const tint=m=>{
+   const tag=(m?.name||'').toLowerCase();
+   const color=tag.includes('schnauze')||tag.includes('muzzle')?'#af724c':
+      tag.includes('hair2')||tag.includes('brown')||tag.includes('canela')?'#985f41':
+      tag.includes('ear')?'#17191d':'#25252b';
+   const replacement=new T.MeshStandardMaterial({name:(m?.name||'dog')+'-matte',
+      color,roughness:.93,metalness:0,side:T.DoubleSide});
+   saved.push(replacement);return replacement;
+  };
+  mesh.material=Array.isArray(mesh.material)?mesh.material.map(tint):tint(mesh.material);
+ });
+ return saved;
+}
 export function createAnimatedPet(id,colorId='original'){
  const breed=petBreed(id);if(!breed?.model)throw Error('Not a Quaternius breed: '+id);
  const root=new T.Group();root.name='Pet:'+id;
@@ -104,7 +124,7 @@ export function createAnimatedPet(id,colorId='original'){
   instance.position.y-=placed.min.y;
   instance.position.z-=center.z;
   instance.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-  materials=tintClonedMaterials(instance,colorId);
+  materials=breed.model==='Benny'?matteBenny(instance):tintClonedMaterials(instance,colorId);
   root.remove(fallback.root);fallback.dispose();
   animal=instance;root.add(animal);clips=gltf.animations;
   mixer=new T.AnimationMixer(instance);

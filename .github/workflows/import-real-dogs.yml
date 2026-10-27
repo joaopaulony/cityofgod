@@ -4,6 +4,8 @@ on:
     branches: [city-sharpei-benny-replace-pets]
     paths:
       - '.github/workflows/import-real-dogs.yml'
+      - 'js/pet-animated.mjs'
+      - 'tools/capture-real-dogs.cjs'
 permissions:
   contents: write
 jobs:
@@ -53,7 +55,7 @@ jobs:
         run: |
           npm start >/tmp/city-real-dogs.log 2>&1 &
           sleep 3
-          node tools/capture-real-dogs.cjs
+          node tools/capture-real-dogs.cjs || { tail -80 /tmp/city-real-dogs.log; exit 1; }
       - name: Upload real screenshots and browser verification report
         if: always()
         uses: actions/upload-artifact@v4

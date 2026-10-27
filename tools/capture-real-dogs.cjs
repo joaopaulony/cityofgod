@@ -5,7 +5,7 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch({channel:'chrome',headless:true,args:[
    '--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader',
    '--enable-unsafe-swiftshader']});
- const page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
+ let page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const report={renderer:[],adoption:null,errors};
  try{
@@ -27,8 +27,22 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
    report.renderer.push({action,states});
    await page.screenshot({path:out+'/dois-caes-'+action+'.png',fullPage:true});
   }
-  // An actual live-game test, not just a standalone glTF gallery.
-  await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'domcontentloaded',timeout:120000});
+  // Release the gallery's WebGL resources before opening the large city.
+  await page.close({runBeforeUnload:false});
+  page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
+  page.on('pageerror',e=>errors.push(e.message));
+    // An actual live-game test, not just a standalone glTF gallery.
+  // The GitHub runner can reclaim the preview's dev server during GPU work.
+  // Restart the local file server once if it was reclaimed between scenes.
+  try{await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:90000});}
+  catch(e){
+   const {spawn}=require('node:child_process');
+   const server=spawn(process.execPath,['tools/serve.mjs'],
+     {cwd:process.cwd(),detached:true,stdio:'ignore'});
+   server.unref();
+   await new Promise(r=>setTimeout(r,1800));
+   await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:90000});
+  }
   await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,undefined,{timeout:120000});
   const home=await page.evaluate(()=>{
    const H=__game.houses.find(H=>H.architecture&&CityRealty.residential(H));
