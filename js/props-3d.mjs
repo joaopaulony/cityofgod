@@ -437,7 +437,11 @@ export function createProps(THREE, scene, bridge) {
       if (!handles(b)) continue;
       const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
       const H = b.house;
-      if (H && !b.exteriorFixture) { if (!H.inside || (H.architecture?(b.floor||0)!==(bridge.player.stairTravel?.to??bridge.player.floor??0):((b.floor === 1) !== !!upstairsIn(H)))) continue; furniture++; } else objects++;
+      if (H && !b.exteriorFixture) {
+       if (!H.inside || (H.architecture?(b.floor||0)!==(bridge.player.stairTravel?.to??bridge.player.floor??0):((b.floor===1)!==!!upstairsIn(H))))continue;
+       if(H.unitBuilding&&!window.CityBuildings?.canSeeFurniture(H,b,bridge.player))continue;
+       furniture++;
+     }else objects++;
       const def = M[b.kind], color = def.tinted ? (def.pick ? def.pick(b) : b.kind === 'cooler' ? b.side : b.top) : null, k = kindOf(b.kind, color);
       if (k.list.length < k.cap) k.list.push(b);
     }
@@ -533,7 +537,10 @@ export function createProps(THREE, scene, bridge) {
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(150, Math.hypot(halfW, halfH) + 22);
-      const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
+      const inside = (bridge.houses||[]).filter(H=>H.inside).map(H=>
+        (H.seed||0)+':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H)?'u':'')+
+        ':'+(H.unitBuilding?window.CityBuildings?.unitAt(H,bridge.player.x,bridge.player.y,bridge.player.floor||0)?.id||'hall':'' )
+       ).join(',');
       const n = (bridge.boxes || []).length;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
       const roads = bridge.roads;

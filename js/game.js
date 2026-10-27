@@ -10,6 +10,7 @@ const buildingShade=makeCanvas(1,1),sg=buildingShade.getContext('2d');
 const focusCanvas=makeCanvas(1,1),fg=focusCanvas.getContext('2d');
 
 if(typeof CityRealty!=='undefined')CityRealty.init();
+window.CityBuildings?.init();
 buildWorld();
 if(typeof remodelProperty==='function')for(const H of houses)remodelProperty(H);
 for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn=[...H.front];break;}
@@ -763,9 +764,10 @@ function tick(dt) {
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
-  const realtyOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
-  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed);
-  if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
+  const unitOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityBuildings?.onInteract(player);
+  const realtyOpened=!unitOpened&&interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
+  const stairStarted=!vehicleMessage&&!garageUsed&&!unitOpened&&!realtyOpened&&!player.elevatorTravel&&updateHouseStairs(player,dt,interactPressed);
+  if(interactPressed&&!vehicleMessage&&!garageUsed&&!unitOpened&&!realtyOpened&&!stairStarted&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
   if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
@@ -778,7 +780,8 @@ function tick(dt) {
   const manualHomeInput=['w','a','s','d','shift'].some(k=>input.down(k))||input.rmb;
   const guided=window.CityHomeRoutine?.tick(dt,player,(x,y)=>
     moveTo(player.x,player.y,x,y,.28,player.floor||0),manualHomeInput);
-  if(!guided)updatePlayer(dt);
+  const riding=window.CityBuildings?.tick(dt,player);
+  if(!guided&&!riding)updatePlayer(dt);
   window.CityHome?.tick(player);
   window.CityHomeUI?.tick();
   window.CityGPS?.tick(player);
@@ -825,7 +828,7 @@ function tick(dt) {
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
   // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
-  const prompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player)||interactionPrompt(player);
+  const prompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityBuildings?.prompt(player)||window.CityRealty?.prompt(player)||interactionPrompt(player);
   if(prompt&&!player.stairTravel){
     h.save();h.font='600 14px sans-serif';h.textAlign='center';
     const w=h.measureText(prompt).width+28,x=hudC.width/2-w/2,y=hudC.height-158;
