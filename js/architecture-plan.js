@@ -36,7 +36,9 @@
       add('kitchen','kitchen',front,front.y0,frontMid);
       add('living','living',front,frontMid,front.y1);
     }else{
-      add('office','office',rear,rear.y0,rear.y1);
+      const split=rear.y0+(rear.y1-rear.y0)*.57;
+      add('office','office',rear,rear.y0,split);
+      add('bathroom','bathroom',rear,split,rear.y1);
       add('meeting','meeting',front,front.y0,front.y1);
     }
     const assigned=rooms.filter(r=>r.unitId===key);
@@ -151,7 +153,7 @@
    };
    const bed=()=>{put('bed',Math.min(1.6,W-1.1),Math.min(2.05,D-.5),.55,[cx,r.y0+Math.min(1.3,D*.5)],{top:'#92b1a6'});put('wardrobe',1.05,.52,1.95,[r.x0+.8,r.y1-.55]);};
    const kitchen=()=>{put('fridge',.65,.65,1.85,[r.x0+.6,r.y0+.6],{top:'#ecebe6'});put('stove',.7,.62,.9,[r.x0+1.38,r.y0+.6],{top:'#c6c4be'});put('sink',.72,.62,.9,[r.x1-.65,r.y0+.6],{top:'#e6e0d5'});if(D>3.7)put('counter',1.5,.65,.9,[cx,r.y1-.6]);};
-   const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
+   const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[D<2.65?r.x0+1.55:cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
    switch(r.use){
     case'ward':case'barracks':for(let y=r.y0+1.5;y<r.y1-1;y+=3.2)for(const x of [r.x0+1.2,r.x1-1.2]){put(r.use==='ward'?'hospitalbed':'bed',1.15,2.05,.9,[x,y],{top:r.use==='ward'?'#e1eee9':'#657361'});put('cabinet',.5,.55,.75,[x+.85,y-.6],{top:'#bfcac8'});}break;
     case'clinic':put('hospitalbed',1.15,2.05,.9,[cx,cy],{top:'#d3e6e1'});put('sink',.8,.6,.9,[r.x0+.7,r.y0+.7]);put('desk',1.6,.7,.8,[cx,r.y0+.7]);put('shelf',2,.5,1.8,[r.x1-1.4,r.y1-.5]);break;
