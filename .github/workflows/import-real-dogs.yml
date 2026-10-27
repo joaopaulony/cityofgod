@@ -28,6 +28,12 @@ jobs:
             '769a045bef1c8de49231389a4482fa36027093fc'
           test "$(wc -c <assets/pets/thirdparty/benny.fbx)" -gt 1000000
       - run: npm ci
+      - name: Bundle Three.js Draco mesh decoder for offline playback
+        run: |
+          mkdir -p assets/pets/draco
+          cp node_modules/three/examples/jsm/libs/draco/draco_wasm_wrapper.js assets/pets/draco/
+          cp node_modules/three/examples/jsm/libs/draco/draco_decoder.wasm assets/pets/draco/
+          cp node_modules/three/examples/jsm/libs/draco/draco_decoder.js assets/pets/draco/
       - name: Regression tests with both genuine dog assets present
         run: node --test tests/*.test.*
       - name: Build Vercel static output with 14 animal models
@@ -36,7 +42,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f assets/pets/thirdparty/benny.fbx
+          git add -f assets/pets/thirdparty/benny.fbx assets/pets/draco
           if ! git diff --cached --quiet; then
             git commit -m 'assets(pets): add licensed Benny Rottweiler FBX with preserved skeletal clips'
             git push origin HEAD:city-sharpei-benny-replace-pets

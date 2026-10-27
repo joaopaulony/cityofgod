@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {petBreed} from './pet-catalog.mjs';
@@ -41,6 +42,12 @@ export function loadAnimalAsset(model){
   const base=isBenny||isSharPei?'../assets/pets/thirdparty/':'../assets/pets/quaternius/';
   const url=new URL(base+file,import.meta.url).href;
   const loader=isBenny?new FBXLoader():new GLTFLoader();
+  if(isSharPei){
+   const draco=new DRACOLoader();
+   // Decoder is shipped locally with this game, no Google CDN dependency.
+   draco.setDecoderPath(new URL('../assets/pets/draco/',import.meta.url).href);
+   loader.setDRACOLoader(draco);
+  }
   const loading=loader.loadAsync(url).then(asset=>{
     const gltf=isBenny?{scene:asset,animations:asset.animations||[]}:asset;
     if(!gltf.scene||!gltf.animations?.length)throw Error('Missing rig clips: '+model);
