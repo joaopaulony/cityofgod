@@ -3,6 +3,11 @@
 
 const hud = { portrait: null, msg: '', msgT: 0 };
 
+function hudMapLayout(W,H) {
+  const compact=W<740,ms=compact?Math.min(118,Math.max(90,W*.29)):164;
+  return {compact,ms,mx:compact?10:18,my:Math.max(102,H-ms-(compact?14:18))};
+}
+
 function roundRect(g, x, y, w, h, r, fill, stroke) {
   g.beginPath(); g.roundRect(x, y, w, h, r);
   if (fill) { g.fillStyle = fill; g.fill(); }
@@ -14,10 +19,8 @@ function drawHUD(h, W, H, st) {
   // HUD de mundo aberto: informação útil, sem os botões decorativos antigos.
   if (wmap.open) return;
   h.save(); h.imageSmoothingEnabled = true;
-  const p = st.player, needs = st.needs || {}, compact = W < 740;
-  const ms = compact ? Math.min(118, Math.max(90, W * .29)) : 164;
-  const mx = compact ? 10 : 18, my = Math.max(102, H - ms - (compact ? 14 : 18));
-  const panel = 'rgba(54,59,61,.53)', border = 'rgba(255,255,255,.47)';
+  const p = st.player, needs = st.needs || {};
+  const {compact,ms,mx,my}=hudMapLayout(W,H);
   const round = (x,y,w,hh,r,fill,stroke) => roundRect(h,x,y,w,hh,r,fill,stroke);
 
   // Radar inferior esquerdo. Mantém os dados reais do worldmap.js, com NPCs e direção atual.
@@ -73,32 +76,33 @@ function drawHUD(h, W, H, st) {
   h.fillText(clock,tx,ty+32);
   h.fillStyle='#9de0ae';h.font=(compact?'800 15px':'800 19px')+' "Arial Narrow",sans-serif';
   h.fillText(CityLife.money(CityLife.funds),tx,ty+54);
+  const driving=!!window.cityVehicles?.driver;
+  if(!driving){
+    h.fillStyle='#f5f7f5';h.font=(compact?'800 12px':'800 15px')+' "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';
+    h.fillText(p.armed?'FUZIL  ·  '+p.ammo+' / '+p.reserve+' BALAS':'MÃOS LIVRES  ·  SEM ARMA',tx,ty+75);
+  }
   if(!compact) {
     h.fillStyle='#e0e9df';h.font='700 12px "Arial Narrow",sans-serif';
     const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
     const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
      ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
-    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx,ty+73);
+    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx,ty+94);
   }
 
   const loc=window.CityDistrictsLocation?.();
   if(loc && !compact){
-    const subY=ty+91;
+    const subY=ty+112;
     h.textAlign='right';h.font='800 11px "Arial Narrow",sans-serif';h.fillStyle='#f7f6ed';
     h.fillText(loc.street||'Explorando a cidade',tx,subY);
     if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx,subY+16);}
   }
-  // Arma selecionada e balas do sistema existente. Mãos vazias não disparam.
-  const driving=!!window.cityVehicles?.driver;
-  if(!driving) {
-    const weapon = p.armed ? 'FUZIL' : 'MÃOS LIVRES', ammo=p.armed?p.ammo+'/'+p.reserve:'SEM ARMA';
-    const barW=compact?144:206, bx=W/2-barW/2, by=H-(compact?116:52);
-    if(bx>mx+ms+6) {
-      h.save();h.shadowColor='#000a';h.shadowBlur=16;round(bx,by,barW,37,11,panel,border);h.restore();
-      h.textAlign='left';h.fillStyle='#f6f8f7';h.font='800 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText(weapon,bx+10,by+14);
-      h.fillStyle='#f3d899';h.font='800 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText(ammo,bx+10,by+29);
-      if(!compact){h.textAlign='right';h.fillStyle='#d2d8d9';h.font='11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText('I / U / P · AÇÕES',bx+barW-10,by+23);}
-    }
+  // Atalhos ficam em uma única notificação discreta acima do radar.
+  if(!window.CityUI?.blocksGameInput()){
+    const keys=compact?'I Mochila  ·  U Armas  ·  P Celular':'I Mochila   ·   TAB/U Armas   ·   P Celular';
+    const hintW=Math.min(W-mx-12,compact?Math.max(225,W-20):302),hintY=my-36;
+    round(mx,hintY,hintW,26,8,'rgba(82,90,94,.58)','rgba(255,255,255,.41)');
+    h.shadowBlur=0;h.fillStyle='#fff';h.textAlign='left';h.font='700 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';
+    h.fillText(keys,mx+10,hintY+17,hintW-20);
   }
 
   // Mira só aparece armado e fora das interfaces.
@@ -112,13 +116,14 @@ function drawHUD(h, W, H, st) {
     }
   }
 
-  // Avisos legíveis sem esconder o painel de veículos nem o minimapa.
+  // Avisos do mundo: tipografia branca grande, sem cartão opaco.
   if(hud.msgT>0){
     const alpha=clamp(hud.msgT,0,1);
-    h.globalAlpha=alpha;h.font='700 14px system-ui';h.textAlign='center';
-    const msgW=Math.min(W-24,Math.max(175,h.measureText(hud.msg).width+30)),msgY=Math.max(114,H*.25);
-    round((W-msgW)/2,msgY-24,msgW,34,7,panel,border);
-    h.fillStyle='#fce7ac';h.fillText(hud.msg,W/2,msgY-3);h.globalAlpha=1;
+    h.globalAlpha=alpha;h.font=(compact?'900 18px':'900 27px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
+    h.textAlign='center';h.textBaseline='alphabetic';h.lineJoin='round';h.lineWidth=5;
+    h.shadowColor='#000';h.shadowBlur=8;h.strokeStyle='#090c0e';h.fillStyle='#fff';
+    const msgY=compact?150:115,msgW=Math.min(W-24,850);
+    h.strokeText(hud.msg,W/2,msgY,msgW);h.fillText(hud.msg,W/2,msgY,msgW);h.globalAlpha=1;
   }
   h.restore();
 }

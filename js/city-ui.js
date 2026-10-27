@@ -2,14 +2,14 @@
 'use strict';
 const CityUI = (() => {
   const wheelItems = [
-    { id: 'unarmed', icon: '✊', name: 'Mãos livres' },
-    { id: 'rifle', icon: '🔫', name: 'Fuzil' },
-    { id: null, icon: '🔒', name: 'Pistola' },
-    { id: null, icon: '🔒', name: 'SMG' },
-    { id: null, icon: '🔒', name: 'Escopeta' },
-    { id: null, icon: '🔒', name: 'Precisão' },
-    { id: null, icon: '🔒', name: 'Arremessáveis' },
-    { id: null, icon: '🔒', name: 'Ferramentas' }
+    { id: 'unarmed', icon: 'wheel-hand', name: 'Mãos livres' },
+    { id: 'rifle', icon: 'weapons', name: 'Fuzil' },
+    { id: null, icon: 'wheel-pistol', name: 'Pistola' },
+    { id: null, icon: 'wheel-smg', name: 'SMG' },
+    { id: null, icon: 'wheel-shotgun', name: 'Escopeta' },
+    { id: null, icon: 'wheel-sniper', name: 'Precisão' },
+    { id: null, icon: 'wheel-grenade', name: 'Arremessáveis' },
+    { id: null, icon: 'wheel-tools', name: 'Ferramentas' }
   ];
   const quickItems = ['water','sandwich','burger','firstaid','coffee'];
   const appNames = { home: 'Início', status: 'Necessidades', bag: 'Mochila', market: 'Mercadinho', contacts: 'Contatos', sms: 'Mensagens', wallet: 'Carteira', notes: 'Anotações', help: 'Ajuda', ...CityApps.names };
@@ -40,9 +40,9 @@ const CityUI = (() => {
     phone.className='city-wallpaper-'+CitySim.data.themes.wallpaper+' city-case-'+CitySim.data.themes.caseColor;
   }
   function notify(message) {
-    if (typeof hud !== 'undefined') { hud.msg = message; hud.msgT = 2.4; }
     const el = $('city-toast');
-    if (!el) return;
+    if (!el) { if (typeof hud !== 'undefined') { hud.msg = message; hud.msgT = 2.4; } return; }
+    if (typeof hud !== 'undefined') hud.msgT = 0;
     el.textContent = message; el.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2900);
   }
@@ -80,7 +80,7 @@ const CityUI = (() => {
     const item = wheelItems[i];
     if (!item) return;
     if (!item.id) { notify(item.name + ' ainda não está disponível'); return; }
-    if (CityLife.equip(item.id)) notify(item.name + ' equipado');
+    if (CityLife.equip(item.id)) notify(item.id === 'unarmed' ? 'Mãos livres' : item.name + ' equipado');
   }
   function renderWheel() {
     const panel = $('city-wheel');
@@ -90,9 +90,8 @@ const CityUI = (() => {
       const a = -Math.PI / 2 + i * Math.PI / 4;
       const left = 50 + 37 * Math.cos(a), top = 50 + 37 * Math.sin(a);
       return `<button type="button" class="city-wheel-slot ${wheelChoice === i ? 'active' : ''} ${!entry.id ? 'locked' : ''}" style="left:${left}%;top:${top}%" data-wheel="${i}" aria-label="${safe(entry.name)}">
-        <span class="wheel-icon">${entry.icon}</span><span>${safe(entry.name)}</span></button>`;
-    }).join('') + `<div class="wheel-center"><b>${safe(item.name)}</b><span>${item.id === 'rifle' && currentSt ? currentSt.player.ammo + '/' + currentSt.player.reserve + ' balas' : item.id ? 'Disponível' : 'Bloqueado'}</span></div>
-      <div id="city-wheel-hint">Segure TAB ou U e solte · ou clique</div>`;
+        <span class="wheel-icon">${icon(entry.icon)}</span><span>${safe(entry.name)}</span></button>`;
+    }).join('') + `<div class="wheel-center"><b>${safe(item.name)}</b><span>${item.id === 'rifle' && currentSt ? currentSt.player.ammo + '/' + currentSt.player.reserve + ' balas' : item.id ? 'Disponível' : 'Indisponível'}</span></div>`;
   }
   const btn = (action, label, extra = '') => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
   const icon = id => `<svg class="city-svg-icon" aria-hidden="true" viewBox="0 0 24 24"><use href="assets/ui/city-icons.svg#${id}"></use></svg>`;
@@ -231,8 +230,6 @@ const CityUI = (() => {
     const root=document.createElement('div'); root.id='city-ui-root';
     root.innerHTML = `
       <div id="city-controls" aria-label="Ações do personagem">
-        <button type="button" data-action="bag" aria-label="Abrir mochila"><b>${icon('bag')}</b>I · Mochila</button>
-        <button type="button" data-action="wheel" aria-label="Abrir roda de equipamentos" aria-keyshortcuts="Tab U" title="Tab ou U"><b>${icon('weapons')}</b>Armas</button>
         <button type="button" data-action="phone" aria-label="Abrir celular"><b>${icon('phone')}</b>P · Celular</button>
       </div>
       <div id="city-toast" role="status" aria-live="polite"></div>

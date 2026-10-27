@@ -846,21 +846,25 @@ function tick(dt) {
   window.cityVehicles?.drawHUD(h,hudC.width,hudC.height);
   h.restore();
   if (wmap.open) { drawWorldMap(h, hudC.width, hudC.height, st); input.endFrame(); return; }
-  // Dica discreta so quando ha objeto proximo. Nao cobre o campo de visao.
+  // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
   const otherPrompt=window.cityVehicles?.prompt()||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){
-    h.save();h.font='700 13px "Arial Narrow",sans-serif';h.textAlign='center';
+    h.save();h.font='700 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.textAlign='left';
     const alternate=!otherPrompt&&secondaryHousePrompt?'Shift+F · '+secondaryHousePrompt.replace(/^F\s*·\s*/,''):'';
-    const w=Math.min(hudC.width-24,Math.max(h.measureText(prompt).width,h.measureText(alternate).width)+30);
-    const x=hudC.width/2-w/2,y=hudC.height-(alternate?117:100);
-    h.fillStyle='rgba(22,38,39,.82)';h.beginPath();h.roundRect(x,y,w,alternate?47:30,11);h.fill();
-    h.strokeStyle='rgba(210,244,222,.68)';h.stroke();
-    h.fillStyle='#f3fff3';h.fillText(prompt,hudC.width/2,y+20,w-18);
-    if(alternate){h.fillStyle='#bad9c8';h.font='700 11px "Arial Narrow",sans-serif';h.fillText(alternate,hudC.width/2,y+38,w-18);}
+    const {mx,my,compact}=hudMapLayout(hudC.width,hudC.height);
+    const entry=document.getElementById('city-home-entry');
+    const hasHomeEntry=entry&&!entry.hidden&&!document.body.classList.contains('city-home-open');
+    const w=Math.min(hudC.width-mx-10,compact?Math.max(225,hudC.width-20):360,
+      Math.max(h.measureText(prompt).width,h.measureText(alternate).width)+26);
+    const x=mx,height=alternate?48:32,y=Math.max(4,my-(hasHomeEntry?84:44)-height);
+    h.fillStyle='rgba(82,90,94,.62)';h.beginPath();h.roundRect(x,y,w,height,9);h.fill();
+    h.strokeStyle='rgba(255,255,255,.48)';h.lineWidth=1;h.stroke();
+    h.shadowColor='#101416';h.shadowBlur=3;h.fillStyle='#fff';h.fillText(prompt,x+10,y+20,w-20);
+    if(alternate){h.fillStyle='#e0e6e6';h.font='700 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillText(alternate,x+10,y+38,w-20);}
     h.restore();
   }
   input.endFrame();

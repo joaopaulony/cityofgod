@@ -17,7 +17,7 @@ body{font-family:"Trebuchet MS","Segoe UI",sans-serif}
 body.city-modal #city-home-entry,body.city-home-open #city-property-dialog{display:none!important}
 body.city-property-open #city-controls,body.city-property-open #chat,body.city-property-open #city-home-entry{display:none!important}
 body.city-home-open #architecture-review-tools{display:none!important}
-#city-home-entry{bottom:119px;border:1px solid #ffffff8c;border-radius:16px;
+#city-home-entry{left:18px;bottom:calc(164px + 18px + 36px);transform:none;border:1px solid #ffffff8c;border-radius:14px;
  background:linear-gradient(145deg,#62676ba8,#3c4245b5);color:#fff;
  box-shadow:inset 0 1px #ffffff7c,0 7px 18px #0005;
  font:800 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
@@ -32,9 +32,31 @@ body.city-home-open #architecture-review-tools{display:none!important}
 #city-controls button:hover,#city-controls button:focus-visible{background:#8e9799bd;border-color:#fff;outline:2px solid #fff9;outline-offset:2px}
 #city-controls b{display:grid;place-items:center;height:26px;margin-bottom:3px}
 #city-controls .city-svg-icon{width:27px;height:27px;stroke-width:2.3;filter:drop-shadow(0 2px 2px #0006)}
-#city-toast{top:22px;right:auto;left:50%;transform:translateX(-50%);max-width:min(460px,82vw);
- text-align:center;background:#193632ee;border:1px solid #b8f2d4aa;border-radius:16px;color:#f8fff7;
- box-shadow:0 8px 30px #0008;font:700 13px "Trebuchet MS",sans-serif}
+#city-toast{top:94px;right:auto;left:50%;transform:translateX(-50%);width:max-content;max-width:min(880px,88vw);
+ padding:0;text-align:center;background:transparent;border:0;border-radius:0;color:#fff;
+ box-shadow:none;font:900 clamp(19px,2.15vw,29px)/1.1 "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif;
+ -webkit-text-stroke:1px #080c0e;text-shadow:0 2px 2px #000,2px 2px 4px #000,0 0 12px #0009}
+
+/* A roda inteira é uma só peça de vidro; os setores não criam discos adicionais. */
+#city-wheel-layer{background:transparent;backdrop-filter:none}
+#city-wheel{width:min(450px,calc(100vw - 28px),calc(100dvh - 28px));height:min(450px,calc(100vw - 28px),calc(100dvh - 28px));
+ border:2px solid #ffffffae;background:radial-gradient(circle at 28% 19%,#d9e2e46e,#828d93ad 51%,#4e5b62bb 100%);
+ backdrop-filter:blur(13px) saturate(.75);box-shadow:inset 0 2px #ffffff9c,inset 0 -15px 30px #18252c36,0 14px 45px #0007}
+.city-wheel-slot{width:88px;height:72px;padding:2px;gap:5px;border:0;border-radius:0;background:transparent;
+ box-shadow:none;color:#f7fafb;font:800 11px/1.1 "Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
+ text-shadow:0 1px 3px #10181d,0 0 7px #10181d;transition:opacity .12s,transform .12s}
+.city-wheel-slot .wheel-icon{display:grid;place-items:center}
+.city-wheel-slot .wheel-icon .city-svg-icon{width:34px;height:34px;stroke-width:2.2;filter:drop-shadow(0 2px 3px #182329)}
+.city-wheel-slot.locked{opacity:.52}
+.city-wheel-slot.active{background:transparent;border:0;box-shadow:none;opacity:1;color:#fff}
+.city-wheel-slot.active .wheel-icon .city-svg-icon{stroke-width:2.7;filter:drop-shadow(0 0 7px #fff)}
+.city-wheel-slot.active::after{content:"";position:absolute;bottom:-3px;left:50%;width:28px;height:2px;
+ transform:translateX(-50%);border-radius:2px;background:#fff;box-shadow:0 0 8px #fff}
+.city-wheel-slot:hover,.city-wheel-slot:focus-visible{border:0;outline:2px solid #ffffffa8;outline-offset:2px;background:#ffffff20}
+#city-wheel .wheel-center{width:140px;height:100px;border:0;border-radius:0;background:transparent;color:#fff;
+ box-shadow:none;text-shadow:0 2px 4px #141d22;font:700 13px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif}
+#city-wheel .wheel-center b{font-size:23px}
+#city-wheel-hint{display:none}
 
 /* Vector icons are hand authored, so one sprite replaces 25 emoji/raster assets. */
 .city-svg-icon{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;
@@ -153,5 +175,10 @@ body.city-home-open #architecture-review-tools{display:none!important}
  #city-controls button{min-width:51px;min-height:48px;padding:5px 6px;font-size:0}
  #city-controls b{height:32px;margin:0}
  #city-controls .city-svg-icon{width:23px;height:23px}
- #city-toast{top:12px}
+ #city-home-entry{left:10px;bottom:calc(clamp(90px,29vw,118px) + 14px + 35px)}
+ #city-wheel .wheel-center{width:105px;height:75px;font-size:10px}
+ #city-wheel .wheel-center b{font-size:17px}
+ .city-wheel-slot{width:67px;height:55px;font-size:9px}
+ .city-wheel-slot .wheel-icon .city-svg-icon{width:26px;height:26px}
+ #city-toast{top:130px;font-size:18px;max-width:90vw}
 }
