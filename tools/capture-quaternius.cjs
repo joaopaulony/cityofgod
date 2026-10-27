@@ -5,7 +5,8 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch({channel:'chrome',headless:true,args:[
    '--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader',
    '--enable-unsafe-swiftshader']});
- const page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
+ const context=await browser.newContext({viewport:{width:1360,height:920},deviceScaleFactor:1});
+ const page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const report={renderer:[],adoption:null,errors};
  try{
@@ -73,7 +74,6 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
   report.adoption={home,...state};
   // Release the heavy WebGL scene and reopen in the same browser context:
   // localStorage persists while navigation is no longer blocked by GPU work.
-  const context=page.context();
   fs.writeFileSync(out+'/browser-report.partial.json',JSON.stringify(report,null,2));
   await page.close({runBeforeUnload:false});
   const restored=await context.newPage();

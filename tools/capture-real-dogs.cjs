@@ -5,7 +5,8 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch({channel:'chrome',headless:true,args:[
    '--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader',
    '--enable-unsafe-swiftshader']});
- let page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
+ const context=await browser.newContext({viewport:{width:1360,height:920},deviceScaleFactor:1});
+ let page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const report={renderer:[],adoption:null,errors};
  try{
@@ -29,7 +30,7 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
   }
   // Release the gallery's WebGL resources before opening the large city.
   await page.close({runBeforeUnload:false});
-  page=await browser.newPage({viewport:{width:1360,height:920},deviceScaleFactor:1});
+  page=await context.newPage();
   page.on('pageerror',e=>errors.push(e.message));
     // An actual live-game test, not just a standalone glTF gallery.
   // The GitHub runner can reclaim the preview's dev server during GPU work.
@@ -44,7 +45,7 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
    await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:90000});
   }
   try{
-   await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,
+   await page.waitForFunction(()=>window.CityPets&&window.__game?.houses?.some(H=>H.architecture),
      undefined,{timeout:90000});
   }catch(err){
    report.cityLoad=await page.evaluate(()=>({
@@ -106,7 +107,6 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
   report.adoption={home,...state};
   // Release the heavy WebGL scene and reopen in the same browser context:
   // localStorage persists while navigation is no longer blocked by GPU work.
-  const context=page.context();
   fs.writeFileSync(out+'/browser-report.partial.json',JSON.stringify(report,null,2));
   await page.close({runBeforeUnload:false});
   const restored=await context.newPage();
