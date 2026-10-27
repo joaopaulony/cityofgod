@@ -120,6 +120,15 @@ function useHouseInteraction(p,st,time){
   const found=findHouseInteraction(p);
   if(!found)return false;
   const {obj,kind,house:H}=found;
+  if(window.CityBuildings?.managed(H)){
+    const seg=obj.seg,unitId=seg?.unitId;
+    if(unitId&&!window.CityBuildings.canOpenDoor(H,seg)){
+      st._interactionMessage='Unidade privada · consulte a portaria';return true;
+    }
+    if(!seg&&kind!=='switch'&&!window.CityBuildings.canSeeFurniture(H,obj,p)){
+      st._interactionMessage='Área privada · acesso negado';return true;
+    }
+  }
   // Portas fechadas de residências privadas não podem ser abertas por transeuntes.
   if(typeof CityRealty!=='undefined'&&CityRealty.residential(H)&&!CityRealty.isOwned(H)){
     st._interactionMessage='Imóvel privado · acesso restrito';

@@ -239,7 +239,14 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   const A=e.H.architecture,level=A.levels[floor],kit=Kit();if(!level)return;
   const custom=typeof CityHomePlus!=='undefined'&&window.CityHome?.owned(e.H);
   const ca=bridge.cam.ang,Acos=Math.cos(A.angle),Asin=Math.sin(A.angle),camera=[Math.sin(ca)*Acos+Math.cos(ca)*Asin,-Math.sin(ca)*Asin+Math.cos(ca)*Acos];
-  for(const r of level.rooms){const wet=['bathroom','kitchen','laundry','loading'].includes(r.use),use=wet?'tile':'wood';
+  for(const r of level.rooms){
+    const visible=!e.H.unitBuilding||!r.unitId||window.CityBuildings?.canSeeRoom(e.H,r,floor,bridge.player);
+    if(!visible){
+      kit.box(r.x0-.02,level.z+A.floorHeight-.16,r.y0-.02,
+        r.x1+.02,level.z+A.floorHeight-.08,r.y1+.02,'#adb3b7',0,'concrete');
+      continue;
+    }
+    const wet=['bathroom','kitchen','laundry','loading'].includes(r.use),use=wet?'tile':'wood';
    const finish=custom?CityHomePlus.surface(e.H,floor,r.id):null;
    const slab=(x0,y0,x1,y1)=>{if(x1-x0>.01&&y1-y0>.01)kit.box(x0,level.z-.07,y0,x1,level.z-.005,y1,
      finish?.floor|| (e.H.civic?'#d9e0dc':wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0'),
@@ -248,7 +255,12 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   }
   for(const r of level.outdoor)balcony(kit,r,level.z,palettes[A.palette][1]);
   for(const w of level.walls){
-    const facing=w.normal[0]*camera[0]+w.normal[1]*camera[1],h=w.ext?(facing>0?.55:A.floorHeight):.75;
+    const facing=w.normal[0]*camera[0]+w.normal[1]*camera[1];
+    const privateWall=e.H.unitBuilding&&(w.rooms||[]).some(id=>{
+      const room=level.rooms.find(r=>r.id===id);
+      return room?.unitId&&!window.CityBuildings?.canSeeRoom(e.H,room,floor,bridge.player);
+    });
+    const h=privateWall?A.floorHeight:w.ext?(facing>0?.55:A.floorHeight):.75;
     const roomId=(w.rooms||[]).find(id=>level.rooms.some(r=>r.id===id))||level.rooms[0]?.id;
     const color=custom&&roomId?CityHomePlus.surface(e.H,floor,roomId).wall:null;
     buildWall(kit,w,level.z,h,color||(w.ext?'#e7e0d2':'#e5ddcc'),true,e.innerDoors,e.glass,{},e.innerWindows);
@@ -266,7 +278,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   }catch(error){builds.delete(H);state.errors.push(String(error));console.error('Architecture 3D',error);continue;}}
    const A=H.architecture,isInside=H.inside,floor=Math.min(A.levels.length-1,bridge.player.stairTravel?.to??bridge.player.floor??0);
    e.exterior.visible=e.roof.visible=!isInside;
-   if(isInside){const key=floor+':'+Math.sign(Math.sin(c.ang-A.angle))+':'+Math.sign(Math.cos(c.ang-A.angle))+':'+(H.homeFinishVersion||0);if(e.cutKey!==key)interior(e,floor,key);e.interior.visible=true;}else if(e.interior)e.interior.visible=false;
+   if(isInside){const unit=H.unitBuilding?window.CityBuildings?.unitAt(H,bridge.player.x,bridge.player.y,floor)?.id||'corredor':'house';
+     const key=floor+':'+unit+':'+Math.sign(Math.sin(c.ang-A.angle))+':'+Math.sign(Math.cos(c.ang-A.angle))+':'+(H.homeFinishVersion||0);if(e.cutKey!==key)interior(e,floor,key);e.interior.visible=true;}else if(e.interior)e.interior.visible=false;
    for(const d of [...e.doors,...(e.innerDoors||[])]){const open=d.opening.segment?.doorAnim?.open||0;if(d.opening.style==='roller')d.object.position.y=d.baseY+open*d.opening.height;else d.object.rotation.y=d.base+open*1.3;}
    if(e.garageDoor){const o=e.garageDoor.g.seg?.doorAnim?.open||0,d=e.garageDoor.object;d.rotation.x=o*1.5;d.position.z=e.garageDoor.g.y1-.05-o*.18;}
    updateSashes(e.sashes);if(e.interior?.visible)updateSashes(e.innerSashes);

@@ -28,7 +28,7 @@ function remodelProperty(H){
  plan.toWorld=P;plan.toLocal=local;plan.angle=Math.atan2(ex[1],ex[0]);
  const erase=arr=>{let j=0;for(const o of arr||[])if(o.house!==H)arr[j++]=o;if(arr)arr.length=j;};
  erase(world.segs);erase(world.upperSegs);erase(boxes);
- H.architecture=plan;H.segs=[];H.floors=[];H.upper=null;H.stair=null;H.interactables=[];H.indoorLights=[];H.switches=[];
+ H.architecture=plan;H.unitBuilding=!!plan.levels.some(l=>l.units?.length);H.segs=[];H.floors=[];H.upper=null;H.stair=null;H.interactables=[];H.indoorLights=[];H.switches=[];
  H.h=count*height;H.floorHeight=height;H.lightOn=true;H._warm=true;
  H.contains=(x,y,floor=0)=>{const p=local(x,y),l=plan.levels[floor];return !!l&&[...l.rooms,...l.outdoor].some(r=>CityArchitecture.inside(r,...p));};
  H.solidFootprints=plan.levels[0].rooms.map(r=>[[r.x0,r.y0],[r.x1,r.y0],[r.x1,r.y1],[r.x0,r.y1]].map(p=>P(...p)));
@@ -36,7 +36,7 @@ function remodelProperty(H){
   const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);
   const p=t=>P(wall.a[0]+(wall.b[0]-wall.a[0])*t/L,wall.a[1]+(wall.b[1]-wall.a[1])*t/L);
   const a=p(from),b=p(to),normal=[ex[0]*wall.normal[0]+ey[0]*wall.normal[1],ex[1]*wall.normal[0]+ey[1]*wall.normal[1]];
-  const s={x1:a[0],y1:a[1],x2:b[0],y2:b[1],nx:normal[0],ny:normal[1],h:level.z+height,z:level.z,ext:wall.ext,house:H,floor:level.floor,architecture:true,side:normal[1]>.5?'S':normal[1]<-.5?'N':normal[0]<-.5?'W':'E',idx:0,door:opening?.kind==='door',window:opening?.kind==='window'};
+  const s={x1:a[0],y1:a[1],x2:b[0],y2:b[1],nx:normal[0],ny:normal[1],h:level.z+height,z:level.z,ext:wall.ext,house:H,floor:level.floor,architecture:true,side:normal[1]>.5?'S':normal[1]<-.5?'N':normal[0]<-.5?'W':'E',idx:0,unitId:opening?.unitId||null,unitEntry:!!opening?.unitEntry,door:opening?.kind==='door',window:opening?.kind==='window'};
   if(s.door){s.doorAnim={open:0,target:0};opening.segment=s;}
   if(s.window){s.windowAnim={open:0,target:0,manual:true};opening.segment=s;}
   if(level.floor)(world.upperSegs||(world.upperSegs=[])).push(s);else{world.segs.push(s);H.segs.push(s);}level.segments.push(s);
@@ -56,7 +56,9 @@ function remodelProperty(H){
   }
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
-    for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
+    for(const f of level.furniture){const room=level.rooms.find(r=>r.id===f.room);
+     if(H.unitBuilding&&room?.unitId)continue;
+     const p=P(f.x,f.y),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
      const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
     }
   }
@@ -70,7 +72,8 @@ function remodelProperty(H){
    H._architectureFurnished=true;
    const newBoxes=[];
    for(const level of plan.levels)for(const f of level.furniture){
-     const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
+     const room=level.rooms.find(r=>r.id===f.room);if(H.unitBuilding&&room?.unitId)continue;
+     const p=P(f.x,f.y);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
      const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
      H.interactables.push(b);newBoxes.push(b);
@@ -80,7 +83,8 @@ function remodelProperty(H){
  };
  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H))H._architectureFurnished=true;
  const first=plan.levels[0];H.doorPt=P(...first.entry);H.doorN=[ey[0],ey[1]];H.front=[H.doorPt[0]+ey[0]*1.8,H.doorPt[1]+ey[1]*1.8];if(H.walk)H.walk[0]=H.doorPt;
- if(typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
+ if(H.unitBuilding&&typeof CityBuildings!=='undefined')CityBuildings.onBuild(H);
+  if(!H.unitBuilding&&typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
  plan.openingSegments=plan.levels.flatMap(level=>level.segments.filter(s=>s.doorAnim||s.windowAnim));
  if(count>1){H.stair={house:H,z:height,architecture:true};
   for(const level of plan.levels){const hall=level.rooms.find(r=>r.id==='hall'),x=(hall.x0+hall.x1)/2-.45,y=D*.45;level.stair={x,y,bottom:P(x,y+1.25),top:P(x,y-1.25),center:P(x,y)};}

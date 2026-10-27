@@ -7,6 +7,48 @@
  const inside=(r,x,y,pad=0)=>x>=r.x0+pad&&x<=r.x1-pad&&y>=r.y0+pad&&y<=r.y1-pad;
  const residential=k=>['house','bungalow','poor','mansion','rural','condo','projects'].includes(k);
  function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+ function splitIntoUnits(level,kind,floor){
+  const apartments=['condo','projects','deco'].includes(kind)&&floor>0,
+        offices=kind==='office'&&floor>0,retail=kind==='shop';
+  if(!apartments&&!offices&&!retail)return;
+  const old=level.rooms;
+  if(retail){
+    const rooms=old.filter(r=>r.id!=='hall');
+    for(const r of rooms){r.unitId='LOJA';if(r.id.startsWith('front-'))r.unitEntry=true;}
+    level.units=[{id:'LOJA',floor,side:'loja',type:'shop',rooms:rooms.map(r=>r.id),
+      area:round(rooms.reduce((t,r)=>t+(r.x1-r.x0)*(r.y1-r.y0),0))}];
+    return;
+  }
+  const rooms=[old.find(r=>r.id==='hall')],units=[];
+  for(const side of ['left','right']){
+    const rear=old.find(r=>r.id==='rear-'+side),front=old.find(r=>r.id==='front-'+side);
+    if(!rear||!front)continue;
+    const key=(floor+1)+'-'+(side==='left'?'E':'D'),n=side==='left'?'E':'D';
+    const add=(suffix,use,r,y0,y1)=>{
+      if(y1-y0<1.2)return;
+      rooms.push({...r,id:n+'-'+suffix,use,unitId:key,y0:round(y0),y1:round(y1)});
+    };
+    if(apartments){
+      const rearMid=rear.y0+(rear.y1-rear.y0)*.55;
+      const frontMid=front.y0+(front.y1-front.y0)*.48;
+      add('bedroom','bedroom',rear,rear.y0,rearMid);
+      add('bathroom','bathroom',rear,rearMid,rear.y1);
+      add('kitchen','kitchen',front,front.y0,frontMid);
+      add('living','living',front,frontMid,front.y1);
+    }else{
+      add('office','office',rear,rear.y0,rear.y1);
+      add('meeting','meeting',front,front.y0,front.y1);
+    }
+    const assigned=rooms.filter(r=>r.unitId===key);
+    if(assigned.length<2)continue;
+    const entry=assigned.find(r=>r.use==='living'||r.use==='meeting')||assigned.at(-1);
+    entry.unitEntry=true;
+    units.push({id:key,floor,side,type:apartments?'apartment':'office',
+      rooms:assigned.map(r=>r.id),entryRoom:entry.id,
+      area:round(assigned.reduce((t,r)=>t+(r.x1-r.x0)*(r.y1-r.y0),0))});
+  }
+  if(units.length===2){level.rooms=rooms;level.units=units;}
+ }
  function makePlan({width:W,depth:D,kind='house',seed=1,floors=1,height=3}){
   if(W<6||D<6)throw Error('Property envelope too small');
   const random=rng(seed),family=Math.floor(random()*4),palette=Math.floor(random()*6);
@@ -46,6 +88,7 @@
    const level={floor,kind,wingRecess,z:floor*height,rooms,walls:[],furniture:[],entry:[ox+(left+right)/2,oy+entry],setback,
     outdoor:floor>0?[rect('balcony','balcony',ox+left,oy+entry,ox+right,oy+d)]:[]};
    if(kind==='mansion'&&floor>0)level.outdoor.push({...rect('rear-balcony','balcony',1.3,-2.7,W-1.3,0),rear:true});
+   splitIntoUnits(level,kind,floor);
    makeWalls(level,seed+floor);furnish(level,seed+floor*71);
    plan.levels.push(level);
   }
@@ -61,7 +104,15 @@
    const key=[...a,...b].map(round).join(',');if(seen.has(key))return;seen.add(key);
    const ext=!left||!right,owner=left||right,len=Math.hypot(b[0]-a[0],b[1]-a[1]);
    const wall={a,b,ext,normal:ext?(left?n:n.map(v=>-v)):n,rooms:[left?.id,right?.id].filter(Boolean),openings:[]};
-   if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12)wall.openings.push({kind:'door',style:[left.use,right.use].includes('holding')?'bars':undefined,at:len/2,width:1.02,height:2.16});
+   if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12){
+     const room=left.id==='hall'?right:right.id==='hall'?left:null;
+     if(!room?.unitId||room.unitEntry)
+       wall.openings.push({kind:'door',unitId:room?.unitId||null,unitEntry:!!room?.unitId,
+         style:room?.unitId?'private':undefined,at:len/2,width:1.02,height:2.16});
+   }else if(!ext&&left.unitId&&left.unitId===right.unitId&&len>=1.12){
+     wall.openings.push({kind:'door',unitId:left.unitId,style:'internal',
+       at:len/2,width:Math.min(1,len-.25),height:2.16});
+   }
    if(ext&&owner.id==='hall'&&n[1]!==0&&Math.abs((a[1]+b[1])/2-level.entry[1])<.01)wall.openings.push({kind:'door',style:level.floor?'glazed':undefined,at:len/2,width:Math.min(1.15,len-.16),height:2.25});
    else if(ext&&owner.id==='hall'&&wall.normal[1]<-.5&&level.outdoor.some(r=>r.rear))wall.openings.push({kind:'door',style:'glazed',at:len/2,width:1.15,height:2.25});
    else if(ext&&owner.use!=='circulation'&&len>=1.8){
@@ -70,6 +121,7 @@
     for(let i=0;i<count;i++)wall.openings.push({kind:'window',at:len*(i+1)/(count+1),width:privacy?.65:Math.min(office?1.75:1.35,len/(count+1)-.35),sill:privacy?1.6:office?.65:.85,height:privacy?.55:office?1.65:1.35});
    }
    if(ext&&owner.use==='loading'&&level.floor===0&&wall.normal[1]>.5&&len>4)wall.openings=[{kind:'door',style:'roller',at:len/2,width:Math.min(3.4,len-1),height:3.6}];
+   if(owner.unitId)for(const o of wall.openings)if(!o.unitId)o.unitId=owner.unitId;
    level.walls.push(wall);
   };
   // Atomic boundaries are merged when the two neighbouring rooms match.
@@ -97,7 +149,7 @@
      const b={room:r.id,kind,x:round(x),y:round(y),w,d,h,top:extra.top||['#c9a77d','#b9946e','#d7c5a8'][Math.floor(random()*3)],side:'#85684b',...extra};items.push(b);return b;
     }return null;
    };
-   const bed=()=>{put('bed',Math.min(1.6,W-1.1),2.05,.55,[cx,r.y0+1.3],{top:'#92b1a6'});put('wardrobe',1.05,.52,1.95,[r.x0+.8,r.y1-.55]);};
+   const bed=()=>{put('bed',Math.min(1.6,W-1.1),Math.min(2.05,D-.5),.55,[cx,r.y0+Math.min(1.3,D*.5)],{top:'#92b1a6'});put('wardrobe',1.05,.52,1.95,[r.x0+.8,r.y1-.55]);};
    const kitchen=()=>{put('fridge',.65,.65,1.85,[r.x0+.6,r.y0+.6],{top:'#ecebe6'});put('stove',.7,.62,.9,[r.x0+1.38,r.y0+.6],{top:'#c6c4be'});put('sink',.72,.62,.9,[r.x1-.65,r.y0+.6],{top:'#e6e0d5'});if(D>3.7)put('counter',1.5,.65,.9,[cx,r.y1-.6]);};
    const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
    switch(r.use){

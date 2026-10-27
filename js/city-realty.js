@@ -4,7 +4,7 @@ const CityRealty=(()=>{
  const KEY='cityofgod.owned-homes.v1';
  let owned={};let started=false,selected=null;
  const id=H=>Math.round(H.doorPt?.[0]??H.x0)+'_'+Math.round(H.doorPt?.[1]??H.y0)+'_'+Math.round(H.x1-H.x0)+'x'+Math.round(H.y1-H.y0);
- const residential=H=>!!H?.doorPt&&!H.civic&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
+ const residential=H=>!window.CityBuildings?.managed(H)&&!!H?.doorPt&&!H.civic&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
  function init(){
    if(started)return;started=true;
    try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(x&&typeof x==='object'&&!Array.isArray(x)) owned=x;}catch(_){}
@@ -21,7 +21,7 @@ const CityRealty=(()=>{
    });
  }
  const isOwned=H=>residential(H)&&!!owned[id(H)];
- const canFurnish=H=>!residential(H)||isOwned(H);
+ const canFurnish=H=>window.CityBuildings?.managed(H)||!residential(H)||isOwned(H);
  const price=H=>{
    const area=Math.max(28,(H.x1-H.x0)*(H.y1-H.y0));
    const tier=H.miaKind==='mansion'?620:H.miaKind==='poor'?160:H.tall?530:275;
