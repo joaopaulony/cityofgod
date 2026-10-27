@@ -43,7 +43,22 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
    await new Promise(r=>setTimeout(r,1800));
    await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:90000});
   }
-  await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,undefined,{timeout:120000});
+  try{
+   await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,
+     undefined,{timeout:90000});
+  }catch(err){
+   report.cityLoad=await page.evaluate(()=>({
+     href:location.href,title:document.title,
+     stage:document.readyState,
+     cityPets:!!window.CityPets,characters:!!window.cityCharacters,
+     charactersReady:window.cityCharacters?.ready||false,
+     game:!!window.__game,
+     body:document.body?.innerText?.slice(0,700)||''
+   })).catch(e=>({error:String(e)}));
+   fs.writeFileSync(out+'/browser-debug.json',JSON.stringify(report,null,2));
+   await page.screenshot({path:out+'/city-load-debug.png'}).catch(()=>{});
+   throw err;
+  }
   const home=await page.evaluate(()=>{
    const H=__game.houses.find(H=>H.architecture&&CityRealty.residential(H));
    if(!H)throw Error('No residential home in live map');

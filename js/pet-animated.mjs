@@ -112,7 +112,8 @@ export function createAnimatedPet(id,colorId='original'){
   const instance=cloneSkeleton(gltf.scene);
   // Normalize after rotating so the floor alignment is correct for both
   // FBX and glTF. Never trust author units (FBX often imports at x100).
-  instance.rotation.y=Math.PI/2;
+  // Benny FBX has opposite forward axis to Quaternius glTF.
+  instance.rotation.y=breed.model==='Benny'?-Math.PI/2:Math.PI/2;
   instance.updateMatrixWorld(true);
   const bounds=new T.Box3().setFromObject(instance),size=bounds.getSize(new T.Vector3());
   if(!Number.isFinite(size.y)||size.y<=.0001||size.y>1e6)throw Error('Invalid model dimensions: '+breed.model);

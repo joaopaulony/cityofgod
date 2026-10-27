@@ -8,7 +8,13 @@ createServer(async(req,res)=>{
   const p=resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));
   if(!p.startsWith(root+sep)&&p!==root)throw Error('path');
   const file=(await stat(p)).isDirectory()?resolve(p,'index.html'):p;
+  // Read first: a missing directory index must never kill the dev server
+  // by trying to emit a 404 after already writing a 200 response.
+  const body=await readFile(file);
   res.writeHead(200,{'Content-Type':types[extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});
-  res.end(await readFile(file));
- }catch{res.writeHead(404);res.end('Not found');}
+  res.end(body);
+ }catch{
+  if(!res.headersSent){res.writeHead(404);res.end('Not found');}
+  else res.end();
+ }
 }).listen(port,'127.0.0.1',()=>console.log(`City of God: http://127.0.0.1:${port}`));
