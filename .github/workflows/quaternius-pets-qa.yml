@@ -1,0 +1,43 @@
+name: Quaternius animated animals - real WebGL review
+on:
+  pull_request:
+    paths:
+      - 'assets/pets/quaternius/**'
+      - 'js/pet-*.mjs'
+      - 'js/pets-3d.mjs'
+      - 'js/quaternius-pet.mjs'
+      - 'tests/quaternius-pets.test.mjs'
+      - 'tools/quaternius-review.*'
+      - 'tools/test-quaternius-browser.cjs'
+      - '.github/workflows/quaternius-pets-qa.yml'
+permissions:
+  contents: read
+jobs:
+  visual-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Pet models and animation tests
+        run: node --test tests/pets.test.mjs tests/quaternius-pets.test.mjs
+      - name: Build for Vercel
+        run: npm run build:site
+      - name: Playwright for real Chrome capture
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Capture animated animals and actual home adoption
+        run: |
+          node tools/serve.mjs >/tmp/city-pet-server.log 2>&1 &
+          sleep 3
+          node tools/test-quaternius-browser.cjs
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quaternius-12-models-animations
+          path: artifacts/quaternius
+          if-no-files-found: warn

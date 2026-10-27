@@ -1,0 +1,17 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Quaternius — revisão 3D · City of God</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#e7ebdf;color:#203f33;font:14px system-ui}
+header{padding:22px 32px 10px;max-width:1450px;margin:auto}header h1{font-size:28px;margin:8px 0}
+header p{margin:0;color:#5a6e60}header small{letter-spacing:2px}
+#area{width:1440px;max-width:100%;height:1050px;position:relative;margin:12px auto;border-radius:14px;overflow:hidden;background:#f5f6ed}
+canvas{width:100%;height:100%;display:block}
+#labels{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);pointer-events:none}
+#labels>div{position:relative;border:1px solid #cfdbcc;padding:12px;display:flex;align-items:end;font-size:15px;font-weight:700}
+#labels>div span{background:#eef3e9dc;padding:5px 9px;border-radius:7px}
+footer{max-width:1450px;margin:0 auto;padding:10px 32px 24px;color:#617464}
+#load{color:#7b6545}</style>
+<script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/"}}</script>
+</head><body><header><small>CITY OF GOD · QUATERNIUS / CC0</small>
+<h1>Doze modelos 3D animados</h1><p>Esqueleto e animações originais · proporções ajustadas ao mundo do jogo · <span id="load">Carregando...</span></p></header>
+<div id="area"><canvas id="stage" width="1440" height="1050"></canvas><div id="labels"></div></div>
+<footer>Pacote Ultimate Animated Animals · Quaternius (CC0). Capturas reais no navegador, sem imagem gerada.</footer>
+<script type="module" src="./quaternius-review.mjs"></script></body></html>
