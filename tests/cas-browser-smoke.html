@@ -6,12 +6,12 @@
 <script type="module">
 import {installCASCreator} from '../js/cas-creator.mjs';
 import {CAS_DEFAULT} from '../js/cas-profile.mjs';
-const isReborn=new URLSearchParams(location.search).has('testReborn');
+const isReborn=true;
 let bodies=null;
 if(isReborn){
  const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js');
  const {loadRebornAssets}=await import('../js/cas-reborn.mjs');
- bodies=await loadRebornAssets(new GLTFLoader(),{base:'/assets/characters/reborn/'});
+ bodies=await loadRebornAssets(new GLTFLoader(),{base:'/assets/characters/rigs/reborn/'});
 }
 const system={casProfile:{...CAS_DEFAULT},rebornReady:isReborn,async applyCAS(profile){this.casProfile=profile;return profile;}};
 window.fakeSystem=system;
