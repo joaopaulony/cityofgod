@@ -9,7 +9,11 @@ page.on('pageerror',e=>errors.push('JS: '+e.message));
 try{
  await mkdir('artifacts/cas-qa',{recursive:true});
  await page.goto('http://127.0.0.1:4322/?humansbeta=1',{waitUntil:'domcontentloaded',timeout:30000});
- await page.waitForFunction(()=>window.cityCharacters?.status!=='loading'&&window.cityCharacters?.status!=null,null,{timeout:90000});
+ // The real city boots ONLY when "Novo jogo" is selected on the title screen.
+ await page.locator('[data-front-action="new"]').click({timeout:30000});
+ await page.waitForFunction(()=>window.cityCharacters?.status&&window.cityCharacters.status!=='loading',null,{timeout:60000});
+ const initial=await page.evaluate(()=>({front:document.querySelector('#city-front')?.innerText?.slice(0,240),characters:window.cityCharacters?.status,errors:window.cityCharacters?.errors}));
+ console.log('CITY_BOOT',JSON.stringify(initial));
  const system=await page.evaluate(()=>({ready:window.cityCharacters.ready,status:window.cityCharacters.status,models:window.cityCharacters.models,humanModelsEnabled:window.cityCharacters.humanModelsEnabled,quality:window.cityCharacters.realisticQuality,populationCount:window.cityCharacters.populationCount,errors:window.cityCharacters.errors,warnings:window.cityCharacters.casWarnings}));
  console.log('REALISTIC_RUNTIME',JSON.stringify(system));
  assert.equal(system.humanModelsEnabled,true,'Approved human GLBs were not mounted: '+JSON.stringify(system));
@@ -17,8 +21,7 @@ try{
  assert.equal(system.populationCount>0,true,'Population missing');
  assert.ok(system.quality?.male?.triangles<=12000&&system.quality?.female?.triangles<=12000);
  for(const sex of ['male','female'])assert.ok(system.quality[sex].hands.left>=10&&system.quality[sex].hands.right>=10);
- await page.locator('[data-front-action=new]').click();
- await page.waitForFunction(()=>document.body.classList.contains('front-open')===false,null,{timeout:90000});
+ await page.waitForFunction(()=>document.body.classList.contains('front-open')===false,null,{timeout:60000});
  await page.evaluate(()=>window.cityCharacters.openCreator());
  await page.locator('#city-cas-dialog[open]').waitFor({timeout:30000});
  await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('GLB REALISTA'),null,{timeout:90000});
