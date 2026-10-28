@@ -31,6 +31,10 @@ let browser;
  }
  assert.equal(await page.evaluate(()=>CityPets.controller.count),6);
  await page.locator('[data-pet-close]').click();
+ await page.waitForFunction(()=>{
+  const actors=cityVehicles.scene.children.filter(o=>o.name.startsWith('Pet:'));
+  return actors.length>=6&&actors.every(o=>o.userData.assetStatus==='ready');
+ },null,{timeout:60000});
  await page.waitForTimeout(2000);
  await page.screenshot({path:'artifacts/pets/pets-em-casa.png'});
  const before=await page.evaluate(()=>CityPets.status);

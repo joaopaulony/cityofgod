@@ -26,6 +26,7 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
   }
   // An actual live-game test, not just a standalone glTF gallery.
   await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'domcontentloaded',timeout:120000});
+  await page.locator('[data-front-action="new"]').click({timeout:120000});
   await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,undefined,{timeout:120000});
   const home=await page.evaluate(()=>{
    const H=__game.houses.find(H=>H.architecture&&CityRealty.residential(H));
@@ -79,6 +80,7 @@ const out='artifacts/quaternius';fs.mkdirSync(out,{recursive:true});
   const restored=await context.newPage();
   restored.on('pageerror',e=>errors.push(e.message));
   await restored.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:120000});
+  await restored.locator('[data-front-action="continue"]').click({timeout:120000});
   await restored.waitForFunction(()=>window.CityPets?.controller.count===2,undefined,{timeout:120000});
   report.persistence=await restored.evaluate(()=>({
     count:CityPets.controller.count,

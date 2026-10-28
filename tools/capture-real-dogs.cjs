@@ -45,6 +45,7 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
    await page.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:90000});
   }
   try{
+   await page.locator('[data-front-action="new"]').click({timeout:120000});
    await page.waitForFunction(()=>window.CityPets&&window.__game?.houses?.some(H=>H.architecture),
      undefined,{timeout:90000});
   }catch(err){
@@ -112,6 +113,7 @@ const out='artifacts/real-dogs';fs.mkdirSync(out,{recursive:true});
   const restored=await context.newPage();
   restored.on('pageerror',e=>errors.push(e.message));
   await restored.goto('http://127.0.0.1:4322/?seed=123',{waitUntil:'commit',timeout:120000});
+  await restored.locator('[data-front-action="continue"]').click({timeout:120000});
   await restored.waitForFunction(()=>window.CityPets?.controller.count===2,undefined,{timeout:120000});
   report.persistence=await restored.evaluate(()=>({
     count:CityPets.controller.count,
