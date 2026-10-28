@@ -58,6 +58,17 @@ jobs:
           TS
           cd /tmp/ara-3d-gen
           npx tsx scripts/cityofgod-export.ts
+      - name: Simplify skinned meshes to <= 12k total triangles without removing finger joints
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --no-audit --no-fund @gltf-transform/cli@4.5.1
+          for sex in male female; do
+            if [ "$sex" = male ]; then ratio=0.27; else ratio=0.38; fi
+            gltf-transform weld "/tmp/cog-human-out/$sex.glb" "/tmp/cog-human-out/$sex.weld.glb"
+            gltf-transform simplify "/tmp/cog-human-out/$sex.weld.glb" "/tmp/cog-human-out/$sex.optimized.glb" --ratio "$ratio" --error 0.2
+            mv "/tmp/cog-human-out/$sex.optimized.glb" "/tmp/cog-human-out/$sex.glb"
+          done
       - name: Validate bones, fingers and polygon budget
         run: |
           set -euo pipefail
