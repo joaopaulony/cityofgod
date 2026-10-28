@@ -3,12 +3,14 @@
   "private": true,
   "scripts": {
     "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
-    "build:site": "npm run build && node tools/build-site.mjs",
+    "build:site": "npm run test:cas && npm run build && node tools/build-site.mjs",
     "start": "node tools/serve.mjs",
     "test:characters": "node --test tests/character-actions.test.mjs",
     "test:pets": "node --test tests/pets.test.mjs",
     "test:front": "node --test tests/front-end.test.cjs",
-    "judge:home": "node tools/judge-city-home.cjs"
+    "judge:home": "node tools/judge-city-home.cjs",
+    "test:cas": "node --test tests/cas-profile.test.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs",
+    "prebuild": "node tools/generate-cas-bases.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

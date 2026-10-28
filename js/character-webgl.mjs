@@ -8,10 +8,13 @@ import {installCartoonCreator,loadLook} from './cartoon-creator.mjs';
 import {createTombRig} from './tomb-rig.mjs';
 import {createCC3Rig} from './cc3-rig.mjs';
 import {createDomesticRig} from './domestic-rig.mjs';
+import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
+import {loadCASAssets,applyCASStyle} from './cas-assets.mjs';
+import {installCASCreator} from './cas-creator.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
- const provider=new URLSearchParams(location.search).get('characters')||'mixamo';
+ const provider=new URLSearchParams(location.search).get('characters')||'cas';
  const system={status:'loading',ready:false,errors:[],frames:0,models:[],provider,enabled:provider!=='canvas'};
  window.cityCharacters=system;let baseAssets;
  const assetBase=provider==='realistic-base'?'assets/characters/realistic-base/':'assets/characters/mixamo/';
@@ -100,10 +103,10 @@ export function createCharacterSystem(scene,bridge){
    e.lastRecoil=a.recoilT;
    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
    if(e.root.visible){
-    const speed=e.spec.clips[clip].speed;
+    const speed=e.spec.clips[clip].speed||0;
     if(speed>.1&&/walk|run/.test(clip))e.action.setEffectiveTimeScale(THREE.MathUtils.clamp(a.speed/speed,.5,2));
     e.mixer.update(dt);
-    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0),a.y);
+    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+(e.root.userData.casFloorOffset||0),a.y);
     // Generator faces +Z. Game face 0 points +X.
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.updateMatrixWorld(true);
@@ -121,7 +124,7 @@ export function createCharacterSystem(scene,bridge){
      }
     }
    }
-   if(e.mixamo&&!e.root.visible)e.gun.visible=false;
+   if(e.mixamo&&!e.root.visible&&e.gun)e.gun.visible=false;
    a.characterClip=a.homeAction?'home_'+a.homeAction.kind:clip;
   }
   system.frames++;
@@ -137,7 +140,7 @@ export function createCharacterSystem(scene,bridge){
   if(!system.enabled){system.status='disabled';return;}
   if(provider==='tomb'){await initTomb();return;}
   if(provider==='cc3'){await initCC3();return;}
-  if(provider==='mixamo'||provider==='cartoon'||provider==='realistic-base'){await initMixamo();return;}
+  if(provider==='mixamo'||provider==='cas'||provider==='cartoon'||provider==='realistic-base'){await initMixamo();return;}
   try{
    const response=await fetch('assets/characters/manifest.json');if(!response.ok)throw Error('Character manifest '+response.status);
    const manifest=await response.json();
@@ -243,6 +246,14 @@ export function createCharacterSystem(scene,bridge){
     }
     assets.set(spec.id,{spec,gltf});
    }
+   let casAssets;
+   if(provider==='cas'){
+    const registry=await loadCASAssets(loader,assets);
+    casAssets=registry.bases;
+    system.casWarnings=registry.warnings;
+    let saved=null;try{saved=readCAS(window.localStorage);}catch{}
+    system.casProfile=saved||CAS_DEFAULT;
+   }
    for(const [i,a] of bridge.actors.entries()){
     const profile=provider==='realistic-base'?(a===bridge.player?loadBaseProfile():{body:a.name==='Ana'?'female':'male',tone:i%5}):null;
     const item=assets.get(profile?profile.body:provider==='cartoon'?'david':a.name==='Ana'?'megan':'david');if(!item)continue;
@@ -259,14 +270,61 @@ export function createCharacterSystem(scene,bridge){
    if(provider==='realistic-base'){baseAssets=assets;installBaseEditor(system,bridge,assets);}
    if(provider==='cartoon')installCartoonCreator(system,bridge,assets.get('david').gltf);
    if(provider!=='cartoon'&&provider!=='realistic-base'&&!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
+   if(provider==='cas'){
+    system.applyCAS=async values=>{
+     const next=normalizeCAS(values),item=casAssets.get(next.sex);
+     const actor=bridge.player,existing=entries.get(actor);
+     if(!item||!existing)throw Error('Base masculina/feminina indisponível');
+     let entry=existing;
+     if(existing.casAsset!==item){
+      const root=cloneSkeleton(item.gltf.scene);
+      root.traverse(o=>{if(o.isMesh){
+       o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();
+       o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
+      }});
+      if(item.origin==='GLB personalizado'){
+       const bound=new THREE.Box3().setFromObject(root),height=bound.max.y-bound.min.y;
+       if(Number.isFinite(height)&&height>.001&&height<10000){
+        const factor=1.75/height;root.scale.multiplyScalar(factor);
+        root.userData.casFloorOffset=-bound.min.y*factor;
+       }
+      }
+      root.userData.casOriginalScale=root.scale.clone();
+      const mixer=new THREE.AnimationMixer(root),actions=new Map(item.gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
+      const compatible=item.spec.rig==='mixamo';
+      const gun=existing.gun;if(gun&&!compatible)gun.visible=false;
+      entry={...existing,root,mixer,actions,spec:item.spec,clip:null,action:null,lastRecoil:Infinity,
+       appearance:next,casAsset:item,casSex:next.sex,casOwnMaterials:true,mixamo:compatible,
+       domesticRig:compatible?createDomesticRig(root):null,rest:new Map(),cartoonRest:[],
+       muzzle:compatible?existing.muzzle:null};
+      scene.add(root);
+      entries.set(actor,entry);
+      existing.mixer?.stopAllAction();scene.remove(existing.root);
+      if(existing.casOwnMaterials)existing.root.traverse(o=>{
+       if(o.isMesh)for(const material of Array.isArray(o.material)?o.material:[o.material])material.dispose();
+      });
+     }
+     entry.appearance=next;
+     actor.name=next.name;
+     applyCASStyle(entry.root,next,entry.spec);
+     system.casProfile=next;
+     system.update(0);
+     return next;
+    };
+    try{await system.applyCAS(system.casProfile);}
+    catch(error){system.casWarnings.push('Carregamento do perfil: '+String(error.message||error));}
+    installCASCreator(system,bridge,casAssets);
+    system.models=[...casAssets.values()].map(x=>({sex:x.spec.sex,origin:x.origin,triangles:x.spec.triangles,bones:x.spec.bones}));
+   }
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Mixamo characters',error);}
  }
  const getImage=path=>{if(!images.has(path))images.set(path,textureLoader.loadAsync('assets/characters/tomb/'+path));return images.get(path);};
  let tombManifest,tombAssets;
  system.appearances=()=>tombManifest?{faces:tombManifest.faces.filter(f=>f.tone===1).map(f=>({name:f.name,sex:f.sex})),skins:5}:null;
- system.getAppearance=a=>{const e=entries.get(a);return e?.appearance?{...e.appearance,sex:e.spec.sex}:null;};
+ system.getAppearance=a=>{const e=entries.get(a);return e?.appearance?{...e.appearance,sex:e.appearance.sex||e.spec.sex}:null;};
  system.setBody=async(a,sex)=>{
+  if(provider==='cas'&&a===bridge.player)return system.applyCAS({...system.casProfile,sex});
   if(provider==='realistic-base'){
    const e=entries.get(a),item=baseAssets?.get(sex);if(!e||!item||e.spec.id===sex)return;
    e.mixer.stopAllAction();e.mixer.uncacheRoot(e.root);releaseBase(e.root);
@@ -282,6 +340,7 @@ export function createCharacterSystem(scene,bridge){
   e.appearance.face=sex==='female'?'Sophie':'Jake';await system.setAppearance(a,{});system.update(0);
  };
  system.setAppearance=async(a,changes)=>{
+  if(provider==='cas'&&a===bridge.player)return system.applyCAS({...system.casProfile,...changes});
   const e=entries.get(a);
   if(provider==='realistic-base'&&e){e.appearance={...e.appearance,...changes};tintBase(e.root,e.appearance.tone);return;}
   if(provider==='cartoon'&&e){
