@@ -36,14 +36,14 @@ test('base animations are procedural, damped and preserve twist inheritance',()=
  assert.match(code,/CC3_BONE_LINKS/);
  assert.match(code,/smoothing/);
 });
-test('CC3 stays opt-in and falls back to Mixamo until both converted GLBs exist',()=>{
+test('human reset disables legacy CC3 and Mixamo visual loaders while preserving skeleton data',()=>{
  const src=read('js/character-webgl.mjs');
- assert.match(src,/provider==='cc3'/);
- assert.match(src,/async function initCC3/);
- assert.match(src,/system\.provider='mixamo'/);
- assert.match(src,/await initMixamo\(\)/);
- assert.match(src,/assets\.has\('male'\).*assets\.has\('female'\)/);
- assert.match(src,/new THREE\.Box3\(\)\.setFromObject/);
+ assert.match(src,/humanModelsEnabled:false/);
+ assert.match(src,/loadRebornAssets/);
+ assert.match(src,/createRebornUpperBodyMotion/);
+ assert.match(src,/installCASCreator/);
+ assert.doesNotMatch(src,/async function initMixamo/);
+ assert.doesNotMatch(src,/async function initCC3/);
 });
 test('conversion workflow is valid Python, never includes raw user FBX',()=>{
  const path=new URL('../tools/convert_cc3_bodies.py',import.meta.url);
