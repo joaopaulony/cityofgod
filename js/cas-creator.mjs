@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {CAS_DEFAULT,normalizeCAS,readCAS,writeCAS} from './cas-profile.mjs';
-import {applyCASVisual,createCASEmoteClips,CAS_EMOTES,OUTFITS,outfitPalette} from './cas-studio.mjs';
+import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
 // Animation and body meshes are actual licensed game GLBs, never flat video.
@@ -35,7 +35,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<label class="cas-field"><span>Altura <output data-cas-output="height">100%</output></span><input type="range" name="height" min="0.90" max="1.10" step="0.01"></label>',
  '<label class="cas-field"><span>Constituição <output data-cas-output="build">100%</output></span><input type="range" name="build" min="0.86" max="1.14" step="0.01"></label>',
  '<label class="cas-field"><span>Tom de pele</span><input type="color" name="skin"></label>',
- '<div class="cas-tip">Altura e porte alteram a escala da malha. Ajustes de nariz, olhos e mandíbula precisam de novos modelos com blendshapes; ainda não são simulados.</div></section>',
+ '<div class="cas-tip">Altura e porte alteram a escala geral. Os ajustes geométricos de nariz, olhos e mandíbula estão na seção Rosto, usando blendshapes procedurais.</div></section>',
  '<section class="cas-section" data-cas-section="face" hidden><h2>Escultura do rosto</h2><p>Morph targets reais, gerados sobre o rosto existente, sem modificar a malha compartilhada dos NPCs.</p>',
  ...[['faceWidth','Largura do rosto'],['jaw','Mandíbula'],['nose','Nariz'],['eyes','Olhos'],['cheeks','Maçãs do rosto']].map(([id,label])=>'<label class="cas-field"><span>'+label+' <output data-cas-output="'+id+'">0%</output></span><input name="'+id+'" type="range" min="-1" max="1" step="0.05" value="0"></label>'),
  '<div class="cas-tip">São deformações paramétricas discretas da malha 3D, não reconstrução anatômica por IA. Prefira mudanças suaves para preservar expressão e textura.</div></section>',
@@ -50,7 +50,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<label class="cas-field"><span>Look inicial</span><select name="outfit"><option value="casual">Casual</option><option value="street">Streetwear</option><option value="sport">Esportivo</option><option value="social">Social</option></select></label>',
  '<label class="cas-field"><span>Acessório 3D</span><select name="accessory"><option value="none">Nenhum</option><option value="glasses">Óculos</option><option value="cap">Boné</option><option value="beanie">Gorro</option></select></label>',
  '<label class="cas-field"><span>Cor do acessório</span><input type="color" name="accessoryColor"></label>',
- '<div class="cas-tip">A recoloração separada depende de slots de material nas malhas GLB. Modelos com textura única preservam a aparência original para não pintar pele junto com a roupa.</div></section>',
+ '<div class="cas-tip">As peças com malhas separadas são coloridas via materiais PBR. O corpo e a pele permanecem intactos; cortes de roupa realmente diferentes exigem novos GLBs modulares.</div></section>',
  '<section class="cas-section" data-cas-section="style" hidden><h2>Estilo pessoal</h2><p>Um ponto de partida para a identidade visual.</p>',
  '<label class="cas-field"><span>Estilo</span><select name="style"><option value="casual">Casual</option><option value="esportivo">Esportivo</option><option value="urbano">Urbano</option><option value="social">Social</option></select></label>',
  '<div class="cas-tip">Estilo e origem ficam salvos para futuras roupas, traços, ocupações e progressão. Não concedem vantagens de gameplay nesta versão.</div></section>',
@@ -230,7 +230,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   try{
    const {gltf}=await getPreviewAsset(sex);
    if(version!==loadingVersion)return;
-   if(previewRoot){hairSystem?.release(previewRoot);world.remove(previewRoot);}
+   if(previewRoot){hairSystem?.release(previewRoot);releaseCASVisual(previewRoot);world.remove(previewRoot);}
    const root=cloneSkeleton(gltf.scene);
    root.traverse(node=>{
     if(!node.isMesh)return;
@@ -273,7 +273,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    })().catch(error=>{artlistCache.delete(name);throw error;}));
    const gltf=await artlistCache.get(name);
    if(version!==loadingVersion||!dialog.open)return;
-   if(previewRoot){hairSystem?.release(previewRoot);world.remove(previewRoot);}
+   if(previewRoot){hairSystem?.release(previewRoot);releaseCASVisual(previewRoot);world.remove(previewRoot);}
    mixer?.stopAllAction();mixer=null;
    const root=gltf.scene.clone(true);
    const bounds=new THREE.Box3().setFromObject(root),h=bounds.max.y-bounds.min.y;
