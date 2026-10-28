@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><base href="/"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Street Crown 76-bone CAS visual QA</title><link rel="stylesheet" href="/css/cas-creator.css">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head>
+<body style="margin:0;background:#0d1114;color:#efebdd"><main>Street Crown / City of God — validação de rig 24 → 76 ossos</main>
+<script type="module">
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {loadRebornAssets} from '../js/cas-reborn.mjs';
+import {loadStreetCrownAssets,streetModelForSex} from '../js/street-crown-adapter.mjs';
+import {installCASCreator} from '../js/cas-creator.mjs';
+import {CAS_DEFAULT} from '../js/cas-profile.mjs';
+try{
+ const loader=new GLTFLoader(),reborn=await loadRebornAssets(loader),models=await loadStreetCrownAssets(loader,reborn);
+ const system={casProfile:{...CAS_DEFAULT},streetCrownEnabled:true,streetCrownVariants:models,
+  streetModelId:'hero',rebornReady:true,
+  async applyCAS(p){this.casProfile=p;return p;},
+  setStreetModel(id){this.streetModelId=id;return true;}};
+ window.fakeSystem=system;
+ installCASCreator(system,{input:{keys:new Set()}},reborn,{styles:[],release(){},async set(){}});
+ system.openCreator();
+ window.__testReady=true;
+}catch(error){window.__testError=String(error.stack||error);console.error(error);}
+</script></body></html>
