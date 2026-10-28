@@ -270,11 +270,27 @@ export function createCharacterSystem(scene,bridge){
    if(provider==='cartoon')installCartoonCreator(system,bridge,assets.get('david').gltf);
    if(provider!=='cartoon'&&provider!=='realistic-base'&&!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
    if(provider==='cas'){
-    // Keep the animated player rig for interactions, but hide every body mesh.
-    // No male/female body selection remains in the CAS UI.
+    // Import the one female mannequin extracted from the user's original GLB.
+    // Male geometry was not present in that package; we do not fabricate it.
     const playerEntry=entries.get(bridge.player);
     if(!playerEntry)throw Error('Rig de movimentação indisponível');
-    playerEntry.root.traverse(node=>{if(node.isMesh)node.visible=false;});
+    try{
+     const gltf=await loader.loadAsync('assets/characters/cas/female-vincent.glb');
+     const root=cloneSkeleton(gltf.scene);
+     const box=new THREE.Box3().setFromObject(root);
+     if(!Number.isFinite(box.max.y-box.min.y)||box.max.y-box.min.y<1)throw Error('Corpo GLB inválido');
+     root.traverse(node=>{if(node.isMesh){node.material=Array.isArray(node.material)?node.material.map(m=>m.clone()):node.material.clone();node.castShadow=true;node.frustumCulled=false;}});
+     scene.add(root);scene.remove(playerEntry.root);
+     const mixer=new THREE.AnimationMixer(root);
+     playerEntry.mixer.stopAllAction();
+     Object.assign(playerEntry,{root,mixer,actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null,casBody:'female',casAssetReady:true,
+      spec:{...playerEntry.spec,sex:'female',triangles:33019,bones:25},
+      domesticRig:createDomesticRig(root)});
+    }catch(error){
+     // Keep a skeleton for safety if licensed files are absent.
+     playerEntry.root.traverse(node=>{if(node.isMesh)node.visible=false;});
+     system.casWarnings.push('Base feminina não instalada: '+String(error.message||error));
+    }
     if(playerEntry.gun)playerEntry.gun.visible=false;
     system.applyCAS=async values=>{
      const next=normalizeCAS({...system.casProfile,...values});
@@ -288,7 +304,7 @@ export function createCharacterSystem(scene,bridge){
     try{await system.applyCAS(system.casProfile);}
     catch(error){system.casWarnings.push('Carregamento de cabelo: '+String(error.message||error));}
     installCASCreator(system,bridge,null,casHair);
-    system.models=[];system.availableBodies=[];
+    system.models=playerEntry.casAssetReady?[{sex:'female',origin:'Sketchfab · Vincent Freelance CC BY',triangles:33019,bones:25}]:[];system.availableBodies=playerEntry.casAssetReady?['female']:[];
    }
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Mixamo characters',error);}
