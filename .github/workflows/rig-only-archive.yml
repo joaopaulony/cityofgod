@@ -1,0 +1,27 @@
+name: Export skeleton-only archives
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/strip-human-glbs.py
+      - .github/workflows/rig-only-archive.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate rig-only files
+        run: python tools/strip-human-glbs.py
+      - name: Commit skeletons
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/characters/rigs/
+          git diff --cached --quiet || git commit -m "assets: keep animation-only skeleton libraries"
+          git push
