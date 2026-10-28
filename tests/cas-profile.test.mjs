@@ -27,3 +27,21 @@ test('CAS identifica clipes humanoides e capacidades de materiais',()=>{
  assert.equal(clips.run.loop,true);
  assert.deepEqual(casCapabilities({materialSlots:{hair:['Hair'],skin:[]}}),{skin:false,hair:true,top:false,bottom:false});
 });
+
+
+test('CAS mantém identidade, idade, estilo e origem em valores seguros',()=>{
+ const p=normalizeCAS({name:' <Maria> ',age:29,background:'litoral',style:'urbano',sex:'female'});
+ assert.equal(p.name,'Maria');assert.equal(p.age,29);
+ assert.equal(p.background,'litoral');assert.equal(p.style,'urbano');
+ const invalid=normalizeCAS({age:-90,background:'../../root',style:'javascript:',name:'  '});
+ assert.equal(invalid.age,18);assert.equal(invalid.background,'bairro');
+ assert.equal(invalid.style,'casual');assert.equal(invalid.name,'Alex');
+});
+test('CAS preserva novos campos durante escrita e leitura local',()=>{
+ const data=new Map(),storage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
+ writeCAS(storage,{name:'Sofia',age:34,sex:'female',background:'centro',style:'social',height:1.06});
+ const profile=readCAS(storage);
+ assert.equal(profile.name,'Sofia');assert.equal(profile.age,34);
+ assert.equal(profile.sex,'female');assert.equal(profile.background,'centro');assert.equal(profile.style,'social');
+ assert.equal(profile.height,1.06);
+});
