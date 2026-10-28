@@ -37,6 +37,7 @@ try{
  await page.locator('#city-cas-open').click();
  await page.locator('#cas-new-character').click();
  await page.locator('input[name=name]').fill('João Teste');
+ await page.locator('[data-cas-tab=body]').click();
  await page.locator('input[name=sex][value=male]').check();
  await page.locator('#cas-save').click();
  await page.waitForFunction(()=>!document.querySelector('#city-cas-dialog').open,{timeout:15000});
