@@ -137,7 +137,8 @@
   try{
    for(const [i,source] of scripts.entries()){
     status=source.src.includes('game.js')?'Construindo a cidade':'Carregando os sistemas do jogo';paintProgress();
-    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=source.src;script.async=false;if(source.type)script.type=source.type;const timer=setTimeout(()=>reject(Error('Um arquivo do jogo não respondeu. Verifique a conexão e tente novamente.')),30000);script.onload=()=>{clearTimeout(timer);resolve();};script.onerror=()=>{clearTimeout(timer);reject(Error('Não foi possível carregar os arquivos do jogo.'));};document.body.append(script);});
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=source.src;script.async=false;if(source.type)script.type=source.type;const timeout=source.type==='module'?90000:45000;
+     const timer=setTimeout(()=>reject(Error('O arquivo '+source.src.split('/').pop()+' demorou mais que '+Math.round(timeout/1000)+' segundos. Verifique a conexão e tente novamente.')),timeout);script.onload=()=>{clearTimeout(timer);resolve();};script.onerror=()=>{clearTimeout(timer);reject(Error('Não foi possível carregar os arquivos do jogo.'));};document.body.append(script);});
     if(phase==='error')return;load.code=(i+1)/scripts.length;paintProgress();inert();
    }
    if(new URLSearchParams(location.search).has('scene')){const script=document.createElement('script');script.src='js/debug.js';document.body.append(script);}
