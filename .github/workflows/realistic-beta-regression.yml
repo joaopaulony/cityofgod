@@ -1,0 +1,42 @@
+name: City of God — Realistic Beta Regression
+on:
+  push:
+    branches: [feat/realistic-gta-humans-20261028]
+    paths:
+      - 'js/cas-realistic.mjs'
+      - 'js/cas-population.mjs'
+      - 'js/cas-creator.mjs'
+      - 'js/character-webgl.mjs'
+      - 'js/game.js'
+      - 'assets/characters/realistic/**'
+      - 'tools/check-rig-only.py'
+      - 'tools/validate-realistic-glb.mjs'
+      - 'tests/cas-population.test.mjs'
+      - '.github/workflows/realistic-beta-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Static syntax and NPC generation
+        run: |
+          set -euo pipefail
+          node --check js/cas-realistic.mjs
+          node --check js/cas-population.mjs
+          node --check js/cas-creator.mjs
+          node --check js/character-webgl.mjs
+          node --check js/game.js
+          node --test tests/cas-population.test.mjs
+      - name: Validate human reset and new approved models
+        run: python3 tools/check-rig-only.py
+      - name: CAS tests and full site build
+        run: npm run build:site

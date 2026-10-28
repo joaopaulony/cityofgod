@@ -1,4 +1,4 @@
-// City of God — human reset. No skinned character geometry is ever loaded.
+// City of God — human reset by default; approved GLBs only in ?humansbeta=1.
 // The CAS retains transformable armatures, animations and profiles for future art.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -7,6 +7,8 @@ import {chooseCharacterClip,planLowVault,stepTraversal,pointSegmentDistance} fro
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
+import {loadApprovedHumans} from './cas-realistic.mjs';
+import {createResidents} from './cas-population.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
@@ -14,10 +16,14 @@ export function createCharacterSystem(scene,bridge){
  const entries=new Map();
  const loader=new GLTFLoader();
  let bodies=null;
+ const showRealistic=new URLSearchParams(window.location.search).has('humansbeta');
+
+
  const system={
   status:'loading',ready:false,enabled:true,provider:'skeleton-only',humanModelsEnabled:false,
   errors:[],frames:0,models:[],availableBodies:['male','female'],
-  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0
+  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0,
+  realisticReady:false,realisticQuality:null
  };
  window.cityCharacters=system;
  const clear=(x,y,ignore)=>{
@@ -51,13 +57,36 @@ export function createCharacterSystem(scene,bridge){
   }
   return false;
  };
- system.has=a=>a===bridge.player; // suppress any legacy Canvas fallback.
+ system.has=a=>a===bridge.player||entries.has(a); // prevents duplicate Canvas bodies
  function mount(a,sex){
   const item=bodies?.get(sex);
   if(!item)throw Error('Esqueleto '+sex+' indisponível');
   const root=cloneSkeleton(item.gltf.scene);
+  if(system.humanModelsEnabled){
+   const height=a.population?Math.max(.90,Math.min(1.10,Number(a.population.height)||1)):1;
+   root.scale.multiplyScalar(height);
+   if(a.population){
+    // Palette varies by seeded resident, while sharing mesh, texture and animation data.
+    // Never recolor face/skin or combine multiple baked material regions by force.
+    const styles=a.population.outfit;
+    root.traverse(o=>{
+     if(!o.isMesh||!o.material)return;
+     o.material=(Array.isArray(o.material)?o.material:[o.material]).map(original=>{
+      const name=String(original.name||'').toLowerCase();
+      if(!/outfit|shirt|top|trouser|pants|bottom|shoes/.test(name))return original;
+      const mat=original.clone();
+      const tint=/trouser|pants|bottom/.test(name)?styles.bottom:styles.top;
+      // PBR base-color tint; preserve original texture maps and normal/roughness.
+      if(mat.color)mat.color.set(tint);
+      return mat;
+     });
+     if(o.material.length===1)o.material=o.material[0];
+    });
+   }
+  }
   let humanMeshes=0;root.traverse(x=>{if(x.isMesh)humanMeshes++});
-  if(humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(!system.humanModelsEnabled&&humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(system.humanModelsEnabled&&!humanMeshes)throw Error('GLB realista sem corpo');
   const mixer=new THREE.AnimationMixer(root);
   const spec={...item.spec,clips:{...item.spec.clips}};
   const all=[...item.gltf.animations,...createCASEmoteClips(root)];
@@ -69,16 +98,21 @@ export function createCharacterSystem(scene,bridge){
     if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};
    }
   }
-  root.visible=false; // Bones animate internally; no human is drawn in world.
+  root.visible=system.humanModelsEnabled; // the default skeleton-only reset stays invisible.
   scene.add(root);
   const entry={root,mixer,actions,spec,sex,clip:null,action:null,emote:null,
-    lastRecoil:9,upper:createRebornUpperBodyMotion(root)};
+    lastRecoil:9,upper:system.humanModelsEnabled?{restore(){},update(){}}:createRebornUpperBodyMotion(root)};
   const previous=entries.get(a);
   if(previous){previous.mixer.stopAllAction();scene.remove(previous.root);}
   entries.set(a,entry);return entry;
  }
  system.update=dt=>{
   for(const [a,e] of entries){
+   if(system.humanModelsEnabled){
+    const d=Math.hypot(a.x-bridge.player.x,a.y-bridge.player.y);
+    e.root.visible=a===bridge.player||d<35;
+    if(a!==bridge.player&&d>35)continue; // LOD 3: no draw / no animation
+   }
    e.upper.restore();
    if(e.emote&&(performance.now()>e.emote.end||a.speed>.12||a.armed||a.jump||a.homeAction||bridge.driving()))e.emote=null;
    const requested=e.emote?'cas_'+e.emote.id:chooseCharacterClip(a);
@@ -106,7 +140,7 @@ export function createCharacterSystem(scene,bridge){
  system.muzzle=()=>null;
  system.telemetry=()=>[...entries].map(([a,e])=>({
   name:a.name||'Jogador',clip:e.clip,x:a.x,y:a.y,
-  visible:false,meshes:0,bones:e.spec.bones
+  visible:e.root.visible,meshes:system.humanModelsEnabled?1:0,bones:e.spec.bones
  }));
  system.appearances=()=>null;
  system.getAppearance=a=>a===bridge.player?{...system.casProfile}:null;
@@ -114,6 +148,11 @@ export function createCharacterSystem(scene,bridge){
   const next=normalizeCAS({...system.casProfile,...values});
   if(bodies&&entries.get(bridge.player)?.sex!==next.sex)mount(bridge.player,next.sex);
   system.casProfile=next;
+  if(system.humanModelsEnabled&&entries.has(bridge.player)){
+   const e=entries.get(bridge.player),previous=e.root.userData.cogBaseScale||e.root.scale.clone();
+   e.root.userData.cogBaseScale=previous;
+   e.root.scale.copy(previous).multiplyScalar(next.height);
+  }
   bridge.player.name=next.name;
   system.update(0);return next;
  };
@@ -130,11 +169,28 @@ export function createCharacterSystem(scene,bridge){
    try{system.casProfile=readCAS(localStorage)||CAS_DEFAULT;}catch{}
    bodies=await loadRebornAssets(loader);
    system.rebornReady=true;
+   // New human meshes only load on ?humansbeta=1 AND after asset+animation quality checks.
+   if(showRealistic){
+    try{
+     const approved=await loadApprovedHumans(loader);
+     bodies=approved;
+     system.humanModelsEnabled=true;
+     system.realisticReady=true;
+     system.provider='ara3d-verified-beta';
+     system.realisticQuality=Object.fromEntries([...approved].map(([sex,item])=>[sex,item.quality]));
+    }catch(error){system.casWarnings.push('Humans beta not approved: '+String(error.message||error));}
+   }
    mount(bridge.player,system.casProfile.sex);
    system.ready=true;system.status='ready';
-   system.models=[{id:'armature-male',bones:24,meshes:0},{id:'armature-female',bones:24,meshes:0}];
-   system.rebornNotice='Somente esqueletos e animações. Modelos humanos removidos.';
+   system.models=[...bodies].map(([sex,item])=>({id:sex,bones:item.spec.bones,meshes:system.humanModelsEnabled?1:0,triangles:item.spec.triangles}));
+   system.rebornNotice=system.humanModelsEnabled?'Humanos GTA beta verificados; LOD e CAS em teste.':'Somente esqueletos e animações. Modelos humanos removidos.';
    await system.applyCAS(system.casProfile);
+   if(system.humanModelsEnabled){
+    const profiles=createResidents(20261028,Math.min(10,(navigator.hardwareConcurrency||4)<6?6:10));
+    const residents=bridge.spawnRealisticNPCs?.(profiles)||[];
+    for(const n of residents)mount(n,n.population?.sex==='female'?'female':'male');
+    system.populationCount=residents.length;
+   }
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
    system.casWarnings.push('Esqueleto em reconstrução: '+String(error.message||error));

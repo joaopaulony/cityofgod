@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><base href="/"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>City of God — Realistic GLB QA</title><link rel="stylesheet" href="/css/cas-creator.css">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:#0d1114;color:white"><main>City of God — CAS realistic validation (isolated)</main>
+<script type="module">
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {loadApprovedHumans} from '../js/cas-realistic.mjs';
+import {installCASCreator} from '../js/cas-creator.mjs';
+import {CAS_DEFAULT} from '../js/cas-profile.mjs';
+try{
+ const bodies=await loadApprovedHumans(new GLTFLoader(),{base:'/assets/characters/realistic/'});
+ const system={casProfile:{...CAS_DEFAULT},humanModelsEnabled:true,realisticReady:true,
+   realisticQuality:Object.fromEntries([...bodies].map(([id,item])=>[id,item.quality])),
+   async applyCAS(profile){this.casProfile=profile;return profile;}};
+ window.fakeSystem=system;
+ installCASCreator(system,{input:{keys:new Set()}},bodies,{styles:[],release(){},async set(){}});
+ system.openCreator();
+ window.__testReady=true;
+}catch(error){window.__testError=String(error.stack||error);console.error(error);}
+</script></body></html>

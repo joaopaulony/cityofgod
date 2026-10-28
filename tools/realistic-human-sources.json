@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-28",
+  "provider": "Higgsfield / Meshy 6 Text-to-3D",
+  "intendedUse": "original 10k-triangle grounded realistic City of God adult player and NPC models",
+  "licensing": "Confirm Higgsfield/Meshy commercial export rights in account before public release",
+  "assets": [
+    {
+      "sex": "male",
+      "jobId": "bec1a504-1177-4d39-8f55-c76d3c00ee09",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3KzIjxvR41EN9tqnYHHtI73zjt1/hf_20261028_220246_bec1a504-1177-4d39-8f55-c76d3c00ee09.glb",
+      "clip": "walk",
+      "targetTriangles": 10000
+    },
+    {
+      "sex": "female",
+      "jobId": "467befc3-87b4-41c5-97da-71f36be16d32",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3KzIjxvR41EN9tqnYHHtI73zjt1/hf_20261028_220249_467befc3-87b4-41c5-97da-71f36be16d32.glb",
+      "clip": "walk",
+      "targetTriangles": 10000
+    }
+  ]
+}
