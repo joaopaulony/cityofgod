@@ -1,4 +1,4 @@
-// City of God — human reset. No skinned character geometry is ever loaded.
+// City of God — human reset by default; approved GLBs only in ?humansbeta=1.
 // The CAS retains transformable armatures, animations and profiles for future art.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -176,7 +176,7 @@ export function createCharacterSystem(scene,bridge){
      bodies=approved;
      system.humanModelsEnabled=true;
      system.realisticReady=true;
-     system.provider='higgsfield-approved';
+     system.provider='ara3d-verified-beta';
      system.realisticQuality=Object.fromEntries([...approved].map(([sex,item])=>[sex,item.quality]));
     }catch(error){system.casWarnings.push('Humans beta not approved: '+String(error.message||error));}
    }
