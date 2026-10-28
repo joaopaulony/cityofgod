@@ -66,6 +66,8 @@ A compatibilidade entre exportações e rig deve ser provada no piloto; **não g
 - 12 roupas/cabelos/acessórios em Tripo médio: 12×600 = 7.200
 - 4 tentativas de correção de 3D: 4×600 = 2.400
 - **Subtotal ilustrativo:** 9.920, com 3.805 créditos restantes.
+**Alternativa econômica Artlist (também cotada no plugin):** Hyper3D Rodin v2.5 Fast gera um acessório 3D por **300 créditos**, em vez dos 600 do Tripo médio. Uma distribuição opcional mais variada: 8 peças de roupa Tripo (4.800) + 8 acessórios simples Rodin (2.400) + 4 conceitos Flux (320) + 4 refações Tripo (2.400) = **9.920**, ainda com 3.805 créditos reservados. Rodin só entra na produção após teste de topologia, UV e encaixe; preço menor não significa qualidade aprovada.
+
 A saída Tripo pode ser um mesh 3D estático. Roupas geradas **não possuem automaticamente pesos de rig nem encaixe corporal**; usar Blender para modelar ajustes, retopologia, separação e weight transfer. Nem toda geração deve ser usada, apenas itens aprovados.
 
 **Protocolo de gastos:** piloto 1 body + 1 rig + 1 walk + 1 camiseta, verificar fluxo completo antes de nova geração. Não gerar simultaneamente dezenas de itens. Reservar recursos para correções e variação.
