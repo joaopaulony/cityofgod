@@ -46,9 +46,9 @@ export function createNPCPaletteMaterial(material,profile){
    .replace('#include <begin_vertex>','#include <begin_vertex>\nvNPCRegions=npcRegions;');
   shader.fragmentShader=shader.fragmentShader
    .replace('#include <common>','#include <common>\nvarying vec4 vNPCRegions;\nuniform vec3 npcSkin;\nuniform vec3 npcTop;\nuniform vec3 npcBottom;\nuniform vec3 npcShoes;')
-   .replace('#include <map_fragment>','#include <map_fragment>\nvec4 m=clamp(vNPCRegions,0.0,1.0);\nvec3 npcTint=(npcSkin*m.x+npcTop*m.y+npcBottom*m.z+npcShoes*m.w)/max(m.x+m.y+m.z+m.w,0.01);\ndiffuseColor.rgb*=mix(vec3(1.0),vec3(0.35)+npcTint*1.7,0.72);');
+   .replace('#include <map_fragment>','#include <map_fragment>\nvec4 m=clamp(vNPCRegions,0.0,1.0);\nvec3 npcTint=(npcSkin*m.x+npcTop*m.y+npcBottom*m.z+npcShoes*m.w)/max(m.x+m.y+m.z+m.w,0.01);\nfloat baseLum=dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722));\nvec3 recolored=npcTint*(0.64+baseLum*1.28);\nfloat tintStrength=clamp(m.x*0.58+m.y*0.94+m.z*0.90+m.w*0.92,0.0,0.95);\ndiffuseColor.rgb=mix(diffuseColor.rgb,recolored,tintStrength);');
  };
- result.customProgramCacheKey=()=> 'CityPopulationMaterialV1';
+ result.customProgramCacheKey=()=> 'CityPopulationMaterialV2';
  result.needsUpdate=true;
  return result;
 }
