@@ -8,6 +8,7 @@ import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
+import {REBORN_HAND_BONE_COUNT} from './cas-reborn-hands.mjs';
 import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
 export function createCharacterSystem(scene,bridge){
@@ -75,6 +76,9 @@ export function createCharacterSystem(scene,bridge){
     lastRecoil:9,upper:createRebornUpperBodyMotion(root)};
   const previous=entries.get(a);
   if(previous){previous.mixer.stopAllAction();scene.remove(previous.root);}
+  // The source GLBs are still the original 24-bone rigs; the cloned actor
+  // has the same 52 real palm/finger bones as the studio SkeletonHelper.
+  spec.bones=(item.spec.bones||24)+REBORN_HAND_BONE_COUNT;
   entries.set(a,entry);return entry;
  }
  system.update=dt=>{
@@ -132,8 +136,8 @@ export function createCharacterSystem(scene,bridge){
    system.rebornReady=true;
    mount(bridge.player,system.casProfile.sex);
    system.ready=true;system.status='ready';
-   system.models=[{id:'armature-male',bones:24,meshes:0},{id:'armature-female',bones:24,meshes:0}];
-   system.rebornNotice='Somente esqueletos e animações. Modelos humanos removidos.';
+   system.models=[{id:'armature-male',bones:24+REBORN_HAND_BONE_COUNT,meshes:0},{id:'armature-female',bones:24+REBORN_HAND_BONE_COUNT,meshes:0}];
+   system.rebornNotice='Esqueletos animados com palmas e dez dedos articulados. Nenhuma malha humana antiga.';
    await system.applyCAS(system.casProfile);
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
