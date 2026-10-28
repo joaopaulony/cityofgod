@@ -70,7 +70,7 @@ export function createRebornUpperBodyMotion(root){
   rotate(upper,X,arm);
   // Elbow direction must be symmetric in character space. Release reaches
   // behind the body; recovery flexes as that hand swings in front.
-  rotate(forearm,X,-current.elbow*(.62+.38*follow)-current.elbow*.28*Math.max(0,-sign*wave));
+  rotate(forearm,X,-current.elbow*(.35+.30*follow+.70*Math.max(0,-sign*wave)));
   // Wrist lags the forearm and gently rolls. Hand is not a rigid forearm rod.
   rotate(hand,X,current.wrist*(-.4*sign*wave+.28*follow)+current.wrist*.15*breath);
   rotate(hand,Y,sign*current.wrist*.27*Math.sin(cycle-.55));
