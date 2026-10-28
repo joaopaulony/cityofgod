@@ -26,7 +26,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<button type="button" data-cas-tab="animations" aria-pressed="false">▶ &nbsp; Animações</button>',
  '<button type="button" data-cas-tab="artlist" aria-pressed="false">◇ &nbsp; Modelos Artlist</button>',
  '<p class="cas-small">CRIE SUA IDENTIDADE<br>Escolha um corpo, personalize, salve e comece sua história.</p><div class="cas-nav-credit">CITY OF GOD REBORN · V1</div></nav>',
- '<div class="cas-stage"><canvas id="cas-preview" aria-label="Prévia 3D interativa do personagem" tabindex="0"></canvas><div class="cas-stage-head"><span class="cas-stage-label">PRÉVIA EM TEMPO REAL</span><span class="cas-stage-live">● 3D</span></div><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-tools"><button type="button" id="cas-view-front" aria-label="Ver de frente">FRENTE</button><button type="button" id="cas-view-side" aria-label="Ver de lado">PERFIL</button><button type="button" id="cas-view-back" aria-label="Ver de costas">COSTAS</button><button type="button" id="cas-view-reset" aria-label="Centralizar câmera">⟲</button></div><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
+ '<div class="cas-stage"><canvas id="cas-preview" aria-label="Visualização do esqueleto sem modelo humano" tabindex="0"></canvas><div class="cas-stage-head"><span class="cas-stage-label">PRÉVIA EM TEMPO REAL</span><span class="cas-stage-live">● 3D</span></div><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-tools"><button type="button" id="cas-view-front" aria-label="Ver de frente">FRENTE</button><button type="button" id="cas-view-side" aria-label="Ver de lado">PERFIL</button><button type="button" id="cas-view-back" aria-label="Ver de costas">COSTAS</button><button type="button" id="cas-view-reset" aria-label="Centralizar câmera">⟲</button></div><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
  '<form id="cas-form" class="cas-controls"><section class="cas-section" data-cas-section="identity"><h2>Identidade</h2><p>Crie alguém para viver sua própria história na cidade.</p>',
  '<label class="cas-field"><span>Meu personagem</span><select name="rosterSlot" id="cas-roster-slot" aria-label="Personagem salvo"></select></label><div class="cas-roster-actions"><button type="button" id="cas-new-character">+ Novo personagem</button><button type="button" id="cas-delete-character">Excluir personagem</button></div>',
  '<label class="cas-field"><span>Nome</span><input type="text" name="name" minlength="1" maxlength="24" autocomplete="off" required></label>',
@@ -101,7 +101,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   ? available+' penteados instalados. Alguns precisam de ajuste fino de escala e alinhamento.'
   : 'O pacote GLB ainda não foi instalado. O personagem pode ser criado, mas os penteados adicionais ficam indisponíveis.';
  hairSelect.disabled=!available;
- let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,mixer=null,rebornUpper=null,activeMotion=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null,lastWidth=0,lastHeight=0;
+ let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,previewSkeleton=null,mixer=null,rebornUpper=null,activeMotion=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null,lastWidth=0,lastHeight=0;
  const gltfLoader=new GLTFLoader(),textureLoader=new THREE.TextureLoader();
  const previewCache=new Map();
  const assets={male:'david',female:'megan'};
@@ -233,35 +233,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   }
  }
  async function getPreviewAsset(sex){
-  if(!previewCache.has(sex)){
-   const promise=(async()=>{
-    const rebornEntry=system.rebornReady?_bases?.get(sex):null;
-    if(rebornEntry?.spec?.rig==='meshy-24')return rebornEntry;
-    if(!manifestPromise)manifestPromise=fetch('assets/characters/mixamo/manifest.json').then(r=>{if(!r.ok)throw Error('Catálogo de personagens indisponível');return r.json();});
-    const manifest=await manifestPromise, id=assets[sex],spec=manifest.models.find(x=>x.id===id);
-    if(!spec)throw Error('Personagem '+id+' não encontrado');
-    const gltf=await gltfLoader.loadAsync('assets/characters/mixamo/'+spec.file);
-    const textures=new Map();
-    for(const [matName,maps] of Object.entries(spec.materials||{})){
-     const targets=[];
-     gltf.scene.traverse(node=>{if(node.isMesh)for(const m of Array.isArray(node.material)?node.material:[node.material])if(m.name===matName)targets.push(m);});
-     for(const kind of ['map','normalMap','alphaMap']){
-      if(!maps[kind])continue;
-      const url='assets/characters/mixamo/'+maps[kind];
-      if(!textures.has(url))textures.set(url,textureLoader.loadAsync(url).catch(()=>null));
-      const texture=await textures.get(url);
-      if(!texture)continue;
-      texture.flipY=true;
-      if(kind==='map')texture.colorSpace=THREE.SRGBColorSpace;
-      for(const m of targets){m[kind]=texture;m.needsUpdate=true;}
-     }
-     for(const m of targets){m.alphaTest=maps.alphaTest||0;m.needsUpdate=true;}
-    }
-    return {gltf,spec};
-   })().catch(e=>{previewCache.delete(sex);throw e;});
-   previewCache.set(sex,promise);
-  }
-  return previewCache.get(sex);
+  const entry=_bases?.get(sex);
+  if(!entry?.gltf)throw Error('Esqueleto '+sex+' não carregado. Sem modelos humanos instalados.');
+  return entry;
  }
  function setClip(){
   const clips=['idle','walk','run','crouch','jump_air'];
@@ -281,68 +255,46 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(!renderer||previewSex===sex&&!artlistMode)return;
   artlistMode=false;
   const version=++loadingVersion;
-  previewSex=sex;loading.hidden=false;loading.textContent='Carregando modelo '+(sex==='female'?'feminino':'masculino')+'…';
+  previewSex=sex;loading.hidden=false;
+  loading.textContent='Abrindo esqueleto '+(sex==='female'?'feminino':'masculino')+'…';
   try{
    const {gltf}=await getPreviewAsset(sex);
    if(version!==loadingVersion)return;
-   if(previewRoot){hairSystem?.release(previewRoot);releaseCASVisual(previewRoot);world.remove(previewRoot);}
-   const root=cloneSkeleton(gltf.scene);
-   root.traverse(node=>{
-    if(!node.isMesh)return;
-    node.material=Array.isArray(node.material)?node.material.map(m=>m.clone()):node.material.clone();
-    node.castShadow=true;node.receiveShadow=true;node.frustumCulled=false;
+   if(previewSkeleton){world.remove(previewSkeleton);previewSkeleton.geometry?.dispose();previewSkeleton.material?.dispose();previewSkeleton=null;}
+   if(previewRoot){world.remove(previewRoot);previewRoot=null;}
+   const root=cloneSkeleton(gltf.scene),positions=[];
+   let meshes=0;
+   root.updateMatrixWorld(true);
+   root.traverse(o=>{
+    if(o.isMesh)meshes++;
+    if(o.isBone)positions.push(o.getWorldPosition(new THREE.Vector3()));
    });
-   // A freshly cloned skinned rig can have stale bone matrices in its first frame.
-   // Measure the loaded GLTF source (with initialized bind pose), not its clone.
-   const bounds=new THREE.Box3().setFromObject(gltf.scene);
-   const height=bounds.max.y-bounds.min.y;
-   if(!Number.isFinite(height)||height<.1)throw Error('Modelo 3D sem dimensões válidas');
+   if(meshes)throw Error('Arquivo inválido: malha humana encontrada');
+   if(positions.length<20)throw Error('Não há ossos suficientes para a prévia');
+   const bounds=new THREE.Box3().setFromPoints(positions),height=bounds.max.y-bounds.min.y;
+   if(!Number.isFinite(height)||height<.1)throw Error('Esqueleto sem dimensões válidas');
    const factor=1.72/height;
    root.scale.multiplyScalar(factor);
    root.position.y-=bounds.min.y*factor;
    root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
-   mixer=new THREE.AnimationMixer(root);
-   activeMotion=null;
-   rebornUpper=system.rebornReady?createRebornUpperBodyMotion(root):null;
+   previewSkeleton=new THREE.SkeletonHelper(root);
+   previewSkeleton.material.color.set('#e6bc83');
+   previewSkeleton.material.depthTest=false;
+   previewSkeleton.material.transparent=true;
+   previewSkeleton.material.opacity=.92;
+   world.add(previewSkeleton);
+   mixer=new THREE.AnimationMixer(root);activeMotion=null;
+   rebornUpper=createRebornUpperBodyMotion(root);
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
-   previewHairKey='';
-   source.textContent=system.rebornReady?'CAS REBORN · '+(sex==='female'?'FEMININO':'MASCULINO')+' · '+modelAnimations.length+' MOVIMENTOS':'BASE 3D · '+(sex==='female'?'MEGAN':'DAVID')+' · '+modelAnimations.length+' ANIMAÇÕES';
-   loading.hidden=true;
-   syncPreview();
-  }catch(error){loading.textContent='Falha na prévia: '+String(error.message||error);}
+   source.textContent='SOMENTE OSSOS · '+modelAnimations.length+' ANIMAÇÕES · SEM CORPO';
+   loading.hidden=true;syncPreview();
+  }catch(error){loading.textContent='Prévia de ossos: '+String(error.message||error);source.textContent='NENHUM MODELO HUMANO';}
  }
  async function showArtlistModel(){
-  if(!renderer)return;
-  const name=el('artlistModel').value;
-  if(!Object.hasOwn(artlistPaths,name))return;
-  const version=++loadingVersion;
-  loading.hidden=false;loading.textContent='Descompactando modelo 3D do Artlist…';
-  try{
-   if(!artlistCache.has(name))artlistCache.set(name,(async()=>{
-    if(!('DecompressionStream' in window))throw Error('Navegador sem suporte à descompactação gzip');
-    const response=await fetch(artlistPaths[name]);
-    if(!response.ok)throw Error('Modelo indisponível: HTTP '+response.status);
-    const stream=response.body.pipeThrough(new DecompressionStream('gzip'));
-    const buffer=await new Response(stream).arrayBuffer();
-    return gltfLoader.parseAsync(buffer,'assets/characters/artlist/');
-   })().catch(error=>{artlistCache.delete(name);throw error;}));
-   const gltf=await artlistCache.get(name);
-   if(version!==loadingVersion||!dialog.open)return;
-   if(previewRoot){hairSystem?.release(previewRoot);releaseCASVisual(previewRoot);world.remove(previewRoot);}
-   mixer?.stopAllAction();mixer=null;rebornUpper=null;activeMotion=null;
-   const root=gltf.scene.clone(true);
-   const bounds=new THREE.Box3().setFromObject(root),h=bounds.max.y-bounds.min.y;
-   if(!Number.isFinite(h)||h<.1)throw Error('Dimensões inválidas');
-   const scale=1.72/h;
-   root.scale.setScalar(scale);
-   root.position.set(0,-bounds.min.y*scale,0);
-   root.rotation.y=-Math.PI/2;
-   world.add(root);previewRoot=root;previewSex=null;artlistMode=true;previewHairKey='';
-   source.textContent='ARTLIST · TRIPO · MALHA SEM RIG';
-   loading.hidden=true;
-  }catch(error){loading.textContent='Não foi possível carregar o modelo: '+String(error.message||error);}
+  // Former Artlist sculpt previews are removed along with the old humans.
+  status.textContent='Modelos humanos excluídos. Somente o CAS e os esqueletos permanecem.';
  }
  function recolor(root,profile){
   // Do not tint a single baked texture containing both skin and clothing.
@@ -361,14 +313,10 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function syncPreview(){
   if(!previewRoot)return;
-  if(artlistMode)return;
-  // Preserve the imported GLB scale when changing character proportions.
-  const initial=previewRoot.userData.casBaseScale||(previewRoot.userData.casBaseScale=previewRoot.scale.clone());
-  previewRoot.scale.set(initial.x*draft.build,initial.y*draft.height,initial.z*draft.build);
-  recolor(previewRoot,draft);
-  applyCASVisual(previewRoot,draft);
-  const key=draft.hairStyle+'|'+draft.hair;
-  if(previewHairKey!==key){previewHairKey=key;void hairSystem?.set(previewRoot,draft.hairStyle,draft.hair);}
+  // No body, face, clothing, hair or accessories may appear in the studio.
+  // Keep sliders and saved profiles: they'll control the next approved model.
+  const base=previewRoot.userData.casBaseScale||previewRoot.scale.clone();
+  previewRoot.scale.set(base.x*draft.build,base.y*draft.height,base.z*draft.build);
  }
  function resize(){
   if(!renderer||!dialog.open)return;
@@ -403,7 +351,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   loadForm(activeCharacter(roster)||system.casProfile||CAS_DEFAULT);
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
-  status.textContent=system.rebornReady?'PRÉVIA REBORN (BETA) · Roupa e rosto avançados em desenvolvimento; o personagem usa esqueleto novo.':'Selecione suas características e salve para jogar. Os perfis são locais ao navegador.';
+  status.textContent='CAS preservado: apenas estrutura óssea e animações, sem nenhum corpo humano. As opções ficam salvas para os modelos futuros.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
