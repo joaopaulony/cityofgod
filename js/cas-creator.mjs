@@ -3,7 +3,7 @@ import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {CAS_DEFAULT,CAS_KEY,normalizeCAS,readCAS,writeCAS} from './cas-profile.mjs';
 import {applyCASStyle,casCapabilities} from './cas-assets.mjs';
 
-export function installCASCreator(system,bridge,bases){
+export function installCASCreator(system,bridge,bases,hairSystem=null){
  const dialog=document.createElement('dialog');
  dialog.id='city-cas-dialog';
  dialog.setAttribute('aria-label','Criar personagem City of God');
@@ -24,7 +24,7 @@ export function installCASCreator(system,bridge,bases){
   '<label>Altura <output id="cas-height-out">100%</output><input type="range" name="height" min=".90" max="1.10" step=".01" value="1" style="width:100%"></label>'+
   '<label>Constituição física <output id="cas-build-out">100%</output><input type="range" name="build" min=".86" max="1.14" step=".01" value="1" style="width:100%"></label></fieldset>'+
   '<fieldset style="border:1px solid #4a6170;border-radius:9px;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px"><legend>Aparência e roupas</legend>'+
-  '<label>Cor da pele <input type="color" name="skin" value="#c98d68"></label>'+
+  '<label style="grid-column:1/-1">Penteado <select name="hairStyle" style="width:100%;padding:8px;background:#22313e;color:#fff;border:1px solid #5d7381;border-radius:7px"><option value="none">Sem cabelo</option></select></label>'+'<label>Cor da pele <input type="color" name="skin" value="#c98d68"></label>'+
   '<label>Cor do cabelo <input type="color" name="hair" value="#30231e"></label>'+
   '<label>Roupa superior <input type="color" name="top" value="#49647a"></label>'+
   '<label>Calça <input type="color" name="bottom" value="#29394f"></label>'+
@@ -40,6 +40,8 @@ export function installCASCreator(system,bridge,bases){
  button.style.cssText='position:fixed;top:16px;left:calc(50% - 82px);z-index:40;padding:9px 13px;border-radius:8px;border:1px solid #b49269;background:#17232c;color:#f5e7d5;cursor:pointer';
  document.head.append(style);document.body.append(dialog,button);
  const form=dialog.querySelector('#cas-form'),canvas=dialog.querySelector('#cas-preview'),message=dialog.querySelector('#cas-message');
+ for(const style of hairSystem?.styles||[]){const option=document.createElement('option');option.value=style.id;option.textContent=style.label;form.elements.hairStyle.add(option);}
+ if(!hairSystem?.styles?.length){form.elements.hairStyle.disabled=true;form.elements.hairStyle.title='Instale o pacote GLB de cabelos para liberar esta opção';}
  let renderer;
  try{
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
@@ -61,6 +63,7 @@ export function installCASCreator(system,bridge,bases){
  const values=()=>normalizeCAS(Object.fromEntries(new FormData(form)));
  function disposePreview(){
   if(!root)return;
+  hairSystem?.release(root);
   mixer?.stopAllAction();scene.remove(root);
   root.traverse(o=>{if(o.isMesh)for(const material of Array.isArray(o.material)?o.material:[o.material])material.dispose();});
   root=null;mixer=null;
@@ -86,7 +89,7 @@ export function installCASCreator(system,bridge,bases){
   const available=casCapabilities(item.spec);
   const unavailable=[];
   for(const slot of ['skin','hair','top','bottom']){
-   const enabled=available[slot];form.elements[slot].disabled=!enabled;
+   const enabled=available[slot]||(slot==='hair'&&!!hairSystem?.styles?.length);form.elements[slot].disabled=!enabled;
    form.elements[slot].parentElement.style.opacity=enabled?'1':'.5';
    if(!enabled)unavailable.push({skin:'pele',hair:'cabelo',top:'camiseta',bottom:'calça'}[slot]);
   }
@@ -95,7 +98,7 @@ export function installCASCreator(system,bridge,bases){
   refreshAppearance();
  }
  function refreshAppearance(){
-  const profile=values();if(root){applyCASStyle(root,profile,bases.get(previewSex).spec);root.rotation.y=rotation;}
+  const profile=values();if(root){applyCASStyle(root,profile,bases.get(previewSex).spec);root.rotation.y=rotation;void hairSystem?.set(root,profile.hairStyle,profile.hair);}
   dialog.querySelector('#cas-height-out').textContent=Math.round(profile.height*100)+'%';
   dialog.querySelector('#cas-build-out').textContent=Math.round(profile.build*100)+'%';
  }
