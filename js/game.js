@@ -23,6 +23,18 @@ const npcs = [
   makeActor({ face: 2, armed: false, pal: PAL.red, name: 'Lucas', home: spotAt(shopH, 5) }),
   makeActor({ face: 1, armed: false, pal: PAL.girl, name: 'Ana', home: spotAt(homeH, 4) }),
 ];
+// Opt-in crowd beta only; default city stays at the proven two story NPCs.
+// Both flags are required so the crowd is not drawn as repeated old models.
+const crowdBeta=new URLSearchParams(location.search).get('casreborn')==='1'&&
+ new URLSearchParams(location.search).get('crowdbeta')==='1';
+if(crowdBeta&&window.CityPopulation){
+ const isMobile=matchMedia('(max-width: 700px)').matches||Number(navigator.hardwareConcurrency||8)<6;
+ const count=isMobile?6:12; // keep modest until a real 15-NPC FPS profile passes
+ npcs.push(...CityPopulation.createResidents({
+  count,seed:'cityofgod-residents-v1',houses,fallback:world.spawn,makeActor,pal:PAL.hero
+ }));
+}
+
 const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
@@ -262,7 +274,7 @@ function updateNPC(n, dt) {
   if (n.goal) {
     const dx = n.goal[0] - n.x, dy = n.goal[1] - n.y, d = Math.hypot(dx, dy);
     if (d > 0.2) {
-      n.moveA = Math.atan2(dy, dx); spd = 1.3;
+      n.moveA = Math.atan2(dy, dx); spd = n.population?.walkSpeed||1.3;
       const [x, y] = moveTo(n.x, n.y, n.x + dx / d * spd * dt, n.y + dy / d * spd * dt, 0.28); n.x = x; n.y = y;
       n.face += angDiff(n.face, n.moveA) * (1 - Math.exp(-dt * 8));
     } else n.goal = null;
