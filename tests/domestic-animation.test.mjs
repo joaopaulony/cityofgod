@@ -22,7 +22,7 @@ test('domestic poses lie flat, bend seated knees, and raise the drinking hand',(
   for(const p of Object.values(pose(kind).J))if(Array.isArray(p))assert.ok(p.every(Number.isFinite),kind);
 });
 test('real Mixamo bones follow domestic IK and restore their previous transforms',async()=>{
- const data=readFileSync('assets/characters/mixamo/david.glb');
+ const data=readFileSync('assets/characters/rigs/mixamo/david.rig.glb');
  const gltf=await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength),'');
  const root=gltf.scene,rig=createDomesticRig(root),a=pose('sleep');
  const bones=[];root.traverse(b=>{if(b.isBone)bones.push([b,b.position.clone(),b.quaternion.clone()]);});
@@ -30,12 +30,12 @@ test('real Mixamo bones follow domestic IK and restore their previous transforms
  const pelvis=root.getObjectByName('mixamorigHips').getWorldPosition(new THREE.Vector3());
  assert.ok(Math.abs(pelvis.y-a.J.pelvis[2])<.001);
  for(const [b,p] of bones)if(b.name!=='mixamorigHips')assert.ok(b.position.distanceTo(p)<1e-8,b.name+' must retain its anatomical offset');
- root.traverse(m=>{if(m.isSkinnedMesh){m.skeleton.update();const p=new THREE.Vector3();for(let i=0;i<m.geometry.attributes.position.count;i+=101){m.getVertexPosition(i,p);assert.ok(p.toArray().every(Number.isFinite));}}});
+ let meshes=0;root.traverse(m=>{if(m.isMesh)meshes++;});assert.equal(meshes,0);
  rig.restore();
  for(const [b,p,q] of bones){assert.ok(b.position.distanceTo(p)<1e-8);assert.ok(b.quaternion.angleTo(q)<1e-6);}
 });
 test('all activities preserve connected limbs through entry, hold and exit',async()=>{
- const data=readFileSync('assets/characters/mixamo/david.glb');
+ const data=readFileSync('assets/characters/rigs/mixamo/david.rig.glb');
  const {scene:root}=await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength),'');
  const rig=createDomesticRig(root),bone=n=>root.getObjectByName('mixamorig'+n);
  const lengths={};
