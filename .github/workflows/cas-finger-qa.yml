@@ -8,6 +8,7 @@ on:
       - 'js/cas-creator.mjs'
       - 'js/character-webgl.mjs'
       - 'tests/cas-reborn-hands.test.mjs'
+      - 'tests/cas-reborn-browser.mjs'
       - 'tests/cas-reborn-upperbody.test.mjs'
       - 'tools/inspect-reborn-rig.mjs'
       - 'package.json'
@@ -33,3 +34,24 @@ jobs:
           npm run test:cas
           npm run test:rig-archive
           npm run build:site
+      - name: Browser — real male/female fingers and studio screenshots
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          PORT=4322 node tools/serve.mjs > /tmp/cas-hands-server.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:4322/tests/cas-browser-smoke.html > /dev/null && break
+            sleep 1
+          done
+          node tests/cas-browser-smoke.mjs
+          node tests/cas-reborn-browser.mjs
+      - name: Attach screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cas-articulated-fingers-before-after
+          path: |
+            artifacts/cas-qa/*.png
+            /tmp/cas-hands-server.log
+          if-no-files-found: ignore
+          retention-days: 7
