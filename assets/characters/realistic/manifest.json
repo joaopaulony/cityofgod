@@ -1,6 +1,52 @@
 {
   "schema": 1,
-  "approved": false,
-  "models": [],
-  "notes": "Models are staged only after the full-finger rig and polygon quality gates pass. Legacy humans remain removed."
+  "approved": true,
+  "provider": "Ara 3D Gen / CC0 MakeHuman",
+  "models": [
+    {
+      "sex": "male",
+      "file": "male.glb",
+      "animations": [
+        {
+          "name": "idle",
+          "file": "male.glb"
+        },
+        {
+          "name": "walk",
+          "file": "male.glb"
+        },
+        {
+          "name": "run",
+          "file": "male.glb"
+        },
+        {
+          "name": "jump_air",
+          "file": "male.glb"
+        }
+      ]
+    },
+    {
+      "sex": "female",
+      "file": "female.glb",
+      "animations": [
+        {
+          "name": "idle",
+          "file": "female.glb"
+        },
+        {
+          "name": "walk",
+          "file": "female.glb"
+        },
+        {
+          "name": "run",
+          "file": "female.glb"
+        },
+        {
+          "name": "jump_air",
+          "file": "female.glb"
+        }
+      ]
+    }
+  ],
+  "notes": "65-bone articulated hands validated; beta-only until visual QA."
 }
