@@ -1,0 +1,46 @@
+name: City of God — Street Crown 24-to-76 Rig QA
+on:
+  push:
+    branches: [feat/street-crown-cas-retarget-20261028]
+    paths:
+      - 'js/character-webgl.mjs'
+      - 'js/cas-creator.mjs'
+      - 'js/street-crown-adapter.mjs'
+      - 'tests/street-crown-adapter.test.mjs'
+      - 'assets/street-crown/**'
+      - 'tools/extract-street-crown.py'
+      - 'package.json'
+      - '.github/workflows/street-crown-cas.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Unit tests, backward compatibility and site build
+        run: |
+          npm run test:cas
+          npm run test:rig-archive
+          npm run build:site
+      - name: Report asset import status — production remains gated
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          assets=Path('assets/street-crown')
+          names=['hero','partner','ped_man','ped_woman','thug','boss']
+          found=[p for p in names if (assets/(p+'.glb')).is_file()]
+          print(f'STREET_CROWN_ASSETS_STAGED {len(found)}/6: {found}')
+          if len(found) not in (0,6):
+              raise SystemExit('Partial model import: do not release incomplete assets')
+          if len(found)==0:
+              print('BLOCKED_FOR_VISUAL_QA: six user-owned GLBs must be uploaded to the branch')
+          PY
