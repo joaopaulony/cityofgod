@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
-import {CAS_DEFAULT,normalizeCAS,readCAS,writeCAS} from './cas-profile.mjs';
+import {CAS_DEFAULT,CAS_COLORS,normalizeCAS} from './cas-profile.mjs';
+import {MAX_CHARACTERS,readRoster,activeCharacter,addCharacter,updateCharacter,selectCharacter,deleteCharacter,persistRoster} from './cas-roster.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
@@ -13,7 +14,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  dialog.setAttribute('aria-label','City of God — criador de personagem');
  dialog.innerHTML=[
  '<div class="cas-shell">',
- '<header class="cas-header"><div class="cas-heading"><small>CITY OF GOD / VIDA URBANA</small><strong>CRIE SEU <em>PERSONAGEM</em></strong></div><button class="cas-close" type="button" id="cas-close" aria-label="Fechar editor">✕ &nbsp; VOLTAR</button></header>',
+ '<header class="cas-header"><div class="cas-heading"><small>CITY OF GOD · URBAN LIFE STUDIO</small><strong>CRIAR <em>PERSONAGEM</em></strong></div><div class="cas-header-side"><span class="cas-session">PERSONAGEM 3D · EDITOR LOCAL</span><button class="cas-close" type="button" id="cas-close" aria-label="Voltar ao jogo">✕ &nbsp; VOLTAR</button></div></header>',
  '<nav class="cas-nav" aria-label="Categorias de personalização"><h2>PERSONALIZAÇÃO</h2>',
  '<button type="button" data-cas-tab="identity" aria-pressed="true">◈ &nbsp; Identidade</button>',
  '<button type="button" data-cas-tab="body" aria-pressed="false">◉ &nbsp; Corpo</button>',
@@ -23,9 +24,10 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<button type="button" data-cas-tab="style" aria-pressed="false">★ &nbsp; Estilo</button>',
  '<button type="button" data-cas-tab="animations" aria-pressed="false">▶ &nbsp; Animações</button>',
  '<button type="button" data-cas-tab="artlist" aria-pressed="false">◇ &nbsp; Modelos Artlist</button>',
- '<p class="cas-small">Personagem em 3D real. Arraste para girar. As animações são reproduzidas no próprio modelo.</p></nav>',
- '<div class="cas-stage"><canvas id="cas-preview" aria-label="Prévia 3D interativa do personagem" tabindex="0"></canvas><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
+ '<p class="cas-small">CRIE SUA IDENTIDADE<br>Escolha um corpo, personalize, salve e comece sua história.</p><div class="cas-nav-credit">CITY OF GOD REBORN · V1</div></nav>',
+ '<div class="cas-stage"><canvas id="cas-preview" aria-label="Prévia 3D interativa do personagem" tabindex="0"></canvas><div class="cas-stage-head"><span class="cas-stage-label">PRÉVIA EM TEMPO REAL</span><span class="cas-stage-live">● 3D</span></div><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-tools"><button type="button" id="cas-view-front" aria-label="Ver de frente">FRENTE</button><button type="button" id="cas-view-side" aria-label="Ver de lado">PERFIL</button><button type="button" id="cas-view-back" aria-label="Ver de costas">COSTAS</button><button type="button" id="cas-view-reset" aria-label="Centralizar câmera">⟲</button></div><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
  '<form id="cas-form" class="cas-controls"><section class="cas-section" data-cas-section="identity"><h2>Identidade</h2><p>Crie alguém para viver sua própria história na cidade.</p>',
+ '<label class="cas-field"><span>Meu personagem</span><select name="rosterSlot" id="cas-roster-slot" aria-label="Personagem salvo"></select></label><div class="cas-roster-actions"><button type="button" id="cas-new-character">+ Novo personagem</button><button type="button" id="cas-delete-character">Excluir personagem</button></div>',
  '<label class="cas-field"><span>Nome</span><input type="text" name="name" minlength="1" maxlength="24" autocomplete="off" required></label>',
  '<label class="cas-field"><span>Idade <output data-cas-output="age">24</output></span><input type="range" name="age" min="18" max="80" step="1"></label>',
  '<label class="cas-field"><span>Onde cresceu</span><select name="background"><option value="bairro">Bairro popular</option><option value="centro">Centro urbano</option><option value="litoral">Litoral</option><option value="interior">Interior</option></select></label>',
@@ -34,17 +36,17 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<div class="cas-field"><span>Modelo corporal</span><div class="cas-segment"><label><input type="radio" name="sex" value="male"> Masculino</label><label><input type="radio" name="sex" value="female"> Feminino</label></div></div>',
  '<label class="cas-field"><span>Altura <output data-cas-output="height">100%</output></span><input type="range" name="height" min="0.90" max="1.10" step="0.01"></label>',
  '<label class="cas-field"><span>Constituição <output data-cas-output="build">100%</output></span><input type="range" name="build" min="0.86" max="1.14" step="0.01"></label>',
- '<label class="cas-field"><span>Tom de pele</span><input type="color" name="skin"></label>',
+ '<label class="cas-field"><span>Tom de pele</span><input type="color" name="skin"></label><div class="cas-colors" id="cas-skin-swatches"></div>',
  '<div class="cas-tip">Altura e porte alteram a escala geral. Os ajustes geométricos de nariz, olhos e mandíbula estão na seção Rosto, usando blendshapes procedurais.</div></section>',
  '<section class="cas-section" data-cas-section="face" hidden><h2>Escultura do rosto</h2><p>Morph targets reais, gerados sobre o rosto existente, sem modificar a malha compartilhada dos NPCs.</p>',
  ...[['faceWidth','Largura do rosto'],['jaw','Mandíbula'],['nose','Nariz'],['eyes','Olhos'],['cheeks','Maçãs do rosto']].map(([id,label])=>'<label class="cas-field"><span>'+label+' <output data-cas-output="'+id+'">0%</output></span><input name="'+id+'" type="range" min="-1" max="1" step="0.05" value="0"></label>'),
  '<div class="cas-tip">São deformações paramétricas discretas da malha 3D, não reconstrução anatômica por IA. Prefira mudanças suaves para preservar expressão e textura.</div></section>',
  '<section class="cas-section" data-cas-section="hair" hidden><h2>Cabelos</h2><p>Estilos GLB anexados ao osso da cabeça, quando instalados.</p>',
  '<label class="cas-field"><span>Penteado</span><select name="hairStyle"><option value="none">Sem cabelo adicional</option></select></label>',
- '<label class="cas-field"><span>Cor do cabelo</span><input type="color" name="hair"></label>',
+ '<label class="cas-field"><span>Cor do cabelo</span><input type="color" name="hair"></label><div class="cas-colors" id="cas-hair-swatches"></div>',
  '<div class="cas-tip" id="cas-hair-note">Verificando catálogo de penteados…</div></section>',
  '<section class="cas-section" data-cas-section="clothes" hidden><h2>Roupas</h2><p>Paleta das peças do personagem.</p>',
- '<label class="cas-field"><span>Cor superior</span><input type="color" name="top"></label>',
+ '<label class="cas-field"><span>Cor superior</span><input type="color" name="top"></label><div class="cas-colors" id="cas-top-swatches"></div>',
  '<label class="cas-field"><span>Cor inferior</span><input type="color" name="bottom"></label>',
  '<label class="cas-field"><span>Tênis / calçados</span><input type="color" name="shoes"></label>',
  '<label class="cas-field"><span>Look inicial</span><select name="outfit"><option value="casual">Casual</option><option value="street">Streetwear</option><option value="sport">Esportivo</option><option value="social">Social</option></select></label>',
@@ -62,17 +64,34 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<label class="cas-field"><span>Modelo em exposição</span><select name="artlistModel"><option value="marcus">Marcos · masculino</option><option value="livia">Lívia · feminino</option></select></label>',
  '<button type="button" id="cas-view-artlist" class="cas-preview-model">Visualizar modelo 3D</button><button type="button" id="cas-back-rig" class="cas-preview-model">Voltar ao personagem animado</button>',
  '<div class="cas-tip">Aviso: os arquivos do Artlist são malhas estáticas, sem esqueleto. Esta aba NÃO substitui o avatar no jogo. A versão jogável continua usando o rig Mixamo até a aprovação técnica do novo rig.</div></section></form>',
- '<footer class="cas-footer"><span class="cas-status" role="status" id="cas-message">O visual será salvo neste navegador.</span><div class="cas-actions"><button type="button" id="cas-cancel">Cancelar</button><button type="submit" form="cas-form" id="cas-save">Salvar personagem</button></div></footer>',
+ '<footer class="cas-footer"><span class="cas-status" role="status" id="cas-message">Seu personagem será salvo neste navegador.</span><div class="cas-actions"><button type="button" id="cas-prev-step">‹ Voltar</button><button type="button" id="cas-next-step">Próximo ›</button><button type="submit" form="cas-form" id="cas-save">SALVAR E JOGAR</button></div></footer>',
  '</div>'
  ].join('');
  const button=document.createElement('button');
- button.type='button';button.id='city-cas-open';button.textContent='Personalizar personagem';
+ button.type='button';button.id='city-cas-open';button.textContent='◈ MEU PERSONAGEM';
  document.body.append(dialog,button);
  const form=dialog.querySelector('#cas-form');
  const canvas=dialog.querySelector('#cas-preview');
  const status=dialog.querySelector('#cas-message');
  const loading=dialog.querySelector('#cas-loading');
  const hairSelect=form.elements.hairStyle;
+ const steps=['identity','body','face','hair','clothes','style','animations'];
+ const rosterSelect=form.elements.rosterSlot;
+ const buttons={prev:dialog.querySelector('#cas-prev-step'),next:dialog.querySelector('#cas-next-step'),save:dialog.querySelector('#cas-save')};
+ let currentTab='identity',roster=null;
+ // Only developers see the unrigged Artlist experiments, never players.
+ if(!new URLSearchParams(location.search).has('caslab')){
+  dialog.querySelector('[data-cas-tab="artlist"]')?.remove();
+  dialog.querySelector('[data-cas-section="artlist"]')?.remove();
+ }
+ for(const type of ['skin','hair','top']){
+  const palette=dialog.querySelector('#cas-'+type+'-swatches');
+  for(const color of CAS_COLORS[type]||[]){
+   const sw=document.createElement('button');sw.type='button';sw.dataset.casColor=color;sw.dataset.casColorField=type;
+   sw.style.backgroundColor=color;sw.title=color;sw.setAttribute('aria-label','Escolher '+type+' '+color);
+   palette.append(sw);
+  }
+ }
  for(const item of hairSystem?.styles||[]){
   const opt=document.createElement('option');opt.value=item.id;opt.textContent=item.label;hairSelect.append(opt);
  }
@@ -88,13 +107,39 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  let manifestPromise=null;
  const source=dialog.querySelector('#cas-preview-source');
  const el=name=>form.elements[name];
+ const safeStorage=()=>{try{return localStorage;}catch{return {getItem:()=>null,setItem(){throw Error('Armazenamento do navegador indisponível');}};}};
  let previewAnimation='idle',artlistMode=false;
  const artlistPaths={marcus:'assets/characters/artlist/marcus.glb.gz',livia:'assets/characters/artlist/livia.glb.gz'};
  const artlistCache=new Map();
  function visibleTab(name){
+  if(!steps.includes(name)&&name!=='artlist')return;
+  currentTab=name;
+  buttons.prev.hidden=name==='identity';
+  buttons.next.hidden=!steps.includes(name)||name==='animations';
+  buttons.save.hidden=name==='artlist';
   if(name!=='artlist'&&artlistMode){artlistMode=false;previewSex=null;void setPreviewSex(draft.sex);}
   for(const button of dialog.querySelectorAll('[data-cas-tab]'))button.setAttribute('aria-pressed',String(button.dataset.casTab===name));
   for(const sec of dialog.querySelectorAll('[data-cas-section]'))sec.hidden=sec.dataset.casSection!==name;
+  for(const tab of dialog.querySelectorAll('[data-cas-tab]')){
+    if(tab.dataset.casTab===name)tab.scrollIntoView({block:'nearest',inline:'nearest'});
+  }
+ }
+ function refreshRoster(){
+  rosterSelect.replaceChildren();
+  for(const c of roster?.characters||[]){
+   const opt=document.createElement('option');opt.value=c.id;opt.textContent=c.profile.name+' · '+(c.profile.sex==='female'?'Feminino':'Masculino');
+   rosterSelect.append(opt);
+  }
+  rosterSelect.value=roster?.activeId||'';
+  dialog.querySelector('#cas-new-character').disabled=(roster?.characters?.length||0)>=MAX_CHARACTERS;
+  dialog.querySelector('#cas-delete-character').disabled=(roster?.characters?.length||0)<=1;
+ }
+ function loadActive(){
+  const current=activeCharacter(roster)||CAS_DEFAULT;
+  loadForm(current);
+  refreshRoster();
+  previewSex=null;
+  void setPreviewSex(draft.sex);
  }
  function loadForm(profile){
   draft=normalizeCAS(profile);
@@ -338,9 +383,11 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function open(){
   if(dialog.open)return;
-  loadForm(system.casProfile||readCAS(localStorage)||CAS_DEFAULT);
+  roster=readRoster(safeStorage());
+  loadForm(activeCharacter(roster)||system.casProfile||CAS_DEFAULT);
+  refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
-  status.textContent='Prévia local — salve para aplicar no mundo.';
+  status.textContent='Selecione suas características e salve para jogar. Os perfis são locais ao navegador.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
@@ -351,7 +398,37 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  function close(){if(dialog.open)dialog.close();}
  button.addEventListener('click',open);
  dialog.querySelector('#cas-close').addEventListener('click',close);
- dialog.querySelector('#cas-cancel').addEventListener('click',close);
+ buttons.prev.addEventListener('click',()=>{
+  const at=steps.indexOf(currentTab);visibleTab(steps[Math.max(0,at-1)]);
+ });
+ buttons.next.addEventListener('click',()=>{
+  const at=steps.indexOf(currentTab);visibleTab(steps[Math.min(steps.length-1,at+1)]);
+ });
+ for(const [id,rotation] of [['cas-view-front',0],['cas-view-side',Math.PI/2],['cas-view-back',Math.PI],['cas-view-reset',0]]){
+  dialog.querySelector('#'+id).addEventListener('click',()=>{spin=rotation;if(id==='cas-view-reset')zoom=3.55;});
+ }
+ dialog.querySelector('#cas-new-character').addEventListener('click',()=>{
+  try{
+   roster=addCharacter(roster,{...CAS_DEFAULT,name:'Novo personagem',sex:draft.sex});
+   loadActive();
+   status.textContent='Novo personagem preparado. Salve para confirmar.';
+  }catch(e){status.textContent=String(e.message||e);}
+ });
+ dialog.querySelector('#cas-delete-character').addEventListener('click',()=>{
+  if((roster?.characters.length||0)<=1)return;
+  const current=roster.characters.find(x=>x.id===roster.activeId);
+  if(!confirm('Excluir '+(current?.profile.name||'personagem')+' deste navegador? A exclusão será aplicada quando você salvar.'))return;
+  roster=deleteCharacter(roster,roster.activeId);loadActive();
+  status.textContent='Personagem excluído do rascunho. Salve para confirmar.';
+ });
+ rosterSelect.addEventListener('change',()=>{try{roster=selectCharacter(roster,rosterSelect.value);loadActive();status.textContent='Personagem selecionado. Salve para ativá-lo no jogo.';}catch(e){status.textContent=String(e.message||e);}});
+ dialog.addEventListener('click',e=>{
+  const sw=e.target.closest('button[data-cas-color]');
+  if(!sw)return;
+  const color=sw.dataset.casColor,field=sw.dataset.casColorField;
+  if(!el(field))return;
+  el(field).value=color;el(field).dispatchEvent(new Event('input',{bubbles:true}));
+ });
  dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
  dialog.addEventListener('close',()=>{
   window.cityCharacterEditorOpen=false;drag=null;loadingVersion++;
@@ -377,7 +454,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   try{
    const selected=currentDraft();
    await system.applyCAS(selected);
-   try{writeCAS(localStorage,selected);}catch{status.textContent='Visual aplicado, mas não foi possível gravar no navegador.';return;}
+   try{roster=updateCharacter(roster,selected);persistRoster(safeStorage(),roster);}catch{status.textContent='Visual aplicado, mas não foi possível gravar. Verifique permissões do navegador.';return;}
+   status.textContent='Personagem salvo!';
    close();
   }catch(error){status.textContent='Falha ao aplicar: '+String(error.message||error);}
   finally{save.disabled=false;}
@@ -392,4 +470,5 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  window.addEventListener('resize',resize);
  system.openCreator=open;
  system.casStorageKey='cityofgod.cas.v1';
+ system.casRosterKey='cityofgod.cas.roster.v1';
 }
