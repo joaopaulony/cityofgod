@@ -42,7 +42,23 @@ cam.x = cam.tx = player.x; cam.y = cam.ty = player.y;
 // Ponte explícita entre o jogo isométrico e a cena WebGL de veículos.
 // O GLB conserva sua malha/textura original; nenhuma conversão em sprites.
 window.cityVehicleBridge={
-  cam,player,world,houses,boxes,actors,buildRoofGeom,
+  cam,player,world,houses,boxes,actors,npcs,buildRoofGeom,
+  // Spawns are exclusive to verified ?humansbeta=1 GLBs; the human reset default stays empty.
+  spawnRealisticNPCs(profiles){
+    if(!window.cityCharacters?.humanModelsEnabled||npcs.length)return npcs;
+    for(const profile of profiles.slice(0,12)){
+      const x=Math.max(2,Math.min(MAP-2,player.x+Math.cos(profile.heading)*profile.radius));
+      const y=Math.max(2,Math.min(MAP-2,player.y+Math.sin(profile.heading)*profile.radius));
+      const point=collide(x,y,.3,0),px=point?.[0]??x,py=point?.[1]??y;
+      const resident=makeActor({
+        name:profile.name,x:px,y:py,face:profile.heading,moveA:profile.heading,
+        armed:false,pal:profile.sex==='female'?PAL.girl:PAL.red,
+        population:profile,home:[px-4,py-4,8,8],goal:null,timer:0
+      });
+      npcs.push(resident);actors.push(resident);
+    }
+    return npcs;
+  },
   get urbanBins(){return urbanLife.bins;},get geo(){return typeof OW!=='undefined'&&world.open?OW.geo:null;},get urbanLitter(){return urbanLife.litter;},
   get terrainItems(){return terrain.items;},
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
