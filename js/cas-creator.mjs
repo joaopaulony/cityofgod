@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {CAS_DEFAULT,normalizeCAS,readCAS,writeCAS} from './cas-profile.mjs';
+import {applyCASVisual,createCASEmoteClips,CAS_EMOTES,OUTFITS,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
 // Animation and body meshes are actual licensed game GLBs, never flat video.
@@ -17,8 +18,10 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<button type="button" data-cas-tab="identity" aria-pressed="true">◈ &nbsp; Identidade</button>',
  '<button type="button" data-cas-tab="body" aria-pressed="false">◉ &nbsp; Corpo</button>',
  '<button type="button" data-cas-tab="hair" aria-pressed="false">✂ &nbsp; Cabelo</button>',
+ '<button type="button" data-cas-tab="face" aria-pressed="false">◍ &nbsp; Rosto</button>',
  '<button type="button" data-cas-tab="clothes" aria-pressed="false">◧ &nbsp; Roupas</button>',
  '<button type="button" data-cas-tab="style" aria-pressed="false">★ &nbsp; Estilo</button>',
+ '<button type="button" data-cas-tab="animations" aria-pressed="false">▶ &nbsp; Animações</button>',
  '<p class="cas-small">Personagem em 3D real. Arraste para girar. As animações são reproduzidas no próprio modelo.</p></nav>',
  '<div class="cas-stage"><canvas id="cas-preview" aria-label="Prévia 3D interativa do personagem" tabindex="0"></canvas><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
  '<form id="cas-form" class="cas-controls"><section class="cas-section" data-cas-section="identity"><h2>Identidade</h2><p>Crie alguém para viver sua própria história na cidade.</p>',
@@ -32,6 +35,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<label class="cas-field"><span>Constituição <output data-cas-output="build">100%</output></span><input type="range" name="build" min="0.86" max="1.14" step="0.01"></label>',
  '<label class="cas-field"><span>Tom de pele</span><input type="color" name="skin"></label>',
  '<div class="cas-tip">Altura e porte alteram a escala da malha. Ajustes de nariz, olhos e mandíbula precisam de novos modelos com blendshapes; ainda não são simulados.</div></section>',
+ '<section class="cas-section" data-cas-section="face" hidden><h2>Escultura do rosto</h2><p>Morph targets reais, gerados sobre o rosto existente, sem modificar a malha compartilhada dos NPCs.</p>',
+ ...[['faceWidth','Largura do rosto'],['jaw','Mandíbula'],['nose','Nariz'],['eyes','Olhos'],['cheeks','Maçãs do rosto']].map(([id,label])=>'<label class="cas-field"><span>'+label+' <output data-cas-output="'+id+'">0%</output></span><input name="'+id+'" type="range" min="-1" max="1" step="0.05" value="0"></label>'),
+ '<div class="cas-tip">São deformações paramétricas discretas da malha 3D, não reconstrução anatômica por IA. Prefira mudanças suaves para preservar expressão e textura.</div></section>',
  '<section class="cas-section" data-cas-section="hair" hidden><h2>Cabelos</h2><p>Estilos GLB anexados ao osso da cabeça, quando instalados.</p>',
  '<label class="cas-field"><span>Penteado</span><select name="hairStyle"><option value="none">Sem cabelo adicional</option></select></label>',
  '<label class="cas-field"><span>Cor do cabelo</span><input type="color" name="hair"></label>',
@@ -39,10 +45,18 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<section class="cas-section" data-cas-section="clothes" hidden><h2>Roupas</h2><p>Paleta das peças do personagem.</p>',
  '<label class="cas-field"><span>Cor superior</span><input type="color" name="top"></label>',
  '<label class="cas-field"><span>Cor inferior</span><input type="color" name="bottom"></label>',
+ '<label class="cas-field"><span>Tênis / calçados</span><input type="color" name="shoes"></label>',
+ '<label class="cas-field"><span>Look inicial</span><select name="outfit"><option value="casual">Casual</option><option value="street">Streetwear</option><option value="sport">Esportivo</option><option value="social">Social</option></select></label>',
+ '<label class="cas-field"><span>Acessório 3D</span><select name="accessory"><option value="none">Nenhum</option><option value="glasses">Óculos</option><option value="cap">Boné</option><option value="beanie">Gorro</option></select></label>',
+ '<label class="cas-field"><span>Cor do acessório</span><input type="color" name="accessoryColor"></label>',
  '<div class="cas-tip">A recoloração separada depende de slots de material nas malhas GLB. Modelos com textura única preservam a aparência original para não pintar pele junto com a roupa.</div></section>',
  '<section class="cas-section" data-cas-section="style" hidden><h2>Estilo pessoal</h2><p>Um ponto de partida para a identidade visual.</p>',
  '<label class="cas-field"><span>Estilo</span><select name="style"><option value="casual">Casual</option><option value="esportivo">Esportivo</option><option value="urbano">Urbano</option><option value="social">Social</option></select></label>',
- '<div class="cas-tip">Estilo e origem ficam salvos para futuras roupas, traços, ocupações e progressão. Não concedem vantagens de gameplay nesta versão.</div></section></form>',
+ '<div class="cas-tip">Estilo e origem ficam salvos para futuras roupas, traços, ocupações e progressão. Não concedem vantagens de gameplay nesta versão.</div></section>',
+ '<section class="cas-section" data-cas-section="animations" hidden><h2>Estúdio de animação</h2><p>Reproduza os 22 clipes existentes e seis gestos esqueléticos novos usando o mesmo personagem 3D.</p>',
+ '<label class="cas-field"><span>Ação</span><select name="previewAction"><option value="idle">Parado</option><option value="walk">Caminhar</option><option value="run">Correr</option><option value="crouch">Agachar</option><option value="jump_air">Pular</option>',
+ ...Object.entries(CAS_EMOTES).map(([id,entry])=>'<option value="cas_'+id+'">'+entry.label+'</option>'),
+ '</select></label><div class="cas-tip">Estas animações são transformações de ossos em Three.js, não vídeos. Gestos ficam disponíveis no jogo pelo atalho F6.</div></section></form>',
  '<footer class="cas-footer"><span class="cas-status" role="status" id="cas-message">O visual será salvo neste navegador.</span><div class="cas-actions"><button type="button" id="cas-cancel">Cancelar</button><button type="submit" form="cas-form" id="cas-save">Salvar personagem</button></div></footer>',
  '</div>'
  ].join('');
@@ -69,18 +83,19 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  let manifestPromise=null;
  const source=dialog.querySelector('#cas-preview-source');
  const el=name=>form.elements[name];
+ let previewAnimation='idle';
  function visibleTab(name){
   for(const button of dialog.querySelectorAll('[data-cas-tab]'))button.setAttribute('aria-pressed',String(button.dataset.casTab===name));
   for(const sec of dialog.querySelectorAll('[data-cas-section]'))sec.hidden=sec.dataset.casSection!==name;
  }
  function loadForm(profile){
   draft=normalizeCAS(profile);
-  for(const key of ['name','age','height','build','skin','hair','top','bottom','hairStyle','background','style']){
+  for(const key of ['name','age','height','build','skin','hair','top','bottom','shoes','hairStyle','background','style','outfit','accessory','accessoryColor','faceWidth','jaw','nose','eyes','cheeks']){
    if(el(key))el(key).value=draft[key];
   }
   const sex=form.querySelector('input[name=sex][value='+draft.sex+']');
   if(sex)sex.checked=true;
-  for(const key of ['age','height','build'])updateOutput(key);
+  for(const key of ['age','height','build',...['faceWidth','jaw','nose','eyes','cheeks']])updateOutput(key);
  }
  function updateOutput(key){
   const out=dialog.querySelector('[data-cas-output='+key+']');if(!out)return;
@@ -194,8 +209,10 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function setClip(){
   mixer?.stopAllAction();
-  const idle=modelAnimations.find(c=>/idle|stand|breath/i.test(c.name))||modelAnimations[0];
-  if(idle&&mixer){const action=mixer.clipAction(idle);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);}
+  const clips=['idle','walk','run','crouch','jump_air'];
+  const selected=clips.includes(previewAnimation)?previewAnimation:'cas_'+(previewAnimation.startsWith('cas_')?previewAnimation.slice(4):previewAnimation);
+  const motion=modelAnimations.find(c=>c.name===selected)||modelAnimations.find(c=>/idle|stand|breath/i.test(c.name))||modelAnimations[0];
+  if(motion&&mixer){const action=mixer.clipAction(motion);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);}
  }
  async function setPreviewSex(sex){
   if(!renderer||previewSex===sex)return;
@@ -222,7 +239,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
    mixer=new THREE.AnimationMixer(root);
-   modelAnimations=gltf.animations||[];
+   modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
    previewHairKey='';
    source.textContent='BASE 3D · '+(sex==='female'?'MEGAN':'DAVID')+' · '+modelAnimations.length+' ANIMAÇÕES';
@@ -251,6 +268,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   const initial=previewRoot.userData.casBaseScale||(previewRoot.userData.casBaseScale=previewRoot.scale.clone());
   previewRoot.scale.set(initial.x*draft.build,initial.y*draft.height,initial.z*draft.build);
   recolor(previewRoot,draft);
+  applyCASVisual(previewRoot,draft);
   const key=draft.hairStyle+'|'+draft.hair;
   if(previewHairKey!==key){previewHairKey=key;void hairSystem?.set(previewRoot,draft.hairStyle,draft.hair);}
  }
@@ -279,7 +297,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  function open(){
   if(dialog.open)return;
   loadForm(system.casProfile||readCAS(localStorage)||CAS_DEFAULT);
-  visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;
+  visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
   status.textContent='Prévia local — salve para aplicar no mundo.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
@@ -300,9 +318,11 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  dialog.querySelector('.cas-nav').addEventListener('click',event=>{
   const tab=event.target.closest('[data-cas-tab]');if(tab)visibleTab(tab.dataset.casTab);
  });
- form.addEventListener('input',()=>{
+ form.addEventListener('input',event=>{
+  if(event.target?.name==='previewAction'){previewAnimation=event.target.value;setClip();return;}
   const next=currentDraft(),sexChanged=next.sex!==draft.sex;
-  draft=next;for(const key of ['age','height','build'])updateOutput(key);
+  if(el('outfit')&&event?.target?.name==='outfit'){Object.assign(next,outfitPalette(next.outfit));for(const x of ['top','bottom','shoes'])el(x).value=next[x];}
+  draft=next;for(const key of ['age','height','build','faceWidth','jaw','nose','eyes','cheeks'])updateOutput(key);
   if(sexChanged)void setPreviewSex(draft.sex);else syncPreview();
  });
  form.addEventListener('submit',async event=>{
