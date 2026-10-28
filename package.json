@@ -9,7 +9,8 @@
     "test:pets": "node --test tests/pets.test.mjs",
     "test:front": "node --test tests/front-end.test.cjs",
     "judge:home": "node tools/judge-city-home.cjs",
-    "test:cas": "node --test tests/cas-profile.test.mjs tests/cas-hair.test.mjs && node --check js/cas-hair.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs"
+    "test:cas": "node --test tests/cas-profile.test.mjs tests/cas-hair.test.mjs && node --check js/cas-hair.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs",
+    "prebuild": "node tools/install-cas-hair-archive.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
