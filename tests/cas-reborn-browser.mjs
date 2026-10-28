@@ -14,6 +14,11 @@ try{
  await page.locator('#city-cas-dialog[open]').waitFor({timeout:20000});
  await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:60000});
  console.log('CAS_REBORN_MALE',await page.locator('#cas-preview-source').innerText());
+ const male=await page.evaluate(()=>window.fakeSystem?.handSkeletonStats);
+ console.log('CAS_FINGER_RIG_MALE',JSON.stringify(male));
+ assert.ok(male?.bones>=70,'CAS finger bones are absent: '+JSON.stringify(male));
+ assert.equal(male.extendedFingers,50,'10 individual digit chains must be visible');
+ assert.ok(male.helperBones>=70,'SkeletonHelper missed the newly added finger bones');
  await page.locator('[data-cas-tab=animations]').click();
  for(const id of ['idle','walk','run','jump_air']){
   await page.locator('select[name=previewAction]').selectOption(id);
@@ -24,6 +29,9 @@ try{
  await page.locator('input[name=sex][value=female]').check();
  await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:60000});
  console.log('CAS_REBORN_FEMALE',await page.locator('#cas-preview-source').innerText());
+ const female=await page.evaluate(()=>window.fakeSystem?.handSkeletonStats);
+ console.log('CAS_FINGER_RIG_FEMALE',JSON.stringify(female));
+ assert.ok(female?.bones>=70&&female.extendedFingers===50&&female.helperBones>=70,'female finger hierarchy incomplete');
  await page.screenshot({path:'artifacts/cas-qa/reborn-female-desktop.png'});
  await page.locator('[data-cas-tab=identity]').click();
  await page.locator('input[name=name]').fill('Luiza Reborn');
@@ -38,6 +46,6 @@ try{
  assert.ok(dims.documentWidth<=dims.width+2,JSON.stringify(dims));
  await page.screenshot({path:'artifacts/cas-qa/reborn-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('CAS_REBORN_QA_PASS',JSON.stringify({characters:2,animations:4,persistence:true,display:'animated skeleton only',mobile:dims}));
+ console.log('CAS_REBORN_QA_PASS',JSON.stringify({characters:2,animations:4,persistence:true,display:'animated full hand/finger skeleton',mobile:dims}));
 }catch(e){console.error('CAS_REBORN_ERRORS',JSON.stringify(errors));console.error(e.stack||String(e));await page.screenshot({path:'artifacts/cas-qa/reborn-failure.png',fullPage:true}).catch(()=>{});throw e;}
 finally{await browser.close();}
