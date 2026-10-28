@@ -3,6 +3,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {CAS_DEFAULT,CAS_COLORS,normalizeCAS} from './cas-profile.mjs';
 import {MAX_CHARACTERS,readRoster,activeCharacter,addCharacter,updateCharacter,selectCharacter,deleteCharacter,persistRoster} from './cas-roster.mjs';
+import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
@@ -100,7 +101,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   ? available+' penteados instalados. Alguns precisam de ajuste fino de escala e alinhamento.'
   : 'O pacote GLB ainda não foi instalado. O personagem pode ser criado, mas os penteados adicionais ficam indisponíveis.';
  hairSelect.disabled=!available;
- let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,mixer=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null,lastWidth=0,lastHeight=0;
+ let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,mixer=null,rebornUpper=null,activeMotion=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null,lastWidth=0,lastHeight=0;
  const gltfLoader=new GLTFLoader(),textureLoader=new THREE.TextureLoader();
  const previewCache=new Map();
  const assets={male:'david',female:'megan'};
@@ -267,7 +268,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   const clips=['idle','walk','run','crouch','jump_air'];
   const selected=clips.includes(previewAnimation)?previewAnimation:'cas_'+(previewAnimation.startsWith('cas_')?previewAnimation.slice(4):previewAnimation);
   const motion=modelAnimations.find(c=>c.name===selected)||modelAnimations.find(c=>/idle|stand|breath/i.test(c.name))||modelAnimations[0];
-  if(motion&&mixer){const action=mixer.clipAction(motion);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);}
+  if(motion&&mixer){const action=mixer.clipAction(motion);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);activeMotion=action;}
  }
  async function setPreviewSex(sex){
   if(!renderer||previewSex===sex&&!artlistMode)return;
@@ -295,6 +296,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
    mixer=new THREE.AnimationMixer(root);
+   rebornUpper=system.rebornReady?createRebornUpperBodyMotion(root):null;
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
    previewHairKey='';
@@ -321,7 +323,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    const gltf=await artlistCache.get(name);
    if(version!==loadingVersion||!dialog.open)return;
    if(previewRoot){hairSystem?.release(previewRoot);releaseCASVisual(previewRoot);world.remove(previewRoot);}
-   mixer?.stopAllAction();mixer=null;
+   mixer?.stopAllAction();mixer=null;rebornUpper=null;activeMotion=null;
    const root=gltf.scene.clone(true);
    const bounds=new THREE.Box3().setFromObject(root),h=bounds.max.y-bounds.min.y;
    if(!Number.isFinite(h)||h<.1)throw Error('Dimensões inválidas');
@@ -375,6 +377,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(renderer&&scene){
    const delta=Math.min(.05,Math.max(0,(t-lastTime)/1000));lastTime=t;
    mixer?.update(delta);
+   if(rebornUpper&&activeMotion)rebornUpper.update(delta,{
+    clip:activeMotion.getClip().name,time:activeMotion.time,duration:activeMotion.getClip().duration
+   });
    world.rotation.y=spin;
    const facial=dialog.querySelector('[data-cas-tab=face][aria-pressed=true]')!=null;
    camera.position.set(0,facial?1.55:1.16,facial?Math.min(zoom,2.05):zoom);
