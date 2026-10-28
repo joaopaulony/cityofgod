@@ -305,6 +305,7 @@ export function createCharacterSystem(scene,bridge){
       });
      }
      entry.appearance=next;
+     actor.name=next.name;
      applyCASStyle(entry.root,next,entry.spec);
      system.casProfile=next;
      system.update(0);
