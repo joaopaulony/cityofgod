@@ -1,23 +1,41 @@
 import * as T from 'three';
 import {PET_BREEDS} from '../js/pet-catalog.mjs';
-import {buildPet} from '../js/pet-model.mjs';
-const items=[];
-for(const breed of PET_BREEDS.filter(b=>!b.model)){
- const card=document.createElement('article');card.innerHTML=`<canvas></canvas><div><h2>${breed.name}</h2><p>${breed.colors.map(c=>c.name).join(' · ')}</p></div>`;document.querySelector('main').append(card);
- const renderer=new T.WebGLRenderer({canvas:card.querySelector('canvas'),antialias:true,preserveDrawingBuffer:true});renderer.setSize(410,265,false);renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.setClearColor('#edf0e4');
- const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x9ba88e,2.5));
- const sun=new T.DirectionalLight(0xffefd8,3);sun.position.set(2,3,2);sun.castShadow=true;scene.add(sun);
- const floor=new T.Mesh(new T.PlaneGeometry(6,6),new T.MeshStandardMaterial({color:0xe6eadc,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.005;floor.receiveShadow=true;scene.add(floor);
- const camera=new T.OrthographicCamera(-.94,.94,.61,-.61,.01,20);camera.position.set(1.9,1.1,2.1);camera.lookAt(0,.30,0);
- const model=buildPet(breed.id,breed.colors[0].id);scene.add(model.root);items.push({renderer,scene,camera,model,breed});
+import {createAnimatedPet} from '../js/pet-animated.mjs';
+const breeds=PET_BREEDS.filter(b=>b.model),items=[],errors=[];
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(470,300,false);renderer.setPixelRatio(1);renderer.setClearColor('#e6ebe0');
+const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x9ba88e,2.5));
+const sun=new T.DirectionalLight(0xffefdc,3);sun.position.set(3,7,4);scene.add(sun);
+const floor=new T.Mesh(new T.PlaneGeometry(15,15),new T.MeshStandardMaterial({color:'#e7ece0',roughness:1}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.012;scene.add(floor);
+for(const b of breeds){
+ const card=document.createElement('article');
+ card.innerHTML='<img alt="'+b.name+'"><div><h2>'+b.name+'</h2><p>'+b.label+' · Modelo glTF animado</p></div>';
+ document.querySelector('main').append(card);
+ const model=createAnimatedPet(b.id,'original');await model.ready;
+ if(!model.loaded)errors.push({breed:b.id,error:String(model.error)});
+ const root=model.root;
+ const bbox=new T.Box3().setFromObject(root),center=bbox.getCenter(new T.Vector3()),size=bbox.getSize(new T.Vector3());
+ const span=Math.max(size.x*1.15,size.y*1.3,size.z*1.3,.5);
+ const camera=new T.OrthographicCamera(-span*.9,span*.9,span*.58,-span*.58,.01,80);
+ camera.position.copy(center).add(new T.Vector3(span*1.75,span*.8,span*1.9));camera.lookAt(center);
+ items.push({breed:b,model,card,camera,bounds:size.toArray()});
 }
-window.reviewPets=(action='idle',time=1.2,colorIndex=0)=>{
+window.reviewPets=(action='idle',time=1.3)=>{
+ const output=[];
  for(const item of items){
-  const color=item.breed.colors[colorIndex];
-  if(item.model.colors.id!==color.id){item.model.dispose();item.model=buildPet(item.breed.id,color.id);item.scene.add(item.model.root);}
-  item.model.animate({clock:time,phase:time*7,speed:action==='walk'?.7:action==='run'?2:0,action},0);
-  item.renderer.render(item.scene,item.camera);
+  item.model.root.position.set(0,0,0);
+  scene.add(item.model.root);
+  for(let i=0;i<15;i++)item.model.animate({action,clock:time+i*.07,phase:(time+i*.07)*8,
+   speed:action==='run'?2.1:action==='walk'?.9:0},.075);
+  renderer.render(scene,item.camera);
+  item.card.querySelector('img').src=renderer.domElement.toDataURL('image/png');
+  output.push({id:item.breed.id,model:item.breed.model,loaded:item.model.loaded,clip:item.model.clip,
+   status:item.model.root.userData.assetStatus,dimensions:item.bounds});
+  scene.remove(item.model.root);
  }
- return items.map(i=>({breed:i.breed.id,bounds:new T.Box3().setFromObject(i.model.root).getSize(new T.Vector3()).toArray()}));
+ return output;
 };
-window.reviewPets();window.petReviewReady=true;
+window.reviewPets('idle',1.3);
+window.petReview={breeds:breeds.map(b=>b.id),items,errors};
+window.petReviewReady=true;

@@ -1,0 +1,47 @@
+name: Benny Rottweiler - real Chrome 3D QA
+on:
+  push:
+    branches: [city-licensed-dogs-replacement]
+    paths:
+      - 'assets/pets/thirdparty/**'
+      - 'js/pet-animated.mjs'
+      - 'tools/capture-benny.cjs'
+      - '.github/workflows/benny-qa.yml'
+  pull_request:
+    paths:
+      - 'assets/pets/thirdparty/**'
+      - 'js/pet-*.mjs'
+      - 'js/pets-3d.mjs'
+      - 'tools/capture-benny.cjs'
+      - '.github/workflows/benny-qa.yml'
+permissions:
+  contents: read
+jobs:
+  benny-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Test all licensed pet migrations and original animations
+        run: node --test tests/pets.test.mjs tests/quaternius-pets.test.mjs
+      - name: Build site
+        run: npm run build:site
+      - name: Install browser
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Inspect real rig and capture screenshots in Chrome
+        run: |
+          nohup node tools/serve.mjs >/tmp/city-server.log 2>&1 &
+          sleep 3
+          node tools/capture-benny.cjs
+      - name: Upload Chrome screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-of-god-benny-qa
+          path: artifacts/benny/
+          if-no-files-found: warn

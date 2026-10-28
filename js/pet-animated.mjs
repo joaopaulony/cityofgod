@@ -1,37 +1,44 @@
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {petBreed} from './pet-catalog.mjs';
-import {buildPet} from './pet-model.mjs';
 
 // The CC0 Quaternius pack ships skeletal glTF 2.0 files with embedded buffers.
 // Cache a shared source per species; clone the skeleton for each actor. No
 // animation or rendering state is shared across different adopted animals.
 const promises=new Map();
-const MODEL_ROOT='assets/pets/quaternius/';
+const EXTERNAL_MODELS=Object.freeze(['Benny']);
 export const QUATERNIUS_MODELS=Object.freeze([
  'Alpaca','Bull','Cow','Deer','Donkey','Fox','Horse','Horse_White','Husky','ShibaInu','Stag','Wolf'
 ]);
 export const isAnimatedBreed=id=>!!petBreed(id)?.model;
 
 export function clipForAction(action,clips){
- const names=new Set(clips.map(c=>typeof c==='string'?c:c.name));
- const one=(...options)=>options.find(n=>names.has(n))||'Idle';
+ const names=clips.map(c=>typeof c==='string'?c:c.name);
+ const choose=(...options)=>{
+  for(const token of options){const match=names.find(n=>n.toLowerCase()===token.toLowerCase()||n.toLowerCase().endsWith('|'+token.toLowerCase()));if(match)return match;}
+  return names.find(n=>/idle$/i.test(n))||names[0]||null;
+ };
  switch(action){
-  case 'walk': return one('Walk','Idle');
-  case 'run': return one('Gallop','Walk','Idle');
-  case 'sniff':return one('Eating','Idle_Headlow','Idle_2_HeadLow','Idle');
-  case 'sleep':return one('Idle_2_HeadLow','Idle_Headlow','Idle_2','Idle');
-  case 'sit':case 'wait':return one('Idle_2','Idle');
-  default:return one('Idle','Idle_2');
+  case 'walk':return choose('Walk','run','Gallop','Idle');
+  case 'run':return choose('Gallop','run','Walk','Idle');
+  case 'sniff':return choose('Eating','Idle_Headlow','Idle_2_HeadLow','idle');
+  case 'sleep':return choose('Idle_2_HeadLow','Idle_Headlow','Idle_2','idle');
+  case 'sit':case 'wait':return choose('Idle_2','idle');
+  default:return choose('Idle','Idle_2');
  }
 }
+
 export function loadAnimalAsset(model){
- if(!QUATERNIUS_MODELS.includes(model))return Promise.reject(new Error('Unknown animal: '+model));
+ if(!QUATERNIUS_MODELS.includes(model)&&!EXTERNAL_MODELS.includes(model))return Promise.reject(new Error('Unknown animal: '+model));
  if(!promises.has(model)){
-  const url=new URL('../assets/pets/quaternius/'+model+'.gltf',import.meta.url).href;
-  const loader=new GLTFLoader();
-  const loading=loader.loadAsync(url).then(gltf=>{
+  const imported=EXTERNAL_MODELS.includes(model);
+  const url=new URL(imported?'../assets/pets/thirdparty/'+model+'.fbx':
+    '../assets/pets/quaternius/'+model+'.gltf',import.meta.url).href;
+  const loader=imported?new FBXLoader():new GLTFLoader();
+  const loading=loader.loadAsync(url).then(result=>{
+   const gltf=imported?{scene:result,animations:result.animations||[]}:result;
    if(!gltf.scene||!gltf.animations?.length){
     // getObjectByProperty isSkinnedMesh does not work on bare THREE.Object3D
     let rigged=false;gltf.scene.traverse(o=>{if(o.isSkinnedMesh)rigged=true;});
@@ -43,49 +50,71 @@ export function loadAnimalAsset(model){
  }
  return promises.get(model);
 }
-function tintClonedMaterials(object,colorId){
- if(colorId==='original')return [];
- const multiplier=colorId==='warm'?new T.Color('#f4dbc8'):new T.Color('#d1dce8');
- const cloned=[];
+function tintClonedMaterials(object,colorId,model){
+ if(colorId==='original'&&model!=='Benny')return [];
+ const multiplier=colorId==='warm'?new T.Color('#f4dbc8'):
+  colorId==='cool'?new T.Color('#d1dce8'):new T.Color('#ffffff');
+ const originalBenny=Object.freeze({
+  coat:'#242528',muzzle:'#af6b41',accents:'#ab7045',ears:'#282629'
+ });
+ const cloned=[],slots=[];
  object.traverse(child=>{
   if(!child.isMesh)return;
-  const one=m=>{
-   if(!m||!m.color)return m;
-   const copy=m.clone();
-   // Preserve facial details and contrast. Tint is intentionally subtle.
-   const lightness=copy.color.r+copy.color.g+copy.color.b;
-   if(lightness>.21){copy.color.lerp(copy.color.clone().multiply(multiplier),.35);}
+  const shade=m=>{
+   if(!m?.color)return m;
+   const copy=m.clone(),name=(m.name||'').toLowerCase();
+   slots.push({mesh:child.name,material:m.name,color:'#'+m.color.getHexString()});
+   if(model==='Benny'){
+    // Unity-source FBX uses untextured material slots. Recreate the
+    // characteristic black-and-tan coat rather than default white patches.
+    let color=originalBenny.coat;
+    if(/schnauze|mouth|muzzle/i.test(name))color=originalBenny.muzzle;
+    if(/hair2|brow|patch/i.test(name))color=originalBenny.accents;
+    if(/ear/i.test(name))color=originalBenny.ears;
+    copy.color.set(color);
+    copy.color.multiply(multiplier);
+    copy.roughness=.92;
+    copy.metalness=0;
+   }else{
+    if(copy.color.r+copy.color.g+copy.color.b>.21)
+     copy.color.lerp(copy.color.clone().multiply(multiplier),.35);
+   }
    cloned.push(copy);return copy;
   };
-  child.material=Array.isArray(child.material)?child.material.map(one):one(child.material);
+  child.material=Array.isArray(child.material)?child.material.map(shade):shade(child.material);
  });
+ object.userData.materialSlots=slots;
  return cloned;
 }
+
 export function createAnimatedPet(id,colorId='original'){
  const breed=petBreed(id);if(!breed?.model)throw Error('Not a Quaternius breed: '+id);
  const root=new T.Group();root.name='Pet:'+id;
- // While the GLTF arrives, show a lightweight existing quadruped instead of
- // an invisible purchased animal. Existing procedural pets never change.
- const fallbackId=breed.species==='dog'?'pomeranian':breed.species==='wild'?'slimcat':'rottweiler';
- const fallbackColor=fallbackId==='pomeranian'?'orange':fallbackId==='slimcat'?'grey':'tan';
- const fallback=buildPet(fallbackId,fallbackColor);
- fallback.root.scale.setScalar(breed.targetHeight/.65);
- root.add(fallback.root);
+ // Show no imitation model while loading; never reintroduce the six
+ // procedural animals the user explicitly removed from the game.
+ root.userData.assetStatus='loading';
  let mixer=null,clipName='',clips=[],actionRef=null,animal=null,disposed=false,materials=[],error=null;
  const ready=loadAnimalAsset(breed.model).then(gltf=>{
   if(disposed)return false;
   const instance=cloneSkeleton(gltf.scene);
   const bounds=new T.Box3().setFromObject(instance),size=bounds.getSize(new T.Vector3());
-  if(!Number.isFinite(size.y)||size.y<=.1||size.y>100)throw Error('Invalid GLTF dimensions: '+breed.model);
+  // FBX from Blender/Unity may use centimetres (100x glTF units).
+  // Protect against invalid/hostile bounds without rejecting legitimate FBX.
+  if(!Number.isFinite(size.y)||size.y<.01||size.y>100000||
+    !size.toArray().every(Number.isFinite))throw Error('Invalid model dimensions: '+breed.model+': '+size.toArray());
   const scale=breed.targetHeight/size.y;
-  // GLTF models face +Z; City of God pets face +X before root.rotation.y=-pet.face.
+  // City of God pet forward is +X; the authored models face +Z.
   instance.rotation.y=Math.PI/2;
   instance.scale.setScalar(scale);
-  instance.position.set(-(bounds.min.x+bounds.max.x)*.5*scale,-bounds.min.y*scale,
-    -(bounds.min.z+bounds.max.z)*.5*scale);
+  instance.updateMatrixWorld(true);
+  // Recalculate bounds AFTER rotation: offsets calculated in source axes
+  // caused high-scale FBX animals to appear far away or under the ground.
+  const oriented=new T.Box3().setFromObject(instance);
+  instance.position.set(-(oriented.min.x+oriented.max.x)*.5,
+    -oriented.min.y,-(oriented.min.z+oriented.max.z)*.5);
   instance.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-  materials=tintClonedMaterials(instance,colorId);
-  root.remove(fallback.root);fallback.dispose();
+  materials=tintClonedMaterials(instance,colorId,breed.model);
+
   animal=instance;root.add(animal);clips=gltf.animations;
   mixer=new T.AnimationMixer(instance);
   actionRef=mixer.clipAction(clips.find(c=>c.name==='Idle')||clips[0]);
@@ -93,14 +122,15 @@ export function createAnimatedPet(id,colorId='original'){
   root.userData.assetStatus='ready';
   root.userData.clipNames=clips.map(c=>c.name);
   root.userData.scale=scale;
+  root.userData.rawSize=size.toArray();
+  root.userData.materialSlots=animal.userData.materialSlots||[];
   return true;
  }).catch(e=>{
   error=e;root.userData.assetStatus='fallback';root.userData.assetError=String(e);
   return false;
  });
- root.userData.assetStatus='loading';
  function animate(pet,dt=1/60){
-  if(!mixer){fallback.animate(pet,dt);return;}
+  if(!mixer)return;
   const desired=clipForAction(pet.action,clips);
   if(desired!==clipName){
    const next=mixer.clipAction(clips.find(c=>c.name===desired));
@@ -118,7 +148,7 @@ export function createAnimatedPet(id,colorId='original'){
  function dispose(){
   disposed=true;mixer?.stopAllAction();if(animal)root.remove(animal);
   for(const m of materials)m.dispose();
-  if(!animal)fallback.dispose();
+
   root.removeFromParent();
  }
  return {root,breed,colors:breed.colors.find(c=>c.id===colorId)||breed.colors[0],ready,animate,dispose,

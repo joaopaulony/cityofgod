@@ -4,12 +4,12 @@ import fs from 'node:fs';
 import {PET_BREEDS,petBreed,validPetRow} from '../js/pet-catalog.mjs';
 import {QUATERNIUS_MODELS,clipForAction,isAnimatedBreed} from '../js/pet-animated.mjs';
 
-test('All 12 authentic Quaternius animal models join the six original pets',()=>{
- assert.equal(PET_BREEDS.length,18);
- const newBreeds=PET_BREEDS.filter(b=>b.model);
+test('All 12 authentic Quaternius animal models remain and Benny replaces legacy pets',()=>{
+ assert.equal(PET_BREEDS.length,13);
+ const newBreeds=PET_BREEDS.filter(b=>QUATERNIUS_MODELS.includes(b.model));
  assert.equal(newBreeds.length,12);
  assert.deepEqual(new Set(newBreeds.map(b=>b.model)),new Set(QUATERNIUS_MODELS));
- assert.equal(PET_BREEDS.filter(b=>!b.model).length,6);
+ assert.equal(PET_BREEDS.filter(b=>!b.model).length,0);
  for(const b of newBreeds){
   assert.ok(isAnimatedBreed(b.id));assert.equal(b.colors.length,3);
   assert.ok(b.targetHeight>.25&&b.targetHeight<2);
@@ -42,8 +42,10 @@ test('Action map uses a real imported animation for all six pet states',()=>{
   assert.equal(clipForAction('sniff',clips),'Eating');
  }
 });
-test('All original six pets retain their names, IDs and saved coat IDs',()=>{
- for(const name of ['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese']){
-  const b=petBreed(name);assert.ok(b&&!b.model&&b.colors.length===3);
- }
+test('Six procedural dogs/cats retired; imported Rottweiler is distinct',()=>{
+ for(const old of ['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese'])
+  assert.equal(petBreed(old),undefined);
+ const b=petBreed('benny');assert.ok(b&&b.model==='Benny'&&b.format==='fbx');
+ assert.equal(b.colors.length,3);
+ assert.ok(validPetRow({id:'x',breed:'benny',color:'original',name:'Benny',home:'h'}));
 });

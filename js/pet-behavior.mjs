@@ -42,6 +42,16 @@ export function createPetController(services){
  const notify=text=>services.notify?.(text),player=services.player;
  try{
   const saved=JSON.parse(services.storage?.getItem(KEY)||'null');
+  if(saved?.version===1&&Array.isArray(saved.pets)){
+    const retired=new Set(['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese']);
+    const archived=saved.pets.filter(p=>retired.has(p?.breed));
+    // Never destroy owners' old saves, even though these six generated animals
+    // have been retired from the visible game catalog.
+    if(archived.length&&!services.storage?.getItem('cityofgod.house-pets.retired-backup.v1')){
+      try{services.storage?.setItem('cityofgod.house-pets.retired-backup.v1',
+        JSON.stringify({version:1,pets:archived}));}catch{}
+    }
+  }
   if(saved?.version===1&&Array.isArray(saved.pets))for(const r of saved.pets.slice(0,MAX))if(validPetRow(r)&&!rows.some(p=>p.id===r.id)&&rows.filter(p=>p.home===r.home).length<PER_HOME)
    rows.push({id:r.id,breed:r.breed,color:r.color,name:r.name,home:r.home,floor:Number.isInteger(r.floor)&&r.floor>=0&&r.floor<20?r.floor:0});
  }catch{}

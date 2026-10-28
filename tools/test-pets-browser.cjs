@@ -25,7 +25,7 @@ let browser;
  await page.locator('#city-pets-entry').click();await page.waitForSelector('#city-pets[open]');
  assert.equal(await page.locator('[data-pet-adopt]').count(),18);
  await page.screenshot({path:'artifacts/pets/painel-no-jogo.png'});
- for(const id of ['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese']){
+ for(const id of ['shibainu','husky','fox','wolf','deer','alpaca']){
   await page.locator(`[data-pet-adopt="${id}"]`).click();
  }
  assert.equal(await page.evaluate(()=>CityPets.controller.count),6);
