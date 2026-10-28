@@ -292,7 +292,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
    const joints=[];root.traverse(node=>{if(node.isBone)joints.push(node.name)});
-   source.textContent='ESQUELETO · '+joints.length+' OSSOS · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
+   source.textContent='SOMENTE OSSOS · '+joints.length+' ARTICULAÇÕES · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
+   system.handSkeletonStats={bones:joints.length,extendedFingers:joints.filter(n=>/^((Left)|(Right))Hand(Thumb|Index|Middle|Ring|Pinky)/.test(n)).length,helperBones:previewSkeleton?.bones?.length||0};
    loading.hidden=true;syncPreview();
   }catch(error){loading.textContent='Prévia de ossos: '+String(error.message||error);source.textContent='NENHUM MODELO HUMANO';}
  }
