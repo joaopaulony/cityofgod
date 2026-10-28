@@ -78,6 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: feat/realistic-gta-humans-20261028
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
@@ -106,5 +107,7 @@ jobs:
           git add assets/characters/realistic
           if ! git diff --cached --quiet; then
             git commit -m 'assets(humans): import vetted low-triangle finger-rigged Ara characters to beta'
+            git fetch origin feat/realistic-gta-humans-20261028
+            git rebase origin/feat/realistic-gta-humans-20261028
             git push origin HEAD:feat/realistic-gta-humans-20261028
           fi
