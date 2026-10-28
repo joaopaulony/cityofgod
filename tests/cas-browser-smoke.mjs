@@ -15,14 +15,14 @@ try{
  console.log('CAS_BOOT_DIAGNOSTICS',JSON.stringify(await page.evaluate(()=>({ready:window.__testReady,dialog:!!document.querySelector('#city-cas-dialog'),editorOpen:!!document.querySelector('#city-cas-dialog[open]'),body:document.body.innerText.slice(0,500)}))),JSON.stringify(errors));
  await page.waitForFunction(()=>window.__testReady===true,null,{timeout:40000});
  await page.locator('#city-cas-dialog[open]').waitFor({timeout:15000});
- await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('DAVID'),null,{timeout:40000});
+ await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:40000});
  assert.equal(await page.locator('[data-cas-tab=artlist]').count(),0,'Artlist experiment must be hidden from players');
  assert.equal(await page.locator('[data-cas-section=artlist]').count(),0);
  assert.equal(await page.locator('#cas-roster-slot option').count(),0);
  await page.locator('input[name=name]').fill('Camila Teste');
  await page.locator('[data-cas-tab=body]').click();
  await page.locator('input[name=sex][value=female]').check();
- await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('MEGAN'),null,{timeout:40000});
+ await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:40000});
  await page.locator('[data-cas-tab=clothes]').click();
  await page.locator('select[name=outfit]').selectOption('sport');
  assert.equal(await page.locator('[name=top]').inputValue(),'#b54839');
@@ -54,5 +54,5 @@ try{
  const dims=await page.evaluate(()=>({window:innerWidth,doc:document.documentElement.scrollWidth,dialog:document.querySelector('#city-cas-dialog').getBoundingClientRect().width}));
  assert.ok(dims.doc<=dims.window+1,'unexpected horizontal overflow: '+JSON.stringify(dims));
  assert.deepEqual(errors,[]);
- console.log('CAS BROWSER QA PASS',JSON.stringify({savedProfiles:2,modelSwitch:'male↔female',outfits:true,mobile:dims,errors:0}));
+ console.log('CAS BROWSER QA PASS',JSON.stringify({savedProfiles:2,modelSwitch:'male↔female rig only',outfits:true,mobile:dims,errors:0}));
 }catch(error){console.error('CAS_BROWSER_ERRORS',JSON.stringify(errors));console.error('CAS_BROWSER_FAILURE',String(error.stack||error));await page.screenshot({path:'artifacts/cas-qa/failure.png'}).catch(()=>{});throw error;}finally{await browser.close();}
