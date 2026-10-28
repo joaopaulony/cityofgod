@@ -188,6 +188,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    const factor=1.72/height;
    root.scale.multiplyScalar(factor);
    root.position.y-=bounds.min.y*factor;
+   root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
    mixer=new THREE.AnimationMixer(root);
    modelAnimations=gltf.animations||[];
@@ -215,8 +216,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function syncPreview(){
   if(!previewRoot)return;
-  previewRoot.scale.setScalar(1);
-  // Normalization is applied to the actual model at load; retain it.
+  // Preserve the imported GLB scale when changing character proportions.
   const initial=previewRoot.userData.casBaseScale||(previewRoot.userData.casBaseScale=previewRoot.scale.clone());
   previewRoot.scale.set(initial.x*draft.build,initial.y*draft.height,initial.z*draft.build);
   recolor(previewRoot,draft);
@@ -227,7 +227,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(!renderer||!dialog.open)return;
   const {width,height}=canvas.getBoundingClientRect();
   if(width<10||height<10)return;
-  renderer.setSize(Math.round(width),Math.round(height),false);
+  const w=Math.round(width),h=Math.round(height);
+  if(canvas.width===w&&canvas.height===h)return;
+  renderer.setSize(w,h,false);
   camera.aspect=width/height;camera.updateProjectionMatrix();
  }
  function animate(t){
