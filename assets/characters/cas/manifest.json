@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "description": "Cadastro de GLB para o CAS. Quando os modelos Higgsfield estiverem prontos, coloque male.glb e female.glb nesta pasta, configure os slots de material e informe os nomes dos clipes. Até lá, o CAS usa David e Megan de Mixamo como bases provisórias.",
+  "models": []
+}
