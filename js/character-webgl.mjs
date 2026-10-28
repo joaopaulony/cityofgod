@@ -270,41 +270,72 @@ export function createCharacterSystem(scene,bridge){
    if(provider==='cartoon')installCartoonCreator(system,bridge,assets.get('david').gltf);
    if(provider!=='cartoon'&&provider!=='realistic-base'&&!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
    if(provider==='cas'){
-    // Import the one female mannequin extracted from the user's original GLB.
-    // Male geometry was not present in that package; we do not fabricate it.
     const playerEntry=entries.get(bridge.player);
     if(!playerEntry)throw Error('Rig de movimentação indisponível');
-    try{
-     const gltf=await loader.loadAsync('assets/characters/cas/female-vincent.glb');
-     const root=cloneSkeleton(gltf.scene);
-     const box=new THREE.Box3().setFromObject(root);
-     if(!Number.isFinite(box.max.y-box.min.y)||box.max.y-box.min.y<1)throw Error('Corpo GLB inválido');
-     root.traverse(node=>{if(node.isMesh){node.material=Array.isArray(node.material)?node.material.map(m=>m.clone()):node.material.clone();node.castShadow=true;node.frustumCulled=false;}});
-     scene.add(root);scene.remove(playerEntry.root);
-     const mixer=new THREE.AnimationMixer(root);
-     playerEntry.mixer.stopAllAction();
-     Object.assign(playerEntry,{root,mixer,actions:new Map(gltf.animations.map(c=>[c.name,mixer.clipAction(c)])),clip:null,action:null,casBody:'female',casAssetReady:true,
-      spec:{...playerEntry.spec,sex:'female',triangles:33019,bones:25},
-      domesticRig:createDomesticRig(root)});
-    }catch(error){
-     // Keep a skeleton for safety if licensed files are absent.
-     playerEntry.root.traverse(node=>{if(node.isMesh)node.visible=false;});
-     system.casWarnings.push('Base feminina não instalada: '+String(error.message||error));
+    const bodies=new Map([['male',assets.get('david')],['female',assets.get('megan')]]);
+    // The existing Mixamo bases stay functional until each new external rig
+    // has passed the runtime GLB, skin, clip and visual acceptance tests.
+    playerEntry.casBody='male';
+    function styleMaterials(root,profile){
+     root.traverse(node=>{
+      if(!node.isMesh)return;
+      for(const material of Array.isArray(node.material)?node.material:[node.material]){
+       if(!material?.color)return;
+       const name=String(material.name||'').toLowerCase();
+       // Do not recolor a texture atlas containing skin and clothing together.
+       if(/(?:^|[_ -])hair(?:[_ -]|$)/.test(name)&&!material.map)material.color.set(profile.hair);
+       else if(/shirt|upperbody|top/.test(name)&&!material.map)material.color.set(profile.top);
+       else if(/pants|trousers|bottom/.test(name)&&!material.map)material.color.set(profile.bottom);
+       else if(/skin|skintone/.test(name)&&!material.map)material.color.set(profile.skin);
+      }
+     });
     }
-    if(playerEntry.gun)playerEntry.gun.visible=false;
     system.applyCAS=async values=>{
      const next=normalizeCAS({...system.casProfile,...values});
      const entry=entries.get(bridge.player);
      if(!entry)throw Error('Rig de movimentação indisponível');
+     if(entry.casBody!==next.sex){
+      const item=bodies.get(next.sex);
+      if(!item)throw Error('Base corporal '+next.sex+' indisponível');
+      const {gltf,spec}=item;
+      const root=cloneSkeleton(gltf.scene);
+      root.traverse(node=>{
+       if(!node.isMesh)return;
+       node.material=Array.isArray(node.material)?node.material.map(mat=>mat.clone()):node.material.clone();
+       node.castShadow=true;node.receiveShadow=true;node.frustumCulled=false;
+      });
+      const mixer=new THREE.AnimationMixer(root);
+      const actions=new Map(gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
+      if(!actions.size)throw Error('Base escolhida sem animações');
+      // Build the replacement before removing the old player, so errors
+      // cannot leave the world without a visible character.
+      scene.add(root);
+      casHair.release(entry.root);
+      entry.mixer.stopAllAction();
+      entry.mixer.uncacheRoot(entry.root);
+      scene.remove(entry.root);
+      Object.assign(entry,{root,mixer,actions,spec,clip:null,action:null,
+       domesticRig:createDomesticRig(root),casBody:next.sex,casBaseScale:root.scale.clone()});
+     }
+     if(!entry.casBaseScale)entry.casBaseScale=entry.root.scale.clone();
+     entry.root.scale.set(
+      entry.casBaseScale.x*next.build,
+      entry.casBaseScale.y*next.height,
+      entry.casBaseScale.z*next.build
+     );
+     styleMaterials(entry.root,next);
      await casHair.set(entry.root,next.hairStyle,next.hair);
      system.casProfile=next;
+     bridge.player.name=next.name;
      system.update(0);
      return next;
     };
     try{await system.applyCAS(system.casProfile);}
-    catch(error){system.casWarnings.push('Carregamento de cabelo: '+String(error.message||error));}
-    installCASCreator(system,bridge,null,casHair);
-    system.models=playerEntry.casAssetReady?[{sex:'female',origin:'Sketchfab · Vincent Freelance CC BY',triangles:33019,bones:25}]:[];system.availableBodies=playerEntry.casAssetReady?['female']:[];
+    catch(error){system.casWarnings.push('Aparência: '+String(error.message||error));}
+    if(playerEntry.gun)playerEntry.gun.visible=false;
+    installCASCreator(system,bridge,bodies,casHair);
+    system.availableBodies=['male','female'];
+    system.models=[{sex:'male',origin:'Mixamo David'},{sex:'female',origin:'Mixamo Megan'}];
    }
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Mixamo characters',error);}
