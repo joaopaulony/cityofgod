@@ -11,6 +11,7 @@ import {createDomesticRig} from './domestic-rig.mjs';
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadCASHairSystem} from './cas-hair.mjs';
+import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
@@ -89,7 +90,9 @@ export function createCharacterSystem(scene,bridge){
     }
     a.characterClip=e.clip=chooseCharacterClip(a);continue;
    }
-   const id=chooseCharacterClip(a),clip=e.spec.clips[id]?id:'idle';
+   // Emotes use the same live skeleton/mixer and yield immediately to movement or combat.
+   if(e.emote&&(performance.now()>e.emote.end||a.speed>.12||a.armed||a.jump||a.homeAction||bridge.driving()))e.emote=null;
+   const id=e.emote?'cas_'+e.emote.id:chooseCharacterClip(a),clip=e.spec.clips[id]?id:'idle';
    if(e.clip!==clip){
     const meta=e.spec.clips[clip],action=e.actions.get(meta.name);
     if(!action)continue;
@@ -272,6 +275,17 @@ export function createCharacterSystem(scene,bridge){
    if(provider==='cas'){
     const playerEntry=entries.get(bridge.player);
     if(!playerEntry)throw Error('Rig de movimentação indisponível');
+    const buildEmotes=(entry,baseSpec)=>{
+     const clips=createCASEmoteClips(entry.root);
+     entry.spec={...baseSpec,clips:{...baseSpec.clips}};
+     for(const clip of clips){
+      const id=clip.name.slice(4),info=CAS_EMOTES[id];
+      if(!info)continue;
+      entry.actions.set(clip.name,entry.mixer.clipAction(clip));
+      entry.spec.clips['cas_'+id]={name:clip.name,duration:clip.duration,loop:info.loop,speed:0};
+     }
+    };
+    buildEmotes(playerEntry,playerEntry.spec);
     const bodies=new Map([['male',assets.get('david')],['female',assets.get('megan')]]);
     // The existing Mixamo bases stay functional until each new external rig
     // has passed the runtime GLB, skin, clip and visual acceptance tests.
@@ -311,11 +325,13 @@ export function createCharacterSystem(scene,bridge){
       // cannot leave the world without a visible character.
       scene.add(root);
       casHair.release(entry.root);
+      releaseCASVisual(entry.root);
       entry.mixer.stopAllAction();
       entry.mixer.uncacheRoot(entry.root);
       scene.remove(entry.root);
-      Object.assign(entry,{root,mixer,actions,spec,clip:null,action:null,
+      Object.assign(entry,{root,mixer,actions,spec,clip:null,action:null,emote:null,
        domesticRig:createDomesticRig(root),casBody:next.sex,casBaseScale:root.scale.clone()});
+      buildEmotes(entry,spec);
      }
      if(!entry.casBaseScale)entry.casBaseScale=entry.root.scale.clone();
      entry.root.scale.set(
@@ -324,6 +340,7 @@ export function createCharacterSystem(scene,bridge){
       entry.casBaseScale.z*next.build
      );
      styleMaterials(entry.root,next);
+     applyCASVisual(entry.root,next);
      await casHair.set(entry.root,next.hairStyle,next.hair);
      system.casProfile=next;
      bridge.player.name=next.name;
@@ -334,6 +351,36 @@ export function createCharacterSystem(scene,bridge){
     catch(error){system.casWarnings.push('Aparência: '+String(error.message||error));}
     if(playerEntry.gun)playerEntry.gun.visible=false;
     installCASCreator(system,bridge,bodies,casHair);
+    system.playEmote=(id)=>{
+     if(!CAS_EMOTES[id])return false;
+     const entry=entries.get(bridge.player),a=bridge.player;
+     if(!entry?.spec.clips['cas_'+id]||a.armed||a.speed>.12||bridge.driving()||a.homeAction)return false;
+     entry.emote={id,end:performance.now()+CAS_EMOTES[id].duration*1000};
+     entry.clip=null;
+     return true;
+    };
+    const emoteToggle=document.createElement('button');
+    emoteToggle.id='cas-emote-toggle';emoteToggle.textContent='Gestos · F6';
+    emoteToggle.style.cssText='position:fixed;left:14px;bottom:130px;z-index:45;background:#151b1a;color:#e9b86e;border:1px solid #b58e52;padding:10px 15px;cursor:pointer;font:700 12px system-ui';
+    const emotePanel=document.createElement('div');
+    emotePanel.id='cas-emote-panel';emotePanel.hidden=true;
+    emotePanel.style.cssText='position:fixed;bottom:173px;left:14px;z-index:45;display:grid;gap:5px;background:#121818ef;padding:12px;border:1px solid #ad8951;max-height:300px;overflow:auto';
+    for(const [name,info] of Object.entries(CAS_EMOTES)){
+     const action=document.createElement('button');action.textContent=info.label;action.type='button';
+     action.style.cssText='background:#28312f;color:#f2e5d0;border:0;padding:10px;cursor:pointer';
+     action.onclick=()=>{system.playEmote(name);emotePanel.hidden=true;};
+     emotePanel.append(action);
+    }
+    document.body.append(emoteToggle,emotePanel);
+    const toggleEmotes=()=>{if(window.CityFront?.phase!=='playing'||window.cityCharacterEditorOpen)return;emotePanel.hidden=!emotePanel.hidden;};
+    emoteToggle.onclick=toggleEmotes;
+    document.addEventListener('keydown',event=>{
+     if(event.key==='F6'&&!event.repeat&&window.CityFront?.phase==='playing'&&!window.cityCharacterEditorOpen&&!event.target?.matches('input,textarea,select')){
+      event.preventDefault();toggleEmotes();
+     }
+     if(event.key==='Escape')emotePanel.hidden=true;
+    });
+    window.addEventListener('blur',()=>{emotePanel.hidden=true;});
     system.availableBodies=['male','female'];
     system.models=[{sex:'male',origin:'Mixamo David'},{sex:'female',origin:'Mixamo Megan'}];
    }
