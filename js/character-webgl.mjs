@@ -9,7 +9,6 @@ import {createTombRig} from './tomb-rig.mjs';
 import {createCC3Rig} from './cc3-rig.mjs';
 import {createDomesticRig} from './domestic-rig.mjs';
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
-import {loadCASAssets,applyCASStyle} from './cas-assets.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadCASHairSystem} from './cas-hair.mjs';
 
@@ -114,7 +113,7 @@ export function createCharacterSystem(scene,bridge){
     e.domesticRig?.update(a);
     if(e.mixamo){
      e.root.updateMatrixWorld(true);
-     e.gun.visible=a.armed&&!a.traversal;
+     e.gun.visible=(provider!=='cas'||a!==bridge.player)&&a.armed&&!a.traversal;
      if(a.armed){
       const right=e.root.getObjectByName('mixamorigRightHand'),left=e.root.getObjectByName('mixamorigLeftHand');
       right.getWorldPosition(e.grip);left.getWorldPosition(e.support);
@@ -247,12 +246,10 @@ export function createCharacterSystem(scene,bridge){
     }
     assets.set(spec.id,{spec,gltf});
    }
-   let casAssets,casHair;
+   let casHair;
    if(provider==='cas'){
     casHair=await loadCASHairSystem(loader);
-    const registry=await loadCASAssets(loader,assets);
-    casAssets=registry.bases;
-    system.casWarnings=[...registry.warnings,...casHair.warnings];
+    system.casWarnings=casHair.warnings;
     let saved=null;try{saved=readCAS(window.localStorage);}catch{}
     system.casProfile=saved||CAS_DEFAULT;
    }
@@ -273,52 +270,25 @@ export function createCharacterSystem(scene,bridge){
    if(provider==='cartoon')installCartoonCreator(system,bridge,assets.get('david').gltf);
    if(provider!=='cartoon'&&provider!=='realistic-base'&&!assets.has('megan'))system.errors.push('Megan: aguardando download; Ana continua com o corpo original.');
    if(provider==='cas'){
+    // Keep the animated player rig for interactions, but hide every body mesh.
+    // No male/female body selection remains in the CAS UI.
+    const playerEntry=entries.get(bridge.player);
+    if(!playerEntry)throw Error('Rig de movimentação indisponível');
+    playerEntry.root.traverse(node=>{if(node.isMesh)node.visible=false;});
+    if(playerEntry.gun)playerEntry.gun.visible=false;
     system.applyCAS=async values=>{
-     const next=normalizeCAS(values),item=casAssets.get(next.sex);
-     const actor=bridge.player,existing=entries.get(actor);
-     if(!item||!existing)throw Error('Base masculina/feminina indisponível');
-     let entry=existing;
-     if(existing.casAsset!==item){
-      const root=cloneSkeleton(item.gltf.scene);
-      root.traverse(o=>{if(o.isMesh){
-       o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();
-       o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
-      }});
-      if(item.origin==='GLB personalizado'){
-       const bound=new THREE.Box3().setFromObject(root),height=bound.max.y-bound.min.y;
-       if(Number.isFinite(height)&&height>.001&&height<10000){
-        const factor=1.75/height;root.scale.multiplyScalar(factor);
-        root.userData.casFloorOffset=-bound.min.y*factor;
-       }
-      }
-      root.userData.casOriginalScale=root.scale.clone();
-      const mixer=new THREE.AnimationMixer(root),actions=new Map(item.gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
-      const compatible=item.spec.rig==='mixamo';
-      const gun=existing.gun;if(gun&&!compatible)gun.visible=false;
-      entry={...existing,root,mixer,actions,spec:item.spec,clip:null,action:null,lastRecoil:Infinity,
-       appearance:next,casAsset:item,casSex:next.sex,casOwnMaterials:true,mixamo:compatible,
-       domesticRig:compatible?createDomesticRig(root):null,rest:new Map(),cartoonRest:[],
-       muzzle:compatible?existing.muzzle:null};
-      scene.add(root);
-      entries.set(actor,entry);
-      existing.mixer?.stopAllAction();scene.remove(existing.root);
-      casHair.release(existing.root);
-      if(existing.casOwnMaterials)existing.root.traverse(o=>{
-       if(o.isMesh)for(const material of Array.isArray(o.material)?o.material:[o.material])material.dispose();
-      });
-     }
-     entry.appearance=next;
-     actor.name=next.name;
-     applyCASStyle(entry.root,next,entry.spec);
+     const next=normalizeCAS({...system.casProfile,...values});
+     const entry=entries.get(bridge.player);
+     if(!entry)throw Error('Rig de movimentação indisponível');
      await casHair.set(entry.root,next.hairStyle,next.hair);
      system.casProfile=next;
      system.update(0);
      return next;
     };
     try{await system.applyCAS(system.casProfile);}
-    catch(error){system.casWarnings.push('Carregamento do perfil: '+String(error.message||error));}
-    installCASCreator(system,bridge,casAssets,casHair);
-    system.models=[...casAssets.values()].map(x=>({sex:x.spec.sex,origin:x.origin,triangles:x.spec.triangles,bones:x.spec.bones}));
+    catch(error){system.casWarnings.push('Carregamento de cabelo: '+String(error.message||error));}
+    installCASCreator(system,bridge,null,casHair);
+    system.models=[];system.availableBodies=[];
    }
    system.update(0);
   }catch(error){system.status='failed';system.errors.push(String(error));console.error('Mixamo characters',error);}
