@@ -15,7 +15,7 @@ scene.add(new T.HemisphereLight(0xf2faff,0x23313c,2.0));
 const lamp=new T.DirectionalLight('#ffe9cf',3.2);lamp.position.set(-5,12,10);scene.add(lamp);
 const rim=new T.DirectionalLight('#cedbff',1.1);rim.position.set(4,8,-5);scene.add(rim);
 const platform=new T.Mesh(new T.PlaneGeometry(35,24),new T.MeshStandardMaterial({color:'#33434b',roughness:1}));platform.rotation.x=-Math.PI/2;scene.add(platform);
-const aspect=innerWidth/innerHeight,camera=new T.OrthographicCamera(-6.3*aspect,6.3*aspect,6.3,-6.3,.1,80);
+const aspect=innerWidth/innerHeight,camera=new T.OrthographicCamera(-3.55*aspect,3.55*aspect,3.55,-3.55,.1,80);
 camera.position.set(0,5.3,13.3);camera.lookAt(0,1.2,0);
 const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;document.body.append(renderer.domElement);
