@@ -12,7 +12,7 @@ try{
  await page.goto('http://127.0.0.1:4322/tests/cas-browser-smoke.html?testReborn=1',{waitUntil:'domcontentloaded',timeout:30000});
  await page.waitForFunction(()=>window.__testReady===true,null,{timeout:60000});
  await page.locator('#city-cas-dialog[open]').waitFor({timeout:20000});
- await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('CAS REBORN'),null,{timeout:60000});
+ await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:60000});
  console.log('CAS_REBORN_MALE',await page.locator('#cas-preview-source').innerText());
  await page.locator('[data-cas-tab=animations]').click();
  for(const id of ['idle','walk','run','jump_air']){
@@ -22,7 +22,7 @@ try{
  await page.screenshot({path:'artifacts/cas-qa/reborn-male-desktop.png'});
  await page.locator('[data-cas-tab=body]').click();
  await page.locator('input[name=sex][value=female]').check();
- await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('FEMININO'),null,{timeout:60000});
+ await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent.includes('SOMENTE OSSOS'),null,{timeout:60000});
  console.log('CAS_REBORN_FEMALE',await page.locator('#cas-preview-source').innerText());
  await page.screenshot({path:'artifacts/cas-qa/reborn-female-desktop.png'});
  await page.locator('[data-cas-tab=identity]').click();
@@ -38,6 +38,6 @@ try{
  assert.ok(dims.documentWidth<=dims.width+2,JSON.stringify(dims));
  await page.screenshot({path:'artifacts/cas-qa/reborn-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('CAS_REBORN_QA_PASS',JSON.stringify({characters:2,animations:4,persistence:true,display:'3D',mobile:dims}));
+ console.log('CAS_REBORN_QA_PASS',JSON.stringify({characters:2,animations:4,persistence:true,display:'animated skeleton only',mobile:dims}));
 }catch(e){console.error('CAS_REBORN_ERRORS',JSON.stringify(errors));console.error(e.stack||String(e));await page.screenshot({path:'artifacts/cas-qa/reborn-failure.png',fullPage:true}).catch(()=>{});throw e;}
 finally{await browser.close();}
