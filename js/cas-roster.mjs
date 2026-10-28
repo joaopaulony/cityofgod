@@ -1,6 +1,6 @@
 import {CAS_DEFAULT,CAS_KEY,normalizeCAS,readCAS,writeCAS} from './cas-profile.mjs';
 
-export const ROSTER_KEY='cityofgod.cas.roster.v1';
+export const ROSTER_KEY='cityofgod.cas.roster.skeleton.v2';
 export const MAX_CHARACTERS=3;
 const cleanId=id=>typeof id==='string'&&/^character-[a-z0-9-]{1,50}$/.test(id)?id:null;
 const candidate=(profile,id)=>({id,profile:normalizeCAS(profile)});
