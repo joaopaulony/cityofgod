@@ -9,6 +9,8 @@ on:
       - 'js/cas-creator.mjs'
       - 'js/game.js'
       - 'tests/realistic-beta-browser.mjs'
+      - 'tests/cas-realistic-gallery.mjs'
+      - 'tests/cas-realistic-smoke.html'
       - '.github/workflows/realistic-human-browser.yml'
   workflow_dispatch:
 permissions:
@@ -42,6 +44,7 @@ jobs:
             curl -fsS http://127.0.0.1:4322/ >/dev/null && break
             sleep 1
           done
+          node tests/cas-realistic-gallery.mjs
           node tests/realistic-beta-browser.mjs
       - name: Upload real Chromium screenshots
         if: always()
