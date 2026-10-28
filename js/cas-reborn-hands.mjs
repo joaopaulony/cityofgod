@@ -44,10 +44,10 @@ function basis(root,side){
  const towardPalm=palmW.applyQuaternion(inv).normalize();
  const bend=along.clone().cross(towardPalm).normalize();
  if(bend.lengthSq()<.5)throw Error('CAS Reborn: invalid flexion axis '+side);
- // GLB joint translations are in centimeters and the GLB scene scales them
- // to meters; using the existing forearm length makes both bodies match.
+ // Lengths are relative to the source wrist-to-forearm span, working with
+ // both centimeters in Meshy GLBs and meters in our synthetic rig tests.
  const forearmUnits=hand.position.length();
- if(forearmUnits<1)throw Error('CAS Reborn: unexpected wrist units '+side);
+ if(forearmUnits<.03)throw Error('CAS Reborn: unexpectedly short wrist '+side);
  return {hand,along,outside,towardPalm,bend,length:forearmUnits};
 }
 
