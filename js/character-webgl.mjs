@@ -8,6 +8,7 @@ import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
 import {loadApprovedHumans} from './cas-realistic.mjs';
+import {createResidents} from './cas-population.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
@@ -16,7 +17,8 @@ export function createCharacterSystem(scene,bridge){
  const loader=new GLTFLoader();
  let bodies=null;
  const showRealistic=new URLSearchParams(window.location.search).has('humansbeta');
- let spawnedNPCs=false;
+
+
  const system={
   status:'loading',ready:false,enabled:true,provider:'skeleton-only',humanModelsEnabled:false,
   errors:[],frames:0,models:[],availableBodies:['male','female'],
@@ -55,7 +57,7 @@ export function createCharacterSystem(scene,bridge){
   }
   return false;
  };
- system.has=a=>a===bridge.player; // suppress any legacy Canvas fallback.
+ system.has=a=>a===bridge.player||entries.has(a); // prevents duplicate Canvas bodies
  function mount(a,sex){
   const item=bodies?.get(sex);
   if(!item)throw Error('Esqueleto '+sex+' indisponível');
@@ -157,10 +159,10 @@ export function createCharacterSystem(scene,bridge){
    system.rebornNotice=system.humanModelsEnabled?'Humanos GTA beta verificados; LOD e CAS em teste.':'Somente esqueletos e animações. Modelos humanos removidos.';
    await system.applyCAS(system.casProfile);
    if(system.humanModelsEnabled){
-    // Use existing engine movement and pathing; disabled for normal players.
-    for(const n of bridge.npcs||[])mount(n,n.population?.sex==='female'?'female':'male');
-    system.populationCount=(bridge.npcs||[]).length;
-    spawnedNPCs=true;
+    const profiles=createResidents(20261028,Math.min(10,(navigator.hardwareConcurrency||4)<6?6:10));
+    const residents=bridge.spawnRealisticNPCs?.(profiles)||[];
+    for(const n of residents)mount(n,n.population?.sex==='female'?'female':'male');
+    system.populationCount=residents.length;
    }
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
