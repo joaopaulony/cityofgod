@@ -2,7 +2,8 @@
 // Visuals are generated from the two shared rigged Reborn bodies by the WebGL module.
 (function(root){
  'use strict';
- const FIRST=['Caio','Julia','Mateus','Bruna','Renato','Carolina','Diego','Isabela','Pedro','Marina','Rafael','Beatriz','André','Larissa','Vitor','Luana','Henrique','Camila','Thiago','Aline','Davi','Yasmin','Samuel','Valentina','Enzo','Gabriela','Igor','Paula','Nicolas','Fernanda'];
+ const FIRST_F=['Julia','Bruna','Carolina','Isabela','Marina','Beatriz','Larissa','Luana','Camila','Aline','Yasmin','Valentina','Gabriela','Paula','Fernanda'];
+ const FIRST_M=['Caio','Mateus','Renato','Diego','Pedro','Rafael','André','Vitor','Henrique','Thiago','Davi','Samuel','Enzo','Igor','Nicolas'];
  const LAST=['Almeida','Pereira','Lima','Santos','Costa','Nogueira','Ramos','Fernandes','Gomes','Ribeiro','Moreira','Barbosa','Oliveira','Carvalho','Martins','Rocha','Vieira','Monteiro'];
  const SKINS=['#f1c9a3','#e7ad7f','#d99768','#c48356','#a96848','#8d5339','#623b30','#472b24'];
  const HAIR=['#171315','#37241a','#754a2d','#b18b60','#2c272e','#775c50','#ba8e6a'];
@@ -21,7 +22,7 @@
   const style=choice(ROLES),headwear=choice(HEADS);
   // Name/sex are fictional demographic descriptors, not inferred from skin tone.
   return Object.freeze({
-   id:'resident-'+n,seed:hash(seed+'|'+n),name:choice(FIRST)+' '+choice(LAST),sex,age:18+Math.floor(rng()*53),
+   id:'resident-'+n,seed:hash(seed+'|'+n),name:choice(sex==='female'?FIRST_F:FIRST_M)+' '+choice(LAST),sex,age:18+Math.floor(rng()*53),
    role:style,height:+(.89+rng()*.22).toFixed(3),build:+(.86+rng()*.29).toFixed(3),
    skin:choice(SKINS),hair:choice(HAIR),top:choice(TOPS),bottom:choice(BOTTOMS),
    shoes:choice(SHOES),headwear,accent:choice(TOPS),walkSpeed:+(1.05+rng()*.55).toFixed(3),
