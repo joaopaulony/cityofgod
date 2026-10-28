@@ -46,6 +46,9 @@ export function createRebornUpperBodyMotion(root){
  // Reused allocations: no objects created every animation frame.
  const rootQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion(),q=new THREE.Quaternion(),axis=new THREE.Vector3(),axisWorld=new THREE.Vector3();
  let current={...REBORN_MOTION_PRESETS.off},phase=0,mode='off',updated=0,handDynamics=0;
+ const tracked=[torso,...REBORN_UPPER_BODY_BONES.map(name=>bones[name])];
+ const before=tracked.map(()=>new THREE.Quaternion());
+ let hasOverlay=false;
  const rotate=(bone,worldRelativeAxis,angle)=>{
   if(Math.abs(angle)<1e-7)return;
   // Convert character-local axis to parent-local axis, including turn + pose.
@@ -74,7 +77,17 @@ export function createRebornUpperBodyMotion(root){
   handDynamics+=Math.abs(current.wrist*wave);
  };
  return {
+  // Called before mixer.update(), so clips missing a joint cannot inherit the
+  // last frame's procedural wrist/shoulder offsets. Also safe when idle or off.
+  restore(){
+   if(!hasOverlay)return;
+   tracked.forEach((bone,i)=>bone.quaternion.copy(before[i]));
+   hasOverlay=false;
+   root.updateMatrixWorld(true);
+  },
   update(dt,{clip='idle',time=null,duration=null}={}){
+   tracked.forEach((bone,i)=>before[i].copy(bone.quaternion));
+   hasOverlay=true;
    mode=rebornMotionType(clip);
    const preset=REBORN_MOTION_PRESETS[mode];
    const step=clamp(finite(dt),0,.075);
