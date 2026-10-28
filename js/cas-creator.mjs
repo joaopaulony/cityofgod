@@ -22,6 +22,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<button type="button" data-cas-tab="clothes" aria-pressed="false">◧ &nbsp; Roupas</button>',
  '<button type="button" data-cas-tab="style" aria-pressed="false">★ &nbsp; Estilo</button>',
  '<button type="button" data-cas-tab="animations" aria-pressed="false">▶ &nbsp; Animações</button>',
+ '<button type="button" data-cas-tab="artlist" aria-pressed="false">◇ &nbsp; Modelos Artlist</button>',
  '<p class="cas-small">Personagem em 3D real. Arraste para girar. As animações são reproduzidas no próprio modelo.</p></nav>',
  '<div class="cas-stage"><canvas id="cas-preview" aria-label="Prévia 3D interativa do personagem" tabindex="0"></canvas><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
  '<form id="cas-form" class="cas-controls"><section class="cas-section" data-cas-section="identity"><h2>Identidade</h2><p>Crie alguém para viver sua própria história na cidade.</p>',
@@ -56,7 +57,11 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<section class="cas-section" data-cas-section="animations" hidden><h2>Estúdio de animação</h2><p>Reproduza os 22 clipes existentes e seis gestos esqueléticos novos usando o mesmo personagem 3D.</p>',
  '<label class="cas-field"><span>Ação</span><select name="previewAction"><option value="idle">Parado</option><option value="walk">Caminhar</option><option value="run">Correr</option><option value="crouch">Agachar</option><option value="jump_air">Pular</option>',
  ...Object.entries(CAS_EMOTES).map(([id,entry])=>'<option value="cas_'+id+'">'+entry.label+'</option>'),
- '</select></label><div class="cas-tip">Estas animações são transformações de ossos em Three.js, não vídeos. Gestos ficam disponíveis no jogo pelo atalho F6.</div></section></form>',
+ '</select></label><div class="cas-tip">Estas animações são transformações de ossos em Three.js, não vídeos. Gestos ficam disponíveis no jogo pelo atalho F6.</div></section>',
+ '<section class="cas-section" data-cas-section="artlist" hidden><h2>Novos personagens Artlist</h2><p>Modelos originais gerados e otimizados para avaliação visual antes do rigging e retarget das animações.</p>',
+ '<label class="cas-field"><span>Modelo em exposição</span><select name="artlistModel"><option value="marcus">Marcos · masculino</option><option value="livia">Lívia · feminino</option></select></label>',
+ '<button type="button" id="cas-view-artlist" class="cas-preview-model">Visualizar modelo 3D</button><button type="button" id="cas-back-rig" class="cas-preview-model">Voltar ao personagem animado</button>',
+ '<div class="cas-tip">Aviso: os arquivos do Artlist são malhas estáticas, sem esqueleto. Esta aba NÃO substitui o avatar no jogo. A versão jogável continua usando o rig Mixamo até a aprovação técnica do novo rig.</div></section></form>',
  '<footer class="cas-footer"><span class="cas-status" role="status" id="cas-message">O visual será salvo neste navegador.</span><div class="cas-actions"><button type="button" id="cas-cancel">Cancelar</button><button type="submit" form="cas-form" id="cas-save">Salvar personagem</button></div></footer>',
  '</div>'
  ].join('');
@@ -83,8 +88,11 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  let manifestPromise=null;
  const source=dialog.querySelector('#cas-preview-source');
  const el=name=>form.elements[name];
- let previewAnimation='idle';
+ let previewAnimation='idle',artlistMode=false;
+ const artlistPaths={marcus:'assets/characters/artlist/marcus.glb.gz',livia:'assets/characters/artlist/livia.glb.gz'};
+ const artlistCache=new Map();
  function visibleTab(name){
+  if(name!=='artlist'&&artlistMode){artlistMode=false;previewSex=null;void setPreviewSex(draft.sex);}
   for(const button of dialog.querySelectorAll('[data-cas-tab]'))button.setAttribute('aria-pressed',String(button.dataset.casTab===name));
   for(const sec of dialog.querySelectorAll('[data-cas-section]'))sec.hidden=sec.dataset.casSection!==name;
  }
@@ -215,7 +223,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(motion&&mixer){const action=mixer.clipAction(motion);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);}
  }
  async function setPreviewSex(sex){
-  if(!renderer||previewSex===sex)return;
+  if(!renderer||previewSex===sex&&!artlistMode)return;
+  artlistMode=false;
   const version=++loadingVersion;
   previewSex=sex;loading.hidden=false;loading.textContent='Carregando modelo '+(sex==='female'?'feminino':'masculino')+'…';
   try{
@@ -247,6 +256,37 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    syncPreview();
   }catch(error){loading.textContent='Falha na prévia: '+String(error.message||error);}
  }
+ async function showArtlistModel(){
+  if(!renderer)return;
+  const name=el('artlistModel').value;
+  if(!Object.hasOwn(artlistPaths,name))return;
+  const version=++loadingVersion;
+  loading.hidden=false;loading.textContent='Descompactando modelo 3D do Artlist…';
+  try{
+   if(!artlistCache.has(name))artlistCache.set(name,(async()=>{
+    if(!('DecompressionStream' in window))throw Error('Navegador sem suporte à descompactação gzip');
+    const response=await fetch(artlistPaths[name]);
+    if(!response.ok)throw Error('Modelo indisponível: HTTP '+response.status);
+    const stream=response.body.pipeThrough(new DecompressionStream('gzip'));
+    const buffer=await new Response(stream).arrayBuffer();
+    return gltfLoader.parseAsync(buffer,'assets/characters/artlist/');
+   })().catch(error=>{artlistCache.delete(name);throw error;}));
+   const gltf=await artlistCache.get(name);
+   if(version!==loadingVersion||!dialog.open)return;
+   if(previewRoot){hairSystem?.release(previewRoot);world.remove(previewRoot);}
+   mixer?.stopAllAction();mixer=null;
+   const root=gltf.scene.clone(true);
+   const bounds=new THREE.Box3().setFromObject(root),h=bounds.max.y-bounds.min.y;
+   if(!Number.isFinite(h)||h<.1)throw Error('Dimensões inválidas');
+   const scale=1.72/h;
+   root.scale.setScalar(scale);
+   root.position.set(0,-bounds.min.y*scale,0);
+   root.rotation.y=-Math.PI/2;
+   world.add(root);previewRoot=root;previewSex=null;artlistMode=true;previewHairKey='';
+   source.textContent='ARTLIST · TRIPO · MALHA SEM RIG';
+   loading.hidden=true;
+  }catch(error){loading.textContent='Não foi possível carregar o modelo: '+String(error.message||error);}
+ }
  function recolor(root,profile){
   // Do not tint a single baked texture containing both skin and clothing.
   // Dedicated material slots in future exported GLBs can be recolored safely.
@@ -264,6 +304,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function syncPreview(){
   if(!previewRoot)return;
+  if(artlistMode)return;
   // Preserve the imported GLB scale when changing character proportions.
   const initial=previewRoot.userData.casBaseScale||(previewRoot.userData.casBaseScale=previewRoot.scale.clone());
   previewRoot.scale.set(initial.x*draft.build,initial.y*draft.height,initial.z*draft.build);
@@ -288,8 +329,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    const delta=Math.min(.05,Math.max(0,(t-lastTime)/1000));lastTime=t;
    mixer?.update(delta);
    world.rotation.y=spin;
-   camera.position.set(0,1.16,zoom);
-   camera.lookAt(0,1.02,0);
+   const facial=dialog.querySelector('[data-cas-tab=face][aria-pressed=true]')!=null;
+   camera.position.set(0,facial?1.55:1.16,facial?Math.min(zoom,2.05):zoom);
+   camera.lookAt(0,facial?1.51:1.02,0);
    resize();renderer.render(scene,camera);
   }
   requestAnimationFrame(animate);
@@ -297,7 +339,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  function open(){
   if(dialog.open)return;
   loadForm(system.casProfile||readCAS(localStorage)||CAS_DEFAULT);
-  visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
+  artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
   status.textContent='Prévia local — salve para aplicar no mundo.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
@@ -318,12 +360,15 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  dialog.querySelector('.cas-nav').addEventListener('click',event=>{
   const tab=event.target.closest('[data-cas-tab]');if(tab)visibleTab(tab.dataset.casTab);
  });
+ dialog.querySelector('#cas-view-artlist').addEventListener('click',()=>{void showArtlistModel();});
+ dialog.querySelector('#cas-back-rig').addEventListener('click',()=>{artlistMode=false;previewSex=null;void setPreviewSex(draft.sex);});
  form.addEventListener('input',event=>{
+  if(event.target?.name==='artlistModel'){if(artlistMode)void showArtlistModel();return;}
   if(event.target?.name==='previewAction'){previewAnimation=event.target.value;setClip();return;}
   const next=currentDraft(),sexChanged=next.sex!==draft.sex;
   if(el('outfit')&&event?.target?.name==='outfit'){Object.assign(next,outfitPalette(next.outfit));for(const x of ['top','bottom','shoes'])el(x).value=next[x];}
   draft=next;for(const key of ['age','height','build','faceWidth','jaw','nose','eyes','cheeks'])updateOutput(key);
-  if(sexChanged)void setPreviewSex(draft.sex);else syncPreview();
+  if(sexChanged){artlistMode=false;void setPreviewSex(draft.sex);}else syncPreview();
  });
  form.addEventListener('submit',async event=>{
   event.preventDefault();const save=dialog.querySelector('#cas-save');
