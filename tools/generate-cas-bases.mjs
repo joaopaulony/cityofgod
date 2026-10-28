@@ -72,7 +72,7 @@ function makeModel(sex){
   }
   for(let a=0;a<lat;a++)for(let b=0;b<lon;b++){
    const k=start+a*(lon+1)+b;
-   quad(k,k+(lon+1),k+(lon+1)+1,k+1,material);
+   quad(k,k+1,k+(lon+1)+1,k+(lon+1),material);
   }
  }
  // Smooth body torso with anatomical waist, pelvis, trapezius and shoulder transitions.
@@ -144,7 +144,7 @@ function makeModel(sex){
   }
   for(let i=0;i<sections-1;i++)for(let k=0;k<segments;k++){
    const n=(k+1)%segments;
-   quad(ringsIdx[i][k],ringsIdx[i+1][k],ringsIdx[i+1][n],ringsIdx[i][n],mat);
+   quad(ringsIdx[i][k],ringsIdx[i][n],ringsIdx[i+1][n],ringsIdx[i+1][k],mat);
   }
  }
  for(const side of ['Left','Right']){
