@@ -31,7 +31,7 @@ try{
  await page.screenshot({path:'artifacts/cas-qa/female-desktop.png'});
  await page.locator('#cas-save').click();
  await page.waitForFunction(()=>!document.querySelector('#city-cas-dialog').open,null,{timeout:15000});
- let s=await page.evaluate(()=>({profile:window.fakeSystem.casProfile,roster:JSON.parse(localStorage.getItem('cityofgod.cas.roster.v1'))}));
+ let s=await page.evaluate(()=>({profile:window.fakeSystem.casProfile,roster:JSON.parse(localStorage.getItem('cityofgod.cas.roster.skeleton.v2'))}));
  assert.equal(s.profile.name,'Camila Teste');assert.equal(s.profile.sex,'female');
  assert.equal(s.roster.characters.length,1);
  await page.locator('#city-cas-open').click();
@@ -41,7 +41,7 @@ try{
  await page.locator('input[name=sex][value=male]').check();
  await page.locator('#cas-save').click();
  await page.waitForFunction(()=>!document.querySelector('#city-cas-dialog').open,{timeout:15000});
- s=await page.evaluate(()=>({roster:JSON.parse(localStorage.getItem('cityofgod.cas.roster.v1')),profile:window.fakeSystem.casProfile}));
+ s=await page.evaluate(()=>({roster:JSON.parse(localStorage.getItem('cityofgod.cas.roster.skeleton.v2')),profile:window.fakeSystem.casProfile}));
  assert.equal(s.roster.characters.length,2);
  assert.equal(s.profile.name,'João Teste');
  await page.reload({waitUntil:'domcontentloaded'});
