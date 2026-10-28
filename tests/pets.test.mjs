@@ -2,9 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import * as T from 'three';
 import {PET_BREEDS} from '../js/pet-catalog.mjs';
-import {buildPet} from '../js/pet-model.mjs';
 import {createPetController,outdoorPetRoute} from '../js/pet-behavior.mjs';
 
 function fixture(storage=new Map()){
@@ -30,29 +28,43 @@ function fixture(storage=new Map()){
  const tick=()=>{door.doorAnim.open+=(door.doorAnim.target-door.doorAnim.open)*.3;controller.tick(.05);};
  return {H,player,free,controller,tick,services,events,storage,door};
 }
-test('six distinct breeds have three valid coat variants and persistent household limits',()=>{
- const f=fixture();assert.equal(PET_BREEDS.filter(b=>b.species==='dog').length,3);assert.equal(PET_BREEDS.filter(b=>b.species==='cat').length,3);
- for(const b of PET_BREEDS){assert.equal(b.colors.length,3);assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);}
- assert.equal(f.controller.count,6);assert.equal(f.controller.adopt('siamese','seal','Extra').ok,false);
+test('four animated dog breeds and ten other species retain six pets per house',()=>{
+ const f=fixture();
+ assert.equal(PET_BREEDS.length,14);
+ assert.equal(PET_BREEDS.filter(b=>b.species==='dog').length,4);
+ assert.equal(PET_BREEDS.filter(b=>b.species==='cat').length,0);
+ for(const b of PET_BREEDS.slice(0,6)){
+  assert.equal(b.colors.length,3);
+  assert.equal(f.controller.adopt(b.id,b.colors[1].id,'<Mel>').ok,true);
+ }
+ assert.equal(f.controller.count,6);
+ assert.equal(f.controller.adopt('husky','original','Extra').ok,false);
  assert.equal(f.controller.adopt('siamese','invalid','Extra').ok,false);
  assert.ok(f.controller.rows.every(p=>p.name==='Mel'));
- const reloaded=fixture(f.storage);assert.equal(reloaded.controller.count,6);assert.equal(reloaded.controller.pets.length,6);
- f.player.x=18;assert.equal(f.controller.adopt('siamese','seal','Rua').ok,false);
+ const reloaded=fixture(f.storage);
+ assert.equal(reloaded.controller.count,6);
+ assert.equal(reloaded.controller.pets.length,6);
+ f.player.x=18;
+ assert.equal(f.controller.adopt('husky','original','Rua').ok,false);
 });
-test('four connected legs retain bone lengths in walking, sitting, sniffing and sleeping',()=>{
- for(const breed of PET_BREEDS)for(const color of breed.colors){
-  const model=buildPet(breed.id,color.id);assert.equal(model.legs.length,4);
-  for(const action of ['idle','walk','run','sit','sniff','sleep'])for(let frame=0;frame<12;frame++){
-   model.animate({clock:frame*.1,phase:frame*.6,speed:action==='walk'?.7:action==='run'?2:0,action},.05);model.root.updateMatrixWorld(true);
-   for(const leg of model.legs){
-    const hip=leg.pivot.getWorldPosition(new T.Vector3()),knee=leg.lower.getWorldPosition(new T.Vector3()),paw=leg.paw.getWorldPosition(new T.Vector3());
-    assert.ok(Math.abs(hip.distanceTo(knee)-leg.upperLength)<1e-7);
-    assert.ok(Math.abs(knee.distanceTo(paw)-leg.lowerLength)<1e-7);
-    assert.ok(paw.toArray().every(Number.isFinite));assert.ok(paw.y>-.035,breed.id+' foot underground');
-   }
-  }
-  model.dispose();
- }
+test('procedural cats and dogs no longer appear in adoption catalog',()=>{
+ const removed=['yorkshire','rottweiler','pomeranian','fluffycat','slimcat','siamese'];
+ for(const id of removed)assert.ok(!PET_BREEDS.some(b=>b.id===id),id+' still available');
+ assert.equal(PET_BREEDS.length,14);
+ assert.ok(PET_BREEDS.every(b=>b.model));
+});
+test('retired pet records are preserved in backup when migrating existing saves',()=>{
+ const storage=new Map();
+ storage.set('cityofgod.house-pets.v1',JSON.stringify({version:1,pets:[
+  {id:'retired-cat',breed:'siamese',color:'seal',name:'Suki',home:'fixture:home'},
+  {id:'real-dog',breed:'shibainu',color:'original',name:'Hachi',home:'fixture:home'}
+ ]}));
+ const f=fixture(storage);
+ assert.equal(f.controller.rows.length,1);
+ assert.equal(f.controller.rows[0].breed,'shibainu');
+ const backup=JSON.parse(storage.get('cityofgod.retired-pets-backup.v1'));
+ assert.equal(backup.pets.length,1);
+ assert.equal(backup.pets[0].name,'Suki');
 });
 test('outdoor navigation detours around a wall and refuses an enclosed owner',()=>{
  const wall=(x,y,r)=>!(Math.abs(x-2)<.2+r&&y>-2-r&&y<2+r);
@@ -61,7 +73,7 @@ test('outdoor navigation detours around a wall and refuses an enclosed owner',()
  assert.equal(outdoorPetRoute({x:0,y:0},{x:4,y:0},(x,y,r)=>!(x>3-r&&x<5+r&&y>-1-r&&y<1+r)),null);
 });
 test('a called pet exits through the door and follows the owner without teleporting through furniture',()=>{
- const f=fixture();assert.equal(f.controller.adopt('yorkshire','steel','Mel').ok,true);
+ const f=fixture();assert.equal(f.controller.adopt('shibainu','original','Mel').ok,true);
  const pet=f.controller.pets[0];f.controller.command(pet.id,'wait');
  const destinations=[{x:3,y:7},{x:6,y:7},{x:6,y:11},{x:10,y:12}];
  for(const goal of destinations)for(let i=0;i<90;i++){
@@ -83,13 +95,13 @@ test('a called pet exits through the door and follows the owner without teleport
  assert.ok(f.H.contains(pet.x,pet.y),'pet did not return home');
 });
 test('pets wait during a car trip and never snap to a distant owner',()=>{
- const f=fixture();f.controller.adopt('siamese','seal','Suki');const pet=f.controller.pets[0];f.controller.command(pet.id,'follow');
+ const f=fixture();f.controller.adopt('husky','original','Suki');const pet=f.controller.pets[0];f.controller.command(pet.id,'follow');
  f.services.driving=()=>true;const start={x:pet.x,y:pet.y};f.player.x=100;f.player.y=100;for(let i=0;i<100;i++)f.tick();
  assert.equal(pet.x,start.x);assert.equal(pet.y,start.y);assert.equal(pet.action,'sit');
  f.services.driving=()=>false;f.tick();assert.ok(Math.hypot(pet.x-start.x,pet.y-start.y)<.15);
 });
 test('six pets can follow together through the same doorway',()=>{
- const f=fixture();for(const b of PET_BREEDS)assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
+ const f=fixture();for(const b of PET_BREEDS.slice(0,6))assert.ok(f.controller.adopt(b.id,b.colors[0].id).ok);
  f.controller.command('all','wait');
  for(const goal of [{x:3,y:7},{x:6,y:7},{x:6,y:11},{x:10,y:12}])for(let i=0;i<90;i++){
   const dx=goal.x-f.player.x,dy=goal.y-f.player.y,d=Math.hypot(dx,dy);
@@ -99,7 +111,7 @@ test('six pets can follow together through the same doorway',()=>{
  for(const pet of f.controller.pets){assert.ok(!f.H.contains(pet.x,pet.y),pet.name+' stayed inside');assert.ok(Math.hypot(pet.x-f.player.x,pet.y-f.player.y)<2.5,pet.name+' could not follow');}
 });
 test('following remains active when the home sector streams out',()=>{
- const f=fixture();f.controller.adopt('siamese','seal','Suki');const pet=f.controller.pets[0];
+ const f=fixture();f.controller.adopt('husky','original','Suki');const pet=f.controller.pets[0];
  Object.assign(pet,{x:15,y:13});Object.assign(f.player,{x:16,y:13});f.tick();
  f.controller.command(pet.id,'follow');f.services.houses=()=>[];for(let i=0;i<30;i++)f.tick();
  assert.ok(pet.homeHouse===f.H);assert.ok(pet.visible);assert.equal(pet.mode,'follow');
@@ -113,7 +125,7 @@ test('a pet follows the owner up a stair transition instead of changing floors i
   if(pet.stairTravel){pet.stairTravel.t+=dt;if(pet.stairTravel.t>.3){pet.floor=1;pet.floorZ=3;pet.x=4;pet.y=6;pet.stairTravel=null;}return true;}
   if(activate&&pet.floor===0&&Math.hypot(pet.x-4,pet.y-7)<1.1){pet.stairTravel={t:0};entered++;return true;}return false;
  };
- f.controller.adopt('yorkshire','steel','Mel');const pet=f.controller.pets[0];f.controller.command(pet.id,'wait');
+ f.controller.adopt('shibainu','original','Mel');const pet=f.controller.pets[0];f.controller.command(pet.id,'wait');
  f.player.stairTravel={fromX:4,fromY:7,start:0,end:3,to:1};f.tick();f.player.stairTravel=null;Object.assign(f.player,{x:4,y:6,floor:1,floorZ:3});f.tick();
  f.controller.command(pet.id,'follow');for(let i=0;i<1100&&pet.floor!==1;i++)f.tick();
  assert.equal(entered,1);assert.equal(pet.floor,1);assert.equal(pet.floorZ,3);

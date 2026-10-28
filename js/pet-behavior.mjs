@@ -1,4 +1,4 @@
-import {petBreed,petColor,validPetRow} from './pet-catalog.mjs';
+import {petBreed,petColor,validPetRow,RETIRED_BREED_IDS} from './pet-catalog.mjs';
 const KEY='cityofgod.house-pets.v1',MAX=24,PER_HOME=6;
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const local=(H,p)=>H.architecture?.toLocal?.(p.x,p.y)||[p.x-H.x0,p.y-H.y0];
@@ -42,6 +42,14 @@ export function createPetController(services){
  const notify=text=>services.notify?.(text),player=services.player;
  try{
   const saved=JSON.parse(services.storage?.getItem(KEY)||'null');
+  // Archive the six removed procedural pets before any new adoption rewrites
+  // this browser's save. No silent deletion of the prior pet roster.
+  if(saved?.version===1&&Array.isArray(saved.pets)){
+   const old=saved.pets.filter(r=>RETIRED_BREED_IDS.includes(r?.breed));
+   if(old.length&&!services.storage?.getItem('cityofgod.retired-pets-backup.v1'))
+    services.storage?.setItem('cityofgod.retired-pets-backup.v1',
+      JSON.stringify({version:1,pets:old,archivedAt:Date.now()}));
+  }
   if(saved?.version===1&&Array.isArray(saved.pets))for(const r of saved.pets.slice(0,MAX))if(validPetRow(r)&&!rows.some(p=>p.id===r.id)&&rows.filter(p=>p.home===r.home).length<PER_HOME)
    rows.push({id:r.id,breed:r.breed,color:r.color,name:r.name,home:r.home,floor:Number.isInteger(r.floor)&&r.floor>=0&&r.floor<20?r.floor:0});
  }catch{}
@@ -68,7 +76,7 @@ export function createPetController(services){
   const floor=H.architecture?.levels?.[row.floor]?row.floor:0;
   const spot=safeSpot(H,floor,inside(H,player)?player:{x:(H.x0+H.x1)/2,y:(H.y0+H.y1)/2});if(!spot)return null;
   const pet={...row,...spot,floorZ:floor*(H.floorHeight||3),face:Math.random()*Math.PI*2,speed:0,phase:0,clock:0,
-   mode:'home',action:'idle',path:[],step:0,cursor:sequence,radius:row.breed==='rottweiler'?.19:.12,
+   mode:'home',action:'idle',path:[],step:0,cursor:sequence,radius:petBreed(row.breed)?.radius??.14,
    timer:1+Math.random()*3,replan:0,stuck:0,homeHouse:H,homeLoaded:true,journey:[{...spot}],returnTrail:[],status:'Em casa',visible:true};
   pets.push(pet);return pet;
  }
@@ -186,7 +194,7 @@ export function createPetController(services){
  }
  function roam(pet,dt){
   const H=pet.homeHouse;if(!H||!inside(H,pet)){pet.mode='home';pet.status='Voltando para casa';return;}
-  if(pet.path[pet.step]){walk(pet,dt,.48+(pet.breed==='rottweiler'?.25:0));return;}
+  if(pet.path[pet.step]){walk(pet,dt,.48+((petBreed(pet.breed)?.radius||0)>.19?.25:0));return;}
   pet.timer-=dt;if(pet.timer>0)return;
   const activities=['idle','sniff','sit','sleep'];pet.action=activities[Math.floor(Math.random()*activities.length)];pet.timer=2+Math.random()*5;
   if(Math.random()<.42)return;
