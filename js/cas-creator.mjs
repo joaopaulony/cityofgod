@@ -133,7 +133,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   neon.colorSpace=THREE.SRGBColorSpace;
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.7,1.01),
    new THREE.MeshBasicMaterial({map:neon,transparent:false}));
-  sign.position.set(0,2.25,-3.048);scene.add(sign);
+  sign.position.set(0,2.25,-2.94);scene.add(sign);
   const tireMaterial=mat('#171a1b',.98),rimMaterial=mat('#565e5d',.48,.65);
   for(const [x,y,z] of [[1.24,.29,-1.82],[1.47,.27,-1.95]]){
    const tire=new THREE.Mesh(new THREE.TorusGeometry(.26,.105,12,24),tireMaterial);
