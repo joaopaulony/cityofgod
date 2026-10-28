@@ -12,6 +12,7 @@ import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadCASHairSystem} from './cas-hair.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
+import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
 export function createCharacterSystem(scene,bridge){
@@ -115,6 +116,9 @@ export function createCharacterSystem(scene,bridge){
     // Generator faces +Z. Game face 0 points +X.
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.updateMatrixWorld(true);
+    // The procedural upper-body layer runs after the authored clip/mixer,
+    // never before it: shoulders, elbows and hands track the same gait phase.
+    e.rebornUpper?.update(dt,{clip,time:e.action?.time,duration:e.spec.clips[clip]?.duration});
     e.domesticRig?.update(a);
     if(e.mixamo){
      e.root.updateMatrixWorld(true);
@@ -332,6 +336,7 @@ export function createCharacterSystem(scene,bridge){
        node.castShadow=true;node.receiveShadow=true;node.frustumCulled=false;
       });
       const mixer=new THREE.AnimationMixer(root);
+      const rebornUpper=rebornBodies?createRebornUpperBodyMotion(root):null;
       const actions=new Map(gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
       if(!actions.size)throw Error('Base escolhida sem animações');
       // Build the replacement before removing the old player, so errors
@@ -344,7 +349,7 @@ export function createCharacterSystem(scene,bridge){
       scene.remove(entry.root);
       Object.assign(entry,{root,mixer,actions,spec,clip:null,action:null,emote:null,
        domesticRig:rebornBodies?null:createDomesticRig(root),mixamo:!rebornBodies,
-       casBeta:!!rebornBodies,casBody:next.sex,casBaseScale:root.scale.clone()});
+       rebornUpper,casBeta:!!rebornBodies,casBody:next.sex,casBaseScale:root.scale.clone()});
       if(rebornBodies&&entry.gun)entry.gun.visible=false;
       buildEmotes(entry,spec);
      }
