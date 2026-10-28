@@ -437,8 +437,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  dialog.querySelector('.cas-nav').addEventListener('click',event=>{
   const tab=event.target.closest('[data-cas-tab]');if(tab)visibleTab(tab.dataset.casTab);
  });
- dialog.querySelector('#cas-view-artlist').addEventListener('click',()=>{void showArtlistModel();});
- dialog.querySelector('#cas-back-rig').addEventListener('click',()=>{artlistMode=false;previewSex=null;void setPreviewSex(draft.sex);});
+ dialog.querySelector('#cas-view-artlist')?.addEventListener('click',()=>{void showArtlistModel();});
+ dialog.querySelector('#cas-back-rig')?.addEventListener('click',()=>{artlistMode=false;previewSex=null;void setPreviewSex(draft.sex);});
  form.addEventListener('input',event=>{
   if(event.target?.name==='artlistModel'){if(artlistMode)void showArtlistModel();return;}
   if(event.target?.name==='previewAction'){previewAnimation=event.target.value;setClip();return;}
