@@ -8,7 +8,7 @@
  let storage;try{storage=window.localStorage;}catch{storage=fallback;}
  let settings=S.settings(S.read(storage,S.SETTINGS));
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
- let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new';
+ let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new',casIntroShown=false;
  let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null,restoring=Promise.resolve(),musicConnected=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
@@ -92,7 +92,13 @@
   try{game.save?.();}catch{savingError='Parte do progresso não pôde ser salva neste navegador';}
  }
  function resumeSession(active){try{if(active)sessionStorage.setItem('cityofgod.front.resume','1');else sessionStorage.removeItem('cityofgod.front.resume');}catch{}}
- function enter(){clearInterval(rotation);parent='title';change('playing');started=true;resumeSession(true);release();document.getElementById('view')?.focus();checkpoint();}
+ function enter(){clearInterval(rotation);parent='title';change('playing');started=true;resumeSession(true);release();document.getElementById('view')?.focus();checkpoint();
+  // Open the CAS once, after the loading screen has released inert controls.
+  if(!casIntroShown&&window.cityCharacters?.provider==='cas'){
+   casIntroShown=true;let saved=false;try{saved=!!storage.getItem('cityofgod.cas.v1');}catch{}
+   if(!saved)window.cityCharacters.openCreator?.();
+  }
+ }
  function fail(message){clearInterval(rotation);loadingError=message;change('error');render();}
  async function imageAsset(file){return new Promise(resolve=>{const image=new Image();image.onload=()=>resolve(true);image.onerror=()=>resolve(false);image.src=ASSET+file;});}
  function paintProgress(){
