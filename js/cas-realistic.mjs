@@ -7,10 +7,35 @@ const MAX_TRIS=12000;
 export function checkRealisticGltf(gltf){
  const errors=[];let triangles=0,skins=0,materials=new Set();
  const bones=new Set(),hands={left:0,right:0};
+ const weightedFingerVertices={left:0,right:0};
+ const invalidSkinMeshes=[];
  gltf.scene.traverse(o=>{
   if(o.isSkinnedMesh){
    skins++;
    for(const b of o.skeleton?.bones||[])bones.add(b.name);
+   const indices=o.geometry?.attributes?.skinIndex,weights=o.geometry?.attributes?.skinWeight;
+   if(!indices||!weights||indices.count!==weights.count){
+    invalidSkinMeshes.push(o.name||'(unnamed)');return;
+   }
+   const skeletonBones=o.skeleton.bones;
+   for(let i=0;i<indices.count;i++){
+    let sum=0,active={left:false,right:false};
+    for(let k=0;k<4;k++){
+     const index=indices.getComponent(i,k),weight=weights.getComponent(i,k);
+     if(weight<=0)continue;
+     sum+=weight;
+     if(!Number.isInteger(index)||index<0||index>=skeletonBones.length){invalidSkinMeshes.push('invalid bone index');continue;}
+     const name=skeletonBones[index]?.name||'';
+     if(weight>=0.1&&/thumb|index|middle|ring|pinky|little|finger/i.test(name)){
+      if(/left|(^|[^a-z])l[_. -]?/i.test(name))active.left=true;
+      if(/right|(^|[^a-z])r[_. -]?/i.test(name))active.right=true;
+     }
+    }
+    if(!Number.isFinite(sum)||Math.abs(sum-1)>0.08)invalidSkinMeshes.push('invalid skin weight normalization');
+    if(active.left)weightedFingerVertices.left++;
+    if(active.right)weightedFingerVertices.right++;
+    if(invalidSkinMeshes.length>6)break;
+   }
   }
   if(o.isMesh){
    const indexCount=o.geometry?.index?.count||o.geometry?.attributes?.position?.count||0;
@@ -28,7 +53,10 @@ export function checkRealisticGltf(gltf){
  if(hands.left<10||hands.right<10)errors.push('individual finger bones missing: '+JSON.stringify(hands));
  if(triangles===0||triangles>MAX_TRIS)errors.push('triangle budget exceeded: '+triangles+'/'+MAX_TRIS);
  if(materials.size>12)errors.push('materials count excessive: '+materials.size);
- return {ok:!errors.length,errors,triangles,bones:bones.size,hands,skins,materials:materials.size};
+ if(invalidSkinMeshes.length)errors.push('invalid skin weights: '+invalidSkinMeshes.slice(0,3).join(', '));
+ for(const side of ['left','right'])if(weightedFingerVertices[side]<10)
+  errors.push('finger bones not connected to mesh on '+side+' hand (weighted vertices '+weightedFingerVertices[side]+')');
+ return {ok:!errors.length,errors,triangles,bones:bones.size,hands,weightedFingerVertices,skins,materials:materials.size};
 }
 export async function loadApprovedHumans(loader,{base=REALISTIC_DIR}={}){
  const response=await fetch(base+'manifest.json',{cache:'no-store'});
@@ -61,7 +89,7 @@ export async function loadApprovedHumans(loader,{base=REALISTIC_DIR}={}){
   const jump=animations.find(c=>c.name==='jump_air');
   if(jump)for(const phase of ['jump_start','jump_land']){const copy=jump.clone();copy.name=phase;animations.push(copy);}
   const clips=Object.fromEntries(animations.map(clip=>[clip.name,{name:clip.name,duration:clip.duration,loop:!['jump_start','jump_land'].includes(clip.name),speed:clip.name==='walk'?1.6:clip.name==='run'?4.0:0}]));
-  result.set(sex,{gltf:{...gltf,animations},spec:{id:'gta-realistic-'+sex,sex,rig:'realistic',source:'Higgsfield/Meshy approved GLB',triangles:quality.triangles,bones:quality.bones,clips},quality});
+  result.set(sex,{gltf:{...gltf,animations},spec:{id:'gta-realistic-'+sex,sex,rig:'realistic',source:'Ara 3D Gen / CC0 MakeHuman verified GLB',triangles:quality.triangles,bones:quality.bones,clips},quality});
  }
  return result;
 }
