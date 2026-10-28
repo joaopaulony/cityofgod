@@ -2,7 +2,7 @@
 export const CAS_KEY='cityofgod.cas.v1';
 export const CAS_DEFAULT=Object.freeze({
  version:1,name:'Alex',sex:'male',height:1,build:1,
- skin:'#c98d68',hair:'#30231e',top:'#49647a',bottom:'#29394f'
+ skin:'#c98d68',hair:'#30231e',hairStyle:'none',top:'#49647a',bottom:'#29394f'
 });
 export const CAS_COLORS=Object.freeze({
  skin:['#edc6a4','#c98d68','#aa7050','#80533e','#4a3027'],
@@ -19,6 +19,7 @@ export function normalizeCAS(input={}){
  result.sex=input.sex==='female'?'female':'male';
  result.height=clamp(input.height,.90,1.10,1);
  result.build=clamp(input.build,.86,1.14,1);
+ result.hairStyle=/^hair-(?:0[1-9]|1[0-9]|2[01])$/.test(String(input.hairStyle||''))?input.hairStyle:'none';
  for(const key of ['skin','hair','top','bottom'])if(COLOR.test(input[key]||''))result[key]=input[key].toLowerCase();
  return result;
 }

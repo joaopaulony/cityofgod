@@ -1,50 +1,5 @@
 {
   "schema": 1,
-  "generatedBy": "tools/generate-cas-bases.mjs",
-  "models": [
-    {
-      "sex": "male",
-      "file": "male.glb",
-      "rig": "mixamo",
-      "materialSlots": {
-        "skin": [
-          "Skin"
-        ],
-        "hair": [
-          "Hair"
-        ],
-        "top": [
-          "Shirt"
-        ],
-        "bottom": [
-          "Pants"
-        ]
-      },
-      "description": "Base adulta low-poly realista procedural, rigada e animada; roupas íntimas iniciais, corpo e rosto originais",
-      "triangles": 14202,
-      "bytes": 574088
-    },
-    {
-      "sex": "female",
-      "file": "female.glb",
-      "rig": "mixamo",
-      "materialSlots": {
-        "skin": [
-          "Skin"
-        ],
-        "hair": [
-          "Hair"
-        ],
-        "top": [
-          "Shirt"
-        ],
-        "bottom": [
-          "Pants"
-        ]
-      },
-      "description": "Base adulta low-poly realista procedural, rigada e animada; roupas íntimas iniciais, corpo e rosto originais",
-      "triangles": 15690,
-      "bytes": 622652
-    }
-  ]
+  "models": [],
+  "note": "Old CAS body bases removed intentionally. Only hairstyle accessories remain in this phase."
 }
