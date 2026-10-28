@@ -7,6 +7,7 @@ import {chooseCharacterClip,planLowVault,stepTraversal,pointSegmentDistance} fro
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
+import {loadApprovedHumans} from './cas-realistic.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
@@ -14,10 +15,13 @@ export function createCharacterSystem(scene,bridge){
  const entries=new Map();
  const loader=new GLTFLoader();
  let bodies=null;
+ const showRealistic=new URLSearchParams(window.location.search).has('humansbeta');
+ let spawnedNPCs=false;
  const system={
   status:'loading',ready:false,enabled:true,provider:'skeleton-only',humanModelsEnabled:false,
   errors:[],frames:0,models:[],availableBodies:['male','female'],
-  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0
+  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0,
+  realisticReady:false,realisticQuality:null
  };
  window.cityCharacters=system;
  const clear=(x,y,ignore)=>{
@@ -57,7 +61,8 @@ export function createCharacterSystem(scene,bridge){
   if(!item)throw Error('Esqueleto '+sex+' indisponível');
   const root=cloneSkeleton(item.gltf.scene);
   let humanMeshes=0;root.traverse(x=>{if(x.isMesh)humanMeshes++});
-  if(humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(!system.humanModelsEnabled&&humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(system.humanModelsEnabled&&!humanMeshes)throw Error('GLB realista sem corpo');
   const mixer=new THREE.AnimationMixer(root);
   const spec={...item.spec,clips:{...item.spec.clips}};
   const all=[...item.gltf.animations,...createCASEmoteClips(root)];
@@ -69,16 +74,21 @@ export function createCharacterSystem(scene,bridge){
     if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};
    }
   }
-  root.visible=false; // Bones animate internally; no human is drawn in world.
+  root.visible=system.humanModelsEnabled; // the default skeleton-only reset stays invisible.
   scene.add(root);
   const entry={root,mixer,actions,spec,sex,clip:null,action:null,emote:null,
-    lastRecoil:9,upper:createRebornUpperBodyMotion(root)};
+    lastRecoil:9,upper:system.humanModelsEnabled?{restore(){},update(){}}:createRebornUpperBodyMotion(root)};
   const previous=entries.get(a);
   if(previous){previous.mixer.stopAllAction();scene.remove(previous.root);}
   entries.set(a,entry);return entry;
  }
  system.update=dt=>{
   for(const [a,e] of entries){
+   if(system.humanModelsEnabled){
+    const d=Math.hypot(a.x-bridge.player.x,a.y-bridge.player.y);
+    e.root.visible=a===bridge.player||d<35;
+    if(a!==bridge.player&&d>35)continue; // LOD 3: no draw / no animation
+   }
    e.upper.restore();
    if(e.emote&&(performance.now()>e.emote.end||a.speed>.12||a.armed||a.jump||a.homeAction||bridge.driving()))e.emote=null;
    const requested=e.emote?'cas_'+e.emote.id:chooseCharacterClip(a);
@@ -106,7 +116,7 @@ export function createCharacterSystem(scene,bridge){
  system.muzzle=()=>null;
  system.telemetry=()=>[...entries].map(([a,e])=>({
   name:a.name||'Jogador',clip:e.clip,x:a.x,y:a.y,
-  visible:false,meshes:0,bones:e.spec.bones
+  visible:e.root.visible,meshes:system.humanModelsEnabled?1:0,bones:e.spec.bones
  }));
  system.appearances=()=>null;
  system.getAppearance=a=>a===bridge.player?{...system.casProfile}:null;
@@ -130,11 +140,28 @@ export function createCharacterSystem(scene,bridge){
    try{system.casProfile=readCAS(localStorage)||CAS_DEFAULT;}catch{}
    bodies=await loadRebornAssets(loader);
    system.rebornReady=true;
+   // New human meshes only load on ?humansbeta=1 AND after asset+animation quality checks.
+   if(showRealistic){
+    try{
+     const approved=await loadApprovedHumans(loader);
+     bodies=approved;
+     system.humanModelsEnabled=true;
+     system.realisticReady=true;
+     system.provider='higgsfield-approved';
+     system.realisticQuality=Object.fromEntries([...approved].map(([sex,item])=>[sex,item.quality]));
+    }catch(error){system.casWarnings.push('Humans beta not approved: '+String(error.message||error));}
+   }
    mount(bridge.player,system.casProfile.sex);
    system.ready=true;system.status='ready';
-   system.models=[{id:'armature-male',bones:24,meshes:0},{id:'armature-female',bones:24,meshes:0}];
-   system.rebornNotice='Somente esqueletos e animações. Modelos humanos removidos.';
+   system.models=[...bodies].map(([sex,item])=>({id:sex,bones:item.spec.bones,meshes:system.humanModelsEnabled?1:0,triangles:item.spec.triangles}));
+   system.rebornNotice=system.humanModelsEnabled?'Humanos GTA beta verificados; LOD e CAS em teste.':'Somente esqueletos e animações. Modelos humanos removidos.';
    await system.applyCAS(system.casProfile);
+   if(system.humanModelsEnabled){
+    // Use existing engine movement and pathing; disabled for normal players.
+    for(const n of bridge.npcs||[])mount(n,n.population?.sex==='female'?'female':'male');
+    system.populationCount=(bridge.npcs||[]).length;
+    spawnedNPCs=true;
+   }
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
    system.casWarnings.push('Esqueleto em reconstrução: '+String(error.message||error));
