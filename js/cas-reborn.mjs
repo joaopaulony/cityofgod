@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-export const REBORN_DIR='assets/characters/reborn/';
-export const REBORN_FILES=Object.freeze({male:'male.glb',female:'female.glb',walk:'walk.glb',run:'run.glb',jump:'jump.glb'});
+export const REBORN_DIR='assets/characters/rigs/reborn/';
+export const REBORN_FILES=Object.freeze({male:'male.rig.glb',female:'female.rig.glb',walk:'walk.rig.glb',run:'run.rig.glb',jump:'jump.rig.glb'});
 const humanoidBones=['Hips','Spine','Head','LeftArm','RightArm','LeftLeg','RightLeg'];
 const semantics=Object.freeze({
  idle:{loop:true,speed:0},walk:{loop:true,speed:1.6},
@@ -50,8 +50,10 @@ export function validateRebornGLTF(gltf,which){
  if(!gltf?.scene||!gltf.animations?.length)throw Error('Reborn '+which+': sem modelo e animação');
  const joints=[];gltf.scene.traverse(x=>{if(x.isBone)joints.push(x.name)});
  for(const name of humanoidBones)if(!joints.includes(name))throw Error('Reborn '+which+': faltando osso '+name);
- let skin=false;gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&o.skeleton?.bones?.length>=20)skin=true});
- if(!skin)throw Error('Reborn '+which+': malha não animável');
+ // This CAS reset intentionally has NO human meshes: only bones and clips.
+ if(joints.length<20)throw Error('Reborn '+which+': esqueleto incompleto');
+ let meshCount=0;gltf.scene.traverse(o=>{if(o.isMesh)meshCount++});
+ if(meshCount)throw Error('Reborn '+which+': modelo humano não foi removido');
  return joints;
 }
 const clipMeta=(name,clip)=>{
@@ -82,7 +84,7 @@ export async function loadRebornAssets(loader,{base=REBORN_DIR}={}){
    const clone=animations.find(x=>x.name==='jump_air').clone();clone.name=id;animations.push(clone);
   }
   const clips=Object.fromEntries(animations.map(clip=>[clip.name,clipMeta(clip.name,clip)]));
-  const spec={id:'reborn-'+sex,sex,rig:'meshy-24',clips,source:'Higgsfield Meshy',triangles:null,bones:24};
+  const spec={id:'reborn-'+sex,sex,rig:'meshy-24',clips,source:'Skeleton and animation archive (no human mesh)',triangles:null,bones:24};
   bodies.set(sex,{gltf:{...gltf,animations},spec});
  }
  return bodies;
