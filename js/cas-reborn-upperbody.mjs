@@ -76,10 +76,10 @@ export function createRebornUpperBodyMotion(root){
   const length1=start.distanceTo(elbow),length2=elbow.distanceTo(wrist);
   if(length1<.06||length2<.06)return;
   // y controls elbow bend. z uses contralateral phase, never random jitter.
-  const running=mode==='run',weight=(running?.77:.40);
+  const running=mode==='run',weight=(running?.72:.36);
   local.copy(start);root.worldToLocal(local);
   local.x+=sign*(running?.09:.045);
-  local.y-=running?.275:.415;
+  local.y-=running?.175:.415;
   local.z+=(running?.08:.025)+sign*wave*(running?.19:.145);
   goal.copy(local);root.localToWorld(goal);
   reach.subVectors(goal,start);
@@ -87,7 +87,7 @@ export function createRebornUpperBodyMotion(root){
   reach.normalize();goal.copy(start).addScaledVector(reach,distance);
   // Elbow pole: softly to the outside and just behind the torso.
   root.getWorldQuaternion(rootQ);
-  pole.set(sign*.85,-.03,-.52).applyQuaternion(rootQ);
+  pole.set(sign*.18,-.12,-1).applyQuaternion(rootQ);
   pole.addScaledVector(reach,-pole.dot(reach));
   if(pole.lengthSq()<1e-6)pole.set(sign,0,0);
   pole.normalize();
