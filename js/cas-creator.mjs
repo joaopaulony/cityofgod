@@ -182,7 +182,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
     node.material=Array.isArray(node.material)?node.material.map(m=>m.clone()):node.material.clone();
     node.castShadow=true;node.receiveShadow=true;node.frustumCulled=false;
    });
-   const bounds=new THREE.Box3().setFromObject(root);
+   // A freshly cloned skinned rig can have stale bone matrices in its first frame.
+   // Measure the loaded GLTF source (with initialized bind pose), not its clone.
+   const bounds=new THREE.Box3().setFromObject(gltf.scene);
    const height=bounds.max.y-bounds.min.y;
    if(!Number.isFinite(height)||height<.1)throw Error('Modelo 3D sem dimensões válidas');
    const factor=1.72/height;
