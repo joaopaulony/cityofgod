@@ -7,6 +7,8 @@ on:
       - 'js/cas-creator.mjs'
       - 'js/street-crown-adapter.mjs'
       - 'tests/street-crown-adapter.test.mjs'
+      - 'tests/cas-street-crown-browser.mjs'
+      - 'tests/cas-street-crown-smoke.html'
       - 'assets/street-crown/**'
       - 'tools/extract-street-crown.py'
       - 'package.json'
@@ -44,3 +46,27 @@ jobs:
           if len(found)==0:
               print('BLOCKED_FOR_VISUAL_QA: six user-owned GLBs must be uploaded to the branch')
           PY
+      - name: Real Chromium QA — run ONLY when six models are staged
+        run: |
+          if [ -f assets/street-crown/hero.glb ] && [ -f assets/street-crown/ped_woman.glb ]; then
+            npm install --no-save playwright@1.56.1
+            npx playwright install --with-deps chromium
+            PORT=4322 node tools/serve.mjs > /tmp/street-crown-server.log 2>&1 &
+            for i in $(seq 1 35); do
+              curl -fsS http://127.0.0.1:4322/tests/cas-street-crown-smoke.html >/dev/null && break
+              sleep 1
+            done
+            node tests/cas-street-crown-browser.mjs
+          else
+            echo "BINARY_ASSETS_REQUIRED: no visual approval until the author's six GLBs are present"
+          fi
+      - name: Preserve real screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: street-crown-76-bone-cas
+          path: |
+            artifacts/cas-qa/street-*.png
+            /tmp/street-crown-server.log
+          if-no-files-found: ignore
+          retention-days: 7
