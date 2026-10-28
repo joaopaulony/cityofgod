@@ -62,6 +62,10 @@ export function createCharacterSystem(scene,bridge){
   const item=bodies?.get(sex);
   if(!item)throw Error('Esqueleto '+sex+' indisponível');
   const root=cloneSkeleton(item.gltf.scene);
+  if(system.humanModelsEnabled){
+   const height=a.population?Math.max(.90,Math.min(1.10,Number(a.population.height)||1)):1;
+   root.scale.multiplyScalar(height);
+  }
   let humanMeshes=0;root.traverse(x=>{if(x.isMesh)humanMeshes++});
   if(!system.humanModelsEnabled&&humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
   if(system.humanModelsEnabled&&!humanMeshes)throw Error('GLB realista sem corpo');
@@ -126,6 +130,11 @@ export function createCharacterSystem(scene,bridge){
   const next=normalizeCAS({...system.casProfile,...values});
   if(bodies&&entries.get(bridge.player)?.sex!==next.sex)mount(bridge.player,next.sex);
   system.casProfile=next;
+  if(system.humanModelsEnabled&&entries.has(bridge.player)){
+   const e=entries.get(bridge.player),previous=e.root.userData.cogBaseScale||e.root.scale.clone();
+   e.root.userData.cogBaseScale=previous;
+   e.root.scale.copy(previous).multiplyScalar(next.height);
+  }
   bridge.player.name=next.name;
   system.update(0);return next;
  };
