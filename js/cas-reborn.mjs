@@ -16,7 +16,7 @@ const semantics=Object.freeze({
  * selected body rig's local bind-space. Never use Mixamo tracks on this rig.
  */
 export function normalizeRebornClip(clip,sourceRoot,targetRoot,name,{inPlace=true}={}){
- if(!clip?.isAnimationClip)throw Error('Reborn: movimento sem AnimationClip');
+ if(!(clip instanceof THREE.AnimationClip))throw Error('Reborn: movimento sem AnimationClip');
  const result=clip.clone();result.name=name;
  const correction=new THREE.Quaternion(),a=new THREE.Quaternion(),b=new THREE.Quaternion();
  for(const track of result.tracks){
