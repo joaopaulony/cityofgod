@@ -1,0 +1,55 @@
+name: City of God — Realistic Human Browser QA
+on:
+  push:
+    branches: [feat/realistic-gta-humans-20261028]
+    paths:
+      - 'assets/characters/realistic/**'
+      - 'js/cas-realistic.mjs'
+      - 'js/character-webgl.mjs'
+      - 'js/cas-creator.mjs'
+      - 'js/game.js'
+      - 'tests/realistic-beta-browser.mjs'
+      - '.github/workflows/realistic-human-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Browser tests and built code
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          npm run build:site
+      - name: Confirm approved models exist before browser test
+        id: assets
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const x=JSON.parse(fs.readFileSync('assets/characters/realistic/manifest.json'));if(!x.approved){console.log('ASSETS_NOT_READY: explicitly approved model pair absent');process.exit(1)}"
+      - name: Render model in REAL game, both sexes and NPCs, capture proof
+        if: steps.assets.outcome == 'success'
+        run: |
+          set -euo pipefail
+          PORT=4322 node tools/serve.mjs >/tmp/cog-realistic-server.log 2>&1 &
+          for n in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:4322/ >/dev/null && break
+            sleep 1
+          done
+          node tests/realistic-beta-browser.mjs
+      - name: Upload real Chromium screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realistic-cas-browser-proof
+          path: |
+            artifacts/cas-qa/realistic-*.png
+            /tmp/cog-realistic-server.log
+          if-no-files-found: ignore
+          retention-days: 14
