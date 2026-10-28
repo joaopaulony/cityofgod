@@ -76,6 +76,7 @@ export function installCASCreator(system,bridge,bases){
    const scale=1.75/height;
    root.scale.multiplyScalar(scale);
    root.position.y=-box.min.y*scale;
+   root.position.z=0;
   }
   root.userData.casOriginalScale=root.scale.clone();
   mixer=new THREE.AnimationMixer(root);
