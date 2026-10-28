@@ -57,6 +57,7 @@ export function createCharacterSystem(scene,bridge){
   if(!system.enabled)return;
   for(const [a,e] of entries){
    e.domesticRig?.restore();
+   e.rebornUpper?.restore();
    if(e.cc3Rig){
     e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+(e.cc3YOffset||0),a.y);
