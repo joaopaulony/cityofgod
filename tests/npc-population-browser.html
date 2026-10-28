@@ -1,0 +1,53 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>City of God — Procedural Population Lab</title>
+<style>body{margin:0;background:#17232a;color:#ede7db;font:14px system-ui}header{position:absolute;top:0;left:0;right:0;padding:12px 20px;z-index:2;background:#122029de}h1{font-size:18px;margin:0;color:#f1c17d}small{color:#c7d3cf}canvas{display:block}#cards{position:absolute;bottom:12px;left:10px;right:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;pointer-events:none}#cards span{background:#0b1823d5;border:1px solid #5d594e;padding:8px;text-align:center;font-size:12px;color:#f5e5c5}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head>
+<body><header><h1>CITY OF GOD — POPULAÇÃO PROCEDURAL</h1><small>8 personagens: 2 esqueletos, visuais variados e animações compartilhadas · laboratório de qualidade</small></header><div id="cards"></div>
+<script src="/js/npc-population.js"></script>
+<script type="module">
+import * as T from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
+import {loadRebornAssets} from '/js/cas-reborn.mjs';
+import {applyNPCVisual} from '/js/cas-npc-visual.mjs';
+const scene=new T.Scene();scene.background=new T.Color('#24343b');
+scene.add(new T.HemisphereLight(0xf2faff,0x23313c,2.0));
+const lamp=new T.DirectionalLight('#ffe9cf',3.2);lamp.position.set(-5,12,10);scene.add(lamp);
+const rim=new T.DirectionalLight('#cedbff',1.1);rim.position.set(4,8,-5);scene.add(rim);
+const platform=new T.Mesh(new T.PlaneGeometry(35,24),new T.MeshStandardMaterial({color:'#33434b',roughness:1}));platform.rotation.x=-Math.PI/2;scene.add(platform);
+const aspect=innerWidth/innerHeight,camera=new T.OrthographicCamera(-6.3*aspect,6.3*aspect,6.3,-6.3,.1,80);
+camera.position.set(0,5.3,13.3);camera.lookAt(0,1.2,0);
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;document.body.append(renderer.domElement);
+const mixers=[];try{
+ const bodies=await loadRebornAssets(new GLTFLoader(),{base:'/assets/characters/reborn/'});
+ const cohort=Array.from({length:8},(_,i)=>window.CityPopulation.makeResidentSpec(i,'cityofgod-gallery-v1'));
+ let metrics={residentCount:cohort.length,models:new Set(),colors:new Set(),meshMasks:0,materials:0,names:cohort.map(x=>x.name)};
+ for(let i=0;i<8;i++){
+  const spec=cohort[i],base=bodies.get(spec.sex);
+  const root=cloneSkeleton(base.gltf.scene);
+  const bounds=new T.Box3().setFromObject(base.gltf.scene),height=bounds.max.y-bounds.min.y;
+  const factor=1.68/height;root.scale.setScalar(factor);
+  root.position.y-=bounds.min.y*factor*spec.height;
+  const visuals=applyNPCVisual(root,spec);
+  root.position.x=(i%4-1.5)*2.45;
+  root.position.z=(Math.floor(i/4)-.5)*3.15;
+  root.rotation.y=-.08+i*.035;
+  scene.add(root);
+  const mixer=new T.AnimationMixer(root);
+  const clip=base.gltf.animations.find(c=>c.name==='idle');
+  if(clip)mixer.clipAction(clip).play();
+  mixers.push(mixer);
+  metrics.models.add(spec.sex);
+  metrics.colors.add(spec.top+'-'+spec.bottom);
+  metrics.meshMasks+=visuals.regionMeshes;
+  root.traverse(o=>{if(o.isSkinnedMesh&&o.material?.onBeforeCompile)metrics.materials++});
+ }
+ document.getElementById('cards').innerHTML=cohort.map(x=>'<span>'+x.name+' · '+x.role+'</span>').join('');
+ metrics.models=[...metrics.models];metrics.colors=[...metrics.colors];
+ window.__populationReport=metrics;
+ const clock=new T.Clock();
+ function frame(){const dt=Math.min(.05,clock.getDelta());for(const m of mixers)m.update(dt);renderer.render(scene,camera);requestAnimationFrame(frame)}frame();
+}catch(e){window.__populationError=String(e.stack||e);console.error(e)}
+window.__populationReady=true;
+</script></body></html>
