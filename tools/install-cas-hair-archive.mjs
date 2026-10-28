@@ -3,9 +3,9 @@
 import {existsSync,readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {inflateRawSync} from 'node:zlib';
-const source=resolve('third_party/cityofgod_21_cabelos_glb.zip');
+const source=resolve('third_party/cityofgod_cas_corpo_feminino_21_cabelos.zip');
 if(!existsSync(source)){
- console.log('CAS hair: optional 21-GLB archive not installed (hair-only editor remains available).');
+ console.log('CAS hair: optional 21-GLB archive not installed (character editor remains available).');
  process.exit(0);
 }
 const zip=readFileSync(source);
@@ -26,7 +26,7 @@ for(let i=0;i<count;i++){
   local=zip.readUInt32LE(cursor+42),
   name=zip.subarray(cursor+46,cursor+46+nameLen).toString('utf8');
  cursor+=46+nameLen+extraLen+commentLen;
- if(!/^assets\/characters\/hair\/(?:manifest\.json|hair-(?:0[1-9]|1[0-9]|2[01])\.glb)$/.test(name))continue;
+ if(!/^assets\/characters\/(?:hair\/(?:manifest\.json|hair-(?:0[1-9]|1[0-9]|2[01])\.glb)|cas\/(?:female-vincent\.glb|manifest\.json))$/.test(name))continue;
  if(local+30>zip.length||zip.readUInt32LE(local)!==0x04034b50)throw Error('CAS hair: cabeçalho ZIP inválido');
  const start=local+30+zip.readUInt16LE(local+26)+zip.readUInt16LE(local+28);
  if(start+packed>zip.length||unpacked>5000000)throw Error('CAS hair: arquivo muito grande ou truncado');
@@ -49,7 +49,17 @@ for(let i=1;i<=21;i++){
  if(!item||!data||data.length<20||data.toString('ascii',0,4)!=='glTF'||data.readUInt32LE(8)!==data.length)
   throw Error('CAS hair: GLB ausente ou inválido: '+file);
 }
-const dest=resolve('assets/characters/hair');
-mkdirSync(dest,{recursive:true});
-for(const [path,raw] of entries)writeFileSync(join(dest,path.slice(prefix.length)),raw);
-console.log('CAS hair: 21 GLBs e manifesto extraídos do pacote licenciado ('+Math.round(zip.length/1024)+' KiB ZIP).');
+const female=entries.get('assets/characters/cas/female-vincent.glb');
+const bodyManifest=entries.get('assets/characters/cas/manifest.json');
+if(!female||!bodyManifest||female.toString('ascii',0,4)!=='glTF'||female.readUInt32LE(8)!==female.length)
+ throw Error('CAS body: GLB feminino ausente/inválido');
+const models=JSON.parse(bodyManifest.toString('utf8')).models;
+if(!models?.some(model=>model.sex==='female'&&model.file==='female-vincent.glb'))
+ throw Error('CAS body: manifesto de base feminina inválido');
+for(const [path,raw] of entries){
+ const absolute=resolve(path);
+ if(!absolute.startsWith(resolve('assets/characters')+'/'))throw Error('CAS: caminho inválido');
+ mkdirSync(resolve(absolute,'..'),{recursive:true});
+ writeFileSync(absolute,raw);
+}
+console.log('CAS: 1 corpo feminino + 21 cabelos GLB instalados e validados.');
