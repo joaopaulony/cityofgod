@@ -3,10 +3,10 @@
 ## Estado da primeira versão
 
 - O CAS é o modo padrão do City of God; para testar o renderizador antigo: `?characters=mixamo`.
-- O jogo usa **duas bases provisórias já existentes**, David (masculina) e Megan (feminina), com animações Mixamo. Elas **não são modelos gerados pelo Higgsfield** e têm aproximadamente 48 mil e 55 mil triângulos; portanto, ainda **não atingem** nossa meta final de low-poly realista.
+- O build gera **duas novas bases 3D originais** (masculina e feminina) em `tools/generate-cas-bases.mjs`, com aproximadamente 14–16 mil triângulos, esqueleto de 25 ossos e 14 animações cada. É um **protótipo procedural de low-poly realista**, não um modelo produzido pelo Higgsfield e não tem ainda a sofisticação visual de The Sims 4. David e Megan (Mixamo) permanecem como fallback.
 - O editor oferece nome, seleção da base, altura, constituição física, prévia 3D rotacionável, animação Idle e cores **somente quando houver materiais independentes**.
 - O perfil é salvo em `localStorage` sob `cityofgod.cas.v1`. Ainda não há sincronização multiplayer.
-- Novos GLBs devem ser aprovados e copiados manualmente para o repositório. O jogo não envia prompts, não gera modelos online e não usa créditos da Higgsfield.
+- As bases nativas são geradas pelo `npm run prebuild` antes do bundle. Novos GLBs externos Higgsfield devem ser aprovados e colocados no cadastro do projeto. O jogo não envia prompts, não gera modelos online e não usa créditos da Higgsfield.
 
 ## Contrato de exportação dos novos GLBs
 
