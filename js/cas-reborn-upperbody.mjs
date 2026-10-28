@@ -157,6 +157,10 @@ export function createRebornUpperBodyMotion(root){
    if((mode==='run'||mode==='walk')&&current.arm>.04){
     guide('Left',1,wave);
     guide('Right',-1,wave);
+    // The two-bone guide controls where the hands travel; a small additional
+    // elbow flex keeps the forearm alive through the recovery part of the gait.
+    rotate(bones.LeftForeArm,X,-current.elbow*.55*Math.cos(phase+.42));
+    rotate(bones.RightForeArm,X,-current.elbow*.55*Math.cos(phase-.42));
    }
    updated++;
   },
