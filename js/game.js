@@ -16,25 +16,8 @@ for(const H of houses)if(H.architecture&&H.contains(...world.spawn)){world.spawn
 
 const player = makeActor({ x: world.spawn[0], y: world.spawn[1], face: world.aimDir, pal: PAL.hero, ammo: 30, reserve: 90 });
 ecosystemInit();
-// NPCs passeiam na frente do mercado e de uma das casas
-const shopH = houses.find(h => h.brick) || houses[0], homeH = houses.find(h => h !== shopH) || shopH;
-const spotAt = (H, w) => H ? [H.front[0] + H.doorN[0] * 1.5 - w / 2, H.front[1] + H.doorN[1] * 1.5 - w / 2, w, w] : [world.spawn[0] + 4, world.spawn[1] + 4, 3, 3];
-const npcs = [
-  makeActor({ face: 2, armed: false, pal: PAL.red, name: 'Lucas', home: spotAt(shopH, 5) }),
-  makeActor({ face: 1, armed: false, pal: PAL.girl, name: 'Ana', home: spotAt(homeH, 4) }),
-];
-// Opt-in crowd beta only; default city stays at the proven two story NPCs.
-// Both flags are required so the crowd is not drawn as repeated old models.
-const crowdBeta=new URLSearchParams(location.search).get('casreborn')==='1'&&
- new URLSearchParams(location.search).get('crowdbeta')==='1';
-if(crowdBeta&&window.CityPopulation){
- const isMobile=matchMedia('(max-width: 700px)').matches||Number(navigator.hardwareConcurrency||8)<6;
- const count=isMobile?6:12; // keep modest until a real 15-NPC FPS profile passes
- npcs.push(...CityPopulation.createResidents({
-  count,seed:'cityofgod-residents-v1',houses,fallback:world.spawn,makeActor,pal:PAL.hero
- }));
-}
-
+// Reset humano: nenhum NPC humano é instanciado. Reintroduziremos após o CAS novo.
+const npcs = [];
 const actors = [player, ...npcs];
 const parts = [], tracers = [], bubbles = [];
 const st = { player, npcs, hp: 0.92, food: 0.63, water: 0.48, clock: 17 * 60 + 40, night: false, shake: 0 };
@@ -406,6 +389,8 @@ function render() {
       trafficSignal:signal});
   }
   for (const a of actors) {
+    // No models/sprites/ghosts until the next human asset direction is approved.
+    if(window.CITY_HIDE_HUMANS)continue;
     if(a===player&&window.cityVehicles?.driver)continue;
     const upper=houses.find(H=>H.upper&&H.inside&&a.floorZ>.15&&
       a.x>H.x0&&a.x<H.x1&&a.y>H.y0&&a.y<H.y1);
