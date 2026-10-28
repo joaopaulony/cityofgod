@@ -376,6 +376,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(!dialog.open){active=false;return;}
   if(renderer&&scene){
    const delta=Math.min(.05,Math.max(0,(t-lastTime)/1000));lastTime=t;
+   rebornUpper?.restore();
    mixer?.update(delta);
    if(rebornUpper&&activeMotion)rebornUpper.update(delta,{
     clip:activeMotion.getClip().name,time:activeMotion.time,duration:activeMotion.getClip().duration
