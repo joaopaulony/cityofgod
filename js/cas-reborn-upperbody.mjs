@@ -49,6 +49,54 @@ export function createRebornUpperBodyMotion(root){
  const tracked=[torso,...REBORN_UPPER_BODY_BONES.map(name=>bones[name])];
  const before=tracked.map(()=>new THREE.Quaternion());
  let hasOverlay=false;
+ // Two-bone soft IK keeps run hands near the ribs instead of letting
+ // a generated clip fling a straight arm through the belly or off to the side.
+ const start=new THREE.Vector3(),elbow=new THREE.Vector3(),wrist=new THREE.Vector3();
+ const goal=new THREE.Vector3(),elbowGoal=new THREE.Vector3(),pole=new THREE.Vector3();
+ const reach=new THREE.Vector3(),local=new THREE.Vector3(),delta=new THREE.Quaternion(),rot=new THREE.Quaternion();
+ const targetDir=new THREE.Vector3(),sourceDir=new THREE.Vector3();
+ const aim=(joint,child,dest,weight)=>{
+  joint.updateWorldMatrix(true,false);child.updateWorldMatrix(true,false);
+  joint.getWorldPosition(start);child.getWorldPosition(elbow);
+  sourceDir.subVectors(elbow,start).normalize();
+  targetDir.subVectors(dest,start).normalize();
+  if(sourceDir.lengthSq()<.9||targetDir.lengthSq()<.9)return;
+  delta.setFromUnitVectors(sourceDir,targetDir);
+  // Limit each correction to a physically manageable range.
+  rot.identity().slerp(delta,clamp(weight,0,.82));
+  joint.parent.getWorldQuaternion(parentQ);
+  const localRot=parentQ.clone().invert().multiply(rot).multiply(parentQ);
+  joint.quaternion.premultiply(localRot).normalize();
+  joint.updateMatrixWorld(true);
+ };
+ const guide=(side,sign,wave)=>{
+  const upper=bones[side+'Arm'],fore=bones[side+'ForeArm'],hand=bones[side+'Hand'];
+  root.updateMatrixWorld(true);
+  upper.getWorldPosition(start);fore.getWorldPosition(elbow);hand.getWorldPosition(wrist);
+  const length1=start.distanceTo(elbow),length2=elbow.distanceTo(wrist);
+  if(length1<.06||length2<.06)return;
+  // y controls elbow bend. z uses contralateral phase, never random jitter.
+  const running=mode==='run',weight=(running?.77:.40);
+  local.copy(start);root.worldToLocal(local);
+  local.x+=sign*(running?.09:.045);
+  local.y-=running?.275:.415;
+  local.z+=(running?.08:.025)+sign*wave*(running?.19:.145);
+  goal.copy(local);root.localToWorld(goal);
+  reach.subVectors(goal,start);
+  const distance=clamp(reach.length(),Math.abs(length1-length2)+.002,length1+length2-.008);
+  reach.normalize();goal.copy(start).addScaledVector(reach,distance);
+  // Elbow pole: softly to the outside and just behind the torso.
+  root.getWorldQuaternion(rootQ);
+  pole.set(sign*.85,-.03,-.52).applyQuaternion(rootQ);
+  pole.addScaledVector(reach,-pole.dot(reach));
+  if(pole.lengthSq()<1e-6)pole.set(sign,0,0);
+  pole.normalize();
+  const along=(length1*length1-length2*length2+distance*distance)/(2*distance);
+  const offset=Math.sqrt(Math.max(0,length1*length1-along*along));
+  elbowGoal.copy(start).addScaledVector(reach,along).addScaledVector(pole,offset);
+  aim(upper,fore,elbowGoal,weight);
+  aim(fore,hand,goal,weight);
+ };
  const rotate=(bone,worldRelativeAxis,angle)=>{
   if(Math.abs(angle)<1e-7)return;
   // Convert character-local axis to parent-local axis, including turn + pose.
@@ -106,6 +154,10 @@ export function createRebornUpperBodyMotion(root){
    rotate(torso,Y,-current.torso*wave);
    bend('Left',1,wave,follow,phase,breath);
    bend('Right',-1,wave,follow,phase+Math.PI,breath);
+   if((mode==='run'||mode==='walk')&&current.arm>.04){
+    guide('Left',1,wave);
+    guide('Right',-1,wave);
+   }
    updated++;
   },
   getTelemetry(){
