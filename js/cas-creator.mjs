@@ -264,11 +264,18 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   return previewCache.get(sex);
  }
  function setClip(){
-  mixer?.stopAllAction();
   const clips=['idle','walk','run','crouch','jump_air'];
   const selected=clips.includes(previewAnimation)?previewAnimation:'cas_'+(previewAnimation.startsWith('cas_')?previewAnimation.slice(4):previewAnimation);
   const motion=modelAnimations.find(c=>c.name===selected)||modelAnimations.find(c=>/idle|stand|breath/i.test(c.name))||modelAnimations[0];
-  if(motion&&mixer){const action=mixer.clipAction(motion);action.reset().play();action.setLoop(THREE.LoopRepeat,Infinity);activeMotion=action;}
+  if(!motion||!mixer)return;
+  const next=mixer.clipAction(motion),previous=activeMotion;
+  if(previous===next)return;
+  next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+  next.setLoop(THREE.LoopRepeat,Infinity);
+  // Keep both authored poses during the transition; stopAllAction produced a
+  // one-frame shoulder/wrist snap when switching from walk to run or jump.
+  if(previous)next.crossFadeFrom(previous,.18,true);
+  activeMotion=next;
  }
  async function setPreviewSex(sex){
   if(!renderer||previewSex===sex&&!artlistMode)return;
@@ -296,6 +303,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
    mixer=new THREE.AnimationMixer(root);
+   activeMotion=null;
    rebornUpper=system.rebornReady?createRebornUpperBodyMotion(root):null;
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
