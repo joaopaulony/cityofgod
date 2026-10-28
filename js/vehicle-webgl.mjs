@@ -320,12 +320,18 @@ function initRenderer(){
   catch(error){console.error('Carros estacionados 3D falharam',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
+ window.CityFront?.applySettings();
 }
+system.applyQuality=value=>{
+ if(!renderer)return;
+ renderer.setPixelRatio(value==='high'?1.5:Math.min(devicePixelRatio||1,value==='low'?.65:1));
+ renderer.shadowMap.enabled=value!=='low';system.quality=value;system.pixelRatio=renderer.getPixelRatio();
+};
 let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
- const pixelRatio=Math.min(devicePixelRatio||1,1.5);
+ const pixelRatio=renderer.getPixelRatio();
  const wantedW=Math.round(w*pixelRatio),wantedH=Math.round(h*pixelRatio);
  if(canvas.width!==wantedW||canvas.height!==wantedH)
   renderer.setSize(w,h,false);
@@ -473,12 +479,13 @@ function drawPanel(g,w,h){
  g.restore();
 }
 function engineSound(){
+ if((window.CityFront?.effectsVolume??1)<=0)return;
  const Context=window.AudioContext||window.webkitAudioContext;
  if(!Context)return;
  try{
   const a=new Context(),o=a.createOscillator(),gain=a.createGain();
   o.type='sawtooth';o.frequency.value=220;
-  gain.gain.setValueAtTime(.025,a.currentTime);
+  gain.gain.setValueAtTime(.025*(window.CityFront?.effectsVolume??1),a.currentTime);
   gain.gain.exponentialRampToValueAtTime(.0001,a.currentTime+.22);
   o.connect(gain);gain.connect(a.destination);o.start();o.stop(a.currentTime+.23);
   o.onended=()=>a.close();

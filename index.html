@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="css/city-home.css">
 <link rel="stylesheet" href="css/pets.css">
 <link rel="icon" href="data:,">
+<link rel="preload" as="image" href="assets/menu/v1/bairro-entardecer.webp">
+<link rel="preload" as="image" href="assets/menu/v1/logo.webp">
 <style>
   html, body { margin: 0; height: 100%; background: #14110f; overflow: hidden; }
   body { font-family: "Segoe UI", system-ui, sans-serif; color: #eee; user-select: none; }
@@ -17,8 +19,8 @@
   /* Gráfico apenas: tonalidade, saturação e contraste da referência
      isométrica, sem alterar texturas, malhas GLB ou alpha. */
   #view { image-rendering: auto; cursor: none;
-    filter: saturate(1.12) contrast(1.075) brightness(1.015); }
-  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045); }
+    filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045) brightness(var(--city-brightness,1)); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }
   #chat { bottom: 228px !important; }
@@ -48,9 +50,13 @@
   body.map-open #chat, body.map-open #keys { display: none; }
 </style>
 <link rel="stylesheet" href="css/hud-refresh.css">
+<link rel="stylesheet" href="css/front-end.css">
+<script src="js/front-state.js" defer></script>
+<script src="js/front-end.js" defer></script>
 </head>
-<body>
-<canvas id="view"></canvas>
+<body class="front-open">
+<section id="city-front" role="dialog" aria-modal="true" aria-label="City of God — menu inicial"><img class="front-logo" src="assets/menu/v1/logo.webp" alt="City of God"><noscript>Ative o JavaScript para abrir a cidade.</noscript></section>
+<canvas id="view" tabindex="-1" aria-label="Cidade — área de jogo"></canvas>
 <!-- Three.js renderiza modelos GLB verdadeiros em 3D, quadro a quadro -->
 <canvas id="vehicle3d" aria-label="Carros 3D em tempo real"></canvas>
 <canvas id="hud"></canvas>
@@ -87,6 +93,7 @@
   <div>Novo mapa <kbd>G</kbd></div>
 </div>
 <script>window.VEG3D = !/veg2d/.test(location.search) && !!document.createElement('canvas').getContext('webgl2');</script>
+<template id="city-runtime">
 <script src="js/visual-palette.js"></script>
 <script src="js/core.js"></script>
 <script src="js/env.js"></script>
@@ -146,6 +153,6 @@
 <script src="js/character-test.js"></script>
 <script src="js/character-editor.js"></script>
 <script src="js/architecture-test.js"></script>
-<script>if (location.search.includes('scene=')) document.write('<script src="js/debug.js"><\/script>');</script>
+</template>
 </body>
 </html>

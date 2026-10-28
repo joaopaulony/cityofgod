@@ -7,6 +7,7 @@
     "start": "node tools/serve.mjs",
     "test:characters": "node --test tests/character-actions.test.mjs",
     "test:pets": "node --test tests/pets.test.mjs",
+    "test:front": "node --test tests/front-end.test.cjs",
     "judge:home": "node tools/judge-city-home.cjs"
   },
   "devDependencies": {

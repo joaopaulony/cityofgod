@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "threshold": "strictly greater than 8.0",
+  "regressions": {
+    "cases": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "grades": [
+    {
+      "area": "Navegação e colisões",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Movimentos e atividades",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Economia e culinária",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "NPCs e visitas locais",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Materiais e miniaturas (técnico)",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Editor e imóveis",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Permissões e persistência",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "area": "Desempenho e integração",
+      "score": 10,
+      "passed": 10,
+      "total": 10
+    }
+  ],
+  "limitations": "Static/behavioral technical audit only; browser screenshots and empirical FPS not graded."
+}

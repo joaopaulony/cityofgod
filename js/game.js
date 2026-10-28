@@ -728,12 +728,21 @@ function frame(now) {
     // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
     // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
     const lead = terrain.vel || [0, 0];
-    if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(13 - cost - terrain.workMs, 2.5, 6));
-    if (cost + terrain.workMs < 12) warmIdle();
+    if(!window.CityFront?.blocked||window.CityFront?.loading){
+      if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(13 - cost - terrain.workMs, 2.5, 6));
+      if (cost + terrain.workMs < 12) warmIdle();
+    }
   }
   requestAnimationFrame(frame);
 }
 function tick(dt) {
+  if(window.CityFront?.blocked){
+    if(window.CityFront.loading){
+      for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}
+      window.cityCharacters?.update(0);cam.update(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();
+    }
+    input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;input.endFrame();return;
+  }
   if(window.cityCharacterEditorOpen||window.CityPets?.uiOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
   // Build/Buy mode: freeze character, physics and game clock while showing the live interior.
   if(window.CityHomeUI?.active){
@@ -890,3 +899,18 @@ requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses };
 CityUI.mount();
 window.CityHomeUI?.mount();
+window.CityFront?.attachGame({
+  release:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;player.aimHold=0;},
+  mapOpen:()=>wmap.open,openMap:()=>{if(!wmap.open)wmapToggle();},
+  save:()=>{CityLife.save();CitySim.save();window.CityPets?.controller.save();},
+  capture:()=>window.cityVehicles?.driver||player.stairTravel?null:{version:1,mode:world.open?'open':'local',seed:world.seed??SEED,x:player.x,y:player.y,floor:player.floor||0,clock:st.clock,at:Date.now()},
+  restore:save=>{
+    if(save.x<.5||save.y<.5||save.x>MAP-.5||save.y>MAP-.5)return false;
+    world.streamTick?.(save.x,save.y,20);
+    const home=houses.find(H=>H.contains?.(save.x,save.y,save.floor));
+    const floor=save.floor>0&&home?save.floor:0,q=collide(save.x,save.y,.28,floor);
+    if(Math.hypot(q[0]-save.x,q[1]-save.y)>.6||floor===0&&pondVal(q[0],q[1])<=1.02&&roadDist(q[0],q[1])>ROAD_W+SIDE)return false;
+    Object.assign(player,{x:q[0],y:q[1],floor,floorZ:floor*(home?.floorHeight||3),stairTravel:null,jump:null,traversal:null,actionZ:0,speed:0});
+    st.clock=save.clock;envTick(0,st.clock);Object.assign(cam,{x:player.x,tx:player.x,y:player.y,ty:player.y});return true;
+  }
+});

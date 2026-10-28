@@ -5,6 +5,7 @@ let browser;
  const page=await browser.newPage({viewport:{width:1360,height:920}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));
  fs.mkdirSync('artifacts/pets',{recursive:true});
  await page.goto('http://127.0.0.1:4322/?seed=123');
+ await page.locator('[data-front-action="new"]').click();
  await page.waitForFunction(()=>window.CityPets&&window.cityCharacters?.ready,null,{timeout:60000});
  const setup=await page.evaluate(()=>{
   const H=__game.houses.find(H=>H.architecture&&CityRealty.residential(H));
@@ -57,7 +58,7 @@ let browser;
  });
  assert.equal(walk.ownerInside,false,JSON.stringify(walk));assert.equal(walk.petInside,false,JSON.stringify(walk));assert.ok(walk.distance<1.5,JSON.stringify(walk));
  await page.waitForTimeout(500);await page.screenshot({path:'artifacts/pets/passeio-com-dono.png'});
- await page.reload();await page.waitForFunction(()=>window.CityPets?.controller.count===6,null,{timeout:60000});
+ await page.reload();await page.locator('[data-front-action="continue"]').click();await page.waitForFunction(()=>window.CityPets?.controller.count===6&&window.CityFront?.phase==='playing',null,{timeout:60000});
  assert.equal(await page.evaluate(()=>CityPets.controller.rows.length),6);
  await page.keyboard.press('F8');await page.waitForSelector('#city-pets[open]');await page.keyboard.press('Escape');
  assert.equal(await page.locator('#city-pets').evaluate(e=>e.open),false);
