@@ -9,7 +9,7 @@
  let settings=S.settings(S.read(storage,S.SETTINGS));
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new';
- let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null;
+ let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null,restoring=Promise.resolve(),musicConnected=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
  function sound(){
@@ -22,12 +22,19 @@
      const t=i/audio.sampleRate,chord=chords[Math.floor(t/3)%4],beat=(t%.75)/.75,edge=Math.min(1,t/.12,(12-t)/.12);
      data[i]=edge*(Math.sin(t*Math.PI*chord[0])*.055+chord.reduce((v,f,j)=>v+Math.sin(2*Math.PI*f*t)*Math.exp(-beat*5)*(j===0?.08:.045),0));
     }
-    music=audio.createGain();music.connect(audio.destination);const source=audio.createBufferSource();source.buffer=buffer;source.loop=true;source.connect(music);source.start();
+    music=audio.createGain();music.gain.value=0;const source=audio.createBufferSource();source.buffer=buffer;source.loop=true;source.connect(music);source.start();
    }
    audio.resume().catch(()=>{});updateVolume();
   }catch{}
  }
- function updateVolume(){if(music)music.gain.setTargetAtTime(phase==='playing'?0:settings.master*settings.music,.03+(audio?.currentTime||0),.12);}
+ function updateVolume(){
+  if(!music||!audio)return;
+  const audible=!document.hidden&&phase!=='playing'&&phase!=='pause'&&parent!=='pause';
+  music.gain.cancelScheduledValues(audio.currentTime);
+  music.gain.setValueAtTime(audible?settings.master*settings.music:0,audio.currentTime);
+  if(audible&&!musicConnected){music.connect(audio.destination);musicConnected=true;}
+  else if(!audible&&musicConnected){music.disconnect();musicConnected=false;}
+ }
  function clickSound(){
   sound();if(!audio||settings.effects*settings.master===0)return;
   const oscillator=audio.createOscillator(),gain=audio.createGain(),now=audio.currentTime;
@@ -79,9 +86,13 @@
  function backPage(){if(phase==='pause')enter();else if(phase!=='loading'){change(parent==='pause'&&started?'pause':'title');render();}}
  function checkpoint(){
   if(!started||!game)return;
-  try{game.save?.();const point=game.capture?.();if(point){storage.setItem(S.SAVE,JSON.stringify(point));savingError='';}}catch{savingError='Não foi possível salvar neste navegador';}
+  savingError='';
+  // A subsystem failure must not prevent the independent position checkpoint.
+  try{const point=S.checkpoint(game.capture?.());if(point)storage.setItem(S.SAVE,JSON.stringify(point));}catch{savingError='Não foi possível salvar neste navegador';}
+  try{game.save?.();}catch{savingError='Parte do progresso não pôde ser salva neste navegador';}
  }
- function enter(){clearInterval(rotation);change('playing');started=true;release();document.getElementById('view')?.focus();checkpoint();}
+ function resumeSession(active){try{if(active)sessionStorage.setItem('cityofgod.front.resume','1');else sessionStorage.removeItem('cityofgod.front.resume');}catch{}}
+ function enter(){clearInterval(rotation);parent='title';change('playing');started=true;resumeSession(true);release();document.getElementById('view')?.focus();checkpoint();}
  function fail(message){clearInterval(rotation);loadingError=message;change('error');render();}
  async function imageAsset(file){return new Promise(resolve=>{const image=new Image();image.onload=()=>resolve(true);image.onerror=()=>resolve(false);image.src=ASSET+file;});}
  function paintProgress(){
@@ -124,6 +135,7 @@
     if(phase==='error')return;load.code=(i+1)/scripts.length;paintProgress();inert();
    }
    if(new URLSearchParams(location.search).has('scene')){const script=document.createElement('script');script.src='js/debug.js';document.body.append(script);}
+   await restoring;
    const begin=performance.now();
    await new Promise((resolve,reject)=>{
     const poll=()=>{
@@ -137,18 +149,19 @@
      requestAnimationFrame(poll);
     };poll();
    });
-   enter();
+   if(pending?.vehicle&&await window.cityVehicles?.restoreCheckpoint?.(pending.vehicle,pending)===false)throw Error('Não foi possível restaurar seu veículo. O salvamento foi preservado.');
+   pending=null;enter();
   }catch(error){fail(error.message||'Não foi possível carregar a cidade.');}
  }
- const api={get phase(){return phase;},get blocked(){return blocked();},get loading(){return phase==='loading';},get settings(){return {...settings};},get effectsVolume(){return settings.effects*settings.master;},applySettings,
-  attachGame(value){game=value;load.world=1;if(pending)game.restore?.(pending);applySettings();},markFrame(){if(window.cityVehicles?.ready&&(window.cityCharacters?.ready||window.cityCharacters?.status==='disabled'))frameReady=true;},
+ const api={get phase(){return phase;},get blocked(){return blocked()||document.hidden;},get loading(){return phase==='loading';},get settings(){return {...settings};},get effectsVolume(){return settings.effects*settings.master;},applySettings,
+  attachGame(value){game=value;restoring=Promise.resolve(pending?game.restore?.(pending):true).then(ok=>{if(ok===false)throw Error('Não foi possível restaurar sua posição. O salvamento foi preservado.');load.world=1;});restoring.catch(()=>{});applySettings();},markFrame(){if(window.cityVehicles?.ready&&(window.cityCharacters?.ready||window.cityCharacters?.status==='disabled'))frameReady=true;},
   pause(){if(phase==='playing'&&!otherModal()){parent='pause';checkpoint();open('pause');}},save:checkpoint};
  window.CityFront=api;
  root.addEventListener('pointermove',()=>document.body.classList.remove('front-keyboard'));
  root.addEventListener('click',e=>{
   const item=e.target.closest('[data-front-action]');if(!item)return;clickSound();const action=item.dataset.frontAction;
   if(action==='continue')start(true);else if(action==='new'){if(S.hasProgress(storage)||started)open('new-confirm');else newGame();}
-  else if(action==='confirm-new')newGame();else if(action==='back')backPage();else if(action==='title'){checkpoint();parent='title';open('title');}
+  else if(action==='confirm-new'){resumeSession(false);newGame();}else if(action==='back')backPage();else if(action==='title'){checkpoint();resumeSession(false);parent='title';open('title');}
   else if(action==='retry'){if(sessionIntent(startKind==='new'?'retry-new':'continue'))location.reload();}
   else if(action==='map'){enter();game?.openMap?.();}else if(action==='sound'){settings.music=settings.music===0?.35:0;persistSettings();render();}
   else open(action);
@@ -176,12 +189,16 @@
  },true);
  window.addEventListener('keyup',e=>{if(blocked())e.stopImmediatePropagation();},true);
  window.addEventListener('error',e=>{if(phase==='loading'&&e.error)fail('Ocorreu um erro ao preparar a cidade. Tente carregar novamente.');});
- window.addEventListener('pagehide',()=>{checkpoint();audio?.close().catch(()=>{});});
- setInterval(()=>{if(phase==='playing')checkpoint();},10000);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){checkpoint();release();}updateVolume();});
+ window.addEventListener('blur',()=>{checkpoint();release();});
+ window.addEventListener('pagehide',()=>{checkpoint();audio?.suspend().catch(()=>{});});
+ window.addEventListener('pageshow',()=>{release();updateVolume();if(audio?.state==='suspended')audio.resume().catch(()=>{});});
+ setInterval(()=>{if(phase==='playing'&&!document.hidden)checkpoint();},3000);
  new MutationObserver(()=>inert()).observe(document.body,{childList:true});
  document.body.classList.add('front-keyboard');change('title');applySettings();render();
  let intent=null;try{intent=sessionStorage.getItem('cityofgod.front.intent');sessionStorage.removeItem('cityofgod.front.intent');}catch{}
  if(intent==='new'){try{if(S.hasProgress(storage))S.backupAndReset(storage);start(false);}catch{fail('Não foi possível guardar a cópia de segurança do progresso.');}}
  else if(intent==='continue')start(true);
  else if(intent==='retry-new')start(false);
+ else {try{if(sessionStorage.getItem('cityofgod.front.resume')==='1'&&S.checkpoint(S.read(storage,S.SAVE)))start(true);}catch{}}
 })();

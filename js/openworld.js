@@ -678,6 +678,13 @@ function buildOpenWorld() {
   world.blocked = owBlocked;
   world.bareFn = (x, y, di) => (di === D_.DOWNTOWN || di === D_.PORT || di === D_.INDUSTRIAL || owAirfield(x, y)) ? 1 : 0;
   world.groundBase = owDrawBases; world.chunkReady = owChunkReady; world.propsInView = owPropsInView; world.streamTick = owStreamTick;
+  world.prepareResume=async(x,y)=>{
+    const started=performance.now();
+    while(owWanted(x,y).some(([,i,j])=>OW.sectors.get(i+','+j)?.state!=='done')){
+      if(performance.now()-started>60000)throw Error('A região salva demorou para carregar. Seu progresso foi preservado.');
+      owStreamTick(x,y,8);await new Promise(requestAnimationFrame);
+    }
+  };
   // culturas: [r, g, b, cobertura das fileiras]
   terrain.crops = [[196, 170, 92, 0.92], [88, 128, 50, 0.95], [112, 142, 60, 0.86], [128, 96, 64, 0.12], [118, 150, 66, 1], [150, 156, 84, 0.7]];
   terrainInit(); owPaintMini();

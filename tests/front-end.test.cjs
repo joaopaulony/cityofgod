@@ -18,6 +18,14 @@ test('new game backs up progress before replacing it and preserves settings and 
  const blocked=store({'cityofgod.life.v1':'do not lose'});blocked.setItem=()=>{throw Error('quota');};
  assert.throws(()=>S.backupAndReset(blocked));assert.equal(blocked.getItem('cityofgod.life.v1'),'do not lose');
 });
+test('position checkpoints preserve the driven vehicle and remain compatible with old saves',()=>{
+ const raw={version:1,mode:'open',seed:20261024,x:100,y:500,floor:0,clock:1050};
+ assert.equal(S.checkpoint(raw).vehicle,undefined);
+ const vehicle={key:'street:12:34',modelId:'sedan',angle:1.4,fuel:.42,engineOn:true,headlights:false,col:'#123456'};
+ assert.deepEqual(S.checkpoint({...raw,vehicle}).vehicle,vehicle);
+ assert.equal(S.checkpoint({...raw,vehicle:{...vehicle,fuel:5}}).vehicle.fuel,1);
+ assert.equal(S.checkpoint({...raw,vehicle:{...vehicle,angle:NaN}}).vehicle,undefined);
+});
 test('runtime scripts stay inert until start and art is independent from real controls',()=>{
  const html=fs.readFileSync('index.html','utf8'),front=fs.readFileSync('js/front-end.js','utf8'),game=fs.readFileSync('js/game.js','utf8');
  assert.ok(html.indexOf('<template id="city-runtime">')<html.indexOf('src="js/game.js"'));

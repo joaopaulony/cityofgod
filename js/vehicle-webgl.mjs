@@ -47,6 +47,17 @@ window.cityVehicles=system;
 // Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 system.fuel=fuel;
+system.captureCheckpoint=()=>system.driver?{key:activeKey,modelId:activeModel.id,angle:state.angle,fuel:fuel.level,col:activePaint,engineOn:system.engineOn,headlights:system.headlights}:null;
+system.restoreCheckpoint=async(saved,point)=>{
+ if(!system.ready||!getVehicleById(saved.modelId)||!await selectModel(saved.modelId))return false;
+ activeKey=saved.key;activePaint=saved.col;fleet.taken.add(activeKey);
+ for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
+ if(activePaint)parked3d?.paintActive(model,{col:activePaint,modelId:saved.modelId});
+ Object.assign(state,{x:point.x,y:point.y,angle:saved.angle,speed:0,steer:0,slip:0});
+ fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn;system.headlights=saved.headlights;
+ Object.assign(bridge.player,{x:point.x,y:point.y,floor:0,floorZ:0});
+ system.collider.x=point.x;system.collider.y=point.y;bridge.world.version++;return true;
+};
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
  shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;

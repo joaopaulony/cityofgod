@@ -1,0 +1,13 @@
+{
+  "base": "http://127.0.0.1:4323",
+  "checks": [
+    "menu music is silent and disconnected during gameplay",
+    "switching tabs saves immediately, freezes background simulation and retains the game",
+    "reload automatically resumes the same tab at its latest position",
+    "a distant saved city sector loads before position restoration",
+    "explicit title and Continue preserve position",
+    "driving checkpoint restores position, vehicle, direction, fuel and headlights",
+    "position is saved even if another subsystem fails"
+  ],
+  "errors": []
+}

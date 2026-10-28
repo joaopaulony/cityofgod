@@ -52,7 +52,9 @@ Para chegar às seis cenas sugeridas no planejamento, completar com chegada pelo
 
 ## Continuidade e proteção do progresso
 
-`cityofgod.front.save.v1` guarda mapa, posição a pé, andar e relógio, aproveitando os saves existentes de economia, imóveis, móveis, veículos e pets. Há gravação periódica, ao pausar, ao voltar ao título e ao sair da página. Uma posição inválida não é aplicada ao personagem. Não se grava um novo checkpoint de posição durante direção ou transição de escada.
+`cityofgod.front.save.v1` guarda mapa, posição, andar e relógio, aproveitando os saves existentes de economia, imóveis, móveis e pets. Ao dirigir, guarda também o veículo ativo, sua direção, combustível, pintura, motor e faróis; a retomada mantém o carro parado para evitar movimento durante o loading. Há gravação a cada três segundos, ao perder o foco, ocultar a aba, pausar, voltar ao título e sair da página. Transições de escada preservam o último checkpoint estável.
+
+Trocar de aba congela a simulação sem abrir o menu. A sessão da mesma aba retoma automaticamente após recarregamento ou descarte pelo navegador; voltar ao título explicitamente encerra essa retomada automática. A região salva termina de gerar antes de validar colisões e recuperar o andar. Falhas de restauração preservam o checkpoint, e falhas no salvamento de outros sistemas não impedem a gravação independente da posição. A música do menu cancela automações de volume e desconecta seu canal durante a partida e a pausa; ocultar a aba também a silencia.
 
 Continuar reconhece também um save legado válido de `cityofgod.life.v1`. Quando necessário, recupera o mapa local pela semente. Novo jogo pede confirmação se já existir progresso, preserva configurações e escreve/verifica `cityofgod.front.backup.v1` antes de remover saves antigos. A substituição acontece antes de instanciar os sistemas para impedir que listeners da partida anterior regravem dados sobre a nova.
 
@@ -62,4 +64,5 @@ Falhas e arquivos que não respondem apresentam uma tela com nova tentativa. Ten
 
 - `node --test tests/front-end.test.cjs`: validação, continuidade, reset com backup, scripts sob demanda e assets.
 - `tools/test-front-browser.cjs`: título sem instanciar a cidade, multiplayer, configurações, carregamento real, pausa, mapa, retorno ao título, continuação após reload, confirmação de novo jogo, tela móvel e falha/repetição sem perder save legado. Usa Playwright e Edge em um contexto isolado.
+- `tools/test-session-browser.cjs`: eventos de ocultação e foco, retomada após reload, região distante, continuação explícita, checkpoint dirigindo, falha de subsistema e desconexão real do áudio. `CITY_TEST_URL` seleciona a versão a validar em ambos os testes de navegador.
 - `artifacts/front-end/`: screenshots reais e relatório do teste no navegador.

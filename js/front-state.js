@@ -7,7 +7,10 @@
   brightness:cap(raw?.brightness,.75,1.3,1),music:cap(raw?.music,0,1,.35),effects:cap(raw?.effects,0,1,.8),master:cap(raw?.master,0,1,.75),reducedMotion:typeof raw?.reducedMotion==='boolean'?raw.reducedMotion:false};}
  function checkpoint(raw){
   if(raw?.version!==1||!['open','local'].includes(raw.mode)||![raw.x,raw.y,raw.seed,raw.clock].every(Number.isFinite)||raw.x<.5||raw.y<.5||raw.seed<0||raw.clock<0||!Number.isInteger(raw.floor)||raw.floor<0||raw.floor>19)return null;
-  return {version:1,mode:raw.mode,seed:raw.seed,x:raw.x,y:raw.y,floor:raw.floor,clock:raw.clock,at:Number.isFinite(raw.at)?raw.at:0};
+  const point={version:1,mode:raw.mode,seed:raw.seed,x:raw.x,y:raw.y,floor:raw.floor,clock:raw.clock,at:Number.isFinite(raw.at)?raw.at:0};
+  const car=raw.vehicle;
+  if(car&&typeof car.modelId==='string'&&typeof car.key==='string'&&Number.isFinite(car.angle)&&Number.isFinite(car.fuel))point.vehicle={modelId:car.modelId,key:car.key,angle:car.angle,fuel:cap(car.fuel,0,1,.5),engineOn:!!car.engineOn,headlights:!!car.headlights,col:typeof car.col==='string'?car.col:null};
+  return point;
  }
  function read(storage,key,fallback=null){try{return JSON.parse(storage.getItem(key))??fallback;}catch{return fallback;}}
  function hasProgress(storage){const life=read(storage,'cityofgod.life.v1');return !!checkpoint(read(storage,SAVE))||!!(life?.v===1&&Number.isFinite(life.funds));}

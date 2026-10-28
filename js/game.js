@@ -903,13 +903,16 @@ window.CityFront?.attachGame({
   release:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;player.aimHold=0;},
   mapOpen:()=>wmap.open,openMap:()=>{if(!wmap.open)wmapToggle();},
   save:()=>{CityLife.save();CitySim.save();window.CityPets?.controller.save();},
-  capture:()=>window.cityVehicles?.driver||player.stairTravel?null:{version:1,mode:world.open?'open':'local',seed:world.seed??SEED,x:player.x,y:player.y,floor:player.floor||0,clock:st.clock,at:Date.now()},
-  restore:save=>{
+  capture:()=>player.stairTravel?null:{version:1,mode:world.open?'open':'local',seed:world.seed??SEED,x:player.x,y:player.y,floor:player.floor||0,clock:st.clock,at:Date.now(),vehicle:window.cityVehicles?.captureCheckpoint?.()},
+  restore:async save=>{
     if(save.x<.5||save.y<.5||save.x>MAP-.5||save.y>MAP-.5)return false;
-    world.streamTick?.(save.x,save.y,20);
+    // Generate the destination before testing collisions or looking up its house.
+    Object.assign(player,{x:save.x,y:save.y});Object.assign(cam,{x:save.x,tx:save.x,y:save.y,ty:save.y});
+    await world.prepareResume?.(save.x,save.y);
     const home=houses.find(H=>H.contains?.(save.x,save.y,save.floor));
     const floor=save.floor>0&&home?save.floor:0,q=collide(save.x,save.y,.28,floor);
-    if(Math.hypot(q[0]-save.x,q[1]-save.y)>.6||floor===0&&pondVal(q[0],q[1])<=1.02&&roadDist(q[0],q[1])>ROAD_W+SIDE)return false;
+    if(!save.vehicle&&(Math.hypot(q[0]-save.x,q[1]-save.y)>.6||floor===0&&pondVal(q[0],q[1])<=1.02&&roadDist(q[0],q[1])>ROAD_W+SIDE))return false;
+    if(save.vehicle){q[0]=save.x;q[1]=save.y;}
     Object.assign(player,{x:q[0],y:q[1],floor,floorZ:floor*(home?.floorHeight||3),stairTravel:null,jump:null,traversal:null,actionZ:0,speed:0});
     st.clock=save.clock;envTick(0,st.clock);Object.assign(cam,{x:player.x,tx:player.x,y:player.y,ty:player.y});return true;
   }
