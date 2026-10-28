@@ -115,6 +115,35 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   const blue=new THREE.PointLight('#71b2d7',50,6);blue.position.set(3,3,-1);scene.add(blue);
   const gold=new THREE.PointLight('#ffbc77',32,5);gold.position.set(-3,2,2);scene.add(gold);
   const fixture=mat('#d5e9dc',.2,.2);box(2,.03,.15,-2,4,-1.3,fixture);box(2,.03,.15,2,4,-1.3,fixture);
+  // Original urban workshop signage. Painted/illuminated by Three.js,
+  // not a screenshot or a flat pre-rendered character backdrop.
+  const signCanvas=document.createElement('canvas');
+  signCanvas.width=1024;signCanvas.height=280;
+  const pen=signCanvas.getContext('2d');
+  pen.fillStyle='#0c1215';pen.fillRect(0,0,1024,280);
+  pen.strokeStyle='#c7975d';pen.lineWidth=8;pen.strokeRect(10,10,1004,260);
+  pen.textAlign='center';
+  pen.shadowColor='#e5a457';pen.shadowBlur=25;
+  pen.fillStyle='#e6aa62';pen.font='900 130px Impact,Arial Black,sans-serif';
+  pen.fillText('CITY OF GOD',512,155);
+  pen.shadowBlur=0;
+  pen.font='bold 37px Arial,sans-serif';pen.letterSpacing='8px';
+  pen.fillStyle='#cfdfda';pen.fillText('OFICINA URBANA · ESTÚDIO',512,222);
+  const neon=new THREE.CanvasTexture(signCanvas);
+  neon.colorSpace=THREE.SRGBColorSpace;
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.7,1.01),
+   new THREE.MeshBasicMaterial({map:neon,transparent:false}));
+  sign.position.set(0,2.92,-3.048);scene.add(sign);
+  const tireMaterial=mat('#171a1b',.98),rimMaterial=mat('#565e5d',.48,.65);
+  for(const [x,y,z] of [[1.24,.29,-1.82],[1.47,.27,-1.95]]){
+   const tire=new THREE.Mesh(new THREE.TorusGeometry(.26,.105,12,24),tireMaterial);
+   tire.position.set(x,y,z);tire.rotation.y=.17;tire.castShadow=true;scene.add(tire);
+   const hub=new THREE.Mesh(new THREE.TorusGeometry(.135,.025,10,20),rimMaterial);
+   hub.position.set(x,y,z+.074);scene.add(hub);
+  }
+  // A low-cost pool of light shapes the figure without expensive shadowmaps.
+  const warmFill=new THREE.PointLight('#ffc17b',16,4);
+  warmFill.position.set(-.9,2.4,.75);scene.add(warmFill);
   scene.add(new THREE.GridHelper(11,11,0x51514a,0x484943));
   camera=new THREE.PerspectiveCamera(36,1,.05,30);
   camera.position.set(0,1.15,zoom);camera.lookAt(0,1.02,0);
