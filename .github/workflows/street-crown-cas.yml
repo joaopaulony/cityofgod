@@ -8,6 +8,7 @@ on:
       - 'js/street-crown-adapter.mjs'
       - 'tests/street-crown-adapter.test.mjs'
       - 'tests/cas-street-crown-browser.mjs'
+      - 'tests/street-crown-world-browser.mjs'
       - 'tests/cas-street-crown-smoke.html'
       - 'assets/street-crown/**'
       - 'tools/extract-street-crown.py'
@@ -57,6 +58,7 @@ jobs:
               sleep 1
             done
             node tests/cas-street-crown-browser.mjs
+            node tests/street-crown-world-browser.mjs
           else
             echo "BINARY_ASSETS_REQUIRED: no visual approval until the author's six GLBs are present"
           fi
