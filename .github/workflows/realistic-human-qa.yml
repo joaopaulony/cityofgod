@@ -36,6 +36,7 @@ jobs:
         id: validate
         continue-on-error: true
         run: |
+          set -euo pipefail
           node tools/validate-realistic-glb.mjs /tmp/cog-humans/male.glb /tmp/cog-humans/female.glb | tee /tmp/cog-humans/quality-report.log
           npm ci --ignore-scripts
           node --test tests/cas-population.test.mjs
@@ -50,4 +51,6 @@ jobs:
           retention-days: 7
       - name: Block public release of unapproved anatomy
         if: steps.validate.outcome != 'success'
-        run: echo 'Rejected candidate; existing skeleton-only main remains safe. No GLB shipped.'
+        run: |
+          echo 'REJECTED: skeleton-only main remains safe. Do not release these GLBs.'
+          exit 1
