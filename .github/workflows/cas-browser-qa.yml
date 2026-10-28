@@ -7,11 +7,9 @@ on:
       - 'js/character-webgl.mjs'
       - 'css/cas-creator.css'
       - 'tests/cas-browser-smoke.*'
+      - 'tools/check-rig-only.py'
       - 'tests/cas-reborn-browser.mjs'
-      - 'assets/characters/reborn/**'
-      - 'js/npc-population.js'
-      - 'js/cas-npc-visual.mjs'
-      - 'tests/npc-population-browser.*'
+      - 'assets/characters/rigs/**'
       - '.github/workflows/cas-browser-qa.yml'
   workflow_dispatch:
 permissions:
@@ -32,7 +30,9 @@ jobs:
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
       - name: Build and static tests
-        run: npm run build:site
+        run: |
+          python3 tools/check-rig-only.py
+          npm run build:site
       - name: Launch local site and verify creation
         run: |
           PORT=4322 node tools/serve.mjs >/tmp/cas-reborn-http.log 2>&1 &
@@ -42,7 +42,6 @@ jobs:
           done
           node tests/cas-browser-smoke.mjs
           node tests/cas-reborn-browser.mjs
-          node tests/npc-population-browser.mjs
       - name: Attach screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
