@@ -62,7 +62,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   ? available+' penteados instalados. Alguns precisam de ajuste fino de escala e alinhamento.'
   : 'O pacote GLB ainda não foi instalado. O personagem pode ser criado, mas os penteados adicionais ficam indisponíveis.';
  hairSelect.disabled=!available;
- let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,mixer=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null;
+ let draft={...CAS_DEFAULT},renderer,scene,camera,world,previewRoot=null,mixer=null,modelAnimations=[],lastTime=0,active=false,loadingVersion=0,previewSex=null,previewHairKey='',spin=0,zoom=3.55,drag=null,lastWidth=0,lastHeight=0;
  const gltfLoader=new GLTFLoader(),textureLoader=new THREE.TextureLoader();
  const previewCache=new Map();
  const assets={male:'david',female:'megan'};
@@ -228,7 +228,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   const {width,height}=canvas.getBoundingClientRect();
   if(width<10||height<10)return;
   const w=Math.round(width),h=Math.round(height);
-  if(canvas.width===w&&canvas.height===h)return;
+  if(lastWidth===w&&lastHeight===h)return;
+  lastWidth=w;lastHeight=h;
   renderer.setSize(w,h,false);
   camera.aspect=width/height;camera.updateProjectionMatrix();
  }
