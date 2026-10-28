@@ -1,0 +1,53 @@
+name: City of God — inspect Higgsfield realistic GLBs
+on:
+  push:
+    branches: [feat/realistic-gta-humans-20261028]
+    paths:
+      - 'tools/realistic-human-sources.json'
+      - 'tools/validate-realistic-glb.mjs'
+      - '.github/workflows/realistic-human-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download both generated GLBs from Higgsfield CDN
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cog-humans
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const {assets}=JSON.parse(fs.readFileSync('tools/realistic-human-sources.json','utf8'));
+          for(const item of assets){
+            const url=new URL(item.url);
+            if(url.protocol!=='https:'||url.hostname!=='d8j0ntlcm91z4.cloudfront.net')throw Error('Untrusted model CDN host');
+            const proc=(await import('node:child_process')).spawnSync('curl',['-fL','--retry','3','--connect-timeout','20','--max-time','240',item.url,'-o','/tmp/cog-humans/'+item.sex+'.glb'],{stdio:'inherit'});
+            if(proc.status!==0)throw Error('GLB download failed: '+item.sex);
+          }
+          JS
+      - name: Check triangle counts, rig skeleton, hand bones and clips
+        id: validate
+        continue-on-error: true
+        run: |
+          node tools/validate-realistic-glb.mjs /tmp/cog-humans/male.glb /tmp/cog-humans/female.glb | tee /tmp/cog-humans/quality-report.log
+          npm ci --ignore-scripts
+          node --test tests/cas-population.test.mjs
+      - name: Publish GLB evaluation artifacts (not production)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-gltf-qa-report
+          path: |
+            /tmp/cog-humans/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Block public release of unapproved anatomy
+        if: steps.validate.outcome != 'success'
+        run: echo 'Rejected candidate; existing skeleton-only main remains safe. No GLB shipped.'
