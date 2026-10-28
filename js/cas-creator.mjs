@@ -234,6 +234,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  async function getPreviewAsset(sex){
   if(!previewCache.has(sex)){
    const promise=(async()=>{
+    const rebornEntry=system.rebornReady?_bases?.get(sex):null;
+    if(rebornEntry?.spec?.rig==='meshy-24')return rebornEntry;
     if(!manifestPromise)manifestPromise=fetch('assets/characters/mixamo/manifest.json').then(r=>{if(!r.ok)throw Error('Catálogo de personagens indisponível');return r.json();});
     const manifest=await manifestPromise, id=assets[sex],spec=manifest.models.find(x=>x.id===id);
     if(!spec)throw Error('Personagem '+id+' não encontrado');
@@ -296,7 +298,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
    previewHairKey='';
-   source.textContent='BASE 3D · '+(sex==='female'?'MEGAN':'DAVID')+' · '+modelAnimations.length+' ANIMAÇÕES';
+   source.textContent=system.rebornReady?'CAS REBORN · '+(sex==='female'?'FEMININO':'MASCULINO')+' · '+modelAnimations.length+' MOVIMENTOS':'BASE 3D · '+(sex==='female'?'MEGAN':'DAVID')+' · '+modelAnimations.length+' ANIMAÇÕES';
    loading.hidden=true;
    syncPreview();
   }catch(error){loading.textContent='Falha na prévia: '+String(error.message||error);}
@@ -387,7 +389,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   loadForm(activeCharacter(roster)||system.casProfile||CAS_DEFAULT);
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
-  status.textContent='Selecione suas características e salve para jogar. Os perfis são locais ao navegador.';
+  status.textContent=system.rebornReady?'PRÉVIA REBORN (BETA) · Roupa e rosto avançados em desenvolvimento; o personagem usa esqueleto novo.':'Selecione suas características e salve para jogar. Os perfis são locais ao navegador.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
