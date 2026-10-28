@@ -65,6 +65,24 @@ export function createCharacterSystem(scene,bridge){
   if(system.humanModelsEnabled){
    const height=a.population?Math.max(.90,Math.min(1.10,Number(a.population.height)||1)):1;
    root.scale.multiplyScalar(height);
+   if(a.population){
+    // Palette varies by seeded resident, while sharing mesh, texture and animation data.
+    // Never recolor face/skin or combine multiple baked material regions by force.
+    const styles=a.population.outfit;
+    root.traverse(o=>{
+     if(!o.isMesh||!o.material)return;
+     o.material=(Array.isArray(o.material)?o.material:[o.material]).map(original=>{
+      const name=String(original.name||'').toLowerCase();
+      if(!/outfit|shirt|top|trouser|pants|bottom|shoes/.test(name))return original;
+      const mat=original.clone();
+      const tint=/trouser|pants|bottom/.test(name)?styles.bottom:styles.top;
+      // PBR base-color tint; preserve original texture maps and normal/roughness.
+      if(mat.color)mat.color.set(tint);
+      return mat;
+     });
+     if(o.material.length===1)o.material=o.material[0];
+    });
+   }
   }
   let humanMeshes=0;root.traverse(x=>{if(x.isMesh)humanMeshes++});
   if(!system.humanModelsEnabled&&humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
