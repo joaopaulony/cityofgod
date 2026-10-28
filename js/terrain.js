@@ -996,7 +996,7 @@ function drawGround(g, W, H) {
     const t0 = performance.now(), dist = ch => Math.hypot(ch.ci * CH + 8 - cam.x, ch.cj * CH + 8 - cam.y);
     // enquanto algum pedaço da tela não tem nem a versão rápida, o chão ganha mais tempo do quadro
     const blank = vis.some(ch => !(ch.q && ch.q.done));
-    const B = blank ? Math.max(terrain.budget || 7, 9) : Math.max(terrain.budget || 7, 4), left = () => B - (performance.now() - t0);
+    const B = terrain.driving?Math.min(4,terrain.budget||2):(blank ? Math.max(terrain.budget || 7, 9) : Math.max(terrain.budget || 7, 4)), left = () => B - (performance.now() - t0);
     vis.sort((a, b) => dist(a) - dist(b)); ahead.sort((a, b) => dist(a) - dist(b));
     if (twInit()) for (const ch of [...vis, ...ahead]) { if (left() <= 0) break; if (!ch.q && ch.stage !== 2) twQuick(ch); }
     for (const ch of vis) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }

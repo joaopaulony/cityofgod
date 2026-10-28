@@ -724,12 +724,14 @@ function frame(now) {
     tick(dt);
     // custo do quadro sem a pintura do chão define quanto tempo o chão pode usar no próximo
     const cost = performance.now() - t0 - terrain.workMs;
-    terrain.budget = clamp(14 - cost, 1.5, 7);
+    const driving=!!window.cityVehicles?.driver;
+    terrain.driving=driving;
+    terrain.budget = clamp(14 - cost, driving?1:1.5, driving?4:7);
     // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
     // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
     const lead = terrain.vel || [0, 0];
     if(!window.CityFront?.blocked||window.CityFront?.loading){
-      if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(13 - cost - terrain.workMs, 2.5, 6));
+      if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
       if (cost + terrain.workMs < 12) warmIdle();
     }
   }

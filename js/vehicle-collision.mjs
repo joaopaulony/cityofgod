@@ -86,18 +86,22 @@ export function carCollision(world,car,options={}){
  // Bancadas, lixeiras e outras caixas fisicas, com orientacao propria.
  for(const b of options.boxes||[]){
   if(b.solid===false||b.floor===1||b.z>1.5||
-     (world.roadDistFn&&world.roadDistFn(b.x,b.y)<3.68 && b.kind!=='vehicle'&&b.kind!=='parkedcar')||
      (b.house&&!b.exteriorFixture))continue;
+  // Reject distant objects before querying procedural road geometry. Sweeps
+  // repeat this test several times per frame in a streamed city.
+  const reach=radius+Math.max(b.w,b.d);
+  if(Math.abs(b.x-car.x)>reach||Math.abs(b.y-car.y)>reach)continue;
   if(Math.hypot(b.x-car.x,b.y-car.y)>radius+Math.max(b.w,b.d))continue;
+  if(world.roadDistFn&&b.kind!=='vehicle'&&b.kind!=='parkedcar'&&world.roadDistFn(b.x,b.y)<3.68)continue;
   const obstacle=carFootprint(b.x,b.y,b.rot||0,b.w,b.d,0);
   if(polyHit(verts,obstacle))return record('object',b);
  }
  for(const c of world.circles||[]){
   if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.kind==='bush'||c.kind==='rock')continue;
-  // Nunca considerar colisores esquecidos no asfalto após a limpeza procedural.
-  if(world.roadDistFn&&world.roadDistFn(c.x,c.y)<3.68)continue;
   if(Math.abs(c.x-car.x)>radius+c.r||
      Math.abs(c.y-car.y)>radius+c.r)continue;
+  // Nunca considerar colisores esquecidos no asfalto após a limpeza procedural.
+  if(world.roadDistFn&&world.roadDistFn(c.x,c.y)<3.68)continue;
   if(hitCircle(car,c,margin))return record(c.kind||'circle',c);
  }
  return null;

@@ -304,6 +304,7 @@ function* owGenSector(S) {
   let n = 0;
   // floresta fechada: até 3× a densidade do mapa local; pátios, cais, pistas e praia ficam sem árvores
   for (let i = 0, cap = Math.round(270 * A * (1 + 2 * frac(D_.FOREST))); i < 18000 * A * (1 + 2 * frac(D_.FOREST)) && n < cap; i++) {
+    if(i%64===63)yield; // Rejected candidates must also yield, even in dense city districts.
     const x = x0 + rng() * S.SP, y = y0 + rng() * S.SP, f = forest(x, y), di = dd(x, y);
     if (OW_BARE.has(di) || owAirfield(x, y)) continue;
     if (rng() > smooth(clamp((f - 0.46) / 0.24, 0, 1)) * 0.85 + (di === D_.FARM ? 0.0006 : di === D_.RURAL ? 0.003 : BUILT.has(di) ? 0.002 : 0.004)) continue;
@@ -320,6 +321,7 @@ function* owGenSector(S) {
   yield;
   n = 0;
   for (let i = 0, cap = Math.round(210 * A); i < 12000 * A && n < cap; i++) {
+    if(i%64===63)yield;
     const x = x0 + rng() * S.SP, y = y0 + rng() * S.SP, f = forest(x, y), edge = 1 - Math.abs(f - 0.5) * 6;
     if (rng() > Math.max(0.03, edge * 0.5)) continue;
     const db = dd(x, y); if (OW_BARE.has(db) || owAirfield(x, y) || (db === D_.FARM && rng() > 0.12)) continue;
@@ -340,7 +342,7 @@ function* owGenSector(S) {
   yield;
   // tufos de capim (fora de vias, água e lotes) e juncos nas margens
   for (let i = 0, N = S.SP * S.SP * 0.045; i < N; i++) {
-    if (i % 400 === 399) yield;
+    if (i % 64 === 63) yield;
     const x = x0 + 0.5 + rng() * (S.SP - 1), y = y0 + 0.5 + rng() * (S.SP - 1), pv = pondVal(x, y);
     if (pv < 1.05) continue;
     if (pv < 1.1) { if (rng() < 0.5) world.props.push({ type: 'tuft', x, y, sp: P.reeds[i % 2], phase: rng() * 6, flat: true }); continue; }
@@ -364,6 +366,7 @@ function* owGenSector(S) {
   if (built > 0.05) {
     const R2 = mulberry(owSeed(S, 'litter'));
     for (let t = 0, cnt = 0; t < 5000 && cnt < Math.round(110 * built + 10); t++) {
+      if(t%64===63)yield;
       const x = x0 + 2 + R2() * (S.SP - 4), y = y0 + 2 + R2() * (S.SP - 4), dr = roadDist(x, y);
       if (!(dr >= ROAD_W - 0.6 && dr <= ROAD_W + SIDE + 0.12) || pondVal(x, y) < 1.2 || world.blocked(x, y, 0.12)) continue;
       if (R2() < (dr < ROAD_W + 0.3 ? 0.94 : 0.82)) continue;
@@ -380,6 +383,7 @@ function* owGenSector(S) {
   if (world.ecoReady) {
     const R3 = mulberry(owSeed(S, 'eco')), fl = [];
     for (let i = 0; i < 2400 && fl.length < 220; i++) {
+      if(i%64===63)yield;
       const x = x0 + 1 + R3() * (S.SP - 2), y = y0 + 1 + R3() * (S.SP - 2), f = forest(x, y);
       if (f < 0.36 || f > 0.79 || !ecoFree(x, y)) continue;
       const de = dd(x, y); if ((de === D_.URBAN || de === D_.TOWN || de === D_.DOWNTOWN) && R3() < 0.9) continue;
@@ -398,8 +402,9 @@ function* owGenSector(S) {
 const OW_BPPM = 2, OW_BS = 2;   // px/m da base e passo de amostragem (m)
 function* owPaintBase(S) {
   const [x0, y0] = S.bounds, n = S.SP / OW_BS, img = new ImageData(n, n), d = img.data, C2 = COL;
-  for (let band = 0; band < 8; band++) {
-    for (let j = band * n / 8; j < (band + 1) * n / 8; j++) for (let i = 0; i < n; i++) {
+  // Two rows per step keep expensive biome/noise sampling below a frame slice.
+  for (let row = 0; row < n; row+=2) {
+    for (let j = row; j < Math.min(n,row+2); j++) for (let i = 0; i < n; i++) {
       const x = x0 + (i + 0.5) * OW_BS, y = y0 + (j + 0.5) * OW_BS, pv = pondVal(x, y), o = (j * n + i) * 4;
       let c;
       if (pv < 1) { const t = clamp((1 - pv) / 0.6, 0, 1); c = [lerp(C2.shallow[0], C2.deep[0], t), lerp(C2.shallow[1], C2.deep[1], t), lerp(C2.shallow[2], C2.deep[2], t)]; }
@@ -537,10 +542,13 @@ function owStep(S, budget) {
   const t0 = performance.now(), prevCtx = world.groundCtx;
   world.groundCtx = S.shadow.ctx;
   try {
+    if(S.state==='finish'){owFinish(S);return true;}
     while (performance.now() - t0 < budget) {
       const r = withRng(S.rng, () => S.it.next());
       owCollect(S, S.snap);
-      if (r.done) { owFinish(S); return true; }
+      // Reindexing/cleanup gets its own slice, never appended to an already
+      // exhausted generation frame. Synchronous startup callers keep looping.
+      if (r.done) { S.state='finish';return false; }
     }
   } finally { world.groundCtx = prevCtx; S.ms += performance.now() - t0; }
   return false;

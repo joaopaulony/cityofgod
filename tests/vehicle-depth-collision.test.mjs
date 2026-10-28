@@ -6,6 +6,20 @@ const base={length:4.5,width:1.8,angle:0};
 const empty=()=>({segs:[],circles:[],mapSize:160});
 const car=(x,y,angle=0)=>({...base,x,y,angle});
 const options=(extra={})=>({houses:[],boxes:[],mapSize:160,...extra});
+test('driving only queries road geometry for nearby solid obstacles',()=>{
+ const w=empty();let queries=0;
+ w.roadDistFn=()=>{queries++;return 10;};
+ w.circles=Array.from({length:5000},(_,i)=>({x:100+i,y:100,r:.3,kind:'tree'}));
+ const far=Array.from({length:5000},(_,i)=>({x:100+i,y:100,w:2,d:2,solid:true}));
+ assert.equal(carCollision(w,car(20,20),options({boxes:far})),null);
+ assert.equal(queries,0,'objects outside the footprint must not sample road geometry');
+ const near={x:20,y:20,w:1,d:1,solid:true};
+ assert.equal(carCollision(w,car(20,20),options({boxes:[...far,near]}))?.kind,'object');
+ assert.equal(queries,1);
+ queries=0;w.roadDistFn=()=>{queries++;return 0;};
+ assert.equal(carCollision(w,car(20,20),options({boxes:[near]})),null,'keep cleanup of stray asphalt props');
+ assert.equal(queries,1);
+});
 test('house wall exactly, no invisible 1.5m house padding',()=>{
  const H={x0:10,y0:10,x1:15,y1:15};
  const world=empty(),o=options({houses:[H]});
