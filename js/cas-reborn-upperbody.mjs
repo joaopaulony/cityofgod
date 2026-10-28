@@ -40,12 +40,12 @@ const TAU=Math.PI*2;
  * call update immediately after its mixer update while the rig is visible.
  */
 export function createRebornUpperBodyMotion(root){
- const fingers=createRebornHandMotion(root);
  const missing=REBORN_UPPER_BODY_BONES.filter(name=>!root.getObjectByName(name)?.isBone);
  if(missing.length)throw Error('CAS Reborn: articulações superiores ausentes: '+missing.join(', '));
  const bones=Object.fromEntries(REBORN_UPPER_BODY_BONES.map(name=>[name,root.getObjectByName(name)]));
  const torso=root.getObjectByName('Spine02');
  if(!torso?.isBone)throw Error('CAS Reborn: Spine02 ausente');
+ const fingers=createRebornHandMotion(root);
  // Reused allocations: no objects created every animation frame.
  const rootQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion(),q=new THREE.Quaternion(),axis=new THREE.Vector3(),axisWorld=new THREE.Vector3();
  let current={...REBORN_MOTION_PRESETS.off},phase=0,mode='off',updated=0,handDynamics=0;
