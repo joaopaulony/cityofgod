@@ -37,16 +37,14 @@ test('moving obstacle cancels a vault without teleporting through it',()=>{
  const a={...base};a.traversal=planLowVault(a,[fence],()=>true);
  stepTraversal(a,.2,()=>false);assert.equal(a.x,base.x);assert.equal(a.y,base.y);assert.equal(a.actionZ,0);assert.equal(a.traversal,null);
 });
-test('shipped GLBs contain skin weights and every declared animation',()=>{
- const manifest=JSON.parse(readFileSync(new URL('../assets/characters/manifest.json',import.meta.url)));
- assert.equal(manifest.models.length,3);
- for(const spec of manifest.models){
-  const b=readFileSync(new URL('../assets/characters/'+spec.file,import.meta.url));
-  assert.equal(b.readUInt32LE(0),0x46546c67);assert.equal(b.readUInt32LE(8),b.length);
+test('original player and NPC clips survive only in geometry-free archives',()=>{
+ for(const file of ['player.rig.glb','ana.rig.glb','lucas.rig.glb']){
+  const b=readFileSync(new URL('../assets/characters/rigs/'+file,import.meta.url));
+  assert.equal(b.readUInt32LE(0),0x46546c67);
   const gltf=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());
   assert.ok(gltf.skins[0].joints.length>=20);
-  for(const c of Object.values(spec.clips))assert.ok(gltf.animations.some(a=>a.name===c.name),spec.id+': '+c.name);
-  for(const mesh of gltf.meshes)for(const p of mesh.primitives){assert.ok(p.attributes.JOINTS_0!==undefined);assert.ok(p.attributes.WEIGHTS_0!==undefined);}
-  if(spec.id==='player'){assert.equal(spec.muzzle.length,3);assert.ok(spec.muzzle[2]>.3);}
+  assert.ok(gltf.animations.length>=10);
+  assert.equal(gltf.meshes,undefined);
+  assert.equal(gltf.images,undefined);
  }
 });
