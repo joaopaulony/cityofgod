@@ -1,16 +1,20 @@
-# Importar seis personagens do Street Crown
+# Personagens Street Crown importados
 
-Este diretório contém apenas arquivos de malhas GLB originais do usuário. A inclusão direta de arquivos binários pelo conector foi bloqueada. A branch NÃO contém os modelos até o upload.
+Os seis arquivos binários foram enviados pelo autor em 28/10/2026 e validados pela GitHub Actions.
 
-Na interface do GitHub, selecione a branch feat/street-crown-cas-retarget-20261028, abra esta pasta e use Add file > Upload files para enviar, sem renomear:
+| GLB | Triângulos | Ossos originais |
+|---|---:|---:|
+| hero.glb | 3.798 | 24 |
+| partner.glb | 2.999 | 24 |
+| ped_man.glb | 2.200 | 24 |
+| ped_woman.glb | 2.199 | 24 |
+| thug.glb | 2.200 | 24 |
+| boss.glb | 3.800 | 24 |
 
-- hero.glb
-- partner.glb
-- ped_man.glb
-- ped_woman.glb
-- thug.glb
-- boss.glb
+A pasta contém exclusivamente malhas humanas originárias do HTML do autor, sem veículos nem áudios.
 
-Todos estão no ZIP entregue nesta conversa. Faça o commit na própria branch e verifique o workflow Street Crown CAS QA.
+Cada GLB mantém a malha ligada aos 24 ossos originais; a execução do City of God acrescenta 52 ossos para a palma e os dez dedos. **As falanges extras ainda não têm influência de skinning sobre as malhas importadas.** Não afirmar que a flexão individual dos dedos da mesh foi finalizada.
 
-A malha de cada personagem é vinculada aos 24 ossos de origem; os 52 ossos extras para dedos são adicionados pelo runtime do City of God. Reweight real das falanges fica pendente.
+Prévia do CAS disponível com o parâmetro de beta `?streetcrown=1`. Os modelos só devem ser exibidos no jogo se todos os seis carregarem e passarem pelo controle de qualidade.
+
+Validação do conjunto real: https://github.com/joaopaulony/cityofgod/actions/runs/40789629261
