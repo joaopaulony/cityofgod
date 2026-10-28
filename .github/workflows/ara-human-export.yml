@@ -1,0 +1,110 @@
+name: City of God — Ara full-finger realistic humans
+on:
+  push:
+    branches: [feat/realistic-gta-humans-20261028]
+    paths:
+      - '.github/workflows/ara-human-export.yml'
+      - 'tools/validate-realistic-glb.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout game and quality gate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Obtain independent MIT/CC0 Ara character generator
+        run: |
+          git clone --depth 1 https://github.com/olatunde85/3d-gen.git /tmp/ara-3d-gen
+          cd /tmp/ara-3d-gen
+          npm ci
+          npm run setup-assets
+      - name: Export TWO original low-triangle adult humans, game skeleton and Idle Walk Run Jump clips
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cog-human-out
+          cat > /tmp/ara-3d-gen/scripts/cityofgod-export.ts <<'TS'
+          import {writeFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {nodeLibrary} from './node-assets';
+          import {buildHuman} from '../src/core/human';
+          import {DEFAULT_PARAMS,PRESETS} from '../src/core/params';
+          import {runExport,planExport,DEFAULT_EXPORT} from '../src/export';
+          import {triangleCount} from '../src/core/mesh';
+          const lib=await nodeLibrary();
+          for(const [sex,base] of [['male','Athletic man'],['female','Athletic woman']] as const){
+            const params={...DEFAULT_PARAMS,...PRESETS[base],
+              name:'cog_'+sex,seed:sex==='male'?20261028:20261029,
+              detail:'low' as const,rig:'game' as const,faceBones:true,
+              age:0.53,animations:true,weapon:'none' as const,carry:'none' as const,
+              restPose:'A' as const};
+            const ch=await buildHuman(lib,params);
+            const settings={...DEFAULT_EXPORT,mode:'animated' as const,format:'glb' as const,
+              clips:['idle','walk','run','jump'],packaging:'embedded' as const,rootMotion:false,loopSuffix:false};
+            const result=await runExport(lib,ch,planExport(ch,settings));
+            writeFileSync('/tmp/cog-human-out/'+sex+'.glb',result.data);
+            console.log(sex,JSON.stringify({triangles:triangleCount(ch.mesh),bones:ch.rig?.bones.length,
+              bytes:result.data.length,animationIds:settings.clips}));
+          }
+          TS
+          cd /tmp/ara-3d-gen
+          npx tsx scripts/cityofgod-export.ts
+      - name: Validate bones, fingers and polygon budget
+        run: |
+          set -euo pipefail
+          node tools/validate-realistic-glb.mjs /tmp/cog-human-out/male.glb /tmp/cog-human-out/female.glb | tee /tmp/cog-human-out/qa.log
+      - name: Hand off validated binaries for isolated trusted import job
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-ara-humans
+          path: /tmp/cog-human-out/
+          retention-days: 2
+
+  import:
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-ara-humans
+          path: /tmp/cog-human-out
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independently recheck model data; enable only approved rigged assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/validate-realistic-glb.mjs /tmp/cog-human-out/male.glb /tmp/cog-human-out/female.glb
+          mkdir -p assets/characters/realistic
+          cp /tmp/cog-human-out/{male,female}.glb assets/characters/realistic/
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const models=['male','female'].map(sex=>({sex,file:sex+'.glb',
+            animations:['idle','walk','run','jump_air'].map((name)=>({name,file:sex+'.glb'}))}));
+          fs.writeFileSync('assets/characters/realistic/manifest.json',
+            JSON.stringify({schema:1,approved:true,provider:'Ara 3D Gen / CC0 MakeHuman',
+            models,notes:'65-bone articulated hands validated; beta-only until visual QA.'},null,2)+'\n');
+          JS
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/characters/realistic
+          if ! git diff --cached --quiet; then
+            git commit -m 'assets(humans): import vetted low-triangle finger-rigged Ara characters to beta'
+            git push origin HEAD:feat/realistic-gta-humans-20261028
+          fi
