@@ -1,7 +1,7 @@
 // CAS profile is deliberately engine-independent so it can be tested in Node.
 export const CAS_KEY='cityofgod.cas.v1';
 export const CAS_DEFAULT=Object.freeze({
- version:1,name:'Alex',sex:'male',height:1,build:1,
+ version:1,name:'Alex',age:24,sex:'male',height:1,build:1,background:'bairro',style:'casual',
  skin:'#c98d68',hair:'#30231e',hairStyle:'none',top:'#49647a',bottom:'#29394f'
 });
 export const CAS_COLORS=Object.freeze({
@@ -17,6 +17,9 @@ export function normalizeCAS(input={}){
  const result={...CAS_DEFAULT};
  result.name=String(input.name??result.name).replace(/[<>]/g,'').trim().slice(0,24)||CAS_DEFAULT.name;
  result.sex=input.sex==='female'?'female':'male';
+ result.age=Math.round(clamp(input.age,18,80,24));
+ result.background=['bairro','centro','litoral','interior'].includes(input.background)?input.background:'bairro';
+ result.style=['casual','esportivo','urbano','social'].includes(input.style)?input.style:'casual';
  result.height=clamp(input.height,.90,1.10,1);
  result.build=clamp(input.build,.86,1.14,1);
  result.hairStyle=/^hair-(?:0[1-9]|1[0-9]|2[01])$/.test(String(input.hairStyle||''))?input.hairStyle:'none';
