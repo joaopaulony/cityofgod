@@ -35,6 +35,7 @@ export async function loadCASHairSystem(loader){
   const current=mounted.get(root);
   if(!current)return;
   current.token++;
+  for(const mesh of current.originalHair||[])mesh.visible=true;
   if(current.object){
    current.object.parent?.remove(current.object);
    current.object.traverse(node=>{
@@ -74,7 +75,29 @@ export async function loadCASHairSystem(loader){
     node.material=Array.isArray(node.material)?node.material.map(m=>m.clone()):node.material.clone();
     node.castShadow=true;node.receiveShadow=true;node.frustumCulled=false;
    });
-   head.add(object);state.object=object;
+   // Mixamo's imported armature uses a nested 0.01 transform. A
+   // standalone hair GLB uses metre-scale coordinates. Compensate the bone
+   // hierarchy scale, otherwise every hairstyle is ~100x too small.
+   root.updateMatrixWorld(true);
+   const boneWorldScale=head.getWorldScale(new (head.scale.constructor)());
+   const sx=Math.abs(boneWorldScale.x),sy=Math.abs(boneWorldScale.y),sz=Math.abs(boneWorldScale.z);
+   if(Math.min(sx,sy,sz)<.00001)throw Error('escala do osso Head inválida');
+   const quat=head.getWorldQuaternion(head.quaternion.clone());
+   const target=head.getWorldPosition(head.position.clone());
+   target.y+=.13;
+   head.add(object);
+   object.position.copy(head.worldToLocal(target));
+   object.quaternion.copy(quat).invert();
+   object.scale.set(1/sx,1/sy,1/sz);
+   // When a new hairstyle is equipped, do not render the baked-in original
+   // Mixamo hair through it. Restore the original when the addon is removed.
+   state.originalHair=[];
+   root.traverse(node=>{
+    if(node!==object&&node.isMesh&&/(?:^|[_-])hair(?:$|[_-])/i.test(node.name)){
+     state.originalHair.push(node);node.visible=false;
+    }
+   });
+   state.object=object;
    tint(object,color);
   }catch(error){
    if(mounted.get(root)===state){
