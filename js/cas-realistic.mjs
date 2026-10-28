@@ -50,12 +50,17 @@ export async function loadApprovedHumans(loader,{base=REALISTIC_DIR}={}){
    if(!['idle','walk','run','jump_air'].includes(entry.name)||!/^[a-z0-9-]+\.glb$/.test(entry.file))throw Error('Invalid animation entry');
    let asset=entry.file===model.file?gltf:await loader.loadAsync(base+entry.file);
    if(!asset.animations?.length)throw Error('No clip in '+entry.file);
-   const clip=normalizeRebornClip(asset.animations[0],asset.scene,gltf.scene,entry.name,{inPlace:true});
+   const target=entry.name==='jump_air'?'jump':entry.name;
+   const match=asset.animations.find(c=>c.name.toLowerCase().replace(/[^a-z]/g,'')===target.replace(/[^a-z]/g,''));
+   if(!match)throw Error('Exact '+entry.name+' motion missing in '+entry.file+'; refusing fake animation');
+   const clip=normalizeRebornClip(match,asset.scene,gltf.scene,entry.name,{inPlace:true});
    animations.push(clip);
   }
   // Do not manufacture a run or idle from a Walk clip: stiff poses are a regression.
   for(const name of ['idle','walk','run'])if(!animations.some(c=>c.name===name))throw Error(sex+' missing '+name+' animation');
-  const clips=Object.fromEntries(animations.map(clip=>[clip.name,{name:clip.name,duration:clip.duration,loop:clip.name!=='jump_air',speed:clip.name==='walk'?1.6:clip.name==='run'?4.0:0}]));
+  const jump=animations.find(c=>c.name==='jump_air');
+  if(jump)for(const phase of ['jump_start','jump_land']){const copy=jump.clone();copy.name=phase;animations.push(copy);}
+  const clips=Object.fromEntries(animations.map(clip=>[clip.name,{name:clip.name,duration:clip.duration,loop:!['jump_start','jump_land'].includes(clip.name),speed:clip.name==='walk'?1.6:clip.name==='run'?4.0:0}]));
   result.set(sex,{gltf:{...gltf,animations},spec:{id:'gta-realistic-'+sex,sex,rig:'realistic',source:'Higgsfield/Meshy approved GLB',triangles:quality.triangles,bones:quality.bones,clips},quality});
  }
  return result;
