@@ -269,26 +269,29 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
     if(o.isMesh)meshes++;
     if(o.isBone)positions.push(o.getWorldPosition(new THREE.Vector3()));
    });
-   if(meshes)throw Error('Arquivo inválido: malha humana encontrada');
+   if(meshes&&!system.humanModelsEnabled)throw Error('Arquivo inválido: malha humana encontrada');
+   if(!meshes&&system.humanModelsEnabled)throw Error('GLB realista sem corpo');
    if(positions.length<20)throw Error('Não há ossos suficientes para a prévia');
-   const bounds=new THREE.Box3().setFromPoints(positions),height=bounds.max.y-bounds.min.y;
+   const bounds=meshes?new THREE.Box3().setFromObject(root):new THREE.Box3().setFromPoints(positions),height=bounds.max.y-bounds.min.y;
    if(!Number.isFinite(height)||height<.1)throw Error('Esqueleto sem dimensões válidas');
    const factor=1.72/height;
    root.scale.multiplyScalar(factor);
    root.position.y-=bounds.min.y*factor;
    root.userData.casBaseScale=root.scale.clone();
    world.add(root);previewRoot=root;
-   previewSkeleton=new THREE.SkeletonHelper(root);
-   previewSkeleton.material.color.set('#e6bc83');
-   previewSkeleton.material.depthTest=false;
-   previewSkeleton.material.transparent=true;
-   previewSkeleton.material.opacity=.92;
-   world.add(previewSkeleton);
+   if(!meshes){
+    previewSkeleton=new THREE.SkeletonHelper(root);
+    previewSkeleton.material.color.set('#e6bc83');
+    previewSkeleton.material.depthTest=false;
+    previewSkeleton.material.transparent=true;
+    previewSkeleton.material.opacity=.92;
+    world.add(previewSkeleton);
+   }else root.traverse(o=>{if(o.isMesh&&o.material)o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();});
    mixer=new THREE.AnimationMixer(root);activeMotion=null;
-   rebornUpper=createRebornUpperBodyMotion(root);
+   rebornUpper=meshes?null:createRebornUpperBodyMotion(root);
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
-   source.textContent='SOMENTE OSSOS · '+modelAnimations.length+' ANIMAÇÕES · SEM CORPO';
+   source.textContent=meshes?'GLB REALISTA · '+modelAnimations.length+' ANIMAÇÕES · '+(system.realisticQuality?.[sex]?.triangles||'?')+' TRIS':'SOMENTE OSSOS · '+modelAnimations.length+' ANIMAÇÕES · SEM CORPO';
    loading.hidden=true;syncPreview();
   }catch(error){loading.textContent='Prévia de ossos: '+String(error.message||error);source.textContent='NENHUM MODELO HUMANO';}
  }
@@ -351,7 +354,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   loadForm(activeCharacter(roster)||system.casProfile||CAS_DEFAULT);
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
-  status.textContent='CAS preservado: apenas estrutura óssea e animações, sem nenhum corpo humano. As opções ficam salvas para os modelos futuros.';
+  status.textContent=system.humanModelsEnabled?'BETA: novos personagens GLB ativos. Personalização avançada depende de morphs e peças modulares.':'CAS preservado: apenas estrutura óssea e animações, sem nenhum corpo humano. As opções ficam salvas para os modelos futuros.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
