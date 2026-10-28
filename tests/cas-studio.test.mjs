@@ -61,7 +61,7 @@ test('seis gestos geram clipes esqueléticos reais com tracks de ossos',()=>{
  }
  const clips=createCASEmoteClips(root);
  assert.equal(clips.length,Object.keys(CAS_EMOTES).length);
- assert.ok(clips.every(c=>c.isAnimationClip&&c.tracks.length>0&&c.duration>0));
+ assert.ok(clips.every(c=>c instanceof THREE.AnimationClip&&c.tracks.length>0&&c.duration>0));
  assert.ok(clips.find(c=>c.name==='cas_wave').tracks.some(t=>/RightArm/.test(t.name)));
 });
 
