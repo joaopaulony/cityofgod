@@ -11,12 +11,14 @@ import {createDomesticRig} from './domestic-rig.mjs';
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadCASHairSystem} from './cas-hair.mjs';
+import {loadRebornAssets} from './cas-reborn.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
  const provider=new URLSearchParams(location.search).get('characters')||'cas';
- const system={status:'loading',ready:false,errors:[],frames:0,models:[],provider,enabled:provider!=='canvas'};
+ const rebornRequested=provider==='cas'&&new URLSearchParams(location.search).get('casreborn')==='1';
+ const system={status:'loading',ready:false,errors:[],frames:0,models:[],provider,enabled:provider!=='canvas',rebornRequested,rebornReady:false};
  window.cityCharacters=system;let baseAssets;
  const assetBase=provider==='realistic-base'?'assets/characters/realistic-base/':'assets/characters/mixamo/';
  const clear=(x,y,ignore)=>{
@@ -286,10 +288,21 @@ export function createCharacterSystem(scene,bridge){
      }
     };
     buildEmotes(playerEntry,playerEntry.spec);
-    const bodies=new Map([['male',assets.get('david')],['female',assets.get('megan')]]);
-    // The existing Mixamo bases stay functional until each new external rig
-    // has passed the runtime GLB, skin, clip and visual acceptance tests.
-    playerEntry.casBody='male';
+    let rebornBodies=null;
+    if(rebornRequested){
+     try{
+      rebornBodies=await loadRebornAssets(loader);
+      system.rebornReady=true;
+      system.rebornNotice='BETA: novos personagens com locomocao nativa; roupas modulares e interacoes domesticas ainda estao sendo adaptadas.';
+     }catch(error){
+      system.casWarnings.push('Reborn indisponivel; personagens antigos preservados: '+String(error.message||error));
+      system.rebornNotice='Reborn indisponivel; modo estavel ativado.';
+      system.rebornReady=false;
+     }
+    }
+    const bodies=rebornBodies||new Map([['male',assets.get('david')],['female',assets.get('megan')]]);
+    // Preserve the known-good Mixamo fallback when 3D files are unavailable.
+    playerEntry.casBody=rebornBodies?'legacy':'male';
     function styleMaterials(root,profile){
      root.traverse(node=>{
       if(!node.isMesh)return;
@@ -330,7 +343,9 @@ export function createCharacterSystem(scene,bridge){
       entry.mixer.uncacheRoot(entry.root);
       scene.remove(entry.root);
       Object.assign(entry,{root,mixer,actions,spec,clip:null,action:null,emote:null,
-       domesticRig:createDomesticRig(root),casBody:next.sex,casBaseScale:root.scale.clone()});
+       domesticRig:rebornBodies?null:createDomesticRig(root),mixamo:!rebornBodies,
+       casBeta:!!rebornBodies,casBody:next.sex,casBaseScale:root.scale.clone()});
+      if(rebornBodies&&entry.gun)entry.gun.visible=false;
       buildEmotes(entry,spec);
      }
      if(!entry.casBaseScale)entry.casBaseScale=entry.root.scale.clone();
@@ -350,6 +365,7 @@ export function createCharacterSystem(scene,bridge){
     try{await system.applyCAS(system.casProfile);}
     catch(error){system.casWarnings.push('Aparência: '+String(error.message||error));}
     if(playerEntry.gun)playerEntry.gun.visible=false;
+    if(rebornBodies)system.models=[...rebornBodies.values()].map(x=>({id:x.spec.id,bones:x.spec.bones,source:x.spec.source}));
     installCASCreator(system,bridge,bodies,casHair);
     system.playEmote=(id)=>{
      if(!CAS_EMOTES[id])return false;
