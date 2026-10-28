@@ -11,6 +11,7 @@ import {createDomesticRig} from './domestic-rig.mjs';
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {loadCASAssets,applyCASStyle} from './cas-assets.mjs';
 import {installCASCreator} from './cas-creator.mjs';
+import {loadCASHairSystem} from './cas-hair.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3();
@@ -246,11 +247,12 @@ export function createCharacterSystem(scene,bridge){
     }
     assets.set(spec.id,{spec,gltf});
    }
-   let casAssets;
+   let casAssets,casHair;
    if(provider==='cas'){
+    casHair=await loadCASHairSystem(loader);
     const registry=await loadCASAssets(loader,assets);
     casAssets=registry.bases;
-    system.casWarnings=registry.warnings;
+    system.casWarnings=[...registry.warnings,...casHair.warnings];
     let saved=null;try{saved=readCAS(window.localStorage);}catch{}
     system.casProfile=saved||CAS_DEFAULT;
    }
@@ -300,6 +302,7 @@ export function createCharacterSystem(scene,bridge){
       scene.add(root);
       entries.set(actor,entry);
       existing.mixer?.stopAllAction();scene.remove(existing.root);
+      casHair.release(existing.root);
       if(existing.casOwnMaterials)existing.root.traverse(o=>{
        if(o.isMesh)for(const material of Array.isArray(o.material)?o.material:[o.material])material.dispose();
       });
@@ -307,13 +310,14 @@ export function createCharacterSystem(scene,bridge){
      entry.appearance=next;
      actor.name=next.name;
      applyCASStyle(entry.root,next,entry.spec);
+     await casHair.set(entry.root,next.hairStyle,next.hair);
      system.casProfile=next;
      system.update(0);
      return next;
     };
     try{await system.applyCAS(system.casProfile);}
     catch(error){system.casWarnings.push('Carregamento do perfil: '+String(error.message||error));}
-    installCASCreator(system,bridge,casAssets);
+    installCASCreator(system,bridge,casAssets,casHair);
     system.models=[...casAssets.values()].map(x=>({sex:x.spec.sex,origin:x.origin,triangles:x.spec.triangles,bones:x.spec.bones}));
    }
    system.update(0);
