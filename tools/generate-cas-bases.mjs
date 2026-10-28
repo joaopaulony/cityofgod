@@ -148,7 +148,7 @@ function makeModel(sex){
   }
  }
  for(const side of ['Left','Right']){
-  const s=side==='Left'?-1:1,armX=woman?.28:.32,elbowX=woman?.356:.404,handX=woman?.460:.520;
+  const s=side==='Left'?-1:1,armX=woman?.250:.280,elbowX=woman?.356:.404,handX=woman?.460:.520;
   const upper=at(side+'Arm'),lower=at(side+'ForeArm'),wrist=at(side+'Hand');
   ellipsoid(s*(armX-.010),1.428,0,woman?.070:.079,.067,.077,'Skin',upper,11,18);
   limb([s*(armX-.01),1.440,0],[s*elbowX,1.204,.008],woman?.065:.077,.049,'Skin',upper,lower);
