@@ -25,4 +25,4 @@ O CAS funciona com `?streetcrown=1` e mantém, no modo normal, o reset humano or
 - CI Playwright testa seis modelos e 76 ossos ao importar os arquivos, obtém screenshots masculino/feminino e mobile.
 - Visualização, deformação de mãos e performance precisam de inspeção antes de merge na main.
 
-STATUS: seis arquivos presentes; smoke CAS completo aprovado; teste adicional de personagem jogável no mundo e desempenho está em avaliação. O problema de skinning independente de dedos permanece pendente, portanto a funcionalidade está restrita ao modo beta.
+STATUS: seis arquivos presentes, CAS de seis modelos aprovado e PARTIDA COMPLETA aprovada no Chromium (estado playing, avatar visível, troca hero/ped_woman, modo normal sem regressão): https://github.com/joaopaulony/cityofgod/actions/runs/40790532318. O skinning independente das falanges continua pendente, portanto a funcionalidade permanece restrita ao modo beta ?streetcrown=1. Não existem benchmarks de FPS em celulares reais.
