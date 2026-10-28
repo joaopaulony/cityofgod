@@ -6,11 +6,11 @@ O CAS não apresenta mais modelos-base de corpo, controles de altura, sexo, pele
 
 ## Instalar
 
-1. Extrair o pacote fornecido pelo assistente: `cityofgod_21_cabelos_glb.zip`.
-2. Copiar todos os arquivos em `assets/characters/hair/` para a mesma pasta do repositório (substituindo o `manifest.json` vazio).
-3. Fazer build com `npm run build:site`. A pasta será publicada em `dist/assets/characters/hair/` pelo script existente.
-4. Abrir o jogo (CAS ativo por padrão), clicar em *Criar personagem* e escolher o penteado e a cor.
-5. Conferir encaixe, rotações, obstrução e FPS em ambos os sexos e durante caminhada/corrida.
+1. Fazer download do pacote entregue no chat: `cityofgod_21_cabelos_glb.zip`.
+2. Enviar o **ZIP intacto**, sem extrair, para `third_party/cityofgod_21_cabelos_glb.zip` pela opção Upload files na branch de desenvolvimento.
+3. Executar `npm run build:site`. O prebuild extrai e valida automaticamente os 21 GLBs e o catálogo em `assets/characters/hair/`, depois os copia para `dist`.
+4. Abrir o jogo (CAS ativo por padrão), clicar em *Editar cabelos* e escolher o penteado e a cor.
+5. Conferir encaixe, rotações, obstrução e FPS com o esqueleto invisível do jogador, durante caminhada/corrida.
 
 ## Segurança / desempenho
 
