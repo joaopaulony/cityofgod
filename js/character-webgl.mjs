@@ -12,6 +12,7 @@ import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
 import {loadCASHairSystem} from './cas-hair.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
+import {applyNPCVisual} from './cas-npc-visual.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
@@ -59,7 +60,7 @@ export function createCharacterSystem(scene,bridge){
    e.domesticRig?.restore();
    e.rebornUpper?.restore();
    if(e.cc3Rig){
-    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
+    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<(e.npcProcedural?38:65);
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+(e.cc3YOffset||0),a.y);
     const heading=Math.PI/2-a.face+(e.spec.facingOffset||0);
     const angleDelta=Math.atan2(Math.sin(heading-e.root.rotation.y),Math.cos(heading-e.root.rotation.y));
@@ -79,7 +80,7 @@ export function createCharacterSystem(scene,bridge){
     continue;
    }
    if(e.tombRig){
-    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
+    e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<(e.npcProcedural?38:65);
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0),a.y);e.root.rotation.y=Math.PI/2-a.face;e.root.updateMatrixWorld(true);
     if(e.root.visible)e.tombRig.update(a);
     if(e.gun){
@@ -108,7 +109,7 @@ export function createCharacterSystem(scene,bridge){
    }
    if(clip.endsWith('fire')&&a.recoilT<e.lastRecoil)e.action.reset().play();
    e.lastRecoil=a.recoilT;
-   e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<65;
+   e.root.visible=!(a===bridge.player&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<(e.npcProcedural?38:65);
    if(e.root.visible){
     const speed=e.spec.clips[clip].speed||0;
     if(speed>.1&&/walk|run/.test(clip))e.action.setEffectiveTimeScale(THREE.MathUtils.clamp(a.speed/speed,.5,2));
@@ -306,6 +307,35 @@ export function createCharacterSystem(scene,bridge){
      }
     }
     const bodies=rebornBodies||new Map([['male',assets.get('david')],['female',assets.get('megan')]]);
+    // Crowd beta: all profiles share the two new skinned meshes and clips,
+    // while each resident has its own material palette, animation and pose.
+    // This runs AFTER the old NPCs have been mounted; failure restores them.
+    if(rebornBodies&&new URLSearchParams(location.search).get('crowdbeta')==='1'){
+     let created=0;
+     for(const npc of bridge.actors){
+      if(!npc.population||npc===bridge.player)continue;
+      const old=entries.get(npc),asset=rebornBodies.get(npc.population.sex);
+      if(!old||!asset)continue;
+      try{
+       const root=cloneSkeleton(asset.gltf.scene);
+       const mixers=new THREE.AnimationMixer(root);
+       const actions=new Map(asset.gltf.animations.map(clip=>[clip.name,mixers.clipAction(clip)]));
+       const upper=createRebornUpperBodyMotion(root);
+       const visual=applyNPCVisual(root,npc.population);
+       if(!visual.regionMeshes)throw Error('No skinned mesh with palette attributes');
+       scene.add(root);
+       const entry={root,mixer:mixers,actions,spec:asset.spec,clip:null,action:null,lastRecoil:0,
+        emote:null,domesticRig:null,rebornUpper:upper,mixamo:false,npcProcedural:true,
+        appearance:npc.population,gun:null,muzzle:null};
+       old.mixer?.stopAllAction();old.mixer?.uncacheRoot(old.root);
+       scene.remove(old.root);if(old.gun)scene.remove(old.gun);
+       entries.set(npc,entry);created++;
+      }catch(error){
+       system.errors.push('Morador '+npc.population.id+': '+String(error.message||error));
+      }
+     }
+     system.populationCount=created;
+    }
     // Preserve the known-good Mixamo fallback when 3D files are unavailable.
     playerEntry.casBody=rebornBodies?'legacy':'male';
     function styleMaterials(root,profile){
