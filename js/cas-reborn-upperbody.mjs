@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import {createRebornHandMotion} from './cas-reborn-hands.mjs';
 
-// Secondary anatomical motion for the 24-joint Reborn rigs. Meshy exports contain
+// Secondary anatomical motion for the original 24-joint Reborn rigs. Meshy exports contain
 // a pelvis/torso gait but the arms, elbows and wrists are weakly animated.
 // All corrections are applied AFTER AnimationMixer.update(), in the actor's
 // forward (local +Z) coordinate system, never as accumulating Euler angles.
@@ -30,8 +31,9 @@ const TAU=Math.PI*2;
 /**
  * Add subtle complementary, phase-locked shoulder / elbow / wrist motion.
  *
- * Rig limitation: 24-bone Meshy bodies have no finger joints or finger skin
- * weights. We can soften hands at the wrists, NOT independently flex fingers.
+ * The underlying GLBs have 24 bones and no finger skin weights. We attach
+ * a 52-bone palm/digit extension at runtime and animate every finger joint.
+ * This is a functional bone rig, not a skinned human mesh.
  *
  * The returned layer owns no mixer actions and does not edit glTF clips.
  * Disable the layer when using non-Reborn characters. Playback/preview must
@@ -43,6 +45,7 @@ export function createRebornUpperBodyMotion(root){
  const bones=Object.fromEntries(REBORN_UPPER_BODY_BONES.map(name=>[name,root.getObjectByName(name)]));
  const torso=root.getObjectByName('Spine02');
  if(!torso?.isBone)throw Error('CAS Reborn: Spine02 ausente');
+ const fingers=createRebornHandMotion(root);
  // Reused allocations: no objects created every animation frame.
  const rootQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion(),q=new THREE.Quaternion(),axis=new THREE.Vector3(),axisWorld=new THREE.Vector3();
  let current={...REBORN_MOTION_PRESETS.off},phase=0,mode='off',updated=0,handDynamics=0;
@@ -150,6 +153,9 @@ export function createRebornUpperBodyMotion(root){
     else phase=(phase+TAU*step/cycleDuration)%TAU;
    }else phase=(phase+step*(mode==='idle'?2.1:3))%TAU;
    const wave=Math.sin(phase),follow=Math.cos(phase-.28),breath=Math.sin(phase*.48);
+   // Fingers follow gait and action-specific grip targets on every frame,
+   // including when no shoulder motion is allowed (gestures, weapons, home).
+   fingers.update(step,{clip,phase,time});
    if(current.arm+current.elbow+current.wrist+current.shoulder+current.torso<.00001)return;
    rotate(torso,Y,-current.torso*wave);
    bend('Left',1,wave,follow,phase,breath);
@@ -165,7 +171,7 @@ export function createRebornUpperBodyMotion(root){
    updated++;
   },
   getTelemetry(){
-   return {mode,phase,updated,armSwing:current.arm,elbowFlex:current.elbow,wristMotion:current.wrist,handDynamics};
+   return {mode,phase,updated,armSwing:current.arm,elbowFlex:current.elbow,wristMotion:current.wrist,handDynamics,fingers:fingers.getTelemetry()};
   }
  };
 }

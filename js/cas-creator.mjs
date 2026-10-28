@@ -4,6 +4,7 @@ import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {CAS_DEFAULT,CAS_COLORS,normalizeCAS} from './cas-profile.mjs';
 import {MAX_CHARACTERS,readRoster,activeCharacter,addCharacter,updateCharacter,selectCharacter,deleteCharacter,persistRoster} from './cas-roster.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
+import {installRebornHandBones} from './cas-reborn-hands.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
@@ -26,7 +27,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<button type="button" data-cas-tab="animations" aria-pressed="false">▶ &nbsp; Animações</button>',
  '<button type="button" data-cas-tab="artlist" aria-pressed="false">◇ &nbsp; Modelos Artlist</button>',
  '<p class="cas-small">CRIE SUA IDENTIDADE<br>Escolha um corpo, personalize, salve e comece sua história.</p><div class="cas-nav-credit">CITY OF GOD REBORN · V1</div></nav>',
- '<div class="cas-stage"><canvas id="cas-preview" aria-label="Visualização do esqueleto sem modelo humano" tabindex="0"></canvas><div class="cas-stage-head"><span class="cas-stage-label">PRÉVIA EM TEMPO REAL</span><span class="cas-stage-live">● 3D</span></div><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-tools"><button type="button" id="cas-view-front" aria-label="Ver de frente">FRENTE</button><button type="button" id="cas-view-side" aria-label="Ver de lado">PERFIL</button><button type="button" id="cas-view-back" aria-label="Ver de costas">COSTAS</button><button type="button" id="cas-view-reset" aria-label="Centralizar câmera">⟲</button></div><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
+ '<div class="cas-stage"><canvas id="cas-preview" aria-label="Visualização do esqueleto completo com mãos e dedos articulados" tabindex="0"></canvas><div class="cas-stage-head"><span class="cas-stage-label">PRÉVIA EM TEMPO REAL</span><span class="cas-stage-live">● 3D</span></div><span class="cas-loading" id="cas-loading" role="status">Preparando estúdio 3D…</span><div class="cas-stage-tools"><button type="button" id="cas-view-front" aria-label="Ver de frente">FRENTE</button><button type="button" id="cas-view-side" aria-label="Ver de lado">PERFIL</button><button type="button" id="cas-view-back" aria-label="Ver de costas">COSTAS</button><button type="button" id="cas-view-reset" aria-label="Centralizar câmera">⟲</button></div><div class="cas-stage-caption"><span>↔ ARRASTE PARA GIRAR &nbsp; · &nbsp; RODA PARA ZOOM</span><span id="cas-preview-source">GLB / THREE.JS</span></div></div>',
  '<form id="cas-form" class="cas-controls"><section class="cas-section" data-cas-section="identity"><h2>Identidade</h2><p>Crie alguém para viver sua própria história na cidade.</p>',
  '<label class="cas-field"><span>Meu personagem</span><select name="rosterSlot" id="cas-roster-slot" aria-label="Personagem salvo"></select></label><div class="cas-roster-actions"><button type="button" id="cas-new-character">+ Novo personagem</button><button type="button" id="cas-delete-character">Excluir personagem</button></div>',
  '<label class="cas-field"><span>Nome</span><input type="text" name="name" minlength="1" maxlength="24" autocomplete="off" required></label>',
@@ -263,6 +264,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    if(previewSkeleton){world.remove(previewSkeleton);previewSkeleton.geometry?.dispose();previewSkeleton.material?.dispose();previewSkeleton=null;}
    if(previewRoot){world.remove(previewRoot);previewRoot=null;}
    const root=cloneSkeleton(gltf.scene),positions=[];
+   // SkeletonHelper snapshots its hierarchy: append hand and finger bones first.
+   installRebornHandBones(root);
    let meshes=0;
    root.updateMatrixWorld(true);
    root.traverse(o=>{
@@ -288,7 +291,9 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    rebornUpper=createRebornUpperBodyMotion(root);
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
-   source.textContent='SOMENTE OSSOS · '+modelAnimations.length+' ANIMAÇÕES · SEM CORPO';
+   const joints=[];root.traverse(node=>{if(node.isBone)joints.push(node.name)});
+   source.textContent='SOMENTE OSSOS · '+joints.length+' ARTICULAÇÕES · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
+   system.handSkeletonStats={bones:joints.length,extendedFingers:joints.filter(n=>/^((Left)|(Right))Hand(Thumb|Index|Middle|Ring|Pinky)/.test(n)).length,helperBones:previewSkeleton?.bones?.length||0};
    loading.hidden=true;syncPreview();
   }catch(error){loading.textContent='Prévia de ossos: '+String(error.message||error);source.textContent='NENHUM MODELO HUMANO';}
  }
@@ -351,7 +356,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   loadForm(activeCharacter(roster)||system.casProfile||CAS_DEFAULT);
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
-  status.textContent='CAS preservado: apenas estrutura óssea e animações, sem nenhum corpo humano. As opções ficam salvas para os modelos futuros.';
+  status.textContent='CAS preservado: mãos com 10 dedos articulados, ossos, animações e perfis. Nenhum corpo humano antigo foi restaurado.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
