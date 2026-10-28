@@ -50,3 +50,66 @@
 body.front-open #cas-emote-toggle,body.front-open #cas-emote-panel{display:none!important}
 #city-cas-dialog .cas-stage-caption{user-select:none}
 #city-cas-dialog .cas-nav button[data-cas-tab='face'][aria-pressed='true']{background:#d7a352;color:#201810}
+
+
+/* CAS Reborn visual system: dark studio + warm gold, responsive and keyboard friendly */
+#city-cas-dialog{color:#eee9df;background:#080e11;font-family:Inter,"Segoe UI",system-ui,sans-serif}
+#city-cas-dialog .cas-shell{
+  grid-template-columns:clamp(188px,18vw,260px) minmax(240px,1fr) clamp(290px,28vw,380px);
+  grid-template-rows:92px minmax(0,1fr) 76px;
+  background:radial-gradient(ellipse at 48% 20%,#233438 0%,#0e1316 53%,#090c10 90%);
+}
+#city-cas-dialog .cas-header{background:linear-gradient(90deg,#0b1116 0%,#121c20 56%,#090d10 100%);border-bottom:1px solid #e3a95340;padding:12px 30px}
+#city-cas-dialog .cas-heading small{color:#dbab69;letter-spacing:2.5px;font-size:11px}
+#city-cas-dialog .cas-heading strong{font:800 clamp(25px,2.4vw,38px)/1.05 "Arial Narrow",Impact,"Segoe UI",sans-serif;letter-spacing:.3px}
+#city-cas-dialog .cas-heading em{color:#eab567}
+#city-cas-dialog .cas-header-side{display:flex;align-items:center;gap:18px}
+#city-cas-dialog .cas-session{color:#91a09d;font-size:10px;font-weight:700;letter-spacing:1.5px}
+#city-cas-dialog .cas-close{border:1px solid #a8a49b40;border-radius:6px;background:#182024;color:#d1d8d5}
+#city-cas-dialog .cas-close:hover{border-color:#eab567;color:#f4c17d}
+#city-cas-dialog .cas-nav{background:linear-gradient(180deg,#101a1eea,#0a1116fa);padding:27px 13px 24px 17px;border-right:1px solid #b6a17a33}
+#city-cas-dialog .cas-nav h2{font-family:"Segoe UI",sans-serif;font-weight:850;font-size:11px;letter-spacing:2.5px;color:#b9c7c1;margin:0 10px 17px}
+#city-cas-dialog .cas-nav button{background:#ffffff05;border:1px solid transparent;border-left:3px solid transparent;border-radius:5px;padding:13px 12px;margin:4px 0;font-weight:680;letter-spacing:.2px;font-size:12px;transition:background .14s,border-color .14s}
+#city-cas-dialog .cas-nav button:hover{background:#263238;color:#fff4e4}
+#city-cas-dialog .cas-nav button[aria-pressed=true],#city-cas-dialog .cas-nav button[data-cas-tab=face][aria-pressed=true]{background:linear-gradient(95deg,#e9b566,#f5c67b);border-color:#f1c889;color:#20170b;box-shadow:0 3px 12px #0005}
+#city-cas-dialog .cas-small{color:#95a4a0;font-size:12px;margin:26px 7px 4px;line-height:1.7;white-space:normal}
+#city-cas-dialog .cas-nav-credit{font-size:10px;letter-spacing:1.4px;color:#c39959;margin:23px 7px 4px}
+#city-cas-dialog .cas-stage{background:radial-gradient(circle at 56% 40%,#344348 0%,#1d2a2f 35%,#0a1217 82%)}
+#city-cas-dialog .cas-stage::after{box-shadow:inset 0 0 75px #050b10ac}
+#city-cas-dialog .cas-stage-head{position:absolute;top:20px;left:21px;right:21px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;z-index:3}
+#city-cas-dialog .cas-stage-label{font-size:10px;letter-spacing:2px;color:#d7ded9;background:#101b1bc8;padding:8px 11px;border:1px solid #ffffff25;border-radius:4px}
+#city-cas-dialog .cas-stage-live{color:#a6e3c9;font-size:11px;font-weight:800;letter-spacing:1px}
+#city-cas-dialog .cas-loading{z-index:3;top:63px;left:20px;background:#131c20e8;border:1px solid #c3995970;border-radius:4px;padding:8px 12px}
+#city-cas-dialog .cas-stage-tools{position:absolute;z-index:4;bottom:57px;left:50%;transform:translateX(-50%);display:flex;gap:6px;justify-content:center;max-width:96%}
+#city-cas-dialog .cas-stage-tools button{border:1px solid #d4d6cb50;border-radius:4px;background:#142025dd;color:#f2e6d5;font-size:10px;font-weight:750;letter-spacing:1px;padding:9px 12px;min-height:35px}
+#city-cas-dialog .cas-stage-tools button:hover{background:#e4ae63;color:#13100e}
+#city-cas-dialog .cas-stage-caption{font-size:10px;bottom:19px;color:#bac6c5}
+#city-cas-dialog .cas-controls{background:linear-gradient(180deg,#0e171c,#10171bcf);border-left:1px solid #b6a17a40;padding:28px clamp(20px,2.8vw,32px)}
+#city-cas-dialog .cas-controls h2{font:750 22px "Segoe UI",sans-serif;letter-spacing:.3px;margin-bottom:9px}
+#city-cas-dialog .cas-controls p{font-size:12px;margin-bottom:24px;color:#a8b6b8}
+#city-cas-dialog .cas-field>span{font-weight:660;font-size:12px}
+#city-cas-dialog input[type=text],#city-cas-dialog input[type=number],#city-cas-dialog select{background:#222d32;border:1px solid #5f717064;color:#ecf0e9;border-radius:5px;padding:12px;font-size:13px}
+#city-cas-dialog input[type=color]{border:1px solid #6a7a786b;background:#202c30;border-radius:5px}
+#city-cas-dialog input[type=range]{accent-color:#eab567}
+#city-cas-dialog .cas-field{margin-bottom:19px}
+#city-cas-dialog .cas-roster-actions{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 26px}
+#city-cas-dialog .cas-roster-actions button,#city-cas-dialog .cas-preview-model{padding:9px 12px;border:1px solid #bc985e72;background:#252e2f;color:#f3d39e;font-size:11px;border-radius:4px;font-weight:750}
+#city-cas-dialog .cas-roster-actions button:disabled{opacity:.38;cursor:not-allowed}
+#city-cas-dialog .cas-roster-actions button:hover:not(:disabled){background:#3b3d32}
+#city-cas-dialog .cas-colors{display:flex;gap:10px;flex-wrap:wrap;margin:-8px 0 24px}
+#city-cas-dialog .cas-colors button{width:30px;height:30px;border-radius:7px;border:2px solid #ffffff25;box-shadow:inset 0 0 0 1px #0005}
+#city-cas-dialog .cas-colors button:hover,#city-cas-dialog .cas-colors button:focus-visible{border-color:#f3d39e;transform:scale(1.08)}
+#city-cas-dialog .cas-segment label{background:#202b2f;border-radius:4px;border-color:#5e757460;font-size:12px}
+#city-cas-dialog .cas-tip{background:#aa8b3c12;border-left:3px solid #eab567;color:#bfcbc8;border-radius:0 4px 4px 0}
+#city-cas-dialog .cas-footer{padding:13px 24px;background:#0b1316ed;border-top:1px solid #d1a96440}
+#city-cas-dialog .cas-footer .cas-status{color:#c0c7c5;font-size:11px}
+#city-cas-dialog .cas-footer button{border-radius:5px;border-color:#b6a17a50;padding:13px 17px;font-size:11px;background:#1b292b;transition:filter .14s}
+#city-cas-dialog .cas-footer button:hover{filter:brightness(1.14)}
+#city-cas-dialog .cas-footer button[type=submit]{background:#edb85f;border-color:#f3c97d;color:#18150e;font-weight:850}
+#city-cas-dialog .cas-footer button[hidden]{display:none!important}
+#city-cas-dialog .cas-nav button[hidden]{display:none!important}
+#city-cas-open{top:auto;left:20px;bottom:18px;z-index:45;border-radius:7px;border:1px solid #edba66;background:#0f1b21e6;box-shadow:0 4px 20px #0009;padding:12px 17px;font:750 12px "Segoe UI",sans-serif;letter-spacing:1.3px}
+body.front-open #city-cas-open{display:none!important}
+@media(max-width:980px){#city-cas-dialog .cas-shell{grid-template-columns:150px minmax(205px,1fr) 265px}#city-cas-dialog .cas-header{padding:12px 16px}#city-cas-dialog .cas-nav{padding:17px 8px}#city-cas-dialog .cas-nav button{padding:12px 7px;font-size:11px}#city-cas-dialog .cas-controls{padding:21px 15px}#city-cas-dialog .cas-session{display:none}}
+@media(max-width:660px){#city-cas-dialog .cas-shell{grid-template-columns:1fr;grid-template-rows:74px 62px minmax(305px,43dvh) auto auto}#city-cas-dialog .cas-nav{padding:6px 8px;align-items:center}#city-cas-dialog .cas-nav button{padding:11px 12px}#city-cas-dialog .cas-nav-credit{display:none}#city-cas-dialog .cas-controls{padding:20px 20px 26px}#city-cas-dialog .cas-stage{min-height:305px}#city-cas-dialog .cas-stage-tools{bottom:52px}#city-cas-dialog .cas-stage-tools button{padding:7px 9px;font-size:9px}#city-cas-dialog .cas-footer{padding:9px 11px;gap:8px}#city-cas-dialog .cas-footer .cas-status{max-width:28%;font-size:9px}#city-cas-dialog .cas-footer .cas-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}#city-cas-dialog .cas-footer button{padding:11px 9px;font-size:9px}#city-cas-open{left:12px;bottom:12px}}
+@media(prefers-reduced-motion:reduce){#city-cas-dialog .cas-nav button,#city-cas-dialog .cas-colors button,#city-cas-dialog .cas-footer button{transition:none!important}}
