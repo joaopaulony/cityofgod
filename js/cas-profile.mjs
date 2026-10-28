@@ -1,5 +1,5 @@
 // CAS profile is deliberately engine-independent so it can be tested in Node.
-export const CAS_KEY='cityofgod.cas.v1';
+export const CAS_KEY='cityofgod.cas.skeleton.v2';
 export const CAS_DEFAULT=Object.freeze({
  version:1,name:'Alex',age:24,sex:'male',height:1,build:1,background:'bairro',style:'casual',
  skin:'#c98d68',hair:'#30231e',hairStyle:'none',top:'#49647a',bottom:'#29394f',shoes:'#e9e6e0',
