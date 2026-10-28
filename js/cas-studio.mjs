@@ -148,7 +148,7 @@ export function releaseCASVisual(root){
  const state=faceCache.get(root);
  if(state){for(const {mesh,original,geometry} of state.meshes){mesh.geometry=original;geometry.dispose();mesh.updateMorphTargets();}faceCache.delete(root);}
  const accessories=accessoryCache.get(root);
- if(accessories){accessories.group?.parent?.remove(accessories.group);accessoryCache.delete(root);}
+ if(accessories){accessories.group?.parent?.remove(accessories.group);accessories.group?.traverse(obj=>{if(obj.isMesh){obj.geometry.dispose();obj.material?.dispose();}});accessoryCache.delete(root);}
 }
 
 /** Named, skeletal animation clips: actual Three.js quaternion tracks, not AI videos. */
