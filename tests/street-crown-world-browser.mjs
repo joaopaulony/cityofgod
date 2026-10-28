@@ -16,7 +16,9 @@ async function visit(beta){
   await page.locator('[data-front-action="new"]').click({timeout:35000});
   // The full city takes longer to create than the isolated CAS gallery.
   await page.waitForFunction(()=>['ready','partial','disabled'].includes(window.cityCharacters?.status),null,{timeout:115000});
+  await page.waitForFunction(()=>['playing','error'].includes(window.CityFront?.phase),null,{timeout:180000});
   const status=await page.evaluate(()=>({
+   phase:window.CityFront?.phase,
    status:window.cityCharacters?.status,enabled:window.cityCharacters?.streetCrownEnabled,
    provider:window.cityCharacters?.provider,models:window.cityCharacters?.models,
    errors:window.cityCharacters?.errors,casWarnings:window.cityCharacters?.casWarnings,
@@ -26,6 +28,8 @@ async function visit(beta){
   }));
   console.log('STREET_CROWN_WORLD_'+(beta?'BETA':'DEFAULT'),JSON.stringify(status));
   assert.equal(status.status,'ready',JSON.stringify(status.errors||status.casWarnings||[]));
+  assert.equal(status.phase,'playing','Loading screen did not open the city: '+JSON.stringify(status));
+  assert.equal(status.front,false,'The playable world must be visible after a successful start');
   if(beta){
    assert.equal(status.enabled,true);
    assert.equal(status.models?.length,6);
