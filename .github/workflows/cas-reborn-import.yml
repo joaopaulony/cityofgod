@@ -53,4 +53,10 @@ jobs:
           git add assets/characters/reborn/*.glb
           if git diff --cached --quiet; then echo 'No asset changes'; exit 0; fi
           git commit -m "assets(cas): import optimized Meshy rigged bodies and native locomotion"
-          git push origin HEAD:main
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo 'Could not fast-forward after three attempts' >&2
+          exit 1
