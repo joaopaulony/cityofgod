@@ -72,8 +72,10 @@ export async function loadCASAssets(loader,mixamoAssets){
     if(!metrics.skins||!metrics.bones)throw Error('modelo sem skinning/rig');
     if(!clips.idle||!clips.walk||!clips.run)throw Error('faltam animações idle, walk ou run');
     if(metrics.triangles>60000)throw Error('malha acima do limite provisório de 60 mil triângulos');
-    if(model.rig==='mixamo'&&!gltf.scene.getObjectByName('mixamorigRightHand'))
-     throw Error('rig declarado Mixamo sem os ossos esperados');
+    if(model.rig==='mixamo'&&
+     !['mixamorigHips','mixamorigLeftHand','mixamorigRightHand','mixamorigLeftUpLeg','mixamorigRightUpLeg']
+       .every(name=>!!gltf.scene.getObjectByName(name)))
+     throw Error('rig declarado Mixamo sem os ossos essenciais');
     bases.set(model.sex,{gltf,origin:'GLB personalizado',spec:{
      id:model.sex,sex:model.sex,rig:model.rig,triangles:metrics.triangles,bones:metrics.bones,
      clips,materialSlots:model.materialSlots
