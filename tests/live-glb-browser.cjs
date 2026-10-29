@@ -52,7 +52,9 @@ const {chromium}=require('playwright'),fs=require('node:fs');
    const v=window.cityVehicles,c=window.cityVehicleBridge.cam;
    c.x=c.tx=v.car.x;c.y=c.ty=v.car.y;
   });
-  await page.waitForFunction(()=>window.cityVehicles.frames>4,null,{timeout:30000});
+  // O CAS pode pausar a simulação após o primeiro carregamento:
+  // forçar quadros reais de WebGL para medir, sem depender do menu.
+  await page.evaluate(()=>{for(let i=0;i<8;i++)window.cityVehicles.render();});
   const aligned=await page.evaluate(()=>{
    const car=window.cityVehicles,c=window.cityVehicleBridge.cam;
    const q=proj(car.car.x,car.car.y,0),s=car.lastScreenPosition;
@@ -74,10 +76,12 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   await page.evaluate(()=>{
    input.keys.add('w');
-   for(let i=0;i<18;i++)tick(.05);
+   const v=window.cityVehicles;
+   for(let i=0;i<18;i++)v.update(.05);
    input.keys.add('d');
-   for(let i=0;i<22;i++)tick(.05);
+   for(let i=0;i<22;i++)v.update(.05);
    input.keys.delete('w');input.keys.delete('d');
+   for(let i=0;i<6;i++)v.render();
   });
   const moved=await page.evaluate(()=>{
    const c=window.cityVehicles, p=window.cityVehicleBridge.player;
