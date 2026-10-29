@@ -10,7 +10,9 @@ export const VEHICLE_MODELS=Object.freeze([
  {id:'sedan',name:'Sedã',file:'sedan.glb',source:'passenger',length:4.7,front:'-Z'},
  {id:'sport',name:'Esportivo',file:'sport.glb',source:'passenger',length:4.4,front:'-Z'},
  {id:'suv',name:'SUV',file:'suv.glb',source:'passenger',length:4.7,front:'-Z'},
- {id:'wagon',name:'Perua',file:'wagon.glb',source:'passenger',length:4.75,front:'-Z'}
+ {id:'wagon',name:'Perua',file:'wagon.glb',source:'passenger',length:4.75,front:'-Z'},
+ // CIVIL_PACK_ASSETS_START — filled by npm run import:civil after verified GLBs exist.
+ // CIVIL_PACK_ASSETS_END
 ]);
 // Assets copyright Comrade1280, CC BY 4.0. These are pending until original GLBs are installed.
 export const CIVIL_PACK_SOURCE='https://sketchfab.com/3d-models/generic-civil-service-vehicles-pack-8ff2a13f30914932a70c7950cfa58465';
