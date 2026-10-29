@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - assets/vehicles/incoming/police-suv-2k-webp.glb
+      - assets/vehicles/incoming/SUV_Policial_City_of_God_2K_WebP.zip
+      - .github/workflows/import-police-suv.yml
   workflow_dispatch:
 permissions:
   contents: write
@@ -28,16 +30,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f assets/vehicles/incoming/police-suv-2k-webp.glb ]; then
+          zip='assets/vehicles/incoming/SUV_Policial_City_of_God_2K_WebP.zip'
+          glb='assets/vehicles/incoming/police-suv-2k-webp.glb'
+          if [ -f "$zip" ] || [ -f "$glb" ]; then
             echo 'exists=true' >> "$GITHUB_OUTPUT"
           else
             echo 'exists=false' >> "$GITHUB_OUTPUT"
+            echo 'No police SUV binary upload found: skipping import'
           fi
+      - name: Safely unpack user-uploaded ZIP or use direct GLB
+        if: steps.asset.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from zipfile import ZipFile, BadZipFile
+          direct=Path('assets/vehicles/incoming/police-suv-2k-webp.glb')
+          archive=Path('assets/vehicles/incoming/SUV_Policial_City_of_God_2K_WebP.zip')
+          destination=Path('/tmp/cityofgod-police-suv-2k-webp.glb')
+          if archive.is_file():
+              if archive.stat().st_size>20_000_000:
+                  raise ValueError('ZIP too large')
+              with ZipFile(archive) as z:
+                  entries=[i for i in z.infolist() if not i.is_dir() and i.filename.lower().endswith('.glb')]
+                  if len(entries)!=1:
+                      raise ValueError('ZIP must contain exactly one Police SUV GLB')
+                  member=entries[0]
+                  if member.flag_bits & 1 or member.file_size>25_000_000 or member.file_size<100_000:
+                      raise ValueError('Unsafe encrypted, oversized, or invalid GLB')
+                  content=z.read(member)
+                  if len(content)!=member.file_size or content[:4]!=b'glTF':
+                      raise ValueError('GLB header/size invalid')
+                  destination.write_bytes(content)
+                  print('Imported GLB from ZIP member',member.filename,'size',len(content),'sha256',hashlib.sha256(content).hexdigest())
+          elif direct.is_file():
+              destination.write_bytes(direct.read_bytes())
+          else:
+              raise FileNotFoundError('No police SUV file found')
+          with Path('/tmp').joinpath('cityofgod-police-suv-file').open('w') as f:
+              f.write(str(destination))
+          PY
       - name: Verify source geometry, licensing, wheels and exact lightbar pieces
         if: steps.asset.outputs.exists == 'true'
         run: |
           npm ci
-          npm run import:police-suv -- assets/vehicles/incoming/police-suv-2k-webp.glb
+          npm run import:police-suv -- /tmp/cityofgod-police-suv-2k-webp.glb
       - name: Run entire regression suite and production build
         if: steps.asset.outputs.exists == 'true'
         run: |
@@ -51,7 +90,12 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/vehicles/live/police-suv.glb assets/vehicles/live/POLICE-SUV-CREDITS.txt js/vehicle-catalog.mjs
-          git rm assets/vehicles/incoming/police-suv-2k-webp.glb
+          if [ -f assets/vehicles/incoming/SUV_Policial_City_of_God_2K_WebP.zip ]; then
+            git rm assets/vehicles/incoming/SUV_Policial_City_of_God_2K_WebP.zip
+          fi
+          if [ -f assets/vehicles/incoming/police-suv-2k-webp.glb ]; then
+            git rm assets/vehicles/incoming/police-suv-2k-webp.glb
+          fi
           git diff --cached --check
           git commit -m 'assets: integrate optimized police SUV with four wheels and accurate siren lenses'
           git push origin HEAD:main
