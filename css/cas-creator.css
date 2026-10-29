@@ -125,3 +125,6 @@ body.front-open #city-cas-open{display:none!important}
  #city-cas-dialog .cas-footer .cas-status{max-width:42%;min-width:0;flex:1 1 42%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.35;overflow-wrap:anywhere}
  #city-cas-dialog .cas-footer .cas-actions{flex:0 0 auto;gap:6px}
 }
+
+/* Respect hidden in the CAS even when component CSS applies display:flex/grid. */
+#city-cas-dialog [hidden]{display:none!important}
