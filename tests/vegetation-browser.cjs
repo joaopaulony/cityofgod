@@ -25,6 +25,7 @@ const {judge}=require('./visual-quality-judge.cjs');
     game.on('pageerror',e=>gameErrors.push(e.message));
     await game.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
       {waitUntil:'domcontentloaded',timeout:120000});
+   await game.locator('[data-front-action="new"]').click({timeout:30000});
     await game.waitForFunction(()=>typeof world!=='undefined' &&
       world.props.some(p=>p.type==='tree') && document.querySelector('#view')?.width>0,
       {timeout:120000});
@@ -578,6 +579,7 @@ const {judge}=require('./visual-quality-judge.cjs');
     normal.on('pageerror',e=>normalErrors.push(e.message));
     await normal.goto('http://127.0.0.1:8765/index.html?seed=3250',
       {waitUntil:'domcontentloaded',timeout:120000});
+   await normal.locator('[data-front-action="new"]').click({timeout:30000});
     await normal.waitForFunction(()=>typeof world!=='undefined' &&
       world.ground && world.props.some(p=>p.type==='tree'),
       null,{timeout:120000});
