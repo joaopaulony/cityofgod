@@ -18,6 +18,7 @@ export const CIVILIAN_VEHICLE_IDS=Object.freeze([
 // Job IDs describe future career roles, NOT current CitySim.JOBS entitlements.
 export const PROFESSIONAL_VEHICLE_ROLES=Object.freeze({
  'police-sedan':Object.freeze({department:'police',jobId:'police_officer'}),
+ 'police-suv':Object.freeze({department:'police',jobId:'police_officer'}),
  'fire-truck':Object.freeze({department:'fire',jobId:'firefighter'}),
  'ambulance':Object.freeze({department:'health',jobId:'paramedic'}),
  'city-bus':Object.freeze({department:'transport',jobId:'city_bus_driver'}),
