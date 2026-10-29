@@ -137,7 +137,9 @@
    ' · carros estacionados nos setores: '+cars.length+'. Os veículos em espera de GLB não podem ser instanciados.</p>'+
    '<div class="ca-form"><label class="ca-field">Modelo 3D instalado<select id="ca-vehicle">'+(fleet?.catalog||[])
      .map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+' ('+esc(v.id)+')</option>').join('')+'</select></label></div>'+
-    buttons('deliver-vehicle','Entregar carro perto do jogador')+'</div>'+
+    buttons('deliver-vehicle','Entregar carro perto do jogador')+
+   '<p>Integridade do carro atual: '+(fleet?.getDamageStatus?.()?Math.round(fleet.getDamageStatus().integrity*100)+'%':'Indisponível')+'</p>'+
+   buttons('repair-vehicle','Reparar carro atual (teste admin)')+'</div>'+
    '<div class="ca-panel"><h3>Departamentos</h3>'+
    groups.map(g=>'<details class="ca-dept"><summary>'+esc(g.icon)+' '+esc(g.title)+' — '+g.vehicles.length+'</summary>'+
     g.vehicles.map(v=>'<div class="ca-listrow"><span>'+esc(v.name)+'</span><small>'+(v.ready?'GLB ativo':'Aguardando arquivo')+'</small></div>').join('')+
@@ -278,6 +280,12 @@
    if(!result.ok)return toast(result.text,false);
    record('imóvel',(change?'Concedida':'Revogada')+' posse de '+id);
    render();return toast(result.text);
+  }
+  if(action==='repair-vehicle'){
+   if(!vehicles()?.driver)return toast('Entre no veículo que deseja reparar',false);
+   if(!confirm('Reparar carro atual e remover danos visuais da carroceria?'))return;
+   if(!vehicles().repairVehicle?.())return toast('Reparo indisponível',false);
+   record('reparo','Veículo restaurado para 100%');render();return toast('Veículo restaurado');
   }
   if(action==='deliver-vehicle'){
    const model=val('vehicle');

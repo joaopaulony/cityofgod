@@ -9,7 +9,15 @@
   if(raw?.version!==1||!['open','local'].includes(raw.mode)||![raw.x,raw.y,raw.seed,raw.clock].every(Number.isFinite)||raw.x<.5||raw.y<.5||raw.seed<0||raw.clock<0||!Number.isInteger(raw.floor)||raw.floor<0||raw.floor>19)return null;
   const point={version:1,mode:raw.mode,seed:raw.seed,x:raw.x,y:raw.y,floor:raw.floor,clock:raw.clock,at:Number.isFinite(raw.at)?raw.at:0};
   const car=raw.vehicle;
-  if(car&&typeof car.modelId==='string'&&typeof car.key==='string'&&Number.isFinite(car.angle)&&Number.isFinite(car.fuel))point.vehicle={modelId:car.modelId,key:car.key,angle:car.angle,fuel:cap(car.fuel,0,1,.5),engineOn:!!car.engineOn,headlights:!!car.headlights,col:typeof car.col==='string'?car.col:null};
+  if(car&&typeof car.modelId==='string'&&typeof car.key==='string'&&Number.isFinite(car.angle)&&Number.isFinite(car.fuel)){
+   point.vehicle={modelId:car.modelId,key:car.key,angle:car.angle,fuel:cap(car.fuel,0,1,.5),engineOn:!!car.engineOn,headlights:!!car.headlights,col:typeof car.col==='string'?car.col:null};
+   if(car.damage&&Number.isFinite(car.damage.integrity)){
+    point.vehicle.damage={integrity:cap(car.damage.integrity,0,1,1),
+     impacts:Math.min(999,Math.max(0,Math.floor(Number(car.damage.impacts)||0)))};
+    for(const side of ['front','rear','left','right'])
+     point.vehicle.damage[side]=cap(car.damage[side],0,1,0);
+   }
+  }
   return point;
  }
  function read(storage,key,fallback=null){try{return JSON.parse(storage.getItem(key))??fallback;}catch{return fallback;}}

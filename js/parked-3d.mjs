@@ -7,6 +7,7 @@ import {chooseVehicleLOD,classifyVehicleDetail,trianglesForGeometry} from './veh
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
 import {getVehicleAssignment} from './vehicle-classification.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
+import {createVehicleDeformation} from './vehicle-deformation.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
@@ -14,7 +15,7 @@ const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
 const KEEP_FACTORY = new Set(['suv','police-suv']);
 const preserveFactoryPaint=id=>KEEP_FACTORY.has(id)||getVehicleAssignment(id)?.ownership==='employer';
 
-export function createParked3D(THREE, scene, bridge) {
+export function createParked3D(THREE, scene, bridge, damageFX=null) {
   const state={models:0,cars:0,failed:0,loading:0,queued:0,
     high:0,medium:0,low:0,visibleTriangles:0,paint:{}};
   const models=new Map(),live=new Map(),paintCache=new Map();
@@ -112,15 +113,17 @@ export function createParked3D(THREE, scene, bridge) {
       if (!mat) { mat = M.paint.clone(); mat.color = new THREE.Color().setStyle(b.junk ? '#7a6a58' : b.col, THREE.SRGBColorSpace); paintCache.set(key, mat); }
       obj.traverse(o => { if (o.isMesh) { if (Array.isArray(o.material)) o.material = o.material.map(m => m === M.paint ? mat : m); else if (o.material === M.paint) o.material = mat; } });
     }
+    const cfg=VEHICLE_MODELS.find(v=>v.id===id);
+    const damageView=b.damage?.integrity<.999?createVehicleDeformation(THREE,obj,cfg):null;
+    damageView?.apply(b.damage);
     const g = new THREE.Group(); g.add(obj); g.position.set(b.x, 0, b.y); g.rotation.y = -b.rot;
     const pieces=[];obj.traverse(o=>{if(o.isMesh)pieces.push(o);});
     scene.add(g);b.r3d=true;
     // Only add meshes to parked cars with lights left switched on; never attach SpotLights.
-    const cfg=VEHICLE_MODELS.find(v=>v.id===id);
     const lit=!!(b.headlights||b.hazardLights||b.emergencyLights);
     const lights=lit?createVehicleLights(THREE,g,cfg||{length:b.w||4.7},
      {width:cfg?.width||M.width||b.d||1.9,height:M.height||1.5,parked:true,root:obj}):null;
-    return {group:g,pieces,level:null,visibleTriangles:0,lights};
+    return {group:g,obj,damageView,level:null,visibleTriangles:0,lights,pieces};
   }
   return {
     state,
@@ -141,7 +144,7 @@ export function createParked3D(THREE, scene, bridge) {
       want.sort((a,b)=>a[0]-b[0]);
       const selected=want.slice(0,64),keep=new Set(selected.map(x=>x[1]));
       for(const [b,entry] of live)if(!keep.has(b)){
-        entry.lights?.dispose();scene.remove(entry.group);b.r3d=false;live.delete(b);
+        entry.lights?.dispose();entry.damageView?.dispose();scene.remove(entry.group);b.r3d=false;live.delete(b);
       }
       let high=0,medium=0,low=0,visibleTriangles=0;
       for(const [distance,b] of selected){
@@ -151,6 +154,17 @@ export function createParked3D(THREE, scene, bridge) {
           if(!models.has(id)){requestModel(id);continue;}
           entry=make(b);if(!entry)continue;
           live.set(b,entry);
+        }
+        if(b.damage?.integrity<.999){
+         if(!entry.damageView)entry.damageView=createVehicleDeformation(THREE,entry.obj,
+          VEHICLE_MODELS.find(v=>v.id===streetModel(b)));
+         entry.damageView.apply(b.damage);
+         if(b.damage.integrity<=.56){
+          const intensity=Math.min(1,(.62-b.damage.integrity)/.57);
+          damageFX?.smoke(b.vehicleKey||b,b.x+Math.cos(b.rot||0)*(b.w||4.7)*.3,
+           b.y+Math.sin(b.rot||0)*(b.w||4.7)*.3,intensity,.2,
+           Math.max(.7,(b.h||1.5)*.72));
+         }
         }
         if(entry.lights)entry.lights.apply({headlights:!!b.headlights,highBeams:!!b.highBeams,
          signal:b.hazardLights?'hazard':'off',emergencyLights:!!b.emergencyLights},
