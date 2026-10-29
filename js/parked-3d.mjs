@@ -5,6 +5,7 @@
 import {loadVehicleGLB} from './vehicle-asset-cache.mjs';
 import {chooseVehicleLOD,classifyVehicleDetail,trianglesForGeometry} from './vehicle-lod.mjs';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
+import {createVehicleLights} from './vehicle-lights.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
@@ -62,7 +63,7 @@ export function createParked3D(THREE, scene, bridge) {
     });
     state.paint[cfg.id] = paint ? paint.name || '(sem nome)' : null;
     if (paint && paint.map && paint.map.image && !KEEP_FACTORY.has(cfg.id)) paint.map = neutralPaint(paint.map);
-    return { tpl: al, paint };
+    return { tpl: al, paint, width:Math.min(dim.x,dim.z)*(cfg.length/Math.max(dim.z,dim.x)),height:dim.y*(cfg.length/Math.max(dim.z,dim.x)) };
   }
   // a textura da carroceria já vem com a cor de fábrica: os pixels saturados (a pintura) viram cinza claro e a
   // cor de cada carro entra pelo material; cromados, borrachas, faróis e frisos (pouco saturados) ficam como estão
@@ -112,7 +113,12 @@ export function createParked3D(THREE, scene, bridge) {
     const g = new THREE.Group(); g.add(obj); g.position.set(b.x, 0, b.y); g.rotation.y = -b.rot;
     const pieces=[];obj.traverse(o=>{if(o.isMesh)pieces.push(o);});
     scene.add(g);b.r3d=true;
-    return {group:g,pieces,level:null,visibleTriangles:0};
+    // Only add meshes to parked cars with lights left switched on; never attach SpotLights.
+    const cfg=VEHICLE_MODELS.find(v=>v.id===id);
+    const lit=!!(b.headlights||b.hazardLights||b.emergencyLights);
+    const lights=lit?createVehicleLights(THREE,g,cfg||{length:b.w||4.7},
+     {width:M.width||b.d||1.9,height:M.height||1.5,parked:true}):null;
+    return {group:g,pieces,level:null,visibleTriangles:0,lights};
   }
   return {
     state,
@@ -133,7 +139,7 @@ export function createParked3D(THREE, scene, bridge) {
       want.sort((a,b)=>a[0]-b[0]);
       const selected=want.slice(0,64),keep=new Set(selected.map(x=>x[1]));
       for(const [b,entry] of live)if(!keep.has(b)){
-        scene.remove(entry.group);b.r3d=false;live.delete(b);
+        entry.lights?.dispose();scene.remove(entry.group);b.r3d=false;live.delete(b);
       }
       let high=0,medium=0,low=0,visibleTriangles=0;
       for(const [distance,b] of selected){
@@ -144,6 +150,9 @@ export function createParked3D(THREE, scene, bridge) {
           entry=make(b);if(!entry)continue;
           live.set(b,entry);
         }
+        if(entry.lights)entry.lights.apply({headlights:!!b.headlights,highBeams:!!b.highBeams,
+         signal:b.hazardLights?'hazard':'off',emergencyLights:!!b.emergencyLights},
+         performance.now()/1000);
         const level=chooseVehicleLOD(distance);
         if(entry.level!==level){
           for(const part of entry.pieces){
