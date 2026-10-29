@@ -11,7 +11,7 @@ async function visit(beta){
  page.on('pageerror',e=>errors.push('JS: '+e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/WEBGL_debug_renderer_info/.test(m.text()))errors.push('Console: '+m.text().slice(0,220));});
  try{
-  const url='http://127.0.0.1:4322/'+(beta?'?streetcrown=1':'');
+  const url='http://127.0.0.1:4322/'+(beta?'':'?skeleton=1');
   await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
   await page.locator('[data-front-action="new"]').click({timeout:35000});
   // The full city takes longer to create than the isolated CAS gallery.
@@ -49,11 +49,27 @@ async function visit(beta){
    console.log('STREET_CROWN_WORLD_SWAP',JSON.stringify(change));
    assert.ok(change.changed&&change.id==='ped_woman'&&change.sex==='female');
    assert.equal(change.actor.visible,true);
+   // The original bug was in the REAL world CAS, not in the isolated gallery.
+   await page.evaluate(()=>window.cityCharacters.openCreator());
+   await page.locator('#city-cas-dialog[open]').waitFor({timeout:30000});
+   await page.locator('[data-cas-tab="body"]').click();
+   const options=await page.locator('select[name="streetModel"] option').allTextContents();
+   console.log('STREET_CROWN_REAL_CAS_OPTIONS',JSON.stringify(options));
+   assert.deepEqual(options,['Parceira','Pedestre feminino']);
+   assert.equal(await page.locator('#cas-street-model-row').isVisible(),true);
+   await page.waitForFunction(()=>document.querySelector('#cas-preview-source')?.textContent?.includes('STREET CROWN GLB + RIG'),null,{timeout:30000});
+   await page.screenshot({path:'artifacts/cas-qa/street-world-default-cas.png'});
+   await page.locator('#cas-close').click();
    await page.screenshot({path:'artifacts/cas-qa/street-world-beta.png'});
   }else{
-   assert.equal(status.enabled,false,'Normal production game must preserve the 2026-10-28 human reset');
+   assert.equal(status.enabled,false,'Explicit ?skeleton=1 must preserve rig-only diagnostics');
    assert.ok(status.models.every(m=>m.meshes===0));
    assert.equal(status.character?.visible,false);
+   await page.evaluate(()=>window.cityCharacters.openCreator());
+   await page.locator('#city-cas-dialog[open]').waitFor({timeout:30000});
+   await page.locator('[data-cas-tab="body"]').click();
+   assert.equal(await page.locator('#cas-street-model-row').isVisible(),false,'Inactive model selector must be hidden');
+   assert.equal(await page.locator('select[name="streetModel"] option').count(),0);
   }
   assert.deepEqual(errors,[],JSON.stringify(errors));
   console.log('STREET_CROWN_WORLD_'+(beta?'BETA':'DEFAULT')+'_PASS');
