@@ -1,0 +1,55 @@
+name: Capture real crash damage screenshots
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/vehicle-damage-screenshots.yml
+      - tests/vehicle-damage-screenshot.cjs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies and browser driver
+        run: |
+          npm ci
+          npm install --no-audit --no-fund --no-save playwright@1.56.1
+      - name: Build latest real City of God renderer
+        run: npm run build
+      - name: Capture before/after as actual screenshots from Chrome
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/city-damage-preview.log 2>&1 &
+          sleep 2
+          node tests/vehicle-damage-screenshot.cjs
+      - name: Upload high-resolution source captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-cityofgod-vehicle-crash-preview
+          path: docs/screenshots/vehicle-crash-*.png
+          if-no-files-found: ignore
+      - name: Make validated screenshots visible on GitHub
+        if: success()
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/screenshots/vehicle-crash-*.png
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: capture authentic before/after 3D vehicle collision damage screenshots"
+            git push origin HEAD:main
+          fi
