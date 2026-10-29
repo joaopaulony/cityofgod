@@ -23,6 +23,9 @@ import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {createVehicleEffects} from './vehicle-effects.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
+import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
+import {createVehicleDeformation} from './vehicle-deformation.mjs';
+import {createVehicleDamageEffects} from './vehicle-damage-effects.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -33,7 +36,8 @@ const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
 const TANK_GAL=13.2,RANGE_M=12000;
 const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
 const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
-let vehicleFX=null,lighting=null,lightingClock=0;
+let vehicleFX=null,damageFX=null,lighting=null,lightingClock=0,deformation=null;
+let damage=createVehicleDamage();
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
  loadingSerial=0;
 const system={
@@ -49,15 +53,20 @@ window.cityVehicles=system;
 // Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 system.fuel=fuel;
+system.damage=damage;
+system.getDamageStatus=()=>({integrity:damage.integrity,tier:damageTier(damage),impacts:damage.impacts,front:damage.front,rear:damage.rear,left:damage.left,right:damage.right});
+system.repairVehicle=()=>{if(!system.driver)return false;repairVehicleDamage(damage);deformation?.apply(damage);system.damage=damage;return true;};
 system.captureCheckpoint=()=>system.driver?{key:activeKey,modelId:activeModel.id,angle:state.angle,fuel:fuel.level,col:activePaint,engineOn:system.engineOn,headlights:system.headlights,highBeams:system.highBeams,
- signal:system.signal,emergencyLights:system.emergencyLights}:null;
+ signal:system.signal,emergencyLights:system.emergencyLights,
+  damage:{integrity:damage.integrity,impacts:damage.impacts,front:damage.front,rear:damage.rear,left:damage.left,right:damage.right}}:null;
 system.restoreCheckpoint=async(saved,point)=>{
  if(!system.ready||!getVehicleById(saved.modelId)||!await selectModel(saved.modelId))return false;
  activeKey=saved.key;activePaint=saved.col;fleet.taken.add(activeKey);
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  if(activePaint)parked3d?.paintActive(model,{col:activePaint,modelId:saved.modelId});
  Object.assign(state,{x:point.x,y:point.y,angle:saved.angle,speed:0,steer:0,slip:0});
- fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn;system.headlights=saved.headlights;
+ damage=createVehicleDamage(saved.damage);system.damage=damage;deformation?.apply(damage);
+ fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn&&engineEfficiency(damage)>0;system.headlights=saved.headlights;
  system.highBeams=!!saved.highBeams;system.signal=saved.signal||'off';system.emergencyLights=!!saved.emergencyLights;
  Object.assign(bridge.player,{x:point.x,y:point.y,floor:0,floorZ:0});
  system.collider.x=point.x;system.collider.y=point.y;bridge.world.version++;return true;
@@ -247,6 +256,8 @@ function importModel(root,config=activeModel){
  system.wheels=wheelRig.metadata;
  system.wheelStatus=wheelRig.complete?(wheelRig.wheels.size+' rodas articuladas'):
   wheelRig.wheels.size+' rodas reconhecidas (mínimo 4)';
+ deformation=createVehicleDeformation(THREE,root,config);
+ deformation.apply(damage);
  model=root;
  system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
@@ -277,6 +288,7 @@ function initRenderer(){
  renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
  vehicleFX=createVehicleEffects(THREE,scene);
+ damageFX=createVehicleDamageEffects(THREE,scene);
  const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
  sun.position.set(-11,18,15);
@@ -377,7 +389,13 @@ function moveCar(dt){
   handbrake:c.down(' '),engineOn:system.engineOn
  };
  // Ônibus, veículos pesados e carros civis têm eixos e aceleração próprios.
- const spec={...CAR_SPEC,...(activeModel.physics||{}),length:activeModel.length,
+ const efficiency=engineEfficiency(damage);
+ if(!efficiency&&system.engineOn){system.engineOn=false;fuel.msg='Motor destruído — veículo precisa de reparo';fuel.msgT=4;}
+ const spec={...CAR_SPEC,...(activeModel.physics||{}),
+  engineAccel:((activeModel.physics?.engineAccel)||CAR_SPEC.engineAccel)*efficiency,
+  maxForward:((activeModel.physics?.maxForward)||CAR_SPEC.maxForward)*Math.max(.08,efficiency),
+  reverseAccel:CAR_SPEC.reverseAccel*Math.max(.12,efficiency),
+  length:activeModel.length,
   wheelbase:activeModel.wheelbase||Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)};
  const old={...state},next=stepCar(state,inControl,dt,spec);
  const collision=sweepCar(bridge.world,{...old,...hitbox()},
@@ -390,6 +408,22 @@ function moveCar(dt){
   const last=collision.position;
   Object.assign(state,next,{x:last.x,y:last.y,angle:last.angle,speed:0});
   system.lastImpact=collision.impact.kind;
+  const panel=collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact);
+  const crash=registerCrash(damage,collision.impact,old.speed,lightingClock,panel,activeModel.length/4.7);
+  if(crash){
+   system.damage=damage;
+   deformation?.apply(damage);
+   damageFX?.crash(collision.position.x,collision.position.y,Math.abs(old.speed));
+   fuel.msg='Impacto '+Math.round(Math.abs(old.speed)*3.6)+' km/h · Integridade '+Math.round(damage.integrity*100)+'%';
+   fuel.msgT=3;
+   const obstacle=collision.impact.object;
+   if(obstacle?.kind==='parkedcar'&&!obstacle.fleetHidden){
+    obstacle.damage=createVehicleDamage(obstacle.damage);
+    registerCrash(obstacle.damage,{kind:'object'},Math.abs(old.speed)*.8,lightingClock,
+      panel==='front'?'rear':panel==='rear'?'front':panel,Math.max(.7,(obstacle.w||4.7)/4.7));
+    bridge.world.version++;
+   }
+  }
  }
  // A ré NÃO é freio: luz vermelha só ao desacelerar ou usar o freio de mão.
  system.braking=c.down(' ')||(c.down('s')&&old.speed>.2)||(c.down('w')&&old.speed<-.2);
@@ -412,7 +446,8 @@ function parkAndExit(pos){
  const p=bridge.player;p.x=pos.x;p.y=pos.y;
  const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level,
   headlights:system.headlights,highBeams:system.highBeams,
-  hazardLights:system.signal==='hazard',emergencyLights:system.emergencyLights});
+  hazardLights:system.signal==='hazard',emergencyLights:system.emergencyLights,
+  damage:{integrity:damage.integrity,impacts:damage.impacts,front:damage.front,rear:damage.rear,left:damage.left,right:damage.right}});
  parked.draw=bridge.drawParkedCar;const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
  system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;
  system.highBeams=false;system.signal='off';system.emergencyLights=false;activeKey=null;
@@ -441,9 +476,10 @@ function interact(){
   if(!ok)return;
   parked3d?.paintActive(model,parked);
   activeKey=fleet.claim(parked);activePaint=parked.col;fuel.level=parked.fuel??.45;
+  damage=createVehicleDamage(parked.damage);system.damage=damage;deformation?.apply(damage);
   Object.assign(state,{x:parked.x,y:parked.y,angle:parked.rot||0,speed:0,steer:0,slip:0});
   system.collider.x=state.x;system.collider.y=state.y;
-  system.driver=true;system.engineOn=true;
+  system.driver=true;system.engineOn=engineEfficiency(damage)>0;
   system.headlights=!!parked.headlights;system.highBeams=!!parked.highBeams;
   system.signal=parked.hazardLights?'hazard':'off';system.emergencyLights=!!parked.emergencyLights;
   p.x=state.x;p.y=state.y;bridge.world.version++;
@@ -489,6 +525,13 @@ function drawPanel(g,w,h){
   g.font='11px system-ui';g.fillStyle='#b8bcc1';
   g.fillText('F sair · X motor · L/I faróis · J/K setas · U alerta · O giroflex',x+10,y+56);
   drawFuel(g,x+232,y+40);
+  const health=Math.max(0,damage.integrity),tier=damageTier(damage);
+  g.fillStyle=health>.56?'#90daa5':health>.24?'#f7ae60':'#f45f61';
+  g.fillRect(x+225,y+6,119*health,4);
+  g.font='bold 10px system-ui';g.fillText('CARRO '+Math.round(health*100)+'%',x+220,y+18);
+  if(tier==='critical'||tier==='destroyed'){
+   g.fillStyle='#ff9b91';g.fillText(tier==='destroyed'?'MOTOR DANIFICADO':'MOTOR EM PANE',x+220,y+7);
+  }
   // bomba ao lado: instrução ou leitura da bomba (galões e valor), mensagem de fim de abastecimento/pane
   let tip=null;
   if(fuel.pump){const s=fuel.station;tip=system.engineOn?'Posto '+s.brand.name+' — X desliga o motor para abastecer':fuel.level>=1?'Tanque cheio  ·  '+fuel.gallons.toFixed(2)+' gal  ·  US$ '+fuel.cost.toFixed(2):(system.fueling?'Abastecendo… ':'Segure B para abastecer  ·  ')+fuel.gallons.toFixed(2)+' gal  ·  US$ '+fuel.cost.toFixed(2)+'  ('+s.prices[0][0]+' US$ '+s.prices[0][1].toFixed(2)+'/gal)';}
@@ -520,7 +563,10 @@ system.update=dt=>{
  const stationFleet=syncCivicFleetParking(bridge.boxes,VEHICLE_MODELS,fleet);
  if(stationFleet.activated||stationFleet.hidden)bridge.world.version++;
  refuel(dt);
- if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
+ if(bridge.hit('x')&&system.driver){
+  if(engineEfficiency(damage)<=0){fuel.msg='Motor destruído: necessário reparar';fuel.msgT=3;}
+  else system.engineOn=!system.engineOn;
+ }
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
  if(bridge.hit('i')&&system.driver){system.highBeams=!system.highBeams;if(system.highBeams)system.headlights=true;}
  if(bridge.hit('j')&&system.driver)system.signal=system.signal==='left'?'off':'left';
@@ -532,6 +578,13 @@ system.update=dt=>{
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  moveCar(dt);
  vehicleFX?.update(dt,state,system.driver,activeModel.length);
+ damageFX?.update(dt);
+ if(system.driver&&damage.integrity<=.56){
+  const intensity=Math.min(1,(.62-damage.integrity)/.57);
+  damageFX?.smoke('driver',state.x+Math.cos(state.angle)*activeModel.length*.31,
+   state.y+Math.sin(state.angle)*activeModel.length*.31,intensity,dt,
+   Math.max(.7,system.bodyHeight*.72));
+ }
 };
 system.interact=interact;
 system.drawHUD=drawPanel;
@@ -599,12 +652,14 @@ async function selectModel(id){
   const gltf=await loadVehicleGLB(choice);
   if(serial!==loadingSerial)return false;
   if(body){
+   deformation?.dispose();deformation=null;
    scene.remove(body);
    // Luzes auxiliares são exclusivas do veículo anterior; o GLB é compartilhado.
    lighting?.dispose();lighting=null;
   }
   activeModel=choice;
   // Clone em cache: cada seleção recebe malhas e pivôs intactos.
+  damage=createVehicleDamage();system.damage=damage;
   importModel(gltf.scene.clone(true),choice);
   createLamp();resetWheelRig(wheelRig);
   state.speed=0;state.steer=0;state.distance=0;
@@ -626,6 +681,7 @@ system.getPerformanceMetrics=()=>({
         drawCalls:renderer?.info.render.calls||0,
         lines:renderer?.info.render.lines||0},
  parked:{...system.parked3d},
+ integrity:damage.integrity,damageTier:damageTier(damage),damageImpacts:damage.impacts,
  cache:vehicleAssetCacheStats(),
  assetCatalog:system.assetMetrics?.summary||null,
  activeAsset:system.assetMetrics?.models?.find(m=>m.id===system.modelId)||null
