@@ -80,8 +80,15 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  const loading=dialog.querySelector('#cas-loading');
  const hairSelect=form.elements.hairStyle;
  const streetSelect=form.elements.streetModel;
- dialog.querySelector('#cas-street-model-row').hidden=!system.streetCrownEnabled;
- dialog.querySelector('#cas-toggle-rig').hidden=!system.streetCrownEnabled;
+ const streetModelRow=dialog.querySelector('#cas-street-model-row');
+ const streetRigButton=dialog.querySelector('#cas-toggle-rig');
+ function syncStreetMode(){
+  streetModelRow.hidden=!system.streetCrownEnabled;
+  streetRigButton.hidden=!system.streetCrownEnabled;
+  streetSelect.disabled=!system.streetCrownEnabled;
+  if(!system.streetCrownEnabled)streetSelect.replaceChildren();
+ }
+ syncStreetMode();
  function refreshStreetModels(sex){
   if(!system.streetCrownEnabled)return;
   const requested=streetModelForSex(streetSelect.value||system.streetModelId,sex);
@@ -161,7 +168,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  function loadForm(profile){
   draft=normalizeCAS(profile);
-  refreshStreetModels(draft.sex);
+  syncStreetMode();refreshStreetModels(draft.sex);
   for(const key of ['name','age','height','build','skin','hair','top','bottom','shoes','hairStyle','background','style','outfit','accessory','accessoryColor','faceWidth','jaw','nose','eyes','cheeks']){
    if(el(key))el(key).value=draft[key];
   }
@@ -275,7 +282,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   artlistMode=false;
   const version=++loadingVersion;
   previewSex=sex;loading.hidden=false;
-  loading.textContent='Abrindo esqueleto '+(sex==='female'?'feminino':'masculino')+'…';
+  loading.textContent='Abrindo '+(system.streetCrownEnabled?'modelo 3D ':'esqueleto ')+(sex==='female'?'feminino':'masculino')+'…';
   try{
    const {gltf}=await getPreviewAsset(sex);
    if(version!==loadingVersion)return;
@@ -315,7 +322,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    source.textContent=(meshes?'STREET CROWN GLB + RIG':'SOMENTE OSSOS')+' · '+joints.length+' ARTICULAÇÕES · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
    system.handSkeletonStats={bones:joints.length,extendedFingers:joints.filter(n=>/^((Left)|(Right))Hand(Thumb|Index|Middle|Ring|Pinky)/.test(n)).length,helperBones:previewSkeleton?.bones?.length||0};
    loading.hidden=true;syncPreview();
-  }catch(error){loading.textContent='Prévia de ossos: '+String(error.message||error);source.textContent='NENHUM MODELO HUMANO';}
+  }catch(error){loading.textContent='Prévia 3D: '+String(error.message||error);source.textContent='ERRO AO CARREGAR PERSONAGEM';status.textContent='A prévia não abriu: '+String(error.message||error);}
  }
  async function showArtlistModel(){
   // Former Artlist sculpt previews are removed along with the old humans.
@@ -377,8 +384,10 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
   status.textContent=system.streetCrownEnabled
-   ?'Beta Street Crown: malhas 3D no rig Reborn com 76 ossos. Dedos ainda dependem de pesos de skinning para deformar a malha.'
-   :'CAS preservado: mãos com 10 dedos articulados, ossos, animações e perfis. Nenhum corpo humano antigo foi restaurado.';
+    ?'Seis personagens Street Crown carregados. Escolha uma malha na aba Corpo. A malha dos dedos ainda não tem deformação individual.'
+    :system.streetCrownRequested
+     ?'Falha ao carregar as malhas: '+(system.casWarnings?.[0]||system.errors?.[0]||'verifique os GLBs')
+     :'Modo esqueleto ativado: remova ?skeleton=1 para carregar os corpos.';
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
