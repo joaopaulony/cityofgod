@@ -53,6 +53,7 @@ async function visit(beta){
    await page.evaluate(()=>window.cityCharacters.openCreator());
    await page.locator('#city-cas-dialog[open]').waitFor({timeout:30000});
    await page.locator('[data-cas-tab="body"]').click();
+   await page.locator('input[name="sex"][value="male"]').check();
    const maleOptions=await page.locator('select[name="streetModel"] option').allTextContents();
    assert.deepEqual(maleOptions,['Protagonista','Pedestre masculino','Integrante da gangue','Chefe da gangue']);
    await page.locator('input[name="sex"][value="female"]').check();
