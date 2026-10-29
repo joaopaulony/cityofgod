@@ -386,7 +386,8 @@ function moveCar(dt){
   Object.assign(state,next,{x:last.x,y:last.y,angle:last.angle,speed:0});
   system.lastImpact=collision.impact.kind;
  }
- system.braking=c.down('s')||c.down(' ');
+ // A ré NÃO é freio: luz vermelha só ao desacelerar ou usar o freio de mão.
+ system.braking=c.down(' ')||(c.down('s')&&old.speed>.2)||(c.down('w')&&old.speed<-.2);
  // consumo: distância rodada + marcha lenta; tanque vazio apaga o motor
  if(system.engineOn){
   fuel.level=Math.max(0,fuel.level-Math.hypot(state.x-old.x,state.y-old.y)/RANGE_M-dt/5400);
