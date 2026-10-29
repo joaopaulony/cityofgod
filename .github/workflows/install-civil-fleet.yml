@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - assets/vehicles/incoming/civil-fleet-2k-webp.zip
+      - assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip
   workflow_dispatch:
 
 permissions:
@@ -30,33 +30,49 @@ jobs:
         id: pack
         run: |
           set -euo pipefail
-          source='assets/vehicles/incoming/civil-fleet-2k-webp.zip'
+          source='assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip'
           if [ ! -f "$source" ]; then
             echo 'No pending civil pack. Nothing to install.'
             echo 'exists=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo 'exists=true' >> "$GITHUB_OUTPUT"
-          echo '244df2166618311b3d2a3afcf8ada7f9fb34aa9e1b30f7c6f43a837e8df5ebb2  assets/vehicles/incoming/civil-fleet-2k-webp.zip' | sha256sum --check --status
+          echo '298dcdf13a795df7eb68fb27bb663270f6fe427f691de1647db945f0155c43cd  assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip' | sha256sum --check --status
           python3 - <<'PY'
           from zipfile import ZipFile
-          source='assets/vehicles/incoming/civil-fleet-2k-webp.zip'
+          source='assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip'
           ids=['ambulance','city-bus','fire-truck','garbage-truck','police-sedan','postal-van','school-bus','service-truck','taxi','tow-truck']
           expected={f'assets/vehicles/live/civil-{v}.glb' for v in ids}
-          expected|={'assets/vehicles/live/COMRADE1280-CIVIL-ATTRIBUTION.txt','manifest.json'}
+          expected|={'assets/vehicles/live/COMRADE1280-CIVIL-ATTRIBUTION.txt','manifest.json','wheel-rig-report.json'}
           with ZipFile(source) as z:
               assert set(z.namelist())==expected,'Unexpected ZIP members'
               for info in z.infolist():
                   assert not info.is_dir() and info.file_size<50000000,info.filename
                   assert not info.filename.startswith('/') and '..' not in info.filename.split('/'),info.filename
-          print('Exactly ten individually supplied CC BY GLBs, metadata and attribution verified.')
+          import json,struct
+          wheel_counts={'ambulance':6,'city-bus':6,'fire-truck':6,'garbage-truck':10,'police-sedan':4,
+                        'postal-van':4,'school-bus':6,'service-truck':6,'taxi':4,'tow-truck':6}
+          with ZipFile(source) as z:
+              report=json.loads(z.read('wheel-rig-report.json'))
+              assert len(report)==10
+              for vehicle,count in wheel_counts.items():
+                  raw=z.read(f'assets/vehicles/live/civil-{vehicle}.glb')
+                  assert raw[:4]==b'glTF',vehicle
+                  size=struct.unpack_from('<I',raw,12)[0]
+                  doc=json.loads(raw[20:20+size])
+                  names=[n.get('name','') for n in doc['nodes'] if n.get('name','').startswith('wheel_')]
+                  assert len(names)==count,(vehicle,names)
+                  for role in ['wheel_fl','wheel_fr','wheel_rl','wheel_rr']:
+                      assert role in names,(vehicle,role)
+                  assert doc['asset'].get('extras',{}).get('wheelCount')==count
+          print('Validated ten CC BY vehicles with individual wheel meshes, metadata, and 58 physical wheels.')
           PY
       - name: Unpack and activate ten validated vehicles
         if: steps.pack.outputs.exists == 'true'
         run: |
           set -euo pipefail
           mkdir -p .civil-import
-          unzip -q assets/vehicles/incoming/civil-fleet-2k-webp.zip -d .civil-import
+          unzip -q assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip -d .civil-import
           npm run import:civil -- .civil-import/assets/vehicles/live
           rm -rf .civil-import
       - name: Run regressions, inspect geometry and build deployment
@@ -73,7 +89,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add js/vehicle-catalog.mjs assets/vehicles/live assets/vehicles/civil-import-manifest.json
-          git rm assets/vehicles/incoming/civil-fleet-2k-webp.zip
+          git rm assets/vehicles/incoming/civil-fleet-2k-webp-wheelrig.zip
           git diff --cached --check
           git commit -m "assets: integrate ten verified Comrade1280 2K WebP civil-service GLBs"
           git push origin HEAD:main

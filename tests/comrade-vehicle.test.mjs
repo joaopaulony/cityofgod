@@ -84,11 +84,11 @@ test('Silvia original four corner groups animate, including actual RR_36',()=>{
  assert.deepEqual(snapshot(groups[0].children[1]),snapshot({quaternion:originalPart}));
 });
 test('all ten original passenger GLB files are present and have four separate wheel nodes',()=>{
- assert.equal(VEHICLE_MODELS.length,11);
+ assert.ok(VEHICLE_MODELS.length===11||VEHICLE_MODELS.length===21);
  assert.equal(VEHICLE_MODELS.filter(x=>x.source==='passenger').length,10);
  assert.equal(CIVIL_PACK_EXPECTED.length,10);
  for(const car of VEHICLE_MODELS){
-  assert.ok(car.length>3&&car.length<6);
+  assert.ok(car.length>3&&car.length<12);
   const path=new URL('../assets/vehicles/live/'+car.file,import.meta.url);
   assert.ok(existsSync(path),car.id+' original GLB missing');
   const raw=readFileSync(path);
@@ -99,7 +99,16 @@ test('all ten original passenger GLB files are present and have four separate wh
   if(car.source==='passenger')
    for(const slot of ['fl','fr','rl','rr'])
     assert.ok(names.has('wheel_'+slot),car.id+' missing wheel_'+slot);
-  else
+  else if(car.source==='civil'){
+   for(const id of ['wheel_fl','wheel_fr','wheel_rl','wheel_rr'])
+    assert.ok(names.has(id),car.id+' missing '+id);
+   const namesArray=(json.nodes||[]).filter(n=>/^wheel_(?:f[lr]|r[lr]|ex\d+)$/i.test(n.name||''));
+   assert.equal(namesArray.length,car.wheelCount,car.id+' incorrect wheel count');
+   for(const node of namesArray){
+    assert.ok(node.extras?.wheelAxle,'wheel missing axle metadata');
+    assert.ok(Number.isFinite(node.extras?.wheelRadiusMeters));
+   }
+  }else
    for(const id of ['FL_15','FR_29','RL_22','RR_36'])
     assert.ok(names.has(id),'Silvia missing '+id);
  }
@@ -110,4 +119,40 @@ test('source module uses actual GLB WebGL and no pre-render',()=>{
  assert.match(src,/stepWheelRig\(wheelRig,/);
  assert.match(src,/renderer\.render\(scene,viewCamera\)/);
  assert.doesNotMatch(src,/\.drawImage\(|\.toDataURL\(|bakeAtlas\(/);
+});
+
+test('civil multi-axle wheels rotate, steer at the front and reset independently',()=>{
+ const roles=['wheel_fl','wheel_fr','wheel_rl','wheel_rr','wheel_ex04','wheel_ex05',
+  'wheel_ex06','wheel_ex07','wheel_ex08','wheel_ex09'];
+ const nodes=roles.map((name,i)=>{
+  const n=wheel(name);n.userData={wheelSteers:i<2,steeringAxis:'z',
+   wheelAxle:i<2?'front':'rear',wheelRadiusMeters:.46};return n;
+ });
+ const rig=createWheelRig(rootOf(nodes),THREE,{forward:'+Z'});
+ assert.equal(rig.wheels.size,10);assert.equal(rig.complete,true);
+ for(const name of ['fl','fr','rl','rr','ex04','ex09'])assert.ok(rig.wheels.has(name));
+ stepWheelRig(rig,1.84,.35);
+ for(const [role,w] of rig.wheels){
+  near(w.spin,1.84/.33);
+  if(w.steerable){
+   assert.ok(Math.abs(w.node.quaternion.z)>.01,role+' must steer about GLB vertical Z axis');
+  }else{
+   near(w.node.quaternion.z,0);
+  }
+  assert.notDeepEqual(snapshot(w.node),[0,0,0,1]);
+ }
+ stepWheelRig(rig,-1.84,0);resetWheelRig(rig);
+ for(const node of nodes)assert.deepEqual(snapshot(node),[0,0,0,1]);
+});
+test('configured civil vehicles use actual wheelbases and distinct heavy vehicle handling',()=>{
+ assert.equal(CIVIL_PACK_EXPECTED.length,10);
+ for(const cfg of CIVIL_PACK_EXPECTED){
+  assert.equal(cfg.front,'+Z',cfg.id);
+  assert.ok(cfg.wheelbase>=2.6&&cfg.wheelbase<6.2,cfg.id);
+  assert.ok([4,6,10].includes(cfg.wheelCount),cfg.id);
+  assert.ok(cfg.physics.engineAccel>0);
+ }
+ assert.ok(CIVIL_PACK_EXPECTED.find(x=>x.id==='city-bus').wheelbase>
+  CIVIL_PACK_EXPECTED.find(x=>x.id==='taxi').wheelbase);
+ assert.equal(CIVIL_PACK_EXPECTED.find(x=>x.id==='garbage-truck').wheelCount,10);
 });
