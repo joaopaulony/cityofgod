@@ -15,6 +15,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
    {waitUntil:'domcontentloaded',timeout:120000});
+   await page.locator('[data-front-action="new"]').click({timeout:30000});
   try{
    await page.waitForFunction(()=>window.cityVehicles&&
     ['ready','failed'].includes(window.cityVehicles.status),null,{timeout:45000});
