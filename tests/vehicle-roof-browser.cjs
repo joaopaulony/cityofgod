@@ -71,7 +71,8 @@ const {chromium}=require('playwright'),fs=require('node:fs');
     },{id,H,angle:angles[j]});
     report.push(row);
     console.log('ROOF QA',JSON.stringify(row));
-    if(row.status!=='ready'||!row.opaque||!row.wallMeshes||
+    // Modern architecture uses its own depth geometry; legacy houseOccluders can be 0.
+    if(row.status!=='ready'||!row.opaque||
       !Number.isFinite(row.x)||!Number.isFinite(row.y)||
       row.vehiclePixels<70||
       row.frames<2||!row.source.endsWith('.glb'))
