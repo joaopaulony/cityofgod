@@ -1,8 +1,7 @@
 // Veiculo GLB REAL: Three.js/WebGL em todo frame. Nunca tira screenshots,
 // nao gera sprites, nao usa drawImage para carroceria e nao usa Blender.
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {loadVehicleGLB,vehicleAssetCacheStats} from './vehicle-asset-cache.mjs';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
@@ -34,8 +33,7 @@ const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
 const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
 let vehicleFX=null,tailLights=[];
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
- gltfLoader=null,loadingSerial=0;
-const modelCache=new Map();
+ loadingSerial=0;
 const system={
  ready:false,driver:false,engineOn:false,headlights:false,braking:false,
  model:activeModel.name,modelId:activeModel.id,status:'loading',car:state,
@@ -244,7 +242,7 @@ function importModel(root,config=activeModel){
  system.wheelStatus=wheelRig.complete?'4 rodas articuladas':
   wheelRig.wheels.size+' de 4 rodas identificadas';
  model=root;
- system.meshes=root.getObjectByProperty('isMesh',true)?1:0;
+ system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
  system.bodyWidth=Math.max(1.25,Math.min(2.6,
    dim.x*(config.length/Math.max(dim.z,dim.x))));
@@ -575,18 +573,16 @@ async function selectModel(id){
  system.ready=false;system.status='loading';system.wheelStatus='loading';
  system.error=null;
  try{
-  if(!gltfLoader){
-   await MeshoptDecoder.ready;
-   gltfLoader=new GLTFLoader();gltfLoader.setMeshoptDecoder(MeshoptDecoder);
-  }
-  const url='assets/vehicles/live/'+choice.file;
-  let gltf=modelCache.get(choice.id);
-  if(!gltf){
-   gltf=await gltfLoader.loadAsync(url);
-   modelCache.set(choice.id,gltf);
-  }
+  const gltf=await loadVehicleGLB(choice);
   if(serial!==loadingSerial)return false;
-  if(body)scene.remove(body);
+  if(body){
+   scene.remove(body);
+   // Luzes auxiliares são exclusivas do veículo anterior; o GLB é compartilhado.
+   for(const lightMesh of tailLights){
+    lightMesh.geometry.dispose();lightMesh.material.dispose();
+   }
+   tailLights=[];
+  }
   activeModel=choice;
   // Clone em cache: cada seleção recebe malhas e pivôs intactos.
   importModel(gltf.scene.clone(true),choice);
@@ -600,6 +596,26 @@ async function selectModel(id){
   return false;
  }
 }
+// Auditoria GPU e contagem real dos triângulos de cada GLB.
+system.assetMetrics=null;
+system.getPerformanceMetrics=()=>({
+ activeModel:system.modelId,
+ gpu:{geometries:renderer?.info.memory.geometries||0,
+      textures:renderer?.info.memory.textures||0},
+ frame:{triangles:renderer?.info.render.triangles||0,
+        drawCalls:renderer?.info.render.calls||0,
+        lines:renderer?.info.render.lines||0},
+ parked:{...system.parked3d},
+ cache:vehicleAssetCacheStats(),
+ assetCatalog:system.assetMetrics?.summary||null,
+ activeAsset:system.assetMetrics?.models?.find(m=>m.id===system.modelId)||null
+});
+window.cityVehicleMetrics=()=>system.getPerformanceMetrics();
+fetch('assets/vehicles/metrics.json').then(r=>{
+ if(!r.ok)throw Error('Vehicle metrics unavailable');
+ return r.json();
+}).then(data=>{system.assetMetrics=data;}).catch(err=>
+ console.info('GLB audit metrics unavailable',err.message));
 system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
  ([role,w])=>{
    const tyre=w.spinning.find(x=>/^(tyre|tire)/i.test(x.node.name))?.node||w.node;
