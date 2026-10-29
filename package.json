@@ -5,6 +5,7 @@
     "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
     "build:site": "npm run test:cas && npm run build && node tools/build-site.mjs",
     "audit:vehicles": "node tools/audit-vehicle-assets.mjs",
+    "import:civil": "node tools/install-civil-pack.mjs",
     "test:vehicle-performance": "node --test tests/vehicle-performance.test.mjs",
     "start": "node tools/serve.mjs",
     "test:characters": "node --test tests/character-actions.test.mjs",

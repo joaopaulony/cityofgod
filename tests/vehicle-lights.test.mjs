@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
 import {CIVIL_PACK_EXPECTED,VEHICLE_MODELS} from '../js/vehicle-catalog.mjs';
 import {computeVehicleLightState,vehicleLightPositions} from '../js/vehicle-lights.mjs';
 test('ten civil-service vehicle specs have unique IDs and remain disabled until GLBs exist',()=>{
@@ -8,7 +9,8 @@ test('ten civil-service vehicle specs have unique IDs and remain disabled until 
  for(const v of CIVIL_PACK_EXPECTED){
   assert.ok(v.file.endsWith('.glb'));assert.ok(v.length>=4&&v.width>1&&v.height>1);
   assert.ok(v.sourceTriangles>0);
-  assert.equal(VEHICLE_MODELS.some(x=>x.id===v.id),false);
+  if(!existsSync(new URL('../assets/vehicles/live/'+v.file,import.meta.url)))
+   assert.equal(VEHICLE_MODELS.some(x=>x.id===v.id),false);
  }
 });
 test('low/high beam, brake, tail and reverse work independently',()=>{
