@@ -10,6 +10,7 @@ const fs=require('node:fs');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/index.html?quality=performance&seed=3250',
    {waitUntil:'domcontentloaded',timeout:120000});
+   await page.locator('[data-front-action="new"]').click({timeout:30000});
   try{
    await page.waitForFunction(()=>window.cityVehicles&&['ready','failed'].includes(window.cityVehicles.status),
     null,{timeout:45000});
