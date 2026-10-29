@@ -510,7 +510,12 @@ function miaCar(x, y, rot, opt = {}) {
   const col = opt.col || MIA_CARS[(rng() * MIA_CARS.length) | 0];
   return addBox({ x, y, w: 4.4, d: 1.85, h: 1.5, rot, top: col, side: col, kind: 'parkedcar', col, junk: !!opt.junk, suv: rng() < 0.35, draw: drawParkedCar });
 }
-function drawParkedCar(g, b) { if (b.r3d||b.fleetHidden) return; miaCached(g, b, cg => paintCar(cg, b)); }
+function drawParkedCar(g, b) {
+  // O desenho antigo 2D é exclusivo do fallback sem WebGL.
+  // Nunca desenhar caixas e carrocerias antigas por baixo do GLB.
+  if(b.fleetHidden||b.r3d||window.cityVehicles?.renderer&&window.VEG3D!==false)return;
+  miaCached(g,b,cg=>paintCar(cg,b));
+}
 function paintCar(g, b) {
   const c = Math.cos(b.rot), s = Math.sin(b.rot), Z = cam.zoom, P = (u, v, z) => proj(b.x + u * c - v * s, b.y + u * s + v * c, z);
   const L = 2.2, W = 0.9, hb = b.suv ? 0.7 : 0.48, zc = 0.3 + hb, hc = b.suv ? 0.6 : 0.42;
