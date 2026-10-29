@@ -25,7 +25,6 @@ const {judge}=require('./visual-quality-judge.cjs');
     game.on('pageerror',e=>gameErrors.push(e.message));
     await game.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
       {waitUntil:'domcontentloaded',timeout:120000});
-   await game.locator('[data-front-action="new"]').click({timeout:30000});
     await game.waitForFunction(()=>typeof world!=='undefined' &&
       world.props.some(p=>p.type==='tree') && document.querySelector('#view')?.width>0,
       {timeout:120000});
@@ -107,9 +106,7 @@ const {judge}=require('./visual-quality-judge.cjs');
     const housing=await game.evaluate(()=>{
       const removed=!('squirrels' in ecosystem) &&
         !('squirrelSprites' in ecosystem);
-      // A cidade agora inclui edifícios com dois andares sem interior jogável.
-      // O teste de escadas precisa selecionar somente casas com piso superior montado.
-      const two=houses.filter(H=>H.storeys===2&&H.stair&&H.upper?.walls&&H.upper?.furniture);
+      const two=houses.filter(H=>H.storeys===2);
       const variants=[...new Set(two.map(H=>H.templateKey))];
       const H=two[0];
       if(!H)return {removed,count:0,variants};
@@ -135,14 +132,10 @@ const {judge}=require('./visual-quality-judge.cjs');
     });
     await game.screenshot({path:'artifacts/cityofgod-two-storey-house.png',fullPage:true});
     console.log('Two-storey houses:',JSON.stringify(housing));
-    // Mundo com streaming: o setor inicial pode não conter casas de dois
-    // andares COM escada utilizável. O teste 3D não deve falhar por ausência
-    // de fixture; as regras de escada seguem testadas na suíte de geometria.
-    if(!housing.count)console.log('No playable two-storey house in initial sector; stairs skipped.');
-    if(!housing.removed||(housing.count>0&&(
+    if(!housing.removed||housing.count<2||housing.variants.length<2||
       !housing.started||!housing.up||!housing.descended||!housing.down||
       housing.hall<10||housing.items<4||housing.blocking<10||
-      housing.stairs!==10)))
+      housing.stairs!==10)
       throw Error('House stair/interior or wildlife removal failed: '+JSON.stringify(housing));
 
     const metrics=await game.evaluate(()=>{
@@ -585,7 +578,6 @@ const {judge}=require('./visual-quality-judge.cjs');
     normal.on('pageerror',e=>normalErrors.push(e.message));
     await normal.goto('http://127.0.0.1:8765/index.html?seed=3250',
       {waitUntil:'domcontentloaded',timeout:120000});
-   await normal.locator('[data-front-action="new"]').click({timeout:30000});
     await normal.waitForFunction(()=>typeof world!=='undefined' &&
       world.ground && world.props.some(p=>p.type==='tree'),
       null,{timeout:120000});
