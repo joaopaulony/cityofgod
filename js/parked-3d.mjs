@@ -2,23 +2,32 @@
 // modelos GLB dos veículos dirigíveis. Cada modelo carrega uma vez; as instâncias perto da câmera são clones que
 // compartilham malhas e materiais (só a pintura da carroceria ganha um material por cor). Enquanto um carro tem
 // modelo 3D, o desenho 2D dele é pulado (b.r3d).
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {loadVehicleGLB} from './vehicle-asset-cache.mjs';
+import {chooseVehicleLOD,classifyVehicleDetail,trianglesForGeometry} from './vehicle-lod.mjs';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
-const POOL = VEHICLE_MODELS.filter(v=>v.source==='passenger').map(v=>v.id);
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
 // SUV vem de fábrica em grafite escuro (sem separar pintura de borracha na textura): fica com a cor original
 const KEEP_FACTORY = new Set(['suv']);
 
 export function createParked3D(THREE, scene, bridge) {
-  const state = { models: 0, cars: 0, failed: 0, paint: {} };
-  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-  const models = new Map(), live = new Map(), paintCache = new Map();
-  let started = false;
+  const state={models:0,cars:0,failed:0,loading:0,queued:0,
+    high:0,medium:0,low:0,visibleTriangles:0,paint:{}};
+  const models=new Map(),live=new Map(),paintCache=new Map();
+  const pending=new Set(),failed=new Set(),queued=new Set(),queue=[];
+  let inflight=0,tick=0;
 
   function normalize(root, cfg) {
+    // Não modificar materiais compartilhados com o modelo dirigível.
+    const materialCopies=new Map(),copy=m=>{
+      if(!m)return m;
+      if(!materialCopies.has(m))materialCopies.set(m,m.clone());
+      return materialCopies.get(m);
+    };
+    root.traverse(o=>{
+      if(o.isMesh)o.material=Array.isArray(o.material)?o.material.map(copy):copy(o.material);
+    });
     // carro parado não anima: malhas com esqueleto viram malhas comuns na pose de repouso (clonáveis sem ossos)
     const skinned = []; root.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); });
     for (const sk of skinned) { const m = new THREE.Mesh(sk.geometry, sk.material); m.name = sk.name; m.position.copy(sk.position); m.quaternion.copy(sk.quaternion); m.scale.copy(sk.scale); sk.parent.add(m); sk.parent.remove(sk); }
@@ -42,6 +51,15 @@ export function createParked3D(THREE, scene, bridge) {
         if (area > best) { best = area; paint = m; }
       }
     });
+    const volume=Math.max(.00001,dim.x*dim.y*dim.z);
+    root.traverse(o=>{
+      if(!o.isMesh)return;
+      const bb=new THREE.Box3().setFromObject(o),v=bb.getSize(new THREE.Vector3());
+      let names=o.name||'';
+      for(let p=o.parent;p&&p!==root;p=p.parent)names+=' '+(p.name||'');
+      o.userData.vehicleDetail=classifyVehicleDetail(names,Math.max(0,v.x*v.y*v.z)/volume);
+      o.userData.vehicleTriangles=trianglesForGeometry(o.geometry);
+    });
     state.paint[cfg.id] = paint ? paint.name || '(sem nome)' : null;
     if (paint && paint.map && paint.map.image && !KEEP_FACTORY.has(cfg.id)) paint.map = neutralPaint(paint.map);
     return { tpl: al, paint };
@@ -55,11 +73,28 @@ export function createParked3D(THREE, scene, bridge) {
     g.putImageData(d, 0, 0);
     const t = new THREE.CanvasTexture(c); t.flipY = tex.flipY; t.colorSpace = tex.colorSpace; t.wrapS = tex.wrapS; t.wrapT = tex.wrapT; t.anisotropy = 4; return t;
   }
-  async function start() {
-    started = true; await MeshoptDecoder.ready;
-    for (const id of POOL) {
-      const cfg = VEHICLE_MODELS.find(v => v.id === id); if (!cfg) continue;
-      loader.loadAsync('assets/vehicles/live/' + cfg.file).then(g => { models.set(id, normalize(g.scene, cfg)); state.models = models.size; }).catch(e => { state.failed++; console.warn('Carro estacionado não carregou', id, e); });
+  // Carrega no máximo dois GLBs novos simultaneamente; somente modelos próximos.
+  function requestModel(id){
+    if(models.has(id)||pending.has(id)||queued.has(id)||failed.has(id))return;
+    const cfg=VEHICLE_MODELS.find(v=>v.id===id);if(!cfg)return;
+    queued.add(id);queue.push(id);pump();
+  }
+  function pump(){
+    while(inflight<2&&queue.length){
+      const id=queue.shift(),cfg=VEHICLE_MODELS.find(v=>v.id===id);
+      queued.delete(id);
+      if(!cfg||models.has(id)||pending.has(id))continue;
+      pending.add(id);inflight++;
+      state.loading=inflight;state.queued=queue.length;
+      loadVehicleGLB(cfg).then(g=>{
+        models.set(id,normalize(g.scene.clone(true),cfg));state.models=models.size;
+      }).catch(e=>{
+        failed.add(id);state.failed=failed.size;
+        console.warn('Carro estacionado não carregou',id,e);
+      }).finally(()=>{
+        pending.delete(id);inflight--;
+        state.loading=inflight;state.queued=queue.length;pump();
+      });
     }
   }
   const h = b => { let k = Math.imul(Math.round(b.x * 10) * 73856093 ^ Math.round(b.y * 10) * 19349663, 2654435761); return (k ^ (k >>> 15)) >>> 0; };
@@ -72,9 +107,10 @@ export function createParked3D(THREE, scene, bridge) {
       obj.traverse(o => { if (o.isMesh) { if (Array.isArray(o.material)) o.material = o.material.map(m => m === M.paint ? mat : m); else if (o.material === M.paint) o.material = mat; } });
     }
     const g = new THREE.Group(); g.add(obj); g.position.set(b.x, 0, b.y); g.rotation.y = -b.rot;
-    scene.add(g); b.r3d = true; return g;
+    const pieces=[];obj.traverse(o=>{if(o.isMesh)pieces.push(o);});
+    scene.add(g);b.r3d=true;
+    return {group:g,pieces,level:null,visibleTriangles:0};
   }
-  let tick = 0;
   return {
     state,
     paintActive(root,b){const id=streetModel(b),M=models.get(id);if(!M?.paint||KEEP_FACTORY.has(id))return;
@@ -82,15 +118,44 @@ export function createParked3D(THREE, scene, bridge) {
       root.traverse(o=>{if(!o.isMesh)return;const replace=m=>m.name===M.paint.name?mat:m;o.material=Array.isArray(o.material)?o.material.map(replace):replace(o.material);});
     },
     update() {
-      if (!started) start();
-      if ((tick = (tick + 1) % 12) !== 0 || !models.size) return;
-      const c = bridge.cam, R = 95, want = [];
-      for (const b of bridge.boxes) if (b.kind === 'parkedcar'&&!b.fleetHidden) { const d = Math.hypot(b.x - c.x, b.y - c.y); if (d < R) want.push([d, b]); }
-      want.sort((a, q) => a[0] - q[0]);
-      const keep = new Set(want.slice(0, 48).map(w => w[1]));
-      for (const [b, g] of live) if (!keep.has(b)) { scene.remove(g); b.r3d = false; live.delete(b); }
-      for (const b of keep) if (!live.has(b)) { const g = make(b); if (g) live.set(b, g); }
-      state.cars = live.size;
+      if((tick=(tick+1)%12)!==0)return;
+      const c=bridge.cam;
+      const halfW=c.W/(2*Math.max(1,c.zoom)),halfH=c.H/(2*Math.max(1,c.zoom)*(c.tilt||.5));
+      const R=Math.min(160,Math.max(95,Math.hypot(halfW,halfH)+22));
+      const want=[];
+      for(const b of bridge.boxes)if(b.kind==='parkedcar'&&!b.fleetHidden){
+        const d=Math.hypot(b.x-c.x,b.y-c.y);
+        if(d<R)want.push([d,b]);
+      }
+      want.sort((a,b)=>a[0]-b[0]);
+      const selected=want.slice(0,64),keep=new Set(selected.map(x=>x[1]));
+      for(const [b,entry] of live)if(!keep.has(b)){
+        scene.remove(entry.group);b.r3d=false;live.delete(b);
+      }
+      let high=0,medium=0,low=0,visibleTriangles=0;
+      for(const [distance,b] of selected){
+        let entry=live.get(b);
+        if(!entry){
+          const id=streetModel(b);
+          if(!models.has(id)){requestModel(id);continue;}
+          entry=make(b);if(!entry)continue;
+          live.set(b,entry);
+        }
+        const level=chooseVehicleLOD(distance);
+        if(entry.level!==level){
+          for(const part of entry.pieces){
+            const detail=part.userData.vehicleDetail||0;
+            part.visible=level==='high'||(level==='medium'?detail!==2:detail===0);
+            part.castShadow=level==='high'&&part.visible;
+          }
+          entry.level=level;
+          entry.visibleTriangles=entry.pieces.reduce((n,m)=>
+            n+(m.visible?(m.userData.vehicleTriangles||0):0),0);
+        }
+        visibleTriangles+=entry.visibleTriangles;
+        if(level==='high')high++;else if(level==='medium')medium++;else low++;
+      }
+      Object.assign(state,{cars:live.size,high,medium,low,visibleTriangles});
     },
   };
 }
