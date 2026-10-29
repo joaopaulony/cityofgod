@@ -21,6 +21,7 @@ import {createGas3D} from './gas-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {createVehicleEffects} from './vehicle-effects.mjs';
+import {createVehicleLights} from './vehicle-lights.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -31,11 +32,12 @@ const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
 const TANK_GAL=13.2,RANGE_M=12000;
 const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
 const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
-let vehicleFX=null,tailLights=[];
+let vehicleFX=null,lighting=null,lightingClock=0;
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
  loadingSerial=0;
 const system={
- ready:false,driver:false,engineOn:false,headlights:false,braking:false,
+ ready:false,driver:false,engineOn:false,headlights:false,highBeams:false,
+ signal:'off',emergencyLights:false,braking:false,
  model:activeModel.name,modelId:activeModel.id,status:'loading',car:state,
  source:'assets/vehicles/live/'+activeModel.file,shadows:0,
  catalog:VEHICLE_MODELS,pendingCivilModels:CIVIL_PACK_EXPECTED,
@@ -45,7 +47,8 @@ window.cityVehicles=system;
 // Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 system.fuel=fuel;
-system.captureCheckpoint=()=>system.driver?{key:activeKey,modelId:activeModel.id,angle:state.angle,fuel:fuel.level,col:activePaint,engineOn:system.engineOn,headlights:system.headlights}:null;
+system.captureCheckpoint=()=>system.driver?{key:activeKey,modelId:activeModel.id,angle:state.angle,fuel:fuel.level,col:activePaint,engineOn:system.engineOn,headlights:system.headlights,highBeams:system.highBeams,
+ signal:system.signal,emergencyLights:system.emergencyLights}:null;
 system.restoreCheckpoint=async(saved,point)=>{
  if(!system.ready||!getVehicleById(saved.modelId)||!await selectModel(saved.modelId))return false;
  activeKey=saved.key;activePaint=saved.col;fleet.taken.add(activeKey);
@@ -53,11 +56,12 @@ system.restoreCheckpoint=async(saved,point)=>{
  if(activePaint)parked3d?.paintActive(model,{col:activePaint,modelId:saved.modelId});
  Object.assign(state,{x:point.x,y:point.y,angle:saved.angle,speed:0,steer:0,slip:0});
  fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn;system.headlights=saved.headlights;
+ system.highBeams=!!saved.highBeams;system.signal=saved.signal||'off';system.emergencyLights=!!saved.emergencyLights;
  Object.assign(bridge.player,{x:point.x,y:point.y,floor:0,floorZ:0});
  system.collider.x=point.x;system.collider.y=point.y;bridge.world.version++;return true;
 };
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
- shadowGround=null,lampL=null,lampR=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
+ shadowGround=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
 const METERS=CAR_SPEC.length;
 
 function nearestSafeParking(){
@@ -244,21 +248,20 @@ function importModel(root,config=activeModel){
  model=root;
  system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
- system.bodyWidth=Math.max(1.25,Math.min(2.6,
-   dim.x*(config.length/Math.max(dim.z,dim.x))));
+ system.bodyWidth=Math.max(1.25,Math.min(2.9,Math.min(dim.x,dim.z)*scale));
+ system.bodyHeight=dim.y*scale;
  system.model=config.name;system.modelId=config.id;
  system.source='assets/vehicles/live/'+config.file;
 }
+function lightFlags(){
+ return {headlights:system.headlights,highBeams:system.highBeams,
+  braking:system.braking,reversing:state.speed<-.2,signal:system.signal,
+  emergencyLights:system.emergencyLights};
+}
 function createLamp(){
- tailLights=[];
- for(const side of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(.04,.12,.3),new THREE.MeshBasicMaterial({color:0x601010}));m.position.set(-activeModel.length*.48,.65,side*.62);body.add(m);tailLights.push(m);}
- const mk=()=>new THREE.SpotLight(0xfff1c8,0,16,Math.PI/7,.45,1.2);
- lampL=mk();lampR=mk();
- const extent=activeModel.length*.38;
- for(const [light,side] of [[lampL,-1],[lampR,1]]){
-  body.add(light);light.position.set(extent,.77,side*.63);
-  light.target.position.set(extent+5,-.15,side*.85);body.add(light.target);
- }
+ lighting=createVehicleLights(THREE,body,activeModel,
+  {width:system.bodyWidth,height:system.bodyHeight});
+ system.lightState=lighting.apply(lightFlags(),lightingClock);
 }
 function initRenderer(){
  renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,
@@ -383,7 +386,8 @@ function moveCar(dt){
   Object.assign(state,next,{x:last.x,y:last.y,angle:last.angle,speed:0});
   system.lastImpact=collision.impact.kind;
  }
- system.braking=c.down('s')||c.down(' ');
+ // A ré NÃO é freio: luz vermelha só ao desacelerar ou usar o freio de mão.
+ system.braking=c.down(' ')||(c.down('s')&&old.speed>.2)||(c.down('w')&&old.speed<-.2);
  // consumo: distância rodada + marcha lenta; tanque vazio apaga o motor
  if(system.engineOn){
   fuel.level=Math.max(0,fuel.level-Math.hypot(state.x-old.x,state.y-old.y)/RANGE_M-dt/5400);
@@ -401,9 +405,12 @@ function moveCar(dt){
 function parkAndExit(pos){
  if(!system.driver||!activeKey)return false;
  const p=bridge.player;p.x=pos.x;p.y=pos.y;
- const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level});
+ const parked=fleet.park(activeKey,{x:state.x,y:state.y,rot:state.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:activeModel.id,col:activePaint,fuel:fuel.level,
+  headlights:system.headlights,highBeams:system.highBeams,
+  hazardLights:system.signal==='hazard',emergencyLights:system.emergencyLights});
  parked.draw=bridge.drawParkedCar;const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
- system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;activeKey=null;
+ system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;
+ system.highBeams=false;system.signal='off';system.emergencyLights=false;activeKey=null;
  system.collider.x=-10000;system.collider.y=-10000;state.speed=0;state.steer=0;state.slip=0;state.drifting=false;bridge.world.version++;
  return 'Saiu do veículo';
 }
@@ -431,7 +438,10 @@ function interact(){
   activeKey=fleet.claim(parked);activePaint=parked.col;fuel.level=parked.fuel??.45;
   Object.assign(state,{x:parked.x,y:parked.y,angle:parked.rot||0,speed:0,steer:0,slip:0});
   system.collider.x=state.x;system.collider.y=state.y;
-  system.driver=true;system.engineOn=true;p.x=state.x;p.y=state.y;bridge.world.version++;
+  system.driver=true;system.engineOn=true;
+  system.headlights=!!parked.headlights;system.highBeams=!!parked.highBeams;
+  system.signal=parked.hazardLights?'hazard':'off';system.emergencyLights=!!parked.emergencyLights;
+  p.x=state.x;p.y=state.y;bridge.world.version++;
  }).finally(()=>{claiming=false;});
  return 'Entrando no veículo…';
 }
@@ -472,7 +482,7 @@ function drawPanel(g,w,h){
   g.font='12px system-ui';g.fillStyle='#d0d4d1';
   g.fillText(system.engineOn?'MOTOR LIGADO':'MOTOR DESLIGADO',x+190,y+32);
   g.font='11px system-ui';g.fillStyle='#b8bcc1';
-  g.fillText('F sair  ·  X motor  ·  L faróis  ·  H buzina',x+15,y+56);
+  g.fillText('F sair · X motor · L/I faróis · J/K setas · U alerta · O giroflex',x+10,y+56);
   drawFuel(g,x+232,y+40);
   // bomba ao lado: instrução ou leitura da bomba (galões e valor), mensagem de fim de abastecimento/pane
   let tip=null;
@@ -505,7 +515,13 @@ system.update=dt=>{
  refuel(dt);
  if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
+ if(bridge.hit('i')&&system.driver){system.highBeams=!system.highBeams;if(system.highBeams)system.headlights=true;}
+ if(bridge.hit('j')&&system.driver)system.signal=system.signal==='left'?'off':'left';
+ if(bridge.hit('k')&&system.driver)system.signal=system.signal==='right'?'off':'right';
+ if(bridge.hit('u')&&system.driver)system.signal=system.signal==='hazard'?'off':'hazard';
+ if(bridge.hit('o')&&system.driver&&lighting?.beacon!=='none')system.emergencyLights=!system.emergencyLights;
  if(bridge.hit('h')&&system.driver)engineSound();
+ lightingClock+=Math.max(0,Math.min(.1,dt||0));
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  moveCar(dt);
  vehicleFX?.update(dt,state,system.driver,activeModel.length);
@@ -521,7 +537,7 @@ system.render=()=>{
  setCamera();
  if(body){body.visible=!!activeKey;body.position.set(state.x,0,state.y);
  body.rotation.set(system.driver?-state.steer*Math.min(.1,Math.abs(state.speed)*.004):0,-state.angle,0);}
- for(const m of tailLights)m.material.color.setHex(state.speed<-.2?0xffeed0:system.braking?0xff2525:system.headlights?0xa52222:0x601010);
+ system.lightState=lighting?.apply(lightFlags(),lightingClock)||null;
  // noite: as luzes da cena acompanham o escurecimento do jogo 2D
  if(ambience)ambience.update(viewCamera);   // sol/luar na direção do astro, céu do horário, vento e neve
  else{
@@ -556,9 +572,7 @@ system.render=()=>{
  for(const [H,mesh] of roofOccluders)
   mesh.visible=(system.driver||!H.inside)&&H!==reveal;
  occlusionScene?.updateActors(system.driver,bridge.player);
- if(system.ready&&lampL&&lampR){
-  lampL.intensity=lampR.intensity=system.headlights?12:0;
- }
+ 
  renderer.render(scene,viewCamera);
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={
@@ -580,10 +594,7 @@ async function selectModel(id){
   if(body){
    scene.remove(body);
    // Luzes auxiliares são exclusivas do veículo anterior; o GLB é compartilhado.
-   for(const lightMesh of tailLights){
-    lightMesh.geometry.dispose();lightMesh.material.dispose();
-   }
-   tailLights=[];
+   lighting?.dispose();lighting=null;
   }
   activeModel=choice;
   // Clone em cache: cada seleção recebe malhas e pivôs intactos.
