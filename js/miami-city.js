@@ -516,7 +516,7 @@ function drawParkedCar(g, b) {
   if(b.fleetHidden||b.r3d)return;
   const vehicle=window.cityVehicles;
   // Fallback 2D apenas quando o WebGL falhou, nunca sob um modelo GLB.
-  if(vehicle?.renderer&&vehicle.status!=='failed'&&!b.vehicleModelFailed&&window.VEG3D!==false)return;
+  if(vehicle?.renderer&&vehicle.status!=='failed'&&!b.vehicleModelFailed)return;
   miaCached(g,b,cg=>paintCar(cg,b));
 }
 function paintCar(g, b) {
