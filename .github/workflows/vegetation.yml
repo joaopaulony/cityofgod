@@ -77,7 +77,6 @@ jobs:
         run: npm install --no-save --no-audit --no-fund playwright@1.56.1
       - name: Run browser pixel coverage test
         run: |
-          npm run build
           python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/vegetation-server.log 2>&1 &
           sleep 2
           node tests/vegetation-browser.cjs
