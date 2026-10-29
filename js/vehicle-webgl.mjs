@@ -243,8 +243,8 @@ function importModel(root,config=activeModel){
  });
  wheelRig=createWheelRig(root,THREE,{forward:config.front});
  system.wheels=wheelRig.metadata;
- system.wheelStatus=wheelRig.complete?'4 rodas articuladas':
-  wheelRig.wheels.size+' de 4 rodas identificadas';
+ system.wheelStatus=wheelRig.complete?(wheelRig.wheels.size+' rodas articuladas'):
+  wheelRig.wheels.size+' rodas reconhecidas (mínimo 4)';
  model=root;
  system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
@@ -374,7 +374,10 @@ function moveCar(dt){
   left:c.down('a'),right:c.down('d'),
   handbrake:c.down(' '),engineOn:system.engineOn
  };
- const old={...state},next=stepCar(state,inControl,dt,{...CAR_SPEC,length:activeModel.length,wheelbase:Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)});
+ // Ônibus, veículos pesados e carros civis têm eixos e aceleração próprios.
+ const spec={...CAR_SPEC,...(activeModel.physics||{}),length:activeModel.length,
+  wheelbase:activeModel.wheelbase||Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)};
+ const old={...state},next=stepCar(state,inControl,dt,spec);
  const collision=sweepCar(bridge.world,{...old,...hitbox()},
   {...next,...hitbox(next.x,next.y,next.angle)},collisionOptions());
  if(!collision.impact){
