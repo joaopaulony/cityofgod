@@ -15,7 +15,7 @@ function makeCampus(kind){
   COG:{},world,boxes,houses,
   addHouse:spec=>{const H={...spec,style:{},doorPt:[100,spec.y1]};houses.push(H);return H;},
   remodelProperty:()=>{},owSeed:()=>12345,
-  addBox:b=>{boxes.push(b);return b;},miaCar:()=>null,
+  addBox:b=>{boxes.push(b);return b;},miaCar:()=>null,drawParkedCar:()=>{},
   chainLine:()=>{},owIndexOwnedLive:()=>{},Math
  };
  vm.createContext(context);
