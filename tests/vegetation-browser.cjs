@@ -107,7 +107,9 @@ const {judge}=require('./visual-quality-judge.cjs');
     const housing=await game.evaluate(()=>{
       const removed=!('squirrels' in ecosystem) &&
         !('squirrelSprites' in ecosystem);
-      const two=houses.filter(H=>H.storeys===2);
+      // A cidade agora inclui edifícios com dois andares sem interior jogável.
+      // O teste de escadas precisa selecionar somente casas com piso superior montado.
+      const two=houses.filter(H=>H.storeys===2&&H.stair&&H.upper?.walls&&H.upper?.furniture);
       const variants=[...new Set(two.map(H=>H.templateKey))];
       const H=two[0];
       if(!H)return {removed,count:0,variants};
