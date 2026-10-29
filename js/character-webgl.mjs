@@ -9,16 +9,19 @@ import {installCASCreator} from './cas-creator.mjs';
 import {loadRebornAssets} from './cas-reborn.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {REBORN_HAND_BONE_COUNT} from './cas-reborn-hands.mjs';
+import {loadStreetCrownAssets,STREET_CROWN_MODELS,STREET_CROWN_DEFAULT,streetModelForSex} from './street-crown-adapter.mjs';
 import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
 
 export function createCharacterSystem(scene,bridge){
  const entries=new Map();
  const loader=new GLTFLoader();
- let bodies=null;
+ let bodies=null,streetVariants=null;
+ const streetBeta=new URLSearchParams(location.search).get('streetcrown')==='1';
  const system={
   status:'loading',ready:false,enabled:true,provider:'skeleton-only',humanModelsEnabled:false,
   errors:[],frames:0,models:[],availableBodies:['male','female'],
-  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0
+  rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0,
+  streetCrownEnabled:false,streetCrownVariants:null,streetModelId:'hero'
  };
  window.cityCharacters=system;
  const clear=(x,y,ignore)=>{
@@ -53,12 +56,14 @@ export function createCharacterSystem(scene,bridge){
   return false;
  };
  system.has=a=>a===bridge.player; // suppress any legacy Canvas fallback.
- function mount(a,sex){
-  const item=bodies?.get(sex);
+ function mount(a,sex,requestedId=null){
+  const modelId=streetModelForSex(requestedId||system.streetModelId,sex);
+  const item=system.streetCrownEnabled?streetVariants?.get(modelId):bodies?.get(sex);
   if(!item)throw Error('Esqueleto '+sex+' indisponível');
   const root=cloneSkeleton(item.gltf.scene);
   let humanMeshes=0;root.traverse(x=>{if(x.isMesh)humanMeshes++});
-  if(humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(!system.streetCrownEnabled&&humanMeshes)throw Error('Modelo humano inesperado no arquivo de ossos');
+  if(system.streetCrownEnabled&&(!humanMeshes||!root.getObjectByName('LeftHand')?.isBone))throw Error('Street Crown sem malha/rig validado');
   const mixer=new THREE.AnimationMixer(root);
   const spec={...item.spec,clips:{...item.spec.clips}};
   const all=[...item.gltf.animations,...createCASEmoteClips(root)];
@@ -70,9 +75,9 @@ export function createCharacterSystem(scene,bridge){
     if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};
    }
   }
-  root.visible=false; // Bones animate internally; no human is drawn in world.
+  root.visible=system.streetCrownEnabled; // Only explicit ?streetcrown=1 renders imported meshes.
   scene.add(root);
-  const entry={root,mixer,actions,spec,sex,clip:null,action:null,emote:null,
+  const entry={root,mixer,actions,spec,sex,modelId,clip:null,action:null,emote:null,
     lastRecoil:9,upper:createRebornUpperBodyMotion(root)};
   const previous=entries.get(a);
   if(previous){previous.mixer.stopAllAction();scene.remove(previous.root);}
@@ -110,7 +115,7 @@ export function createCharacterSystem(scene,bridge){
  system.muzzle=()=>null;
  system.telemetry=()=>[...entries].map(([a,e])=>({
   name:a.name||'Jogador',clip:e.clip,x:a.x,y:a.y,
-  visible:false,meshes:0,bones:e.spec.bones
+  visible:e.root.visible,meshes:system.streetCrownEnabled?e.spec.meshes||1:0,bones:e.spec.bones
  }));
  system.appearances=()=>null;
  system.getAppearance=a=>a===bridge.player?{...system.casProfile}:null;
@@ -122,6 +127,15 @@ export function createCharacterSystem(scene,bridge){
   system.update(0);return next;
  };
  system.setBody=async(a,sex)=>a===bridge.player?system.applyCAS({sex}):null;
+ system.setStreetModel=id=>{
+  const model=STREET_CROWN_MODELS[id];
+  if(!system.streetCrownEnabled||!model)return false;
+  if(model.sex!==system.casProfile.sex)return false;
+  system.streetModelId=id;
+  mount(bridge.player,model.sex,id);
+  try{localStorage.setItem('cityofgod.cas.street-crown.model',id);}catch{}
+  system.update(0);return true;
+ };
  system.setAppearance=async(a,changes)=>a===bridge.player?system.applyCAS(changes):null;
  system.playEmote=id=>{
   const entry=entries.get(bridge.player),a=bridge.player;
@@ -134,10 +148,26 @@ export function createCharacterSystem(scene,bridge){
    try{system.casProfile=readCAS(localStorage)||CAS_DEFAULT;}catch{}
    bodies=await loadRebornAssets(loader);
    system.rebornReady=true;
+   if(streetBeta){
+    try{
+     streetVariants=await loadStreetCrownAssets(loader,bodies);
+     system.streetCrownEnabled=true;
+     system.streetCrownVariants=streetVariants;
+     system.provider='street-crown-reborn-beta';
+     const saved=(()=>{try{return localStorage.getItem('cityofgod.cas.street-crown.model');}catch{return null;}})();
+     system.streetModelId=streetModelForSex(saved,system.casProfile.sex);
+    }catch(error){
+     system.casWarnings.push('Street Crown beta indisponível (faltam GLBs ou rig inválido): '+String(error.message||error));
+    }
+   }
    mount(bridge.player,system.casProfile.sex);
    system.ready=true;system.status='ready';
-   system.models=[{id:'armature-male',bones:24+REBORN_HAND_BONE_COUNT,meshes:0},{id:'armature-female',bones:24+REBORN_HAND_BONE_COUNT,meshes:0}];
-   system.rebornNotice='Esqueletos animados com palmas e dez dedos articulados. Nenhuma malha humana antiga.';
+   system.models=system.streetCrownEnabled
+    ?[...streetVariants.values()].map(x=>({id:x.spec.id,bones:24+REBORN_HAND_BONE_COUNT,meshes:x.quality.meshes,triangles:x.quality.triangles,source:'Street Crown'}))
+    :[{id:'armature-male',bones:24+REBORN_HAND_BONE_COUNT,meshes:0},{id:'armature-female',bones:24+REBORN_HAND_BONE_COUNT,meshes:0}];
+   system.rebornNotice=system.streetCrownEnabled
+    ?'Street Crown: 6 corpos GLB com skinning nos 24 ossos Reborn + 52 ossos articulados no CAS; skinning independente dos dedos ainda pendente.'
+    :'Esqueletos animados com palmas e dez dedos articulados. Nenhuma malha humana antiga.';
    await system.applyCAS(system.casProfile);
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
