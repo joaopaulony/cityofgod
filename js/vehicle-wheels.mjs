@@ -18,7 +18,7 @@ function multiplyQ(a,b){
 }
 function axisQ(axis,angle){
  const s=Math.sin(angle*.5),c=Math.cos(angle*.5);
- return axis==='x'?{x:s,y:0,z:0,w:c}:{x:0,y:s,z:0,w:c};
+ return axis==='x'?{x:s,y:0,z:0,w:c}:axis==='z'?{x:0,y:0,z:s,w:c}:{x:0,y:s,z:0,w:c};
 }
 function applyQ(node,q){
  if(!node?.quaternion?.set)
@@ -54,7 +54,7 @@ export function createWheelRig(root,THREE,options={}){
  root.traverse(node=>{
   if(!node.isObject3D&&!node.isMesh&&!node.isGroup)return;
   const name=node.name||'';
-  const role=legacyWheelRole(name)||classifyWheelName(name);
+  const role=legacyWheelRole(name)||classifyWheelName(name)||(/^wheel_ex(\d+)$/i.exec(name)?.[1]!=null?'ex'+/^wheel_ex(\d+)$/i.exec(name)[1]:null);
   if(!role||wheelMap.has(role))return;
   const legacy=!!legacyWheelRole(name);
   const radius=wheelRadiusFromBox(new THREE.Box3().setFromObject(node));
@@ -69,7 +69,10 @@ export function createWheelRig(root,THREE,options={}){
   }
   wheelMap.set(role,{
    node,role,radius,baseQuaternion:copyQ(node),
-   spin:0,steer:0,spinning,legacy
+   spin:0,steer:0,spinning,legacy,
+   steeringAxis:node.userData?.steeringAxis==='z'?'z':'y',
+   steerable:typeof node.userData?.wheelSteers==='boolean'?node.userData.wheelSteers:role[0]==='f',
+   axle:node.userData?.wheelAxle||(role[0]==='f'?'front':'rear')
   });
   original.push(name);
  });
@@ -79,6 +82,7 @@ export function createWheelRig(root,THREE,options={}){
   metadata:ROLES.map(role=>{
    const w=wheelMap.get(role);
    return {role,name:w?.node.name||null,radius:w?.radius||0,
+    steerable:w?.steerable??false,axle:w?.axle||null,
     spinningParts:w?.spinning.map(x=>x.node.name)||[]};
   })
  };
@@ -86,11 +90,11 @@ export function createWheelRig(root,THREE,options={}){
 export function stepWheelRig(rig,deltaDistance,steerAngle){
  if(!rig?.wheels?.size)return;
  for(const [role,w] of rig.wheels){
-  const steering=role[0]==='f'?-steerAngle:0;
+  const steering=w.steerable?-steerAngle:0;
   const travel=Number.isFinite(deltaDistance)?deltaDistance:0;
   w.spin+=rig.spinSign*travel/Math.max(.2,w.radius);
   w.steer=steering;
-  const steeringQ=axisQ('y',steering);
+  const steeringQ=axisQ(w.steeringAxis,steering);
   // Premultiplicar o angulo de direcao no espaco do eixo (e nao euler XYZ).
   // Assim a orientacao original do GLB nao e sobrescrita.
   if(w.legacy){
