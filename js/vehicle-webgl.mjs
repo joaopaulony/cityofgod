@@ -54,8 +54,14 @@ window.cityVehicles=system;
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 system.fuel=fuel;
 system.damage=damage;
+function refreshDeformation(){
+ if(!model)return;
+ if(!deformation&&Math.max(damage.front,damage.rear,damage.left,damage.right)>.005)
+  deformation=createVehicleDeformation(THREE,model,activeModel);
+ deformation?.apply(damage);
+}
 system.getDamageStatus=()=>({integrity:damage.integrity,tier:damageTier(damage),impacts:damage.impacts,front:damage.front,rear:damage.rear,left:damage.left,right:damage.right});
-system.repairVehicle=()=>{if(!system.driver)return false;repairVehicleDamage(damage);deformation?.apply(damage);system.damage=damage;return true;};
+system.repairVehicle=()=>{if(!system.driver)return false;repairVehicleDamage(damage);refreshDeformation();system.damage=damage;return true;};
 system.captureCheckpoint=()=>system.driver?{key:activeKey,modelId:activeModel.id,angle:state.angle,fuel:fuel.level,col:activePaint,engineOn:system.engineOn,headlights:system.headlights,highBeams:system.highBeams,
  signal:system.signal,emergencyLights:system.emergencyLights,
   damage:{integrity:damage.integrity,impacts:damage.impacts,front:damage.front,rear:damage.rear,left:damage.left,right:damage.right}}:null;
@@ -65,7 +71,7 @@ system.restoreCheckpoint=async(saved,point)=>{
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  if(activePaint)parked3d?.paintActive(model,{col:activePaint,modelId:saved.modelId});
  Object.assign(state,{x:point.x,y:point.y,angle:saved.angle,speed:0,steer:0,slip:0});
- damage=createVehicleDamage(saved.damage);system.damage=damage;deformation?.apply(damage);
+ damage=createVehicleDamage(saved.damage);system.damage=damage;refreshDeformation();
  fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn&&engineEfficiency(damage)>0;system.headlights=saved.headlights;
  system.highBeams=!!saved.highBeams;system.signal=saved.signal||'off';system.emergencyLights=!!saved.emergencyLights;
  Object.assign(bridge.player,{x:point.x,y:point.y,floor:0,floorZ:0});
@@ -256,8 +262,7 @@ function importModel(root,config=activeModel){
  system.wheels=wheelRig.metadata;
  system.wheelStatus=wheelRig.complete?(wheelRig.wheels.size+' rodas articuladas'):
   wheelRig.wheels.size+' rodas reconhecidas (mínimo 4)';
- deformation=createVehicleDeformation(THREE,root,config);
- deformation.apply(damage);
+ deformation=null;
  model=root;
  system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
@@ -342,7 +347,7 @@ function initRenderer(){
   try{gas3d=createGas3D(THREE,scene,bridge);system.gas3d=gas3d.state;}
   catch(error){console.error('Postos 3D falharam',error);}
   // carros estacionados com os modelos GLB (parked-3d.mjs)
-  try{parked3d=createParked3D(THREE,scene,bridge);system.parked3d=parked3d.state;}
+  try{parked3d=createParked3D(THREE,scene,bridge,damageFX);system.parked3d=parked3d.state;
   catch(error){console.error('Carros estacionados 3D falharam',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
@@ -412,7 +417,7 @@ function moveCar(dt){
   const crash=registerCrash(damage,collision.impact,old.speed,lightingClock,panel,activeModel.length/4.7);
   if(crash){
    system.damage=damage;
-   deformation?.apply(damage);
+   refreshDeformation();
    damageFX?.crash(collision.position.x,collision.position.y,Math.abs(old.speed));
    fuel.msg='Impacto '+Math.round(Math.abs(old.speed)*3.6)+' km/h · Integridade '+Math.round(damage.integrity*100)+'%';
    fuel.msgT=3;
@@ -476,7 +481,7 @@ function interact(){
   if(!ok)return;
   parked3d?.paintActive(model,parked);
   activeKey=fleet.claim(parked);activePaint=parked.col;fuel.level=parked.fuel??.45;
-  damage=createVehicleDamage(parked.damage);system.damage=damage;deformation?.apply(damage);
+  damage=createVehicleDamage(parked.damage);system.damage=damage;refreshDeformation();
   Object.assign(state,{x:parked.x,y:parked.y,angle:parked.rot||0,speed:0,steer:0,slip:0});
   system.collider.x=state.x;system.collider.y=state.y;
   system.driver=true;system.engineOn=engineEfficiency(damage)>0;
