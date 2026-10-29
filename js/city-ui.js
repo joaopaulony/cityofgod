@@ -23,7 +23,7 @@ const CityUI = (() => {
   const localRead = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; } };
   const localWrite = (key, value) => { try { localStorage.setItem(key, value); } catch (_) {} };
   const minsToTime = clock => { const m = ((Math.floor(clock) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0'); };
-  const blocked = () => phoneOpen || wheelOpen || !!window.CityFront?.blocked;
+  const blocked = () => phoneOpen || wheelOpen || !!window.CityFront?.blocked || !!window.CityAdmin?.active;
   function syncClock(clock){
     if(!phoneOpen)return;
     const time=minsToTime(clock);if(time===shownClock)return;shownClock=time;
