@@ -18,16 +18,16 @@ export const VEHICLE_MODELS=Object.freeze([
 export const CIVIL_PACK_SOURCE='https://sketchfab.com/3d-models/generic-civil-service-vehicles-pack-8ff2a13f30914932a70c7950cfa58465';
 export const CIVIL_PACK_AUTHOR='Comrade1280';
 export const CIVIL_PACK_EXPECTED=Object.freeze([
- {id:'ambulance',name:'Ambulância',file:'civil-ambulance.glb',length:5.9,width:2.15,height:2.65,beacon:'red-blue',category:'emergency',sourceTriangles:9404},
- {id:'city-bus',name:'Ônibus urbano',file:'civil-city-bus.glb',length:11.1,width:2.55,height:3.25,beacon:'none',category:'transit',sourceTriangles:9062},
- {id:'fire-truck',name:'Caminhão de bombeiros',file:'civil-fire-truck.glb',length:8.6,width:2.5,height:3.3,beacon:'red',category:'emergency',sourceTriangles:12110},
- {id:'garbage-truck',name:'Caminhão de lixo',file:'civil-garbage-truck.glb',length:8.0,width:2.5,height:3.2,beacon:'amber',category:'utility',sourceTriangles:12747},
- {id:'police-sedan',name:'Viatura policial',file:'civil-police-sedan.glb',length:4.85,width:1.9,height:1.55,beacon:'red-blue',category:'emergency',sourceTriangles:8454},
- {id:'postal-van',name:'Van postal',file:'civil-postal-van.glb',length:5.3,width:2.05,height:2.5,beacon:'none',category:'utility',sourceTriangles:6031},
- {id:'school-bus',name:'Ônibus escolar',file:'civil-school-bus.glb',length:9.2,width:2.45,height:3.05,beacon:'amber',category:'transit',sourceTriangles:11472},
- {id:'service-truck',name:'Caminhão de serviços',file:'civil-service-truck.glb',length:6.7,width:2.35,height:2.7,beacon:'amber',category:'utility',sourceTriangles:8216},
- {id:'taxi',name:'Táxi',file:'civil-taxi.glb',length:4.65,width:1.8,height:1.55,beacon:'none',category:'taxi',sourceTriangles:7306},
- {id:'tow-truck',name:'Guincho',file:'civil-tow-truck.glb',length:7.0,width:2.35,height:2.5,beacon:'amber',category:'utility',sourceTriangles:7955},
+ {id:'ambulance',name:'Ambulância',file:'civil-ambulance.glb',length:6.896,width:2.59,height:2.574,beacon:'red-blue',category:'emergency',sourceTriangles:9404},
+ {id:'city-bus',name:'Ônibus urbano',file:'civil-city-bus.glb',length:9.951,width:2.535,height:2.516,beacon:'none',category:'transit',sourceTriangles:9062},
+ {id:'fire-truck',name:'Caminhão de bombeiros',file:'civil-fire-truck.glb',length:8.354,width:2.59,height:2.933,beacon:'red',category:'emergency',sourceTriangles:12110},
+ {id:'garbage-truck',name:'Caminhão de lixo',file:'civil-garbage-truck.glb',length:7.653,width:2.618,height:2.831,beacon:'amber',category:'utility',sourceTriangles:12747},
+ {id:'police-sedan',name:'Viatura policial',file:'civil-police-sedan.glb',length:5.172,width:1.999,height:1.878,beacon:'red-blue',category:'emergency',sourceTriangles:8454},
+ {id:'postal-van',name:'Van postal',file:'civil-postal-van.glb',length:5.343,width:2.186,height:1.978,beacon:'none',category:'utility',sourceTriangles:6031},
+ {id:'school-bus',name:'Ônibus escolar',file:'civil-school-bus.glb',length:7.908,width:2.552,height:2.67,beacon:'amber',category:'transit',sourceTriangles:11472},
+ {id:'service-truck',name:'Caminhão de serviços',file:'civil-service-truck.glb',length:5.274,width:2.234,height:2.194,beacon:'amber',category:'utility',sourceTriangles:8216},
+ {id:'taxi',name:'Táxi',file:'civil-taxi.glb',length:5.085,width:1.999,height:1.504,beacon:'none',category:'taxi',sourceTriangles:7306},
+ {id:'tow-truck',name:'Guincho',file:'civil-tow-truck.glb',length:6.941,width:2.376,height:2.394,beacon:'amber',category:'utility',sourceTriangles:7955},
 ].map(x=>Object.freeze({...x,source:'civil',front:'-Z'})));
 export const getCivilVehicleById=id=>CIVIL_PACK_EXPECTED.find(x=>x.id===id)||null;
 export const getVehicleById=id=>VEHICLE_MODELS.find(x=>x.id===id)||null;

@@ -1,0 +1,1 @@
+Place the validated civil-fleet-2k-webp.zip here via GitHub Upload files; its install workflow will extract and commit all ten real GLBs. Do not commit individual GLBs or random archive names without running import and QA.
