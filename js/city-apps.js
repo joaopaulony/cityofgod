@@ -56,12 +56,28 @@ const CityApps = (() => {
          Math.round(l.area)+' m² · '+price(l.price),btn('sim:lot:'+l.key,'Comprar',CityLife.funds<l.price),'🏘️')).join(''):
          '<p class="city-help">Aproxime-se de terrenos com placas VENDE-SE para ver ofertas reais do mapa.</p>');
   }
-  if(app==='cars')return banner('<strong>AutoShow</strong><small>Garagem e concessionária virtual</small>')+
-   '<p class="city-help">Compre veículos do catálogo 3D já existente. Após comprar, peça a entrega perto do personagem, se houver espaço livre.</p>'+
-   Object.entries(CitySim.CARS).map(([id,car])=>card(car.title,
-       (data.cars.includes(id)?'Na sua garagem':'Preço '+price(car.price)),
-       data.cars.includes(id)?btn('sim:car-deliver:'+id,'Entregar veículo') :
-       btn('sim:car-buy:'+id,'Comprar',CityLife.funds<car.price),car.icon)).join('');
+  if(app==='cars'){
+   const directory=window.cityVehicles?.fleetDirectory;
+   const reserved=(directory?.groups||[]).filter(g=>g.id!=='civil'&&g.vehicles.length);
+   const otherCivil=(directory?.groups||[]).find(g=>g.id==='civil')?.vehicles
+     .filter(v=>!Object.prototype.hasOwnProperty.call(CitySim.CARS,v.id))||[];
+   return banner('<strong>AutoShow</strong><small>Garagem privada e frotas profissionais</small>')+
+    '<div class="city-phone-label">🚗 Veículos civis — compra particular</div>'+
+    '<p class="city-help">Somente veículos civis estão à venda. Após comprar, solicite a entrega perto do personagem.</p>'+
+    Object.entries(CitySim.CARS).map(([id,car])=>card(car.title,
+      (data.cars.includes(id)?'Na sua garagem':'Preço '+price(car.price)),
+      data.cars.includes(id)?btn('sim:car-deliver:'+id,'Entregar veículo'):
+      btn('sim:car-buy:'+id,'Comprar',CityLife.funds<car.price),car.icon)).join('')+
+    (otherCivil.length?'<details class="city-panel"><summary>Outros modelos civis ('+otherCivil.length+')</summary>'+
+      otherCivil.map(v=>'<p class="city-help">'+esc(v.name)+' · modelo particular, fora da vitrine</p>').join('')+'</details>':'')+
+    '<div class="city-phone-label">🚓 Frotas profissionais — não são vendidas aqui</div>'+
+    '<p class="city-help">Veículos destinados a profissões. Carreiras e permissão de condução serão implementadas separadamente; esta tela não libera acesso.</p>'+
+    (reserved.length?reserved.map(dept=>
+      '<details class="city-panel"><summary>'+esc(dept.icon+' '+dept.title+' ('+dept.vehicles.length+')')+'</summary>'+
+      dept.vehicles.map(v=>'<p class="city-help">'+esc(v.name)+' · '+
+        (v.ready?'Modelo 3D instalado':'Aguardando importação 3D')+'</p>').join('')+
+      '</details>').join(''):'<p class="city-help">Frota profissional indisponível.</p>');
+  }
   if(app==='settings'){
     const wallpaper=data.themes.wallpaper,caseColor=data.themes.caseColor;
     return banner('<strong>Seu estilo</strong><small>Personalize o celular do seu personagem</small>')+

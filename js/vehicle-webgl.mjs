@@ -5,7 +5,7 @@ import {loadVehicleGLB,vehicleAssetCacheStats} from './vehicle-asset-cache.mjs';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
-import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,getVehicleById} from './vehicle-catalog.mjs';
+import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,VEHICLE_DIRECTORY,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createCharacterSystem} from './character-webgl.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
@@ -41,6 +41,7 @@ const system={
  model:activeModel.name,modelId:activeModel.id,status:'loading',car:state,
  source:'assets/vehicles/live/'+activeModel.file,shadows:0,
  catalog:VEHICLE_MODELS,pendingCivilModels:CIVIL_PACK_EXPECTED,
+ fleetDirectory:VEHICLE_DIRECTORY,
  wheelStatus:'loading',available:VEHICLE_MODELS.length
 };
 window.cityVehicles=system;

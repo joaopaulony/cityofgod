@@ -1,3 +1,4 @@
+import {buildVehicleDirectory} from './vehicle-classification.mjs';
 // Catálogo auditável de modelos 3D GLB: malhas reais, sem capturas.
 export const VEHICLE_MODELS=Object.freeze([
  {id:'silvia',name:'Nissan Silvia S13 (1992)',file:'nissan-silvia-s13.glb',source:'silvia',length:4.47,front:'+Z'},
@@ -31,3 +32,6 @@ export const CIVIL_PACK_EXPECTED=Object.freeze([
 ].map(x=>Object.freeze({...x,source:'civil',front:'+Z'})));
 export const getCivilVehicleById=id=>CIVIL_PACK_EXPECTED.find(x=>x.id===id)||null;
 export const getVehicleById=id=>VEHICLE_MODELS.find(x=>x.id===id)||null;
+
+// Importing approved service GLBs changes readiness, not vehicle ownership.
+export const VEHICLE_DIRECTORY=buildVehicleDirectory(VEHICLE_MODELS,CIVIL_PACK_EXPECTED);
