@@ -514,7 +514,9 @@ system.interact=interact;
 system.drawHUD=drawPanel;
 system.prompt=()=>{const b=system.ready&&!system.driver&&fleet.nearest(bridge.boxes,bridge.player.x,bridge.player.y);return b?'F — entrar no '+getVehicleById(streetModel(b)).name:null;};
 system.render=()=>{
- if(!renderer)return;
+ // Não executar uma cena 3D pesada enquanto o GLB inicial é decodificado.
+ // Além de aliviar a GPU, isso libera o carregamento no navegador.
+ if(!renderer||!system.ready)return;
  const c=bridge.cam;
  setCamera();
  if(body){body.visible=!!activeKey;body.position.set(state.x,0,state.y);
