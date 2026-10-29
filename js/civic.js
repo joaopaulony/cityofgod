@@ -41,7 +41,7 @@ function civicPlaceSector(S){
   world.decals.push({kind:'civic-parking',bb,site,paint(g){
    g.fillStyle='#52595c';g.fillRect(bb[0],bb[1],50,27);g.strokeStyle='#e4dfcc';g.lineWidth=.1;
    for(const side of [-1,1])for(let i=0;i<6;i++){const sx=x+side*(6+i*3),sy=site.y-19;g.strokeRect(sx-1.3,sy,2.6,side<0?8.4:5.5);
-    if(side<0&&i<site.spaces){g.fillStyle=site.kind==='hospital'?'#4e9ba0':'#607c9b';g.fillRect(sx-1.1,sy+.2,2.2,7.9);g.save();g.translate(sx,sy+2.8);g.rotate(-Math.PI/2);g.font='bold .55px sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(site.reserved,0,0);g.restore();}
+    if(side<0&&(site.kind==='police'?(i===0||i===2||i===4):site.kind==='military'?i<site.spaces:i===0)){g.fillStyle=site.kind==='hospital'?'#4e9ba0':'#607c9b';g.fillRect(sx-1.1,sy+.2,2.2,7.9);g.save();g.translate(sx,sy+2.8);g.rotate(-Math.PI/2);g.font='bold .55px sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(site.reserved,0,0);g.restore();}
    }
    g.fillStyle='#ddd8c9';g.fillRect(H.doorPt[0]-2,H.doorPt[1],4,site.y+2-H.doorPt[1]);
   }});
