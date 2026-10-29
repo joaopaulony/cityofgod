@@ -5,7 +5,7 @@ import {loadVehicleGLB,vehicleAssetCacheStats} from './vehicle-asset-cache.mjs';
 import {CAR_SPEC,stepCar,cameraLead} from './vehicle-physics.mjs';
 import {carCollision,sweepCar} from './vehicle-collision.mjs';
 import {createWorldOccluders} from './vehicle-occlusion.mjs';
-import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,VEHICLE_DIRECTORY,getVehicleById} from './vehicle-catalog.mjs';
+import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,POLICE_SUV_EXPECTED,VEHICLE_DIRECTORY,getVehicleById} from './vehicle-catalog.mjs';
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createCharacterSystem} from './character-webgl.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
@@ -40,7 +40,7 @@ const system={
  signal:'off',emergencyLights:false,braking:false,
  model:activeModel.name,modelId:activeModel.id,status:'loading',car:state,
  source:'assets/vehicles/live/'+activeModel.file,shadows:0,
- catalog:VEHICLE_MODELS,pendingCivilModels:CIVIL_PACK_EXPECTED,
+ catalog:VEHICLE_MODELS,pendingCivilModels:CIVIL_PACK_EXPECTED,pendingPoliceSUV:POLICE_SUV_EXPECTED,
  fleetDirectory:VEHICLE_DIRECTORY,
  wheelStatus:'loading',available:VEHICLE_MODELS.length
 };
@@ -249,7 +249,7 @@ function importModel(root,config=activeModel){
  model=root;
  system.meshes=0;root.traverse(o=>{if(o.isMesh)system.meshes++;});
  system.sourceSize=dim.toArray();
- system.bodyWidth=Math.max(1.25,Math.min(2.9,Math.min(dim.x,dim.z)*scale));
+ system.bodyWidth=config.width||Math.max(1.25,Math.min(2.9,Math.min(dim.x,dim.z)*scale));
  system.bodyHeight=dim.y*scale;
  system.model=config.name;system.modelId=config.id;
  system.source='assets/vehicles/live/'+config.file;
@@ -261,7 +261,7 @@ function lightFlags(){
 }
 function createLamp(){
  lighting=createVehicleLights(THREE,body,activeModel,
-  {width:system.bodyWidth,height:system.bodyHeight});
+  {width:system.bodyWidth,height:system.bodyHeight,root:model});
  system.lightState=lighting.apply(lightFlags(),lightingClock);
 }
 function initRenderer(){
