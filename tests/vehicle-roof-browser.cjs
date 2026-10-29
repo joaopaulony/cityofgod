@@ -9,6 +9,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
    {waitUntil:'domcontentloaded',timeout:120000});
+   await page.locator('[data-front-action="new"]').click({timeout:30000});
   await page.waitForFunction(()=>window.cityVehicles&&
    ['ready','failed'].includes(window.cityVehicles.status),null,{timeout:120000});
   if(await page.evaluate(()=>cityVehicles.status)!=='ready')throw Error('GLB failed');
@@ -26,7 +27,14 @@ const {chromium}=require('playwright'),fs=require('node:fs');
    'offroad','pickup','sedan','sport','suv','wagon'];
   const report=[];
   for(const id of models){
-   const ok=await page.evaluate(id=>window.cityVehicles.selectModel(id),id);
+   // Um modelo apenas selecionado é invisível por design. Restaurar um
+   // veículo real no mundo garante que a câmera teste pixels do GLB.
+   const ok=await page.evaluate(async id=>{
+    const v=window.cityVehicles,p=window.cityVehicleBridge.player;
+    v.driver=false;
+    return v.restoreCheckpoint({key:'qa-roof-'+id,modelId:id,angle:0,
+      fuel:.8,engineOn:false,headlights:false,col:null},{x:p.x,y:p.y});
+   },id);
    if(!ok)throw Error('Model failed '+id);
    const angles=id==='silvia'
     ?[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]:[Math.PI/4];
@@ -70,7 +78,8 @@ const {chromium}=require('playwright'),fs=require('node:fs');
     },{id,H,angle:angles[j]});
     report.push(row);
     console.log('ROOF QA',JSON.stringify(row));
-    if(row.status!=='ready'||!row.opaque||!row.wallMeshes||
+    // Modern architecture uses its own depth geometry; legacy houseOccluders can be 0.
+    if(row.status!=='ready'||!row.opaque||
       !Number.isFinite(row.x)||!Number.isFinite(row.y)||
       row.vehiclePixels<70||
       row.frames<2||!row.source.endsWith('.glb'))

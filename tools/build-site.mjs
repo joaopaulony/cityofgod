@@ -1,5 +1,6 @@
 // Publish only the game's static runtime, never tooling, raw imports or secrets.
-import {cp,mkdir,readdir,readFile,rm,lstat,stat} from 'node:fs/promises';
+import {cp,mkdir,readdir,readFile,writeFile,rm,lstat,stat} from 'node:fs/promises';
+import {auditVehicleAssets} from './audit-vehicle-assets.mjs';
 import {resolve,dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),out=resolve(root,'dist');
@@ -21,4 +22,9 @@ for(const name of html){const body=await readFile(join(out,name),'utf8');
 }
 const manifest=JSON.parse(await readFile(join(out,'assets/textures/architecture/manifest.json'),'utf8'));
 for(const material of manifest.materials)for(const map of manifest.maps)await stat(join(out,`assets/textures/architecture/${material}-${map}.webp`));
+// Métricas derivadas dos GLBs reais, não valores estimados.
+const vehicleMetrics=await auditVehicleAssets();
+await writeFile(join(out,'assets/vehicles/metrics.json'),JSON.stringify(vehicleMetrics,null,2)+'\n');
+console.log('Vehicle audit: '+vehicleMetrics.summary.models+' GLBs, '+
+  vehicleMetrics.summary.trianglesAllUniqueModels+' real source triangles.');
 console.log('Static deployment ready in dist/: HTML, scripts, models, textures and credits.');

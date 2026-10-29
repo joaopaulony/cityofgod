@@ -25,6 +25,7 @@ jobs:
         run: npm install --no-audit --no-fund --no-save playwright@1.56.1
       - name: Verify roof fade in Chrome with 11 GLBs and 4 directions
         run: |
+          npm run build
           python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/city-roof-http.log 2>&1 &
           sleep 2
           node tests/vehicle-roof-browser.cjs

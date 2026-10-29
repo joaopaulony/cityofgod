@@ -37,10 +37,12 @@ test('the GLB is rendered live by Three.js; no sprite or pre-render code',()=>{
  const code=readFileSync(new URL('../js/vehicle-webgl.mjs',import.meta.url),'utf8');
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  assert.match(code,/new THREE.WebGLRenderer/);
- assert.match(code,/new GLTFLoader/);
- assert.match(code,/gltfLoader\.loadAsync/);
- assert.match(code,/renderer.render\(scene,viewCamera\)/);
- assert.match(code,/MeshoptDecoder/);
+ const cache=readFileSync(new URL('../js/vehicle-asset-cache.mjs',import.meta.url),'utf8');
+ assert.match(code,/loadVehicleGLB\(choice\)/);
+ assert.match(cache,/new GLTFLoader/);
+ assert.match(cache,/loader\.loadAsync/);
+ assert.match(cache,/MeshoptDecoder/);
+ assert.match(code,/renderer\.render\(scene,viewCamera\)/);
  assert.doesNotMatch(code,/\.toDataURL\(|\.drawImage\(|bakeAtlas\(|captureFrame\(/i);
  assert.match(html,/<canvas id="vehicle3d"/);
  assert.match(html,/vehicle-webgl\.bundle\.js/);
