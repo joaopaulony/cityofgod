@@ -40,12 +40,29 @@ function civicPlaceSector(S){
   const bb=[x-25,site.y-25,x+25,site.y+2];world.paved.push(bb);
   world.decals.push({kind:'civic-parking',bb,site,paint(g){
    g.fillStyle='#52595c';g.fillRect(bb[0],bb[1],50,27);g.strokeStyle='#e4dfcc';g.lineWidth=.1;
-   for(const side of [-1,1])for(let i=0;i<6;i++){const sx=x+side*(6+i*3),sy=site.y-19;g.strokeRect(sx-1.3,sy,2.6,5.5);
-    if(side<0&&i<site.spaces){g.fillStyle=site.kind==='hospital'?'#4e9ba0':'#607c9b';g.fillRect(sx-1.1,sy+.2,2.2,5.1);g.save();g.translate(sx,sy+2.8);g.rotate(-Math.PI/2);g.font='bold .55px sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(site.reserved,0,0);g.restore();}
+   for(const side of [-1,1])for(let i=0;i<6;i++){const sx=x+side*(6+i*3),sy=site.y-19;g.strokeRect(sx-1.3,sy,2.6,side<0?8.4:5.5);
+    if(side<0&&i<site.spaces){g.fillStyle=site.kind==='hospital'?'#4e9ba0':'#607c9b';g.fillRect(sx-1.1,sy+.2,2.2,7.9);g.save();g.translate(sx,sy+2.8);g.rotate(-Math.PI/2);g.font='bold .55px sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(site.reserved,0,0);g.restore();}
    }
    g.fillStyle='#ddd8c9';g.fillRect(H.doorPt[0]-2,H.doorPt[1],4,site.y+2-H.doorPt[1]);
   }});
-  // Dedicated bays remain empty for future emergency/service vehicles.
+  // The reserved left-side bays are persistent parking spaces belonging to
+  // this procedurally placed campus. Start invisible/inert until the actual
+  // licensed GLB is present; vehicle-webgl activates them once loaded.
+  // Keys are stable across streamed sector unload/reload.
+  const civicFleetBays={police:3,hospital:1,cityhall:1,school:1};
+  const sizes={police:[5.6,2.55,1.85],hospital:[7.25,2.8,2.65],
+    cityhall:[5.8,2.65,2.4],school:[8.25,2.85,3.0]};
+  const count=civicFleetBays[site.kind]||0;
+  for(let i=0;i<count;i++){
+   const dims=sizes[site.kind];
+   addBox({x:x-6-i*3,y:site.y-16.25,rot:Math.PI/2,
+    w:dims[0],d:dims[1],h:dims[2],kind:'parkedcar',
+    civicFleetBay:true,civicKind:site.kind,civicSiteId:site.id,civicBayIndex:i,
+    vehicleKey:'civic:'+site.id+':'+i,modelId:null,
+    fleetHidden:true,solid:true,street:true,
+    col:'#f0f0f0',top:'#f0f0f0',side:'#f0f0f0',draw:drawParkedCar});
+  }
+  // The opposite row stays available for regular civilian parking.
   for(let i=0;i<4;i++)miaCar(x+7+i*3,site.y-16,Math.PI/2);
   for(const dx of [-24,24]){world.lamps.push({x:x+dx,y:site.y-8,ax:0,ay:-1});}
   if(site.kind==='military'){
