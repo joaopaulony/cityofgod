@@ -18,7 +18,8 @@ function makeCampus(kind){
   addBox:b=>{boxes.push(b);return b;},miaCar:()=>null,
   chainLine:()=>{},owIndexOwnedLive:()=>{},Math
  };
- vm.runInNewContext(readFileSync(new URL('../js/civic.js',import.meta.url),'utf8'),context);
+ vm.createContext(context);
+ vm.runInContext(readFileSync(new URL('../js/civic.js',import.meta.url),'utf8'),context);
  vm.runInContext('civicPlaceSector({bounds:[0,0,256,256]})',context);
  return {boxes,houses,world,campus,slots:boxes.filter(b=>b.civicFleetBay)};
 }
