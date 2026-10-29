@@ -10,8 +10,18 @@ const fs=require('node:fs');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/index.html?quality=performance&seed=3250',
    {waitUntil:'domcontentloaded',timeout:120000});
-  await page.waitForFunction(()=>window.cityVehicles&&['ready','failed'].includes(window.cityVehicles.status),
-   null,{timeout:120000});
+  try{
+   await page.waitForFunction(()=>window.cityVehicles&&['ready','failed'].includes(window.cityVehicles.status),
+    null,{timeout:45000});
+  }catch(e){
+   const state=await page.evaluate(()=>({
+    world:typeof world,bridge:!!window.cityVehicleBridge,
+    vehicle:window.cityVehicles?.status,error:window.cityVehicles?.error,
+    canvas:document.querySelector('#view')?.width,
+    three:!!window.cityVehicles?.renderer
+   })).catch(err=>({inspectError:String(err)}));
+   throw Error('GLB boot diagnostics: '+JSON.stringify({state,errors,error:String(e)}));
+  }
   fs.mkdirSync('artifacts/vehicles',{recursive:true});
   const models=['silvia','compact','coupe','hatchback','minivan','offroad',
    'pickup','sedan','sport','suv','wagon'];
