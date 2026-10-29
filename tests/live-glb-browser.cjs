@@ -44,9 +44,15 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   // de testar câmera e direção. A posição inicial do carro não é o spawn.
   const supplied=await page.evaluate(async()=>{
    const v=window.cityVehicles,ok=await v.deliverVehicle('silvia');
-   return {ok,action:ok?v.interact():null};
+   const b=window.cityVehicleBridge.boxes.find(x=>
+     x.kind==='parkedcar'&&x.vehicleKey==='owned:silvia'&&!x.fleetHidden);
+   if(ok&&b){
+    window.cityVehicleBridge.player.x=b.x;
+    window.cityVehicleBridge.player.y=b.y;
+   }
+   return {ok,found:!!b,action:ok&&b?v.interact():null};
   });
-  if(!supplied.ok)throw Error('Não foi possível entregar carro de teste '+JSON.stringify(supplied));
+  if(!supplied.ok||!supplied.found||!supplied.action)throw Error('Não foi possível entrar no carro de teste '+JSON.stringify(supplied));
   await page.waitForFunction(()=>window.cityVehicles?.driver===true,null,{timeout:30000});
   await page.evaluate(()=>{
    const v=window.cityVehicles,c=window.cityVehicleBridge.cam;
