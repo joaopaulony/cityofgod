@@ -36,7 +36,7 @@ test('public safety, roadside, municipal and transportation are distinctly assig
 });
 test('professional vehicles do not become civilian when imported',()=>{
  const police=CIVIL_PACK_EXPECTED.find(x=>x.id==='police-sedan');
- const d=buildVehicleDirectory([...VEHICLE_MODELS,police],CIVIL_PACK_EXPECTED);
+ const d=buildVehicleDirectory([...VEHICLE_MODELS,police],[...CIVIL_PACK_EXPECTED,POLICE_SUV_EXPECTED]);
  const p=d.groups.find(g=>g.id==='police').vehicles[0];
  assert.equal(p.ready,true);assert.equal(p.forSale,false);
  assert.equal(p.ownership,'employer');assert.equal(d.total,22);
