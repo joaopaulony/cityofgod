@@ -31,6 +31,7 @@ test('estacionados não pré-carregam a frota nem desenham carros 2D sob GLB',()
  assert.match(parked,/loadVehicleGLB\(/);
  assert.match(parked,/chooseVehicleLOD\(/);
  assert.doesNotMatch(parked,/for\s*\(const id of POOL\)/);
- assert.match(miami,/window\.cityVehicles\?\.renderer/);
+ assert.match(miami,/vehicle\?\.renderer/);
+ assert.match(miami,/b\.vehicleModelFailed/);
  assert.match(active,/loadVehicleGLB\(choice\)/);
 });
