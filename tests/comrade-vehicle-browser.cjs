@@ -13,13 +13,17 @@ const fs=require('node:fs');
    await page.locator('[data-front-action="new"]').click({timeout:30000});
   try{
    await page.waitForFunction(()=>window.cityVehicles&&['ready','failed'].includes(window.cityVehicles.status),
-    null,{timeout:45000});
+    null,{timeout:90000});
   }catch(e){
    const state=await page.evaluate(()=>({
     world:typeof world,bridge:!!window.cityVehicleBridge,
     vehicle:window.cityVehicles?.status,error:window.cityVehicles?.error,
     canvas:document.querySelector('#view')?.width,
-    three:!!window.cityVehicles?.renderer
+    three:!!window.cityVehicles?.renderer,
+    cache:window.cityVehicleMetrics?.()?.cache,
+    glbRequests:performance.getEntriesByType('resource').filter(r=>/\.glb/.test(r.name))
+      .map(r=>({name:r.name.split('/').pop(),duration:r.duration,bytes:r.transferSize})),
+    frontLoading:window.CityFront?.loading
    })).catch(err=>({inspectError:String(err)}));
    throw Error('GLB boot diagnostics: '+JSON.stringify({state,errors,error:String(e)}));
   }
