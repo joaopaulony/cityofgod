@@ -1,10 +1,12 @@
 name: City of God — Street Crown 24-to-76 Rig QA
 on:
   push:
-    branches: [feat/street-crown-cas-retarget-20261028]
+    branches: [feat/street-crown-cas-retarget-20261028, fix/cas-street-crown-visible-default-20261029]
     paths:
       - 'js/character-webgl.mjs'
       - 'js/cas-creator.mjs'
+      - 'css/cas-creator.css'
+      - 'tests/street-crown-world-browser.mjs'
       - 'js/street-crown-adapter.mjs'
       - 'tests/street-crown-adapter.test.mjs'
       - 'tests/cas-street-crown-browser.mjs'
