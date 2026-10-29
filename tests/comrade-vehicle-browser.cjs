@@ -33,17 +33,24 @@ const fs=require('node:fs');
   const results=[];
   for(const id of models){
    const result=await page.evaluate(async id=>{
-    const v=window.cityVehicles,prev=v.car;
+    const v=window.cityVehicles;
     if(v.driver)v.driver=false;
-    const ok=await v.selectModel(id);
-    if(!ok)return {id,ok:false,status:v.status,error:v.error};
+    // O menu começa sem um carro ativo e o spawn não fica perto de (0,0).
+    // Entrega um carro verdadeiro em vaga livre, entra nele e então testa rodas.
+    const ok=await v.deliverVehicle(id);
+    if(!ok)return {id,ok:false,status:v.status,error:'deliverVehicle failed'};
+    const parked=window.cityVehicleBridge.boxes.find(b=>
+      b.kind==='parkedcar'&&b.vehicleKey==='owned:'+id&&!b.fleetHidden);
+    if(!parked)return {id,ok:false,error:'delivered parked car missing'};
+    player.x=parked.x;player.y=parked.y;
+    const entered=v.interact();
+    for(let tries=0;tries<200&&!v.driver;tries++)
+      await new Promise(resolve=>setTimeout(resolve,15));
+    if(!v.driver)return {id,ok:false,error:'enter did not complete',entered};
     const start={x:v.car.x,y:v.car.y,angle:v.car.angle};
     v.car.speed=0;v.car.steer=0;
     const before=v.getWheelTelemetry();
-    // Verify physical steering at a standstill and real wheel rotation
-    // through the game's physics; do not spoof rendered wheel angles.
-    player.x=v.car.x+.3;player.y=v.car.y+.4;
-    const entered=v.interact();
+    // Simula rodas reais em um carro dirigível, não apenas modelo selecionado.
     input.keys.add('d');
     for(let i=0;i<4;i++)v.update(.05);
     input.keys.delete('d');
