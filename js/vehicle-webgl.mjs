@@ -20,6 +20,7 @@ import {createAirport3D} from './airport-3d.mjs';
 import {createGas3D} from './gas-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
+import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {createVehicleEffects} from './vehicle-effects.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 
@@ -516,6 +517,8 @@ function engineSound(){
 }
 system.update=dt=>{
  if(!system.ready)return;
+ const stationFleet=syncCivicFleetParking(bridge.boxes,VEHICLE_MODELS,fleet);
+ if(stationFleet.activated||stationFleet.hidden)bridge.world.version++;
  refuel(dt);
  if(bridge.hit('x')&&system.driver)system.engineOn=!system.engineOn;
  if(bridge.hit('l')&&system.driver)system.headlights=!system.headlights;
