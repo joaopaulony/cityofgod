@@ -40,6 +40,18 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   if(initial.status!=='ready'||!initial.mesh)throw Error('GLB not loaded: '+
    JSON.stringify({initial,errors,warnings}));
+  // O menu começa sem motorista: estacionar/entrar pelo fluxo real antes
+  // de testar câmera e direção. A posição inicial do carro não é o spawn.
+  const supplied=await page.evaluate(async()=>{
+   const v=window.cityVehicles,ok=await v.deliverVehicle('silvia');
+   return {ok,action:ok?v.interact():null};
+  });
+  if(!supplied.ok)throw Error('Não foi possível entregar carro de teste '+JSON.stringify(supplied));
+  await page.waitForFunction(()=>window.cityVehicles?.driver===true,null,{timeout:30000});
+  await page.evaluate(()=>{
+   const v=window.cityVehicles,c=window.cityVehicleBridge.cam;
+   c.x=c.tx=v.car.x;c.y=c.ty=v.car.y;
+  });
   await page.waitForFunction(()=>window.cityVehicles.frames>4,null,{timeout:30000});
   const aligned=await page.evaluate(()=>{
    const car=window.cityVehicles,c=window.cityVehicleBridge.cam;
@@ -58,7 +70,7 @@ const {chromium}=require('playwright'),fs=require('node:fs');
    window.__manual=true;
    const car=window.cityVehicles;
    player.x=car.car.x+.5;player.y=car.car.y+.4;
-   return {enter:car.interact(),x:car.car.x,y:car.car.y,angle:car.car.angle};
+   return {enter:car.driver?'already driving':false,x:car.car.x,y:car.car.y,angle:car.car.angle};
   });
   await page.evaluate(()=>{
    input.keys.add('w');
