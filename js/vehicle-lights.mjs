@@ -12,7 +12,8 @@ export function vehicleLightPositions(cfg={},width=1.9,height=1.5){
  const len=Math.max(2,cfg.length||4.6),w=Math.max(1.1,Math.min(3.5,width)),h=Math.max(.9,Math.min(4.5,height));
  const x=len*.478,z=w*.375,y=Math.min(h*.57,1.25),ry=Math.min(h*.53,1.2);
  return {frontLeft:[x,y,-z],frontRight:[x,y,z],rearLeft:[-x,ry,-z],rearRight:[-x,ry,z],
-  roofLeft:[0,h+.055,-w*.18],roofRight:[0,h+.055,w*.18]};
+  roofLeft:cfg.beaconAnchors?.left||[0,h+.055,-w*.18],
+  roofRight:cfg.beaconAnchors?.right||[0,h+.055,w*.18]};
 }
 export function createVehicleLights(THREE,body,cfg={},opts={}){
  const group=new THREE.Group();group.name='vehicle-light-fixtures';body.add(group);
@@ -31,12 +32,50 @@ export function createVehicleLights(THREE,body,cfg={},opts={}){
   const p=pos['rear'+side];lamp('rearReverse'+side,[p[0]-.01,p[1]-.15,p[2]]);
  }
  const beacon=['red-blue','red','amber'].includes(cfg.beacon)?cfg.beacon:'none';
- if(beacon!=='none'){lamp('beaconLeft',pos.roofLeft,barGeo);lamp('beaconRight',pos.roofRight,barGeo);}
- const spots=[];
+ // Use the artist's actual siren lenses when the original GLB has them.
+ // Never cover real red/blue optics with a fabricated generic lightbar.
+ const native={};const nativeOriginals=[];
+ if(beacon!=='none'&&cfg.beaconNativeMeshes&&opts.root){
+  for(const [role,meshName] of Object.entries(cfg.beaconNativeMeshes)){
+   const mesh=opts.root.getObjectByName(meshName);
+   if(!mesh?.isMesh)continue;
+   const originals=mesh.material;
+   const copies=Array.isArray(originals)?originals.map(m=>m.clone()):originals.clone();
+   mesh.material=copies;
+   for(const mat of [].concat(copies)){
+    if(mat.emissive){mat.emissive.setHex(0x000000);mat.emissiveIntensity=0;mat.needsUpdate=true;}
+   }
+   native[role==='red'?'beaconLeft':'beaconRight']=mesh;
+   nativeOriginals.push({mesh,originals,copies});
+  }
+ }
+ if(beacon!=='none'){
+  if(!native.beaconLeft)lamp('beaconLeft',pos.roofLeft,barGeo);
+  if(!native.beaconRight)lamp('beaconRight',pos.roofRight,barGeo);
+ }
+ const spots=[],strobes=[];
  if(!opts.parked)for(const side of ['Left','Right']){
   const p=pos['front'+side],s=new THREE.SpotLight(0xfff6df,0,22,Math.PI/7,.55,1.4);
   s.position.set(...p);s.target.position.set(p[0]+11,Math.max(.04,p[1]-.63),p[2]*1.3);
   group.add(s,s.target);spots.push(s);
+ }
+ if(!opts.parked&&beacon!=='none'&&cfg.beaconNativeMeshes){
+  // Two shadowless fill lights are anchored to the real lens centres.
+  for(const [role,point,color] of [
+   ['beaconLeft',pos.roofLeft,0xff2020],['beaconRight',pos.roofRight,0x2279ff]]){
+   if(!native[role])continue;
+   const light=new THREE.PointLight(color,0,6,2.0);
+   light.position.set(...point);light.castShadow=false;group.add(light);
+   strobes.push({light,role});
+  }
+ }
+ function setNative(role,on,color){
+  const mesh=native[role];if(!mesh)return;
+  for(const mat of [].concat(mesh.material)){
+   if(mat.emissive){
+    mat.emissive.setHex(color);mat.emissiveIntensity=on?3.3:0;
+   }
+  }
  }
  function set(name,on,off,lit){
   const m=lamps[name];if(!m)return;
@@ -55,6 +94,9 @@ export function createVehicleLights(THREE,body,cfg={},opts={}){
     set('rearTurn'+side,state[side.toLowerCase()],0x4c3413,0xffa619);
    }
    if(beacon!=='none'){
+    setNative('beaconLeft',state.beaconLeft,beacon==='amber'?0xffaf21:0xff2222);
+    setNative('beaconRight',state.beaconRight,beacon==='red-blue'?0x1679ff:beacon==='amber'?0xffaf21:0xff2222);
+    for(const item of strobes)item.light.intensity=state[item.role]?1.9:0;
     set('beaconLeft',state.beaconLeft,beacon==='amber'?0x573611:0x531a1a,beacon==='amber'?0xffa621:0xff2424);
     set('beaconRight',state.beaconRight,beacon==='amber'?0x573611:beacon==='red-blue'?0x122947:0x531a1a,
      beacon==='red-blue'?0x247dff:beacon==='amber'?0xffa621:0xff2828);
@@ -64,6 +106,13 @@ export function createVehicleLights(THREE,body,cfg={},opts={}){
    return state;
   },
   get state(){return state;},
-  dispose(){body.remove(group);geo.dispose();barGeo.dispose();for(const m of materials)m.dispose();}
+  dispose(){
+   body.remove(group);geo.dispose();barGeo.dispose();
+   for(const m of materials)m.dispose();
+   for(const {mesh,originals,copies} of nativeOriginals){
+    mesh.material=originals;
+    for(const m of [].concat(copies))m.dispose();
+   }
+  }
  };
 }

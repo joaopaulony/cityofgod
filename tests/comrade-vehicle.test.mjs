@@ -84,7 +84,7 @@ test('Silvia original four corner groups animate, including actual RR_36',()=>{
  assert.deepEqual(snapshot(groups[0].children[1]),snapshot({quaternion:originalPart}));
 });
 test('all ten original passenger GLB files are present and have four separate wheel nodes',()=>{
- assert.ok(VEHICLE_MODELS.length===11||VEHICLE_MODELS.length===21);
+ assert.ok([11,12,21,22].includes(VEHICLE_MODELS.length));
  assert.equal(VEHICLE_MODELS.filter(x=>x.source==='passenger').length,10);
  assert.equal(CIVIL_PACK_EXPECTED.length,10);
  for(const car of VEHICLE_MODELS){
@@ -108,6 +108,10 @@ test('all ten original passenger GLB files are present and have four separate wh
     assert.ok(node.extras?.wheelAxle,'wheel missing axle metadata');
     assert.ok(Number.isFinite(node.extras?.wheelRadiusMeters));
    }
+  }else if(car.source==='police-suv'){
+   for(const id of ['Wheel_FL','Wheel_FR','Wheel_RL','Wheel_RR',
+     'Body_Police_Glass_Red_0','Body_Police_Glass_Blue_0'])
+    assert.ok(names.has(id),car.id+' missing '+id);
   }else
    for(const id of ['FL_15','FR_29','RL_22','RR_36'])
     assert.ok(names.has(id),'Silvia missing '+id);

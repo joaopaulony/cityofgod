@@ -5,12 +5,14 @@
 import {loadVehicleGLB} from './vehicle-asset-cache.mjs';
 import {chooseVehicleLOD,classifyVehicleDetail,trianglesForGeometry} from './vehicle-lod.mjs';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
+import {getVehicleAssignment} from './vehicle-classification.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
 // SUV vem de fábrica em grafite escuro (sem separar pintura de borracha na textura): fica com a cor original
-const KEEP_FACTORY = new Set(['suv']);
+const KEEP_FACTORY = new Set(['suv','police-suv']);
+const preserveFactoryPaint=id=>KEEP_FACTORY.has(id)||getVehicleAssignment(id)?.ownership==='employer';
 
 export function createParked3D(THREE, scene, bridge) {
   const state={models:0,cars:0,failed:0,loading:0,queued:0,
@@ -62,7 +64,7 @@ export function createParked3D(THREE, scene, bridge) {
       o.userData.vehicleTriangles=trianglesForGeometry(o.geometry);
     });
     state.paint[cfg.id] = paint ? paint.name || '(sem nome)' : null;
-    if (paint && paint.map && paint.map.image && !KEEP_FACTORY.has(cfg.id)) paint.map = neutralPaint(paint.map);
+    if (paint && paint.map && paint.map.image && !preserveFactoryPaint(cfg.id)) paint.map = neutralPaint(paint.map);
     return { tpl: al, paint, width:Math.min(dim.x,dim.z)*(cfg.length/Math.max(dim.z,dim.x)),height:dim.y*(cfg.length/Math.max(dim.z,dim.x)) };
   }
   // a textura da carroceria já vem com a cor de fábrica: os pixels saturados (a pintura) viram cinza claro e a
@@ -105,7 +107,7 @@ export function createParked3D(THREE, scene, bridge) {
   function make(b) {
     const id=streetModel(b),M=models.get(id);if(!M)return null;
     const obj = M.tpl.clone(true);
-    if (M.paint && b.col && !KEEP_FACTORY.has(id)) {
+    if (M.paint && b.col && !preserveFactoryPaint(id)) {
       const key = id + b.col; let mat = paintCache.get(key);
       if (!mat) { mat = M.paint.clone(); mat.color = new THREE.Color().setStyle(b.junk ? '#7a6a58' : b.col, THREE.SRGBColorSpace); paintCache.set(key, mat); }
       obj.traverse(o => { if (o.isMesh) { if (Array.isArray(o.material)) o.material = o.material.map(m => m === M.paint ? mat : m); else if (o.material === M.paint) o.material = mat; } });
@@ -117,7 +119,7 @@ export function createParked3D(THREE, scene, bridge) {
     const cfg=VEHICLE_MODELS.find(v=>v.id===id);
     const lit=!!(b.headlights||b.hazardLights||b.emergencyLights);
     const lights=lit?createVehicleLights(THREE,g,cfg||{length:b.w||4.7},
-     {width:M.width||b.d||1.9,height:M.height||1.5,parked:true}):null;
+     {width:cfg?.width||M.width||b.d||1.9,height:M.height||1.5,parked:true,root:obj}):null;
     return {group:g,pieces,level:null,visibleTriangles:0,lights};
   }
   return {

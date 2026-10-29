@@ -1,0 +1,57 @@
+name: Install reviewed police SUV with original siren lenses
+on:
+  push:
+    branches: [main]
+    paths:
+      - assets/vehicles/incoming/police-suv-2k-webp.glb
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cityofgod-police-suv-import
+  cancel-in-progress: false
+jobs:
+  install-police-suv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Detect official reviewed police SUV upload
+        id: asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f assets/vehicles/incoming/police-suv-2k-webp.glb ]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify source geometry, licensing, wheels and exact lightbar pieces
+        if: steps.asset.outputs.exists == 'true'
+        run: |
+          npm ci
+          npm run import:police-suv -- assets/vehicles/incoming/police-suv-2k-webp.glb
+      - name: Run entire regression suite and production build
+        if: steps.asset.outputs.exists == 'true'
+        run: |
+          node --test tests/*.test.*
+          npm run build:site
+      - name: Commit vetted GLB, credits and catalog activation
+        if: steps.asset.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/vehicles/live/police-suv.glb assets/vehicles/live/POLICE-SUV-CREDITS.txt js/vehicle-catalog.mjs
+          git rm assets/vehicles/incoming/police-suv-2k-webp.glb
+          git diff --cached --check
+          git commit -m 'assets: integrate optimized police SUV with four wheels and accurate siren lenses'
+          git push origin HEAD:main

@@ -6,6 +6,7 @@
     "build:site": "npm run test:cas && npm run build && node tools/build-site.mjs",
     "audit:vehicles": "node tools/audit-vehicle-assets.mjs",
     "import:civil": "node tools/install-civil-pack.mjs",
+    "import:police-suv": "node tools/install-police-suv.mjs",
     "test:vehicle-performance": "node --test tests/vehicle-performance.test.mjs",
     "start": "node tools/serve.mjs",
     "test:characters": "node --test tests/character-actions.test.mjs",
