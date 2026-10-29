@@ -55,7 +55,7 @@ function civicPlaceSector(S){
   const count=civicFleetBays[site.kind]||0;
   for(let i=0;i<count;i++){
    const dims=sizes[site.kind];
-   addBox({x:x-6-i*3,y:site.y-16.25,rot:Math.PI/2,
+   addBox({x:x-6-i*6,y:site.y-16.25,rot:Math.PI/2,
     w:dims[0],d:dims[1],h:dims[2],kind:'parkedcar',
     civicFleetBay:true,civicKind:site.kind,civicSiteId:site.id,civicBayIndex:i,
     vehicleKey:'civic:'+site.id+':'+i,modelId:null,
