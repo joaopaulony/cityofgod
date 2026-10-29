@@ -513,7 +513,10 @@ function miaCar(x, y, rot, opt = {}) {
 function drawParkedCar(g, b) {
   // O desenho antigo 2D é exclusivo do fallback sem WebGL.
   // Nunca desenhar caixas e carrocerias antigas por baixo do GLB.
-  if(b.fleetHidden||b.r3d||window.cityVehicles?.renderer&&window.VEG3D!==false)return;
+  if(b.fleetHidden||b.r3d)return;
+  const vehicle=window.cityVehicles;
+  // Fallback 2D apenas quando o WebGL falhou, nunca sob um modelo GLB.
+  if(vehicle?.renderer&&vehicle.status!=='failed'&&!b.vehicleModelFailed&&window.VEG3D!==false)return;
   miaCached(g,b,cg=>paintCar(cg,b));
 }
 function paintCar(g, b) {
