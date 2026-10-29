@@ -59,6 +59,8 @@ const CityApps = (() => {
   if(app==='cars'){
    const directory=window.cityVehicles?.fleetDirectory;
    const reserved=(directory?.groups||[]).filter(g=>g.id!=='civil'&&g.vehicles.length);
+   const otherCivil=(directory?.groups||[]).find(g=>g.id==='civil')?.vehicles
+     .filter(v=>!Object.prototype.hasOwnProperty.call(CitySim.CARS,v.id))||[];
    return banner('<strong>AutoShow</strong><small>Garagem privada e frotas profissionais</small>')+
     '<div class="city-phone-label">🚗 Veículos civis — compra particular</div>'+
     '<p class="city-help">Somente veículos civis estão à venda. Após comprar, solicite a entrega perto do personagem.</p>'+
@@ -66,6 +68,8 @@ const CityApps = (() => {
       (data.cars.includes(id)?'Na sua garagem':'Preço '+price(car.price)),
       data.cars.includes(id)?btn('sim:car-deliver:'+id,'Entregar veículo'):
       btn('sim:car-buy:'+id,'Comprar',CityLife.funds<car.price),car.icon)).join('')+
+    (otherCivil.length?'<details class="city-panel"><summary>Outros modelos civis ('+otherCivil.length+')</summary>'+
+      otherCivil.map(v=>'<p class="city-help">'+esc(v.name)+' · modelo particular, fora da vitrine</p>').join('')+'</details>':'')+
     '<div class="city-phone-label">🚓 Frotas profissionais — não são vendidas aqui</div>'+
     '<p class="city-help">Veículos destinados a profissões. Carreiras e permissão de condução serão implementadas separadamente; esta tela não libera acesso.</p>'+
     (reserved.length?reserved.map(dept=>
