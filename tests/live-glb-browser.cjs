@@ -15,8 +15,18 @@ const {chromium}=require('playwright'),fs=require('node:fs');
   });
   await page.goto('http://127.0.0.1:8765/index.html?seed=3250&quality=performance',
    {waitUntil:'domcontentloaded',timeout:120000});
-  await page.waitForFunction(()=>window.cityVehicles&&
-   ['ready','failed'].includes(window.cityVehicles.status),null,{timeout:120000});
+  try{
+   await page.waitForFunction(()=>window.cityVehicles&&
+    ['ready','failed'].includes(window.cityVehicles.status),null,{timeout:45000});
+  }catch(e){
+   const state=await page.evaluate(()=>({
+    world:typeof world,bridge:!!window.cityVehicleBridge,
+    vehicle:window.cityVehicles?.status,error:window.cityVehicles?.error,
+    canvas:document.querySelector('#view')?.width,
+    three:!!window.cityVehicles?.renderer
+   })).catch(err=>({inspectError:String(err)}));
+   throw Error('GLB boot diagnostics: '+JSON.stringify({state,errors,warnings,error:String(e)}));
+  }
   const initial=await page.evaluate(()=>{
    const car=window.cityVehicles,bridge=window.cityVehicleBridge;
    return {status:car.status,error:car.error,frames:car.frames||0,
