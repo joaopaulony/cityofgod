@@ -83,6 +83,7 @@ const CityRealty=(()=>{
  // Only the authorized admin panel calls this local testing helper.
  // The browser's localStorage remains non-authoritative for future multiplayer.
  function adminSetOwned(H,shouldOwn){
+   if(!window.CityAdmin?.authorized)return {ok:false,text:'Acesso administrativo necessário'};
    if(!residential(H))return {ok:false,text:'Somente imóveis residenciais'};
    const key=id(H),was=!!owned[key],next=!!shouldOwn;
    if(was===next)return {ok:true,text:next?'Já pertence ao jogador':'Imóvel já está livre'};
