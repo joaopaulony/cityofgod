@@ -1,5 +1,5 @@
-// City of God — human reset. No skinned character geometry is ever loaded.
-// The CAS retains transformable armatures, animations and profiles for future art.
+// City of God — Street Crown human models by default.
+// Opt out with ?skeleton=1 or ?streetcrown=0 for rig-only diagnostics.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
@@ -16,12 +16,13 @@ export function createCharacterSystem(scene,bridge){
  const entries=new Map();
  const loader=new GLTFLoader();
  let bodies=null,streetVariants=null;
- const streetBeta=new URLSearchParams(location.search).get('streetcrown')==='1';
+ const params=new URLSearchParams(location.search);
+ const streetBeta=params.get('skeleton')!=='1'&&params.get('streetcrown')!=='0';
  const system={
   status:'loading',ready:false,enabled:true,provider:'skeleton-only',humanModelsEnabled:false,
   errors:[],frames:0,models:[],availableBodies:['male','female'],
   rebornReady:false,casWarnings:[],casProfile:CAS_DEFAULT,populationCount:0,
-  streetCrownEnabled:false,streetCrownVariants:null,streetModelId:'hero'
+  streetCrownEnabled:false,streetCrownRequested:streetBeta,streetCrownVariants:null,streetModelId:'hero'
  };
  window.cityCharacters=system;
  const clear=(x,y,ignore)=>{
@@ -75,7 +76,7 @@ export function createCharacterSystem(scene,bridge){
     if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};
    }
   }
-  root.visible=system.streetCrownEnabled; // Only explicit ?streetcrown=1 renders imported meshes.
+  root.visible=system.streetCrownEnabled; // Default is the imported model; ?skeleton=1 hides it.
   scene.add(root);
   const entry={root,mixer,actions,spec,sex,modelId,clip:null,action:null,emote:null,
     lastRecoil:9,upper:createRebornUpperBodyMotion(root)};
@@ -157,7 +158,8 @@ export function createCharacterSystem(scene,bridge){
      const saved=(()=>{try{return localStorage.getItem('cityofgod.cas.street-crown.model');}catch{return null;}})();
      system.streetModelId=streetModelForSex(saved,system.casProfile.sex);
     }catch(error){
-     system.casWarnings.push('Street Crown beta indisponível (faltam GLBs ou rig inválido): '+String(error.message||error));
+     const reason='Não foi possível carregar os personagens Street Crown: '+String(error.message||error);
+     system.errors.push(reason);system.casWarnings.push(reason);
     }
    }
    mount(bridge.player,system.casProfile.sex);
@@ -166,8 +168,8 @@ export function createCharacterSystem(scene,bridge){
     ?[...streetVariants.values()].map(x=>({id:x.spec.id,bones:24+REBORN_HAND_BONE_COUNT,meshes:x.quality.meshes,triangles:x.quality.triangles,source:'Street Crown'}))
     :[{id:'armature-male',bones:24+REBORN_HAND_BONE_COUNT,meshes:0},{id:'armature-female',bones:24+REBORN_HAND_BONE_COUNT,meshes:0}];
    system.rebornNotice=system.streetCrownEnabled
-    ?'Street Crown: 6 corpos GLB com skinning nos 24 ossos Reborn + 52 ossos articulados no CAS; skinning independente dos dedos ainda pendente.'
-    :'Esqueletos animados com palmas e dez dedos articulados. Nenhuma malha humana antiga.';
+    ?'Street Crown: seis personagens 3D com rig estendido de 76 ossos; dedos da malha ainda sem skinning independente.'
+    :streetBeta?'Falha ao carregar Street Crown: confira os avisos no CAS.':'Modo esqueleto: 76 ossos sem malha.';
    await system.applyCAS(system.casProfile);
   }catch(error){
    system.status='partial';system.errors.push('Arquivos de animação: '+String(error.message||error));
