@@ -14,7 +14,8 @@ export const VEHICLE_MODELS=Object.freeze([
  {id:'wagon',name:'Perua',file:'wagon.glb',source:'passenger',length:4.75,front:'-Z'},
  // CIVIL_PACK_ASSETS_START — filled by npm run import:civil after verified GLBs exist.
  // CIVIL_PACK_ASSETS_END
- // POLICE_SUV_ASSET_START — new dedicated Police SUV joins ONLY after its GLB is validated.
+ // POLICE_SUV_ASSET_START
+ {"id":"police-suv","name":"SUV de patrulha","file":"police-suv.glb","source":"police-suv","category":"emergency","length":4.85,"width":2.1,"height":1.79,"front":"+Z","wheelbase":2.86,"wheelCount":4,"sourceTriangles":9040,"beacon":"red-blue","beaconAnchors":{"left":[-0.259,1.74,-0.402],"right":[-0.259,1.74,0.407]},"beaconNativeMeshes":{"red":"Body_Police_Glass_Red_0","blue":"Body_Police_Glass_Blue_0"},"physics":{"maxForward":35,"engineAccel":6.6,"brakeAccel":10.3,"steeringLow":0.54,"steeringHigh":0.19,"steeringRate":3.5}},
  // POLICE_SUV_ASSET_END
 ]);
 // Assets copyright Comrade1280, CC BY 4.0. These are pending until original GLBs are installed.

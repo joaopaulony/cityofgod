@@ -1,0 +1,4 @@
+Lowpoly Generic SUV Police by mk2design
+https://sketchfab.com/3d-models/lowpoly-generic-suv-police-259fc16c23d548ba8d5802c563d8ebdc
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+City of God: reduced to 2K WebP, added wheel metadata, original beacon mesh lighting and removed fake flat shadow.
