@@ -80,13 +80,34 @@ const CityRealty=(()=>{
    window.CityUI?.notify('🏠 Imóvel adquirido! Marcado no mapa.');
    return {ok:true,text:'Imóvel adquirido'};
  }
+ // Only the authorized admin panel calls this local testing helper.
+ // The browser's localStorage remains non-authoritative for future multiplayer.
+ function adminSetOwned(H,shouldOwn){
+   if(!residential(H))return {ok:false,text:'Somente imóveis residenciais'};
+   const key=id(H),was=!!owned[key],next=!!shouldOwn;
+   if(was===next)return {ok:true,text:next?'Já pertence ao jogador':'Imóvel já está livre'};
+   if(next){
+     owned[key]={id:key,name:name(H),x:H.doorPt[0],y:H.doorPt[1],price:0,at:Date.now(),adminGranted:true};
+     H.furnishOnPurchase?.();
+     window.CityHome?.sync(H);
+   }else delete owned[key];
+   try{localStorage.setItem(KEY,JSON.stringify(owned));}
+   catch{return {ok:false,text:'Falha ao salvar alteração local'};}
+   if(typeof CitySim!=='undefined'&&CitySim.data){
+     if(next)CitySim.data.home={name:name(H),x:H.doorPt[0],y:H.doorPt[1],price:0};
+     else if(CitySim.data.home&&Math.hypot(CitySim.data.home.x-H.doorPt[0],CitySim.data.home.y-H.doorPt[1])<2)CitySim.data.home=null;
+     CitySim.save();
+   }
+   window.dispatchEvent(new Event('city-property-change'));
+   return {ok:true,text:next?'Posse de teste concedida':'Posse de teste removida'};
+ }
  function onInteract(p){
    const H=nearby(p);
    if(!H)return false;
    panel(H);return true;
  }
  function prompt(p){const H=nearby(p);return H?'F · '+(isOwned(H)?'Ver minha propriedade':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
- return {init,residential,isOwned,canFurnish,nearby,onInteract,prompt,buy,id,price,name,close,
+ return {init,residential,isOwned,canFurnish,nearby,onInteract,prompt,buy,adminSetOwned,id,price,name,close,
   get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
 })();
