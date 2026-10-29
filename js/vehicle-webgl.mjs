@@ -645,6 +645,12 @@ system.deliverVehicle=async id=>{
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
 (async()=>{
- try{initRenderer();await selectModel(activeModel.id);}
+ try{
+  // Começa o download do sedã enquanto o mundo 3D é montado, sem bloquear
+  // a inicialização síncrona de iluminação, vegetação e arquitetura.
+  loadVehicleGLB(activeModel).catch(()=>{});
+  initRenderer();
+  await selectModel(activeModel.id);
+ }
  catch(error){system.status='failed';system.error=String(error);console.error(error);}
 })();
