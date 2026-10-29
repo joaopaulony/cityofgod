@@ -90,6 +90,9 @@ export function createParked3D(THREE, scene, bridge) {
         models.set(id,normalize(g.scene.clone(true),cfg));state.models=models.size;
       }).catch(e=>{
         failed.add(id);state.failed=failed.size;
+        // Fallback de carro antigo SOMENTE para os modelos cujo GLB falhou.
+        for(const b of bridge.boxes)if(b.kind==='parkedcar'&&streetModel(b)===id)
+          b.vehicleModelFailed=true;
         console.warn('Carro estacionado não carregou',id,e);
       }).finally(()=>{
         pending.delete(id);inflight--;
