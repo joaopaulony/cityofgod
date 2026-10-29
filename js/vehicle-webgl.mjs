@@ -347,7 +347,7 @@ function initRenderer(){
   try{gas3d=createGas3D(THREE,scene,bridge);system.gas3d=gas3d.state;}
   catch(error){console.error('Postos 3D falharam',error);}
   // carros estacionados com os modelos GLB (parked-3d.mjs)
-  try{parked3d=createParked3D(THREE,scene,bridge,damageFX);system.parked3d=parked3d.state;
+  try{parked3d=createParked3D(THREE,scene,bridge,damageFX);system.parked3d=parked3d.state;}
   catch(error){console.error('Carros estacionados 3D falharam',error);}
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
