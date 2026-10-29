@@ -9,7 +9,7 @@ O Sketchfab requer login para baixar. Os binários originais NÃO foram incluíd
 ## Como instalar
 
 1. Baixe o arquivo original usando sua conta Sketchfab e extraia os FBX/texturas.
-2. No Blender, separe os carros por arquivo, mantendo materiais e UVs. Garanta frente -Z, cima +Y, carro em escala proporcional e rodas/pivôs corretos.
+2. No Blender, separe os carros por arquivo, mantendo materiais e UVs. Garanta frente +Z, cima +Y, carro em escala proporcional e rodas/pivôs corretos.
 3. Exporte cada carro em GLB com suas texturas embutidas. Nomes obrigatórios:
 
 - civil-ambulance.glb — ambulância (9404 triângulos anunciados)
@@ -44,3 +44,6 @@ Sem SpotLights para veículos estacionados ou NPCs; apenas pequenas lentes emiss
 ## Critérios de aceite
 
 Cada veículo precisa passar conferência de frente/trás, rodas, largura/altura, colisão, decalques, câmera nas quatro posições, desempenho e todos os controles de luz. Não afirmar que os carros estão publicados antes do download e teste dos 10 GLBs reais.
+
+## Rig de rodas 2026-10-29
+Modelo original convertido em 58 pivôs de roda reais. A versão 2K WebP com roda articulada está em `civil-fleet-2k-webp-wheelrig.zip` (SHA-256 `298dcdf13a795df7eb68fb27bb663270f6fe427f691de1647db945f0155c43cd`). Frente física do novo pack corresponde ao **+Z** no GLB, ao contrário da frota anterior. As rodas giram conforme metros percorridos e raio real de pneu; direção dianteira aplicada no eixo vertical original Z, com eixo traseiro e duplas sem esterçamento. Arquivo original e atribuição CC BY 4.0 preservados.
