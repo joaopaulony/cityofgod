@@ -49,7 +49,7 @@ window.cityVehicleBridge={
   get gameTime(){return T;},trafficPhase,props3d,ROAD_W,
   get roads(){return world.roads;},
   curbBreak:(x,y,id)=>roadDist(x,y)<ROAD_W-.25||(world.curbCuts||[]).some(c=>Math.hypot(x-c.x,y-c.y)<c.r)||(world.open?CityStreetLayout.nearOtherRoad(x,y,id,{map:OW.roadHash,cell:OW.RC},ROAD_W+SIDE+.6):!!world.junction&&Math.hypot(x-world.junction.x,y-world.junction.y)<ROAD_W+SIDE+3.5),
-  down:k=>input.down(k),hit:k=>input.hit(k),
+  down:k=>!window.CityAdmin?.active&&input.down(k),hit:k=>!window.CityAdmin?.active&&input.hit(k),
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
   collide, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
