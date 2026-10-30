@@ -36,14 +36,22 @@ test('base animations are procedural, damped and preserve twist inheritance',()=
  assert.match(code,/CC3_BONE_LINKS/);
  assert.match(code,/smoothing/);
 });
-test('human reset disables legacy CC3 and Mixamo visual loaders while preserving skeleton data',()=>{
+test('personagens do autor (assets/npcs) no esqueleto Mixamo, sem os loaders antigos de CC3/Reborn',()=>{
  const src=read('js/character-webgl.mjs');
- assert.match(src,/humanModelsEnabled:false/);
- assert.match(src,/loadRebornAssets/);
- assert.match(src,/createRebornUpperBodyMotion/);
+ assert.match(src,/loadRoster/);
+ assert.match(src,/chooseCharacterClip/);
  assert.match(src,/installCASCreator/);
- assert.doesNotMatch(src,/async function initMixamo/);
+ assert.match(src,/bridge\.driving\(\)/);            // o corpo some ao dirigir
+ assert.doesNotMatch(src,/loadRebornAssets|street-crown/);
  assert.doesNotMatch(src,/async function initCC3/);
+ const roster=JSON.parse(read('assets/npcs/roster.json'));
+ assert.equal(roster.characters.length,52);
+ for(const c of roster.characters){
+  // nome e sobrenome do arquivo (o Miguel, protagonista, vem só com o primeiro nome)
+  if(c.id!=='miguel')assert.match(c.name,/^\S+ \S+/,'nome e sobrenome: '+c.id);
+  assert.ok(['player','civil','gang','service','worker'].includes(c.role));
+  assert.ok(c.height>1.5&&c.height<1.9,'escala real: '+c.id);
+ }
 });
 test('conversion workflow is valid Python, never includes raw user FBX',()=>{
  const path=new URL('../tools/convert_cc3_bodies.py',import.meta.url);

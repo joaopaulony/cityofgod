@@ -5,13 +5,15 @@ import {CAS_DEFAULT,CAS_COLORS,normalizeCAS} from './cas-profile.mjs';
 import {MAX_CHARACTERS,readRoster,activeCharacter,addCharacter,updateCharacter,selectCharacter,deleteCharacter,persistRoster} from './cas-roster.mjs';
 import {createRebornUpperBodyMotion} from './cas-reborn-upperbody.mjs';
 import {installRebornHandBones} from './cas-reborn-hands.mjs';
-import {STREET_CROWN_MODELS,streetModelForSex} from './street-crown-adapter.mjs';
+import {DEFAULT_LOOK} from './npc-roster.mjs';
 import {applyCASVisual,releaseCASVisual,createCASEmoteClips,CAS_EMOTES,outfitPalette} from './cas-studio.mjs';
 
 // City of God CAS: an in-game, full-screen 3D dressing room.
 // Animation and body meshes are actual licensed game GLBs, never flat video.
 // The gameplay system remains authoritative for applying a saved appearance.
 export function installCASCreator(system,bridge,_bases,hairSystem){
+ // visuais = personagens do roster (bases principais + looks dos NPCs), por sexo
+ const streetModelForSex=(id,sex)=>system.looks?.[id]?.sex===sex?id:DEFAULT_LOOK[sex];
  const dialog=document.createElement('dialog');
  dialog.id='city-cas-dialog';
  dialog.setAttribute('aria-label','City of God — criador de personagem');
@@ -37,7 +39,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  '<div class="cas-tip">Nome, idade e origem são gravados no perfil local. Os efeitos da história e das habilidades serão implementados em uma etapa futura.</div></section>',
  '<section class="cas-section" data-cas-section="body" hidden><h2>Corpo e aparência</h2><p>Escolha a base 3D e ajuste as proporções gerais.</p>',
  '<div class="cas-field"><span>Modelo corporal</span><div class="cas-segment"><label><input type="radio" name="sex" value="male"> Masculino</label><label><input type="radio" name="sex" value="female"> Feminino</label></div></div>',
- '<label class="cas-field" id="cas-street-model-row" hidden><span>Malha Street Crown · esqueleto Reborn</span><select name="streetModel" aria-label="Escolher modelo Street Crown"></select></label>',
+ '<label class="cas-field" id="cas-street-model-row" hidden><span>Visual (personagem)</span><select name="streetModel" aria-label="Escolher o visual do personagem"></select></label>',
  '<label class="cas-field"><span>Altura <output data-cas-output="height">100%</output></span><input type="range" name="height" min="0.90" max="1.10" step="0.01"></label>',
  '<label class="cas-field"><span>Constituição <output data-cas-output="build">100%</output></span><input type="range" name="build" min="0.86" max="1.14" step="0.01"></label>',
  '<label class="cas-field"><span>Tom de pele</span><input type="color" name="skin"></label><div class="cas-colors" id="cas-skin-swatches"></div>',
@@ -93,7 +95,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   if(!system.streetCrownEnabled)return;
   const requested=streetModelForSex(streetSelect.value||system.streetModelId,sex);
   streetSelect.replaceChildren();
-  for(const spec of Object.values(STREET_CROWN_MODELS)){
+  for(const spec of Object.values(system.looks||{})){
    if(spec.sex!==sex)continue;
    const option=document.createElement('option');option.value=spec.id;option.textContent=spec.label;streetSelect.append(option);
   }
@@ -259,7 +261,7 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
  }
  async function getPreviewAsset(sex){
   const id=streetModelForSex(el('streetModel')?.value||system.streetModelId,sex);
-  const entry=system.streetCrownEnabled?system.streetCrownVariants?.get(id):_bases?.get(sex);
+  const entry=system.loadLook?await system.loadLook(id):null;
   if(!entry?.gltf)throw Error('Esqueleto '+sex+' não carregado. Sem modelos humanos instalados.');
   return entry;
  }
@@ -290,15 +292,15 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    if(previewRoot){world.remove(previewRoot);previewRoot=null;}
    const root=cloneSkeleton(gltf.scene),positions=[];
    // SkeletonHelper snapshots its hierarchy: append hand and finger bones first.
-   installRebornHandBones(root);
+   const reborn=!!root.getObjectByName('Spine02');   // esqueleto Mixamo dos personagens: sem os dedos procedurais do Reborn
+   if(reborn)installRebornHandBones(root);
    let meshes=0;
    root.updateMatrixWorld(true);
    root.traverse(o=>{
     if(o.isMesh)meshes++;
     if(o.isBone)positions.push(o.getWorldPosition(new THREE.Vector3()));
    });
-   if(meshes&&!system.streetCrownEnabled)throw Error('Arquivo inválido: malha humana encontrada');
-   if(!meshes&&system.streetCrownEnabled)throw Error('Street Crown sem malha humana');
+   if(!meshes)throw Error('Personagem sem malha');
    if(positions.length<20)throw Error('Não há ossos suficientes para a prévia');
    const bounds=new THREE.Box3().setFromPoints(positions),height=bounds.max.y-bounds.min.y;
    if(!Number.isFinite(height)||height<.1)throw Error('Esqueleto sem dimensões válidas');
@@ -315,11 +317,11 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
    previewSkeleton.visible=!meshes||showStreetRig;
    world.add(previewSkeleton);
    mixer=new THREE.AnimationMixer(root);activeMotion=null;
-   rebornUpper=createRebornUpperBodyMotion(root);
+   rebornUpper=reborn?createRebornUpperBodyMotion(root):null;
    modelAnimations=[...(gltf.animations||[]),...createCASEmoteClips(root)];
    setClip();
    const joints=[];root.traverse(node=>{if(node.isBone)joints.push(node.name)});
-   source.textContent=(meshes?'STREET CROWN GLB + RIG':'SOMENTE OSSOS')+' · '+joints.length+' ARTICULAÇÕES · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
+   source.textContent=(meshes?(system.looks?.[el('streetModel')?.value]?.label||'PERSONAGEM')+' · MIXAMO':'SOMENTE OSSOS')+' · '+joints.length+' ARTICULAÇÕES · 10 DEDOS · '+modelAnimations.length+' ANIMAÇÕES';
    system.handSkeletonStats={bones:joints.length,extendedFingers:joints.filter(n=>/^((Left)|(Right))Hand(Thumb|Index|Middle|Ring|Pinky)/.test(n)).length,helperBones:previewSkeleton?.bones?.length||0};
    loading.hidden=true;syncPreview();
   }catch(error){loading.textContent='Prévia 3D: '+String(error.message||error);source.textContent='ERRO AO CARREGAR PERSONAGEM';status.textContent='A prévia não abriu: '+String(error.message||error);}
@@ -384,10 +386,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   refreshRoster();
   artlistMode=false;visibleTab('identity');previewSex=null;previewHairKey='';spin=0;zoom=3.55;previewAnimation='idle';el('previewAction').value='idle';
   status.textContent=system.streetCrownEnabled
-    ?'Seis personagens Street Crown carregados. Escolha uma malha na aba Corpo. A malha dos dedos ainda não tem deformação individual.'
-    :system.streetCrownRequested
-     ?'Falha ao carregar as malhas: '+(system.casWarnings?.[0]||system.errors?.[0]||'verifique os GLBs')
-     :'Modo esqueleto ativado: remova ?skeleton=1 para carregar os corpos.';
+    ?Object.keys(system.looks||{}).length+' personagens disponíveis. Escolha o visual na aba Corpo (bases principais e looks dos moradores, gangues e serviços).'
+    :'Falha ao carregar os personagens: '+(system.casWarnings?.[0]||system.errors?.[0]||'verifique assets/npcs');
   window.cityCharacterEditorOpen=true;
   window.dispatchEvent(new Event('blur'));
   dialog.showModal();
@@ -464,8 +464,8 @@ export function installCASCreator(system,bridge,_bases,hairSystem){
   save.disabled=true;status.textContent='Aplicando modelo e salvando perfil…';
   try{
    const selected=currentDraft();
+   if(system.streetCrownEnabled)selected.look=streetModelForSex(streetSelect.value,selected.sex);
    await system.applyCAS(selected);
-   if(system.streetCrownEnabled&&!system.setStreetModel(streetSelect.value))throw Error('Malha selecionada incompatível com o corpo');
    try{roster=updateCharacter(roster,selected);persistRoster(safeStorage(),roster);}catch{status.textContent='Visual aplicado, mas não foi possível gravar. Verifique permissões do navegador.';return;}
    status.textContent='Personagem salvo!';
    close();

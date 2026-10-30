@@ -3,7 +3,7 @@ export const CAS_KEY='cityofgod.cas.skeleton.v2';
 export const CAS_DEFAULT=Object.freeze({
  version:1,name:'Alex',age:24,sex:'male',height:1,build:1,background:'bairro',style:'casual',
  skin:'#c98d68',hair:'#30231e',hairStyle:'none',top:'#49647a',bottom:'#29394f',shoes:'#e9e6e0',
- outfit:'casual',accessory:'none',accessoryColor:'#25282a',faceWidth:0,jaw:0,nose:0,eyes:0,cheeks:0
+ outfit:'casual',accessory:'none',accessoryColor:'#25282a',faceWidth:0,jaw:0,nose:0,eyes:0,cheeks:0,look:''
 });
 export const CAS_COLORS=Object.freeze({
  skin:['#edc6a4','#c98d68','#aa7050','#80533e','#4a3027'],
@@ -26,6 +26,8 @@ export function normalizeCAS(input={}){
  result.outfit=['casual','street','sport','social'].includes(input.outfit)?input.outfit:'casual';
  result.accessory=['none','glasses','cap','beanie'].includes(input.accessory)?input.accessory:'none';
  for(const key of ['faceWidth','jaw','nose','eyes','cheeks'])result[key]=clamp(input[key],-1,1,0);
+ // visual escolhido: id de um personagem de assets/npcs/roster.json (validado contra o roster no jogo)
+ result.look=/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(input.look||''))?String(input.look):'';
  result.hairStyle=/^hair-(?:0[1-9]|1[0-9]|2[01])$/.test(String(input.hairStyle||''))?input.hairStyle:'none';
  for(const key of ['skin','hair','top','bottom','shoes','accessoryColor'])if(COLOR.test(input[key]||''))result[key]=input[key].toLowerCase();
  return result;

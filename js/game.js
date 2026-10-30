@@ -179,6 +179,7 @@ function fire(J) {
   tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
   impact(hit, hz);
   player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12;
+  window.cityCharacters?.report?.('shot', player.x, player.y);   // tiros seguidos chamam a polícia
   // cápsula ejetada p/ a direita do fuzil
   const side = V.norm(V.cross([0, 0, 1], V.sub(R.muzzle, R.butt)));
   const e = R.recv1;
