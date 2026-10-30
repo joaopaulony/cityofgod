@@ -1,7 +1,8 @@
 {
  "schema": 1,
- "rig": "meshy-24",
- "note": "Gerado por tools/rig-npcs.mjs a partir dos modelos Tripo (pose T) do autor; triângulos originais preservados.",
+ "rig": "mixamo",
+ "rest": "A0",
+ "note": "Gerado por tools/rig-npcs.mjs a partir dos modelos Tripo (pose T) do autor; repouso em pose A; triângulos originais preservados.",
  "characters": [
   {
    "id": "char-principal-base",
@@ -11,8 +12,9 @@
    "sex": "female",
    "height": 1.68,
    "file": "char-principal-base.glb",
+   "weights": "blender-heat (16244 copiados do vizinho)",
    "triangles": 32226,
-   "bytes": 2538880,
+   "bytes": 2538424,
    "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb"
   },
   {
@@ -23,8 +25,9 @@
    "sex": "male",
    "height": 1.8,
    "file": "character-principal-base.glb",
+   "weights": "blender-heat",
    "triangles": 32068,
-   "bytes": 2458904,
+   "bytes": 2458136,
    "source": "Character Principal Base/Character-Principal-Base,human figure 3d model.glb"
   },
   {
@@ -35,8 +38,9 @@
    "sex": "male",
    "height": 1.8,
    "file": "miguel.glb",
+   "weights": "blender-heat (1029 copiados do vizinho)",
    "triangles": 32052,
-   "bytes": 3203144,
+   "bytes": 3202564,
    "source": "Character Principal Base/Miguel,character-case,human character 3d model.glb"
   },
   {
@@ -47,8 +51,9 @@
    "sex": "male",
    "height": 1.748,
    "file": "christopher-brown.glb",
+   "weights": "blender-heat (478 copiados do vizinho)",
    "triangles": 21778,
-   "bytes": 2791544,
+   "bytes": 2790832,
    "source": "Gang Last Kings/Christopher-Brown,Last-Kings,streetwear character 3d model.glb"
   },
   {
@@ -59,8 +64,9 @@
    "sex": "female",
    "height": 1.695,
    "file": "debora-justus.glb",
+   "weights": "blender-heat (1180 copiados do vizinho)",
    "triangles": 22101,
-   "bytes": 2992936,
+   "bytes": 2992176,
    "source": "Gang Last Kings/Debora-Justus,Lastk-Kings,female,character,3d,model.glb"
   },
   {
@@ -71,8 +77,9 @@
    "sex": "female",
    "height": 1.68,
    "file": "flavia-nisha.glb",
+   "weights": "blender-heat (108 copiados do vizinho)",
    "triangles": 22308,
-   "bytes": 2557548,
+   "bytes": 2557048,
    "source": "Gang Last Kings/Flavia-Nisha,Last-Kings,female character 3d model.glb"
   },
   {
@@ -83,8 +90,9 @@
    "sex": "male",
    "height": 1.77,
    "file": "marco-rubio.glb",
+   "weights": "blender-heat (326 copiados do vizinho)",
    "triangles": 21353,
-   "bytes": 3011080,
+   "bytes": 3010480,
    "source": "Gang Last Kings/Marco-Rubio,urban,gangster,LastKings,male,3d,model.glb"
   },
   {
@@ -95,8 +103,9 @@
    "sex": "female",
    "height": 1.646,
    "file": "rubia-snyder.glb",
+   "weights": "blender-heat (324 copiados do vizinho)",
    "triangles": 20554,
-   "bytes": 2720676,
+   "bytes": 2720172,
    "source": "Gang Last Kings/Rubia-Snyder,realistic,female,character,LastKings,3d,model.glb"
   },
   {
@@ -107,8 +116,9 @@
    "sex": "male",
    "height": 1.819,
    "file": "vinicius-duc.glb",
+   "weights": "blender-heat (10444 copiados do vizinho)",
    "triangles": 19613,
-   "bytes": 2709156,
+   "bytes": 2708640,
    "source": "Gang Last Kings/Vinicius-Duc,Last-Kings,urban,male,character,3d,model.glb"
   },
   {
@@ -119,8 +129,9 @@
    "sex": "female",
    "height": 1.649,
    "file": "ana-paula-novli.glb",
+   "weights": "blender-heat (170 copiados do vizinho)",
    "triangles": 28095,
-   "bytes": 2778136,
+   "bytes": 2777484,
    "source": "Gang Noveli's Crew/Ana-Paula-Novli,NovelisCrew,female fashion 3d model.glb"
   },
   {
@@ -131,8 +142,9 @@
    "sex": "female",
    "height": 1.646,
    "file": "carla-green.glb",
+   "weights": "blender-heat (11300 copiados do vizinho)",
    "triangles": 20589,
-   "bytes": 2476420,
+   "bytes": 2475732,
    "source": "Gang Noveli's Crew/Carla-Green,NovelisCrew,fitness model 3d.glb"
   },
   {
@@ -143,8 +155,9 @@
    "sex": "male",
    "height": 1.8,
    "file": "jacob-drew.glb",
+   "weights": "blender-heat (11697 copiados do vizinho)",
    "triangles": 22768,
-   "bytes": 2893200,
+   "bytes": 2892380,
    "source": "Gang Noveli's Crew/Jacob-Drew,NovelisCrew,athletic human 3d model.glb"
   },
   {
@@ -155,8 +168,9 @@
    "sex": "male",
    "height": 1.79,
    "file": "liam-drake.glb",
+   "weights": "blender-heat (11663 copiados do vizinho)",
    "triangles": 22764,
-   "bytes": 2912536,
+   "bytes": 2911924,
    "source": "Gang Noveli's Crew/Liam-Drake,NovelisCrew,stylized character 3d model.glb"
   },
   {
@@ -167,8 +181,9 @@
    "sex": "male",
    "height": 1.781,
    "file": "pablo-escob.glb",
+   "weights": "blender-heat (179 copiados do vizinho)",
    "triangles": 22433,
-   "bytes": 2700072,
+   "bytes": 2699500,
    "source": "Gang Noveli's Crew/Pablo-Escob,NovelisCrew,streetwear man 3d model.glb"
   },
   {
@@ -179,8 +194,9 @@
    "sex": "female",
    "height": 1.668,
    "file": "roseane-alencar.glb",
+   "weights": "blender-heat (470 copiados do vizinho)",
    "triangles": 23362,
-   "bytes": 2464796,
+   "bytes": 2464204,
    "source": "Gang Noveli's Crew/Roseane-Alencar,NovelisCrew,anime male character 3d model.glb"
   },
   {
@@ -191,8 +207,9 @@
    "sex": "male",
    "height": 1.767,
    "file": "bruno-martin.glb",
+   "weights": "blender-heat (1229 copiados do vizinho)",
    "triangles": 18538,
-   "bytes": 2717584,
+   "bytes": 2717028,
    "source": "NPCs Bombeiros/Bruno-Martin,firefighter 3d model.glb"
   },
   {
@@ -203,8 +220,9 @@
    "sex": "male",
    "height": 1.763,
    "file": "james-clington.glb",
+   "weights": "blender-heat (1043 copiados do vizinho)",
    "triangles": 13551,
-   "bytes": 2335176,
+   "bytes": 2334628,
    "source": "NPCs Bombeiros/James-Clington,firefighter 3d model.glb"
   },
   {
@@ -215,8 +233,9 @@
    "sex": "male",
    "height": 1.805,
    "file": "nouwa-marcs.glb",
+   "weights": "blender-heat (890 copiados do vizinho)",
    "triangles": 18876,
-   "bytes": 2733700,
+   "bytes": 2733316,
    "source": "NPCs Bombeiros/Nouwa-Marcs,firefighter 3d model.glb"
   },
   {
@@ -227,8 +246,9 @@
    "sex": "male",
    "height": 1.788,
    "file": "rick-william.glb",
+   "weights": "blender-heat (621 copiados do vizinho)",
    "triangles": 10164,
-   "bytes": 1725656,
+   "bytes": 1725056,
    "source": "NPCs Motoboy/Rick William,Motoboy, 3d model.glb"
   },
   {
@@ -239,8 +259,9 @@
    "sex": "male",
    "height": 1.817,
    "file": "drew-carvalho.glb",
+   "weights": "blender-heat (49 copiados do vizinho)",
    "triangles": 10726,
-   "bytes": 2036360,
+   "bytes": 2035940,
    "source": "NPCs Operarios/Drew-Carvalho,construction worker 3d model.glb"
   },
   {
@@ -251,8 +272,9 @@
    "sex": "male",
    "height": 1.751,
    "file": "erick-hill.glb",
+   "weights": "blender-heat (432 copiados do vizinho)",
    "triangles": 10761,
-   "bytes": 1920936,
+   "bytes": 1920312,
    "source": "NPCs Operarios/Erick-Hill,construction worker 3d model.glb"
   },
   {
@@ -263,8 +285,9 @@
    "sex": "female",
    "height": 1.626,
    "file": "laura-lisboa.glb",
+   "weights": "blender-heat (381 copiados do vizinho)",
    "triangles": 19124,
-   "bytes": 2558208,
+   "bytes": 2557660,
    "source": "NPCs Socorristas/Laura-Lisboa,paramedic 3d model.glb"
   },
   {
@@ -275,8 +298,9 @@
    "sex": "male",
    "height": 1.758,
    "file": "peter-jordan.glb",
+   "weights": "blender-heat (1017 copiados do vizinho)",
    "triangles": 19231,
-   "bytes": 2294664,
+   "bytes": 2293980,
    "source": "NPCs Socorristas/Peter-Jordan,paramedic in uniform 3d model.glb"
   },
   {
@@ -287,8 +311,9 @@
    "sex": "female",
    "height": 1.628,
    "file": "aiko-sakura.glb",
+   "weights": "blender-heat (503 copiados do vizinho)",
    "triangles": 22308,
-   "bytes": 2455032,
+   "bytes": 2454412,
    "source": "NPCs Urbanos Female/Aiko-Sakura,female character 3d model.glb"
   },
   {
@@ -299,8 +324,9 @@
    "sex": "female",
    "height": 1.687,
    "file": "jessica-alves.glb",
+   "weights": "blender-heat (912 copiados do vizinho)",
    "triangles": 21622,
-   "bytes": 2477860,
+   "bytes": 2477332,
    "source": "NPCs Urbanos Female/Jessica-Alves,woman 3d model.glb"
   },
   {
@@ -311,8 +337,9 @@
    "sex": "female",
    "height": 1.668,
    "file": "keiko-mikihana.glb",
+   "weights": "blender-heat (1426 copiados do vizinho)",
    "triangles": 23350,
-   "bytes": 2406468,
+   "bytes": 2405940,
    "source": "NPCs Urbanos Female/Keiko-Mikihana,female character 3d model.glb"
   },
   {
@@ -323,8 +350,9 @@
    "sex": "female",
    "height": 1.621,
    "file": "kim-kawaki.glb",
+   "weights": "blender-heat (133 copiados do vizinho)",
    "triangles": 22127,
-   "bytes": 2466332,
+   "bytes": 2465604,
    "source": "NPCs Urbanos Female/Kim-Kawaki,female character 3d model.glb"
   },
   {
@@ -335,8 +363,9 @@
    "sex": "female",
    "height": 1.622,
    "file": "larah-jucca.glb",
+   "weights": "blender-heat (483 copiados do vizinho)",
    "triangles": 22043,
-   "bytes": 2426712,
+   "bytes": 2426196,
    "source": "NPCs Urbanos Female/Larah-Jucca,human female 3d model.glb"
   },
   {
@@ -347,8 +376,9 @@
    "sex": "female",
    "height": 1.642,
    "file": "larissa-dwayne.glb",
+   "weights": "blender-heat (11841 copiados do vizinho)",
    "triangles": 22043,
-   "bytes": 2392712,
+   "bytes": 2392148,
    "source": "NPCs Urbanos Female/Larissa-Dwayne,3d female character model.glb"
   },
   {
@@ -359,8 +389,9 @@
    "sex": "female",
    "height": 1.678,
    "file": "lissandra-martin.glb",
+   "weights": "blender-heat (479 copiados do vizinho)",
    "triangles": 21032,
-   "bytes": 2197416,
+   "bytes": 2196744,
    "source": "NPCs Urbanos Female/Lissandra-Martin,female character 3d model.glb"
   },
   {
@@ -371,8 +402,9 @@
    "sex": "female",
    "height": 1.693,
    "file": "marta-gonzales.glb",
+   "weights": "blender-heat (933 copiados do vizinho)",
    "triangles": 20969,
-   "bytes": 2317068,
+   "bytes": 2316584,
    "source": "NPCs Urbanos Female/Marta-Gonzales,female figure 3d model.glb"
   },
   {
@@ -383,8 +415,9 @@
    "sex": "female",
    "height": 1.7,
    "file": "monica-dream.glb",
+   "weights": "blender-heat (5524 copiados do vizinho)",
    "triangles": 10154,
-   "bytes": 1548256,
+   "bytes": 1547668,
    "source": "NPCs Urbanos Female/Monica-Dream,female character 3d model.glb"
   },
   {
@@ -395,8 +428,9 @@
    "sex": "female",
    "height": 1.631,
    "file": "monica-megan.glb",
+   "weights": "blender-heat (62 copiados do vizinho)",
    "triangles": 21331,
-   "bytes": 2480520,
+   "bytes": 2479960,
    "source": "NPCs Urbanos Female/Monica-Megan,female 3d character model.glb"
   },
   {
@@ -407,8 +441,9 @@
    "sex": "female",
    "height": 1.656,
    "file": "thabata-lisboa.glb",
+   "weights": "blender-heat (11762 copiados do vizinho)",
    "triangles": 21572,
-   "bytes": 2494300,
+   "bytes": 2493692,
    "source": "NPCs Urbanos Female/Thabata-Lisboa,woman 3d model.glb"
   },
   {
@@ -419,8 +454,9 @@
    "sex": "female",
    "height": 1.692,
    "file": "yuki-soo-jin.glb",
+   "weights": "blender-heat (11853 copiados do vizinho)",
    "triangles": 22438,
-   "bytes": 2354580,
+   "bytes": 2354024,
    "source": "NPCs Urbanos Female/Yuki-Soo-jin,female figure 3d model.glb"
   },
   {
@@ -431,8 +467,9 @@
    "sex": "male",
    "height": 1.802,
    "file": "andersson-xuan.glb",
+   "weights": "blender-heat (279 copiados do vizinho)",
    "triangles": 23495,
-   "bytes": 2425008,
+   "bytes": 2424624,
    "source": "NPCs Urbanos Male/Andersson-Xuan,human figure 3d model.glb"
   },
   {
@@ -443,8 +480,9 @@
    "sex": "male",
    "height": 1.747,
    "file": "chris-rock.glb",
+   "weights": "blender-heat (1267 copiados do vizinho)",
    "triangles": 23157,
-   "bytes": 2413376,
+   "bytes": 2412792,
    "source": "NPCs Urbanos Male/Chris-Rock,human character 3d model.glb"
   },
   {
@@ -455,8 +493,9 @@
    "sex": "male",
    "height": 1.748,
    "file": "flavio-august.glb",
+   "weights": "blender-heat (12028 copiados do vizinho)",
    "triangles": 23062,
-   "bytes": 2519512,
+   "bytes": 2518932,
    "source": "NPCs Urbanos Male/Flavio-August,human figure 3d model.glb"
   },
   {
@@ -467,8 +506,9 @@
    "sex": "male",
    "height": 1.812,
    "file": "henrique-josh.glb",
+   "weights": "blender-heat (92 copiados do vizinho)",
    "triangles": 23341,
-   "bytes": 2465224,
+   "bytes": 2464772,
    "source": "NPCs Urbanos Male/Henrique-Josh,human figure 3d model.glb"
   },
   {
@@ -479,8 +519,9 @@
    "sex": "male",
    "height": 1.774,
    "file": "igor-kataguri.glb",
+   "weights": "blender-heat (68 copiados do vizinho)",
    "triangles": 22692,
-   "bytes": 2132056,
+   "bytes": 2131416,
    "source": "NPCs Urbanos Male/Igor-Kataguri,male character 3d model.glb"
   },
   {
@@ -491,8 +532,9 @@
    "sex": "male",
    "height": 1.76,
    "file": "jackie-sakur.glb",
+   "weights": "blender-heat",
    "triangles": 21190,
-   "bytes": 2115008,
+   "bytes": 2114220,
    "source": "NPCs Urbanos Male/Jackie-Sakur,human 3d model.glb"
   },
   {
@@ -503,8 +545,9 @@
    "sex": "male",
    "height": 1.767,
    "file": "james-clean.glb",
+   "weights": "blender-heat",
    "triangles": 24083,
-   "bytes": 2675724,
+   "bytes": 2675132,
    "source": "NPCs Urbanos Male/James-Clean,human figure 3d model.glb"
   },
   {
@@ -515,8 +558,9 @@
    "sex": "male",
    "height": 1.792,
    "file": "jim-yakim.glb",
+   "weights": "blender-heat (638 copiados do vizinho)",
    "triangles": 22921,
-   "bytes": 2194208,
+   "bytes": 2193628,
    "source": "NPCs Urbanos Male/Jim-Yakim,businessman suit 3d model.glb"
   },
   {
@@ -527,8 +571,9 @@
    "sex": "male",
    "height": 1.748,
    "file": "luis-james.glb",
+   "weights": "blender-heat (107 copiados do vizinho)",
    "triangles": 24875,
-   "bytes": 2308216,
+   "bytes": 2307704,
    "source": "NPCs Urbanos Male/Luis-James,businessman character 3d model.glb"
   },
   {
@@ -539,8 +584,9 @@
    "sex": "male",
    "height": 1.772,
    "file": "manuel-james.glb",
+   "weights": "blender-heat (163 copiados do vizinho)",
    "triangles": 23177,
-   "bytes": 2038244,
+   "bytes": 2037616,
    "source": "NPCs Urbanos Male/Manuel-James,businessman in suit 3d model.glb"
   },
   {
@@ -551,8 +597,9 @@
    "sex": "male",
    "height": 1.781,
    "file": "mauro-oruam.glb",
+   "weights": "blender-heat (1689 copiados do vizinho)",
    "triangles": 21655,
-   "bytes": 2427416,
+   "bytes": 2426900,
    "source": "NPCs Urbanos Male/Mauro-Oruam,white athletic outfit 3d model.glb"
   },
   {
@@ -563,8 +610,9 @@
    "sex": "male",
    "height": 1.781,
    "file": "ronald-junior.glb",
+   "weights": "blender-heat (621 copiados do vizinho)",
    "triangles": 23929,
-   "bytes": 2447180,
+   "bytes": 2446608,
    "source": "NPCs Urbanos Male/Ronald-Junior,human character 3d model.glb"
   },
   {
@@ -575,8 +623,9 @@
    "sex": "female",
    "height": 1.683,
    "file": "clara-migos.glb",
+   "weights": "blender-heat (13118 copiados do vizinho)",
    "triangles": 26320,
-   "bytes": 6466752,
+   "bytes": 6466192,
    "source": "Pilicia City Of God/Clara-Migos,police officer 3d model.glb"
   },
   {
@@ -587,8 +636,9 @@
    "sex": "male",
    "height": 1.8,
    "file": "dwayne-jhon.glb",
+   "weights": "blender-heat (11112 copiados do vizinho)",
    "triangles": 22060,
-   "bytes": 7164556,
+   "bytes": 7163872,
    "source": "Pilicia City Of God/Dwayne-Jhon,police, officer 3d model.glb"
   },
   {
@@ -599,8 +649,9 @@
    "sex": "male",
    "height": 1.759,
    "file": "john-steart.glb",
+   "weights": "blender-heat (53 copiados do vizinho)",
    "triangles": 23927,
-   "bytes": 6501308,
+   "bytes": 6500812,
    "source": "Pilicia City Of God/John-Steart,police officer 3d model.glb"
   },
   {
@@ -611,8 +662,9 @@
    "sex": "female",
    "height": 1.622,
    "file": "jussara-duarte.glb",
+   "weights": "blender-heat (79 copiados do vizinho)",
    "triangles": 24738,
-   "bytes": 2218956,
+   "bytes": 2218240,
    "source": "Pilicia City Of God/Jussara-Duarte,police officer 3d model.glb"
   },
   {
@@ -623,8 +675,9 @@
    "sex": "male",
    "height": 1.779,
    "file": "niccolas-brown.glb",
+   "weights": "blender-heat (11289 copiados do vizinho)",
    "triangles": 22379,
-   "bytes": 6577992,
+   "bytes": 6577268,
    "source": "Pilicia City Of God/Niccolas-Brown,Police,police officer 3d model.glb"
   }
  ]

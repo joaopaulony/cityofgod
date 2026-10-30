@@ -14,11 +14,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 
 const SRC = process.argv[2] || 'C:/Users/JyOr/Documents/NPCs City Of God';
 const OUT = process.argv[3] || 'assets/npcs';
 const MIXAMO = 'assets/characters/rigs/mixamo/';
-const ONLY = process.env.ONLY;
+// Blender p/ os pesos (Automatic Weights). BLENDER=0 volta aos pesos por distância.
+const BLENDER = process.env.BLENDER === '0' ? null : process.env.BLENDER || 'C:/Program Files (x86)/Steam/steamapps/common/Blender/blender.exe';
+const TMP = process.env.RIG_TMP || path.join(os.tmpdir(), 'cityofgod-rig');
+const ONLY = process.env.ONLY, A_POSE = +(process.env.A_POSE ?? 0);   // 0: repouso = a pose T original, malha intacta
 
 // ---------- pastas → grupo, papel no jogo ----------
 const GROUPS = {
@@ -168,7 +173,7 @@ function rigOne(file, meta) {
   J.neck = V3(0, M.armY + 0.028 * H, M.midZ(M.armY + 0.028 * H) - 0.005 * H);
   J.Head = V3(0, M.armY + 0.068 * H, J.neck.z + 0.002 * H);
   for (const [side, s, pit, tip] of [['Left', 1, M.pitL, M.tipL], ['Right', -1, M.pitR, M.tipR]]) {
-    const sh = pit - s * 0.006 * H, wrist = tip - s * 0.105 * H;   // pivô do ombro: logo acima da axila
+    const sh = pit + s * (+(process.env.SH_OFF ?? 0.012)) * H, wrist = tip - s * 0.105 * H;   // pivô: cabeça do úmero, um pouco além da axila
     J[side + 'Shoulder'] = V3(s * 0.022 * H, M.armAt(sh)[0] - 0.012 * H, M.midZ(M.armY));
     const at = x => V3(x, ...M.armAt(x)), elbow = sh + (wrist - sh) * 0.53;
     J[side + 'Arm'] = at(sh + s * 0.015 * H).setX(sh);
@@ -182,6 +187,15 @@ function rigOne(file, meta) {
     J[side + 'ToeBase'] = V3(ax + s * 0.008 * H, 0.025 * H, M.footFront(s) - 0.055 * H);
     J[side + 'ToeTip'] = V3(ax + s * 0.01 * H, 0.012 * H, M.footFront(s));
   }
+  // coluna e pescoço nas proporções do esqueleto Mixamo, a partir da linha real do ombro: Spine2 no peito
+  // (0,06 H abaixo do ombro), pescoço 0,022 H acima do ombro, cabeça 0,043 H acima do pescoço
+  const shY = Math.max(J.LeftArm.y, J.RightArm.y), mid = (y, dz = 0) => V3(0, y, M.midZ(y) + dz);
+  // coluna, pescoço e cabeça retos: todos na mesma vertical (x = 0, profundidade do meio do peito)
+  const zSpine = M.midZ(shY - 0.06 * H), up = y => V3(0, y, zSpine);
+  J.Hips.set(0, J.Hips.y, zSpine);
+  J.Spine02 = up(hipsY + 0.055 * H); J.Spine = up(shY - 0.06 * H); J.Spine01 = up((J.Spine02.y + J.Spine.y) / 2);
+  J.neck = up(shY + 0.022 * H); J.Head = up(shY + 0.065 * H); J.HeadTop = up(H);
+  for (const side of ['Left', 'Right']) J[side + 'Shoulder'].y = J[side + 'Arm'].y - 0.012 * H;
 
   if (process.env.RIG_DEBUG === meta.id) console.log(JSON.stringify({ H, torsoL: M.torsoL, tipL: M.tipL, armY: M.armY, J: Object.fromEntries(Object.entries(J).map(([k, v]) => [k, v.toArray().map(x => +x.toFixed(3))])) }));
   // ---------- esqueleto final: rotações do modelo, comprimentos medidos ----------
@@ -194,19 +208,25 @@ function rigOne(file, meta) {
     RightUpLeg: 'RightLeg', RightLeg: 'RightFoot', RightFoot: 'RightToeBase', RightToeBase: 'RightToeTip' };
   J.HeadTop = V3(0, H, J.Head.z);
   const len = (a, b) => J[a].distanceTo(J[b]) * CM, sf = J.Hips.y * CM / T.nodes[T.byName.Hips].translation[1];
+  // Cada osso medido é ALINHADO ao membro real da malha: o eixo Y do osso (que aponta p/ o filho, convenção Mixamo)
+  // passa a apontar p/ a articulação seguinte medida. A rotação vem da do David/Megan girada só o necessário p/ isso
+  // (menor rotação, mantém a torção). Como o jogo aplica as rotações finais das animações, a pose fica idêntica à do
+  // modelo Mixamo — e a malha não é tocada no repouso (as articulações ficam exatamente onde foram medidas).
+  const dq = {};   // rotações de mundo do esqueleto-modelo no repouso dele
+  (function tw(i, q) { const nd = nodes[i], w = q.clone().multiply(new THREE.Quaternion(...(nd.rotation || [0, 0, 0, 1]))); dq[nd.name] = w; for (const c of nd.children || []) tw(c, w); })(T.byName.Hips, new THREE.Quaternion());
   const visit = (i, pq, pp) => {
-    const nd = nodes[i], name = nd.name, q = pq.clone().multiply(new THREE.Quaternion(...(nd.rotation || [0, 0, 0, 1])));
-    let t = nd.translation ? V3(...nd.translation) : V3(0, 1, 0), p;
-    const par = nodes[T.parent[i]]?.name;
-    if (name === 'Hips') p = J.Hips.clone().multiplyScalar(CM);
-    else if (name === 'LeftShoulder' || name === 'RightShoulder' || name === 'LeftUpLeg' || name === 'RightUpLeg') p = J[name].clone().multiplyScalar(CM);
-    // osso medido: mesma direção do modelo (no espaço do pai), comprimento medido nesta malha
-    else if (J[par] && J[name]) p = pp.clone().add(t.clone().normalize().applyQuaternion(pq).multiplyScalar(len(par, name)));
-    // dedos e pontas sem medida: proporção do modelo
-    else p = pp.clone().add(t.clone().multiplyScalar(sf).applyQuaternion(pq));
-    // translação local no espaço do pai
-    t = p.clone().sub(pp).applyQuaternion(pq.clone().invert());
-    out[name] = { t: [t.x, t.y, t.z], r: nd.rotation || [0, 0, 0, 1] };
+    const nd = nodes[i], name = nd.name, par = nodes[T.parent[i]]?.name;
+    let q;
+    const kid = childOf[name];
+    if (J[name] && kid && J[kid]) {
+      const yd = V3(0, 1, 0).applyQuaternion(dq[name]), dir = J[kid].clone().sub(J[name]).normalize();
+      q = new THREE.Quaternion().setFromUnitVectors(yd, dir).multiply(dq[name]);
+    } else q = pq.clone().multiply(new THREE.Quaternion(...(nd.rotation || [0, 0, 0, 1])));   // dedos/pontas: seguem o pai
+    let p;
+    if (J[name]) p = J[name].clone().multiplyScalar(CM);   // articulação exatamente onde foi medida
+    else p = pp.clone().add(V3(...(nd.translation || [0, 1, 0])).multiplyScalar(sf).applyQuaternion(pq));
+    const t = p.clone().sub(pp).applyQuaternion(pq.clone().invert());
+    out[name] = { t: [t.x, t.y, t.z], r: pq.clone().invert().multiply(q).normalize().toArray() };
     worldQ[name] = q; worldP[name] = p;
     for (const c of nd.children || []) visit(c, q, p);
   };
@@ -216,7 +236,7 @@ function rigOne(file, meta) {
   const F = {}; for (const k in worldP) F[k] = worldP[k].clone().divideScalar(CM);
   const dirY = name => V3(0, 1, 0).applyQuaternion(worldQ[name]);
   // pontas (filhos sem osso) na pose final: continuam o eixo Y do osso
-  for (const [b, tip] of [['LeftHand', 'LeftHandTip'], ['RightHand', 'RightHandTip']]) F[tip] = F[b].clone().add(dirY(b).multiplyScalar(J[b].distanceTo(J[tip])));   // a mão termina nos dedos (sem osso de ponta)
+  for (const k in J) if (!F[k]) F[k] = J[k].clone();   // pontas sem osso (dedos da mão): ficam onde estão
 
   // ---------- pesos (na pose T) ----------
   const deform = ['Hips', 'Spine02', 'Spine01', 'Spine', 'neck', 'Head', 'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
@@ -242,7 +262,23 @@ function rigOne(file, meta) {
     p.fromArray(P, i * 3);
     const cand = allowed(p).map(b => [b, Math.max(segDist(p, ...seg(b)), 0.006 * H)]).sort((a, b) => a[1] - b[1]).slice(0, 4);
     const ws = cand.map(([, d]) => 1 / d ** 4), sum = ws.reduce((a, b) => a + b, 0);
-    cand.forEach(([b], k) => dense[i * NJ + jointIndex[b]] = ws[k] / sum);
+    const w = {}; cand.forEach(([b], k) => w[b] = ws[k] / sum);
+    // ombro: rampa larga (≈ 10 cm) entre tronco/clavícula e braço, como num rig feito à mão. Sem ela o deltoide
+    // inteiro gira com o braço e incha quando o braço desce da pose T; a axila e a lateral do tronco ficam no tronco
+    const side = p.x > 0 ? 'Left' : 'Right', A = J[side + 'Arm'], ax = Math.abs(p.x), sh = Math.abs(A.x);
+    const RW = +(process.env.RAMP ?? 0.035) * H;
+    // a capa do deltoide (do pivô p/ fora) é toda do braço; a transição fica só do lado do tronco (trapézio/peito)
+    if (Math.abs(p.y - A.y) < 0.14 * H && ax > sh - 2 * RW && ax < sh + 0.01 * H) {
+      const u = Math.min(1, Math.max(0, (ax - (sh - 2 * RW)) / (2 * RW))), f = u * u * (3 - 2 * u);
+      const below = Math.min(1, Math.max(0, (p.y - (A.y - 0.13 * H)) / (0.07 * H)));
+      const g = f * below, armB = ['Arm', 'ForeArm', 'Hand'].map(b => side + b);
+      const armW = armB.reduce((a, b) => a + (w[b] || 0), 0), bodyW = 1 - armW, out = {};
+      for (const [b, v] of Object.entries(w)) out[b] = armB.includes(b) ? (armW ? g * v / armW : 0) : (bodyW > 1e-6 ? (1 - g) * v / bodyW : 0);
+      if (!armW) out[side + 'Arm'] = g;
+      if (bodyW <= 1e-6) { out[side + 'Shoulder'] = (out[side + 'Shoulder'] || 0) + (1 - g) * 0.7; out.Spine = (out.Spine || 0) + (1 - g) * 0.3; }
+      for (const k of Object.keys(w)) delete w[k]; Object.assign(w, out);
+    }
+    for (const [b, v] of Object.entries(w)) dense[i * NJ + jointIndex[b]] = v;
   }
   // suavização pela malha (vértices soldados nas costuras de UV): transições macias, sem bordas serrilhadas
   const key = i => Math.round(P[i * 3] * 2000) + ',' + Math.round(P[i * 3 + 1] * 2000) + ',' + Math.round(P[i * 3 + 2] * 2000);
@@ -258,6 +294,34 @@ function rigOne(file, meta) {
       for (const o of ns) for (let j = 0; j < NJ; j++) Nn[u * NJ + j] += U[o * NJ + j];
       for (let j = 0; j < NJ; j++) Nn[u * NJ + j] = 0.5 * U[u * NJ + j] + 0.5 * Nn[u * NJ + j] / ns.size; }
     U = Nn;
+  }
+  // pesos por difusão de calor no Blender (Automatic Weights): ombro, axila e virilha deformam como num rig feito
+  // à mão. Os pesos por distância acima ficam só de reserva p/ algum vértice que o Blender não alcance.
+  if (BLENDER) {
+    const first = new Int32Array(nu).fill(-1); for (let i = 0; i < nv; i++) if (first[weld[i]] < 0) first[weld[i]] = i;
+    const verts = Array.from(first, i => [+P[i * 3].toFixed(5), +P[i * 3 + 1].toFixed(5), +P[i * 3 + 2].toFixed(5)]);
+    const faces = []; for (let t = 0; t < idx.length; t += 3) { const a = weld[idx[t]], b = weld[idx[t + 1]], c = weld[idx[t + 2]]; if (a !== b && b !== c && a !== c) faces.push([a, b, c]); }
+    const parentOf = b => { let k = T.parent[T.byName[b]]; while (k != null && !deform.includes(T.nodes[k].name)) k = T.parent[k]; return k != null ? T.nodes[k].name : null; };
+    const bones = deform.map(b => ({ name: b, head: J[b].toArray(), tail: J[childOf[b]].toArray(), parent: parentOf(b) }));
+    const dir = path.join(TMP, 'rig-weights'); fs.mkdirSync(dir, { recursive: true });
+    const inp = path.join(dir, meta.id + '.in.json'), outp = path.join(dir, meta.id + '.out.json');
+    const payload = JSON.stringify({ verts, faces, bones });
+    // mesmos dados de entrada → reaproveita os pesos já calculados (o Blender leva ~15 s por personagem)
+    const cached = fs.existsSync(outp) && fs.existsSync(inp) && fs.readFileSync(inp, 'utf8') === payload;
+    if (!cached) fs.writeFileSync(inp, payload);
+    if (!cached) execFileSync(BLENDER, ['-b', '--factory-startup', '-P', path.resolve('tools/blender-weights.py'), '--', inp, outp], { stdio: 'ignore', timeout: 600000 });
+    const res = JSON.parse(fs.readFileSync(outp, 'utf8'));
+    for (let u = 0; u < nu; u++) {
+      const ws = res.weights[u]; if (!ws || !ws.length) continue;
+      for (let j = 0; j < NJ; j++) U[u * NJ + j] = 0;
+      for (const [bi, w] of ws) U[u * NJ + jointIndex[deform[bi]]] = w;
+    }
+    // barra de camiseta/jaqueta e cós acima da virilha: a coxa puxa no máximo 35% (o resto fica no quadril) —
+    // senão a roupa solta rasga entre as pernas ao andar
+    const iUL = jointIndex.LeftUpLeg, iUR = jointIndex.RightUpLeg, iH = jointIndex.Hips;
+    for (let i = 0; i < nv; i++) { if (P[i * 3 + 1] < M.crotchY - 0.01 * H) continue; const u = weld[i];
+      for (const j of [iUL, iUR]) { const w = U[u * NJ + j]; if (w > 0.35) { U[u * NJ + iH] += w - 0.35; U[u * NJ + j] = 0.35; } } }
+    meta.weights = 'blender-heat' + (res.copied ? ' (' + res.copied + ' copiados do vizinho)' : '');
   }
   const W = new Float32Array(nv * 4), JI = new Uint8Array(nv * 4);
   for (let i = 0; i < nv; i++) {
@@ -275,16 +339,27 @@ function rigOne(file, meta) {
     xf[b] = new THREE.Matrix4().makeTranslation(a1.x, a1.y, a1.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(-a0.x, -a0.y, -a0.z));
   }
   const names = T.joints, outP = new Float32Array(nv * 3), outN = new Float32Array(nv * 3), acc = new THREE.Vector3(), accN = new THREE.Vector3(), tmp = new THREE.Vector3(), n3 = new THREE.Vector3();
+  // ombro e braço: em vez de misturar posições (que achata ou incha a curva do ombro), cada vértice gira em arco em
+  // volta do pivô do ombro pela fração do ângulo igual ao seu peso no braço — preserva o volume do deltoide
+  const armRot = {}; for (const side of ['Left', 'Right']) { const q = new THREE.Quaternion().setFromUnitVectors(J[side + 'ForeArm'].clone().sub(J[side + 'Arm']).normalize(), F[side + 'ForeArm'].clone().sub(F[side + 'Arm']).normalize()); armRot[side] = q; }
+  const qi = new THREE.Quaternion(), qs = new THREE.Quaternion();
   for (let i = 0; i < nv; i++) {
     p.fromArray(P, i * 3); n3.fromArray(N, i * 3); acc.set(0, 0, 0); accN.set(0, 0, 0);
-    for (let k = 0; k < 4; k++) { const w = W[i * 4 + k]; if (!w) continue; const m = xf[names[JI[i * 4 + k]]]; acc.addScaledVector(tmp.copy(p).applyMatrix4(m), w); accN.addScaledVector(tmp.copy(n3).transformDirection(m), w); }
+    let side = null, gA = 0;
+    for (let k = 0; k < 4; k++) { const w = W[i * 4 + k], nm = names[JI[i * 4 + k]]; if (w && /^(Left|Right)(Arm|ForeArm|Hand)$/.test(nm)) { side = nm.startsWith('Left') ? 'Left' : 'Right'; gA += w; } }
+    if (side && gA < 0.995) {
+      const gb = gA * gA * (3 - 2 * gA);   // quem quase não é braço (lateral do tronco, axila) mal se mexe na dobra
+      qs.copy(qi).slerp(armRot[side], gb);
+      const piv = J[side + 'Arm'], shift = F[side + 'Arm'].clone().sub(piv).multiplyScalar(gb);
+      acc.copy(p).sub(piv).applyQuaternion(qs).add(piv).add(shift); accN.copy(n3).applyQuaternion(qs);
+    } else for (let k = 0; k < 4; k++) { const w = W[i * 4 + k]; if (!w) continue; const m = xf[names[JI[i * 4 + k]]]; acc.addScaledVector(tmp.copy(p).applyMatrix4(m), w); accN.addScaledVector(tmp.copy(n3).transformDirection(m), w); }
     acc.toArray(outP, i * 3); accN.normalize().toArray(outN, i * 3);
   }
   // matrizes de bind inversas (espaço da cena: Armature com escala 0,01)
   const S = new THREE.Matrix4().makeScale(0.01, 0.01, 0.01), ibm = new Float32Array(names.length * 16);
   { const miss = names.filter(n => !worldQ[n]); if (miss.length) throw Error('ossos fora da hierarquia: ' + miss.join(','));}
   names.forEach((n, k) => { const m = S.clone().multiply(new THREE.Matrix4().compose(worldP[n], worldQ[n], V3(1, 1, 1))); m.invert().toArray(ibm, k * 16); });
-  return { json, glb, prim, P: outP, N: outN, UV, idx, JI, W, out, T, ibm, stats: { tris: (idx ? idx.length : nv) / 3, verts: nv, crotch: +(M.crotchY / H).toFixed(3), arm: +(M.armY / H).toFixed(3) } };
+  return { json, glb, prim, P: outP, N: outN, UV, idx, JI, W, out, T, ibm, stats: { tris: (idx ? idx.length : nv) / 3, verts: nv, maxMoveMm: +(Math.max(...Array.from({ length: nv }, (_, i) => Math.hypot(outP[i * 3] - P[i * 3], outP[i * 3 + 1] - P[i * 3 + 1], outP[i * 3 + 2] - P[i * 3 + 2]))) * 1000).toFixed(2), crotch: +(M.crotchY / H).toFixed(3), arm: +(M.armY / H).toFixed(3) } };
 }
 
 // ---------- gravação do GLB ----------
@@ -352,8 +427,8 @@ for (const dir of fs.readdirSync(SRC)) {
     const r = rigOne(path.join(SRC, dir, f), meta);
     writeGLB(path.join(OUT, meta.file), r, meta);
     roster.push({ ...meta, triangles: Math.round(r.stats.tris), bytes: fs.statSync(path.join(OUT, meta.file)).size, source: dir + '/' + f });
-    console.log(meta.id.padEnd(20), meta.sex.padEnd(6), meta.role.padEnd(7), String(height).padEnd(6), Math.round(r.stats.tris), 'tris', JSON.stringify({ crotch: r.stats.crotch, arm: r.stats.arm }));
+    console.log(meta.id.padEnd(20), meta.sex.padEnd(6), meta.role.padEnd(7), String(height).padEnd(6), Math.round(r.stats.tris), 'tris', JSON.stringify({ crotch: r.stats.crotch, arm: r.stats.arm, maxMoveMm: r.stats.maxMoveMm }));
   }
 }
-fs.writeFileSync(path.join(OUT, 'roster.json'), JSON.stringify({ schema: 1, rig: 'meshy-24', note: 'Gerado por tools/rig-npcs.mjs a partir dos modelos Tripo (pose T) do autor; triângulos originais preservados.', characters: roster }, null, 1));
+fs.writeFileSync(path.join(OUT, 'roster.json'), JSON.stringify({ schema: 1, rig: 'mixamo', rest: 'A' + A_POSE, note: 'Gerado por tools/rig-npcs.mjs a partir dos modelos Tripo (pose T) do autor; repouso em pose A; triângulos originais preservados.', characters: roster }, null, 1));
 console.log(roster.length, 'personagens');
