@@ -60,8 +60,10 @@ const {mkdirSync}=fs;
    cam.zoom=cam.tzoom=62;
    for(let i=0;i<38;i++)v.update(.07);
    v.render();
-   return {status:v.getDamageStatus(),model:v.modelId,frames:v.frames};
+   return {status:v.getDamageStatus(),smoke:v.getSmokeStats(),model:v.modelId,frames:v.frames};
   });
+  if((damaged.smoke?.visibleSmoke||0)<20)
+   throw Error('Smoke is still imperceptible: fewer than 20 visible particles '+JSON.stringify(damaged));
   if(damaged.status.integrity>.15||damaged.status.tier!=='critical')
    throw Error('Damage status mismatch: '+JSON.stringify(damaged));
   await page.waitForTimeout(380);
@@ -72,7 +74,7 @@ const {mkdirSync}=fs;
    .resize(width,height,{fit:'cover',position:'centre'}).toBuffer();
   const after=await sharp('docs/screenshots/vehicle-crash-after.png')
    .resize(width,height,{fit:'cover',position:'centre'}).toBuffer();
-  const labels=Buffer.from('<svg width="1520" height="54"><rect width="1520" height="54" fill="#101926"/><text x="20" y="35" fill="#e7ecf5" font-size="24" font-family="sans-serif" font-weight="700">ANTES — sedan intacto · 100%</text><text x="780" y="35" fill="#ffb98d" font-size="24" font-family="sans-serif" font-weight="700">DEPOIS — dano crítico · 14%</text></svg>');
+  const labels=Buffer.from('<svg width="1520" height="54"><rect width="1520" height="54" fill="#101926"/><text x="20" y="35" fill="#e7ecf5" font-size="24" font-family="sans-serif" font-weight="700">ANTES — sedan intacto · 100%</text><text x="780" y="35" fill="#ffb98d" font-size="24" font-family="sans-serif" font-weight="700">DEPOIS — dano crítico · 14% · fumaça intensa</text></svg>');
   await bg.composite([
    {input:labels,left:0,top:0},{input:before,left:0,top:header},
    {input:after,left:width,top:header}
