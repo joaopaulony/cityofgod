@@ -1,6 +1,6 @@
 // Vehicle integrity and collision responses; pure deterministic gameplay state.
 // HEALTH 1 = pristine; 0 = destroyed. All units: meters and m/s.
-export const DAMAGE_LIMITS=Object.freeze({minor:.84,smoke:.56,critical:.24,disabled:.08,minimumSpeed:2.4,cooldown:.6});
+export const DAMAGE_LIMITS=Object.freeze({minor:.84,smoke:.56,smokeVisual:.72,critical:.24,disabled:.08,minimumSpeed:2.4,cooldown:.6});
 export function createVehicleDamage(raw){
  const integrity=Number.isFinite(raw?.integrity)?Math.max(0,Math.min(1,raw.integrity)):1;
  return {integrity,impacts:Math.max(0,Math.min(999,Math.floor(raw?.impacts||0))),
@@ -11,7 +11,7 @@ export function createVehicleDamage(raw){
 export function damageTier(damage){
  const h=damage?.integrity??1;
  return h<=DAMAGE_LIMITS.disabled?'destroyed':h<=DAMAGE_LIMITS.critical?'critical':
-  h<=DAMAGE_LIMITS.smoke?'smoking':h<=DAMAGE_LIMITS.minor?'dented':'healthy';
+  h<=DAMAGE_LIMITS.smokeVisual?'smoking':h<=DAMAGE_LIMITS.minor?'dented':'healthy';
 }
 export function engineEfficiency(damage){
  const h=damage?.integrity??1;

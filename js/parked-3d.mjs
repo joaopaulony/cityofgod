@@ -8,6 +8,7 @@ import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
 import {getVehicleAssignment} from './vehicle-classification.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
+import {smokeIntensityForIntegrity,hoodSmokeEmitters} from './vehicle-damage-effects.mjs';
 import {streetModel} from './vehicle-fleet.mjs';
 
 const PAINT = /paint|body|carpaint|car_paint|exterior|chassis|main/i;
@@ -146,7 +147,7 @@ export function createParked3D(THREE, scene, bridge, damageFX=null) {
       for(const [b,entry] of live)if(!keep.has(b)){
         entry.lights?.dispose();entry.damageView?.dispose();scene.remove(entry.group);b.r3d=false;live.delete(b);
       }
-      let high=0,medium=0,low=0,visibleTriangles=0;
+      let high=0,medium=0,low=0,visibleTriangles=0,smokingCars=0;
       for(const [distance,b] of selected){
         let entry=live.get(b);
         if(!entry){
@@ -159,11 +160,15 @@ export function createParked3D(THREE, scene, bridge, damageFX=null) {
          if(!entry.damageView)entry.damageView=createVehicleDeformation(THREE,entry.obj,
           VEHICLE_MODELS.find(v=>v.id===streetModel(b)));
          entry.damageView.apply(b.damage);
-         if(b.damage.integrity<=.56){
-          const intensity=Math.min(1,(.62-b.damage.integrity)/.57);
-          damageFX?.smoke(b.vehicleKey||b,b.x+Math.cos(b.rot||0)*(b.w||4.7)*.3,
-           b.y+Math.sin(b.rot||0)*(b.w||4.7)*.3,intensity,.2,
-           Math.max(.7,(b.h||1.5)*.72));
+         const intensity=smokeIntensityForIntegrity(b.damage.integrity);
+         // Prioritize up to four nearby smoking cars to protect low-end GPUs.
+         if(intensity>0&&distance<55&&smokingCars<4){
+          smokingCars++;
+          const outlets=hoodSmokeEmitters(b.x,b.y,b.rot||0,b.w||4.7);
+          const height=Math.max(.85,(b.h||1.5)*.81);
+          for(let i=0;i<outlets.length;i++)
+           damageFX?.smoke('parked:'+String(b.vehicleKey||[b.x,b.y].join(','))+':'+i,
+            outlets[i][0],outlets[i][1],intensity,.2,height);
          }
         }
         if(entry.lights)entry.lights.apply({headlights:!!b.headlights,highBeams:!!b.highBeams,

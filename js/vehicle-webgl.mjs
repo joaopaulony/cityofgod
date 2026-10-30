@@ -25,7 +25,7 @@ import {createVehicleEffects} from './vehicle-effects.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
-import {createVehicleDamageEffects} from './vehicle-damage-effects.mjs';
+import {createVehicleDamageEffects,smokeIntensityForIntegrity,hoodSmokeEmitters} from './vehicle-damage-effects.mjs';
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -54,6 +54,7 @@ window.cityVehicles=system;
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
 system.fuel=fuel;
 system.damage=damage;
+system.getSmokeStats=()=>damageFX?.stats()||{visibleSmoke:0,visibleSparks:0,capacity:0,emitters:0};
 function refreshDeformation(){
  if(!model)return;
  if(!deformation&&Math.max(damage.front,damage.rear,damage.left,damage.right)>.005)
@@ -584,11 +585,14 @@ system.update=dt=>{
  moveCar(dt);
  vehicleFX?.update(dt,state,system.driver,activeModel.length);
  damageFX?.update(dt);
- if(system.driver&&damage.integrity<=.56){
-  const intensity=Math.min(1,(.62-damage.integrity)/.57);
-  damageFX?.smoke('driver',state.x+Math.cos(state.angle)*activeModel.length*.31,
-   state.y+Math.sin(state.angle)*activeModel.length*.31,intensity,dt,
-   Math.max(.7,system.bodyHeight*.72));
+ if(system.driver){
+  const intensity=smokeIntensityForIntegrity(damage.integrity);
+  if(intensity>0){
+   const outlets=hoodSmokeEmitters(state.x,state.y,state.angle,activeModel.length);
+   const height=Math.max(.85,system.bodyHeight*.81);
+   for(let i=0;i<outlets.length;i++)
+    damageFX?.smoke('driver:hood:'+i,outlets[i][0],outlets[i][1],intensity,dt,height);
+  }
  }
 };
 system.interact=interact;
