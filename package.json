@@ -4,7 +4,7 @@
   "scripts": {
     "test:social": "node --test tests/social-sim.test.mjs tests/social-pie.test.mjs tests/social-roleplay.test.mjs tests/social-progression.test.mjs",
     "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
-    "build:site": "npm run test:cas && npm run build && node tools/build-site.mjs",
+    "build:site": "npm run test:cas && npm run test:rig && npm run build && node tools/build-site.mjs",
     "audit:vehicles": "node tools/audit-vehicle-assets.mjs",
     "import:civil": "node tools/install-civil-pack.mjs",
     "import:police-suv": "node tools/install-police-suv.mjs",
@@ -15,7 +15,8 @@
     "test:front": "node --test tests/front-end.test.cjs",
     "judge:home": "node tools/judge-city-home.cjs",
     "test:cas": "node --test tests/cas-profile.test.mjs tests/cas-hair.test.mjs tests/cas-studio.test.mjs tests/cas-roster.test.mjs tests/cas-reborn.test.mjs tests/cas-reborn-upperbody.test.mjs tests/cas-reborn-hands.test.mjs && node --check js/cas-studio.mjs && node --check js/cas-hair.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs",
-    "test:rig-archive": "python3 tools/check-rig-only.py"
+    "test:rig-archive": "python3 tools/check-rig-only.py",
+    "test:rig": "node --test tests/npc-rig.test.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

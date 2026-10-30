@@ -92,3 +92,87 @@ export function constrainWeights({ P, idx, JI, WT, names, J, H, segments }) {
   }
   return { corrected: touched.reduce((a, b) => a + b, 0), movedWeight: +moved.toFixed(1) };
 }
+
+// Spine2 / pescoço / cabeça pela altura das articulações medidas (tools/rig-anatomy.mjs): a divisa pescoço/cabeça fica
+// na base do crânio atrás e desce p/ debaixo do queixo na frente, então a mandíbula inteira vai com a cabeça (sem isso
+// o queixo esticava quando a cabeça girava). anatomy = { chin, neckZ, throat } de measureUpperBody.
+export function splitNeckHead({ P, JI, WT, names, J, H, anatomy: { chin, neckZ, throat } }) {
+  const jIdx = Object.fromEntries(names.map((n, k) => [n, k])), S2 = jIdx.Spine2, NK = jIdx.Neck, HD = jIdx.Head;
+  const lo = J.Neck.y - 0.035 * H, hi = J.Head.y + 0.02 * H, nv = P.length / 3;
+  let changed = 0;
+  for (let i = 0; i < nv; i++) {
+    const y = P[i * 3 + 1]; if (y < lo || y > hi || Math.abs(P[i * 3]) > 0.1 * H) continue;
+    const w = new Map(); for (let k = 0; k < 4; k++) { const v = WT[i * 4 + k]; if (v > 0) w.set(JI[i * 4 + k], (w.get(JI[i * 4 + k]) || 0) + v); }
+    const t = (w.get(S2) || 0) + (w.get(NK) || 0) + (w.get(HD) || 0); if (t < 1e-4) continue;
+    const front = smooth(neckZ, throat.zf, P[i * 3 + 2]), split = J.Head.y * (1 - front) + (chin - 0.012) * H * front;
+    const s1 = smooth(J.Neck.y - 0.02 * H, J.Neck.y + 0.012 * H, y), s2 = smooth(split - 0.01 * H, split + 0.01 * H, y);
+    w.set(S2, t * (1 - s1)); w.set(NK, t * s1 * (1 - s2)); w.set(HD, t * s1 * s2);
+    const top = [...w].filter(([, v]) => v > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((a, [, v]) => a + v, 0);
+    for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
+    changed++;
+  }
+  return changed;
+}
+
+// Ombro: pesos de Spine2 / clavícula (Shoulder) / braço (Arm) refeitos na região do ombro a partir das articulações
+// MEDIDAS de cada personagem. Os pesos de calor vieram de um esqueleto em que a clavícula nascia dentro do peito: ela
+// ficava com 60–90% da capa do ombro, do peitoral e da axila, e a passagem p/ o braço era uma faixa estreita — o ombro
+// virava uma "bola" rígida e o peito acompanhava a clavícula. Aqui:
+//  - braço: a capa do deltoide e o tubo do braço, com transição larga em volta da articulação; abaixo dela a divisa
+//    vai p/ fora (a lateral do tronco e a axila ficam no tronco);
+//  - clavícula: só a faixa de cima (trapézio/acrômio) entre o pescoço e o braço; no peito da frente, só bem no alto
+//    (peitoral e seios ficam no tronco);
+//  - tronco (Spine2): o resto.
+// Fora da região (pescoço, braço adiante, cintura) os pesos não mudam; na borda, mistura gradual; depois suavização
+// pela malha. Retorna quantos vértices foram refeitos.
+export function shoulderWeights({ P, idx, JI, WT, names, J, H }) {
+  const nv = P.length / 3, jIdx = Object.fromEntries(names.map((n, k) => [n, k]));
+  const { weld, count } = weldMap(P), rep = new Int32Array(count).fill(-1);
+  for (let i = 0; i < nv; i++) if (rep[weld[i]] < 0) rep[weld[i]] = i;
+  const target = new Map();   // vértice soldado → {fator da região, pesos novos}
+  for (const [side, s] of [['Left', 1], ['Right', -1]]) {
+    const A = J[side + 'Arm'], C = J[side + 'Shoulder'], jS2 = jIdx.Spine2, jC = jIdx[side + 'Shoulder'], jA = jIdx[side + 'Arm'];
+    if (!A || !C || jS2 == null || jC == null || jA == null) continue;
+    const AX = Math.abs(A.x), CX = Math.abs(C.x);
+    for (let u = 0; u < count; u++) {
+      const i = rep[u], x = P[i * 3] * s, y = P[i * 3 + 1], z = P[i * 3 + 2];
+      if (x < 0) continue;
+      const du = x - AX, dv = y - A.y;
+      // região: do lado de fora do pescoço até um pouco depois da articulação, do peito alto ao alto do ombro
+      const f = smooth(CX + 0.01 * H, CX + 0.035 * H, x) * (1 - smooth(AX + 0.045 * H, AX + 0.07 * H, x)) * smooth(-0.14 * H, -0.1 * H, dv) * (1 - smooth(0.05 * H, 0.08 * H, dv));
+      if (f < 1e-3) continue;
+      const arm = smooth(-0.035 * H, 0.015 * H, du + 0.45 * dv);
+      const frontChest = smooth(0.02 * H, 0.05 * H, z - A.z);          // frente do peito (peitoral/seio)
+      const top = smooth(-0.06 * H, -0.015 * H, dv) * (1 - frontChest) + smooth(-0.025 * H, 0.005 * H, dv) * frontChest;
+      const clav = (1 - arm) * top * smooth(CX + 0.005 * H, CX + 0.035 * H, x);
+      const w = {}; w[jA] = arm; w[jC] = clav; w[jS2] = Math.max(0, 1 - arm - clav);
+      target.set(u, { f, w });
+    }
+  }
+  // dense das linhas da região: mistura com os pesos atuais na borda
+  const rows = new Map();
+  for (const [u, { f, w }] of target) {
+    const i = rep[u], old = {}; for (let k = 0; k < 4; k++) if (WT[i * 4 + k] > 0) old[JI[i * 4 + k]] = (old[JI[i * 4 + k]] || 0) + WT[i * 4 + k];
+    // o que o vértice tinha de braço adiante (antebraço/mão) ou de pescoço/cabeça fica como estava
+    const keep = {}; let kept = 0; for (const [j, v] of Object.entries(old)) if (![jIdx.Spine2, jIdx.Spine1, jIdx.LeftShoulder, jIdx.RightShoulder, jIdx.LeftArm, jIdx.RightArm].includes(+j)) { keep[j] = v; kept += v; }
+    const row = {}; for (const [j, v] of Object.entries(old)) row[j] = (1 - f) * v;
+    for (const [j, v] of Object.entries(w)) row[j] = (row[j] || 0) + f * v * (1 - kept);
+    for (const [j, v] of Object.entries(keep)) row[j] = (row[j] || 0) + f * v;
+    rows.set(u, row);
+  }
+  // suavização pela malha (3 passadas) só dentro da região
+  const nb = new Map(); for (const u of rows.keys()) nb.set(u, new Set());
+  for (let t = 0; t < idx.length; t += 3) { const a = weld[idx[t]], b = weld[idx[t + 1]], c = weld[idx[t + 2]]; for (const [p, q] of [[a, b], [b, c], [c, a]]) { if (nb.has(p) && rows.has(q)) nb.get(p).add(q); if (nb.has(q) && rows.has(p)) nb.get(q).add(p); } }
+  for (let it = 0; it < 3; it++) {
+    const next = new Map();
+    for (const [u, row] of rows) { const ns = nb.get(u); if (!ns.size) { next.set(u, row); continue; } const acc = {}; for (const v of ns) for (const [j, w] of Object.entries(rows.get(v))) acc[j] = (acc[j] || 0) + w / ns.size;
+      const r = {}; for (const j of new Set([...Object.keys(row), ...Object.keys(acc)])) r[j] = 0.5 * (row[j] || 0) + 0.5 * (acc[j] || 0); next.set(u, r); }
+    for (const [u, r] of next) rows.set(u, r);
+  }
+  for (let i = 0; i < nv; i++) {
+    const row = rows.get(weld[i]); if (!row) continue;
+    const top = Object.entries(row).map(([j, v]) => [+j, v]).filter(([, v]) => v > 0.01).sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((a, [, v]) => a + v, 0);
+    for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
+  }
+  return rows.size;
+}

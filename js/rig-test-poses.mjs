@@ -8,6 +8,12 @@ export const TEST_POSES=Object.freeze({
  elbows:{label:'cotovelos 90°',steps:[['LeftArm','z',-75],['RightArm','z',75],['LeftForeArm','x',-90],['RightForeArm','x',-90]]},
  neck:{label:'pescoço/cabeça',steps:[['Neck','x',15],['Neck','y',25],['Head','x',15],['Head','y',20]]},
  legs:{label:'quadril 60° / joelho 90°',steps:[['LeftUpLeg','x',-60],['LeftLeg','x',90]]},
+ // os 7 movimentos do braço (cada um isolado, sobre o repouso em pose T)
+ lateral:{label:'braço na altura do ombro',steps:[]},
+ overhead:{label:'braços acima da cabeça',steps:[['LeftArm','z',80],['RightArm','z',-80]]},
+ forward:{label:'braços p/ frente',steps:[['LeftArm','y',-85],['RightArm','y',85]]},
+ forearmTwist:{label:'antebraço girando 80°',steps:[['LeftArm','z',-75],['RightArm','z',75],['LeftForeArm','y',80],['RightForeArm','y',-80]]},
+ wrist:{label:'punho girando 60° e dobrando 45°',steps:[['LeftArm','z',-75],['RightArm','z',75],['LeftHand','y',60],['RightHand','y',-60],['LeftHand','x',45],['RightHand','x',45]]},
  // mão fechada: cada falange dobra p/ a palma (mãos em pose T, palma p/ baixo)
  fist:{label:'mão fechada',steps:['Left','Right'].flatMap(s=>{const k=s==='Left'?-1:1;return [
   ...['Index','Middle','Ring','Pinky'].flatMap(f=>[[s+'Hand'+f+'1','z',50*k],[s+'Hand'+f+'2','z',60*k],[s+'Hand'+f+'3','z',40*k]]),

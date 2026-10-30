@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import * as THREE from 'three';
-import { constrainWeights } from './rig-weights.mjs';
+import { constrainWeights, splitNeckHead, shoulderWeights } from './rig-weights.mjs';
 import { measureUpperBody } from './rig-anatomy.mjs';
 import { measureHands, applyFingerWeights } from './rig-hands.mjs';
 
@@ -26,9 +26,10 @@ const argv = process.argv.slice(2), fi = argv.indexOf('--from'), FROM = fi >= 0 
 const ids = argv.includes('--all') ? roster.characters.map(c => c.id) : argv.filter((a, i) => !a.startsWith('--') && !(fi >= 0 && i === fi + 1));
 const readSource = f => FROM ? fs.readFileSync(FROM + '/' + f) : execFileSync('git', ['show', ORIGINAL + ':' + DIR + f], { maxBuffer: 1 << 28 });
 if (!ids.length) { console.error('uso: node tools/npc-skeleton.mjs <id>... | --all'); process.exit(1); }
+// no Windows o arquivo pode estar aberto por um instante (servidor local, antivírus): tenta de novo
+const writeRetry = (f, data) => { for (let k = 0; ; k++) { try { return fs.writeFileSync(f, data); } catch (e) { if (k >= 20) throw e; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250); } } };
 
 const NC = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 for (const id of ids) {
   const meta = roster.characters.find(c => c.id === id); if (!meta) throw Error('personagem desconhecido: ' + id);
@@ -52,8 +53,8 @@ for (const id of ids) {
   const H = pos.HeadTop_End.y;
 
   // ---------- articulações do tronco alto medidas na malha (tools/rig-anatomy.mjs) ----------
-  const zSpine = pos.Spine2.z, A = measureUpperBody(P, H, { armY: (pos.LeftArm.y + pos.RightArm.y) / 2, spineZ: zSpine });
-  const { chin, neckZ, throat } = A, J = {};
+  const zSpine = pos.Spine2.z, A = measureUpperBody(P, H, { armY: (pos.LeftArm.y + pos.RightArm.y) / 2, spineZ: zSpine, armHint: { Left: pos.LeftArm.x, Right: pos.RightArm.x } });
+  const J = {};
   for (const [k, v] of Object.entries(A.joints)) J[k] = new THREE.Vector3(v.x, v.y, v.z);
   // dedos medidos na malha (tools/rig-hands.mjs)
   const ia = json.accessors[prim.indices], idx = view(prim.indices, ia.componentType === 5125 ? Uint32Array : Uint16Array);
@@ -85,34 +86,22 @@ for (const id of ids) {
   jointName.forEach((n, k) => world(n).invert().toArray(IBM, k * 16));
 
   // ---------- pesos: tronco alto / pescoço / cabeça pela altura das novas articulações ----------
-  const S2 = jIdx.Spine2, NK = jIdx.Neck, HD = jIdx.Head, lo = J.Neck.y - 0.035 * H, hi = J.Head.y + 0.02 * H;
-  let changed = 0;
-  for (let i = 0; i < nv; i++) {
-    const y = P[i * 3 + 1]; if (y < lo || y > hi || Math.abs(P[i * 3]) > 0.1 * H) continue;
-    const w = new Map(); for (let k = 0; k < 4; k++) { const v = WT[i * 4 + k]; if (v > 0) w.set(JI[i * 4 + k], (w.get(JI[i * 4 + k]) || 0) + v); }
-    const t = (w.get(S2) || 0) + (w.get(NK) || 0) + (w.get(HD) || 0); if (t < 1e-4) continue;
-    // divisa pescoço/cabeça: atrás, na base do crânio; na frente desce p/ debaixo do queixo (mandíbula inteira na cabeça)
-    const front = smooth(neckZ, throat.zf, P[i * 3 + 2]), split = J.Head.y * (1 - front) + (chin - 0.012) * H * front;
-    const s1 = smooth(J.Neck.y - 0.02 * H, J.Neck.y + 0.012 * H, y), s2 = smooth(split - 0.01 * H, split + 0.01 * H, y);
-    w.set(S2, t * (1 - s1)); w.set(NK, t * s1 * (1 - s2)); w.set(HD, t * s1 * s2);
-    const top = [...w].filter(([, v]) => v > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((a, [, v]) => a + v, 0);
-    for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
-    changed++;
-  }
+  const changed = splitNeckHead({ P, JI, WT, names: jointName, J, H, anatomy: A });
 
   // ---------- limites anatômicos dos pesos ----------
   const DEFORM = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', ...['Left', 'Right'].flatMap(s => ['Shoulder', 'Arm', 'ForeArm', 'Hand', 'UpLeg', 'Leg', 'Foot', 'ToeBase'].map(b => s + b))];
   const seg = b => DEFORM.includes(b) && firstChild(b) && newPos[firstChild(b)] ? [newPos[b], newPos[firstChild(b)]] : null;
   const fix = constrainWeights({ P, idx, JI, WT, names: jointName, J: newPos, H, segments: seg });
+  const ombro = shoulderWeights({ P, idx, JI, WT, names: jointName, J: newPos, H });
   applyFingerWeights({ JI, WT, names: jointName, weights: HANDS.weights, weld: HANDS.weld });
   json.asset.generator = 'City of God rig-npcs + npc-skeleton (Mixamo 65, articulações na malha, pesos com limites anatômicos)';
 
   let js = Buffer.from(JSON.stringify(json)); js = Buffer.concat([js, Buffer.alloc(((js.length + 3) & ~3) - js.length, 0x20)]);
   const head = Buffer.alloc(12), ch = (len, type) => { const c = Buffer.alloc(8); c.writeUInt32LE(len, 0); c.write(type, 4); return c; };
   head.write('glTF', 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + js.length + 8 + bin.length, 8);
-  fs.writeFileSync(file, Buffer.concat([head, ch(js.length, 'JSON'), js, ch(bin.length, 'BIN\0'), bin]));
+  writeRetry(file, Buffer.concat([head, ch(js.length, 'JSON'), js, ch(bin.length, 'BIN\0'), bin]));
   meta.skeleton = 'mixamo-reto'; meta.bytes = fs.statSync(file).size;
   const r = n => +(newPos[n].y / H).toFixed(3);
   console.log(id.padEnd(22), JSON.stringify({ neck: r('Neck'), head: r('Head'), clavicula: r('LeftShoulder'), ombro: r('LeftArm'), ombroX: +(newPos.LeftArm.x / H).toFixed(3), ombroXantes: +(pos.LeftArm.x / H).toFixed(3), pescoco_cabeca: changed, ...fix, dedos: HANDS.report }));
 }
-fs.writeFileSync(DIR + 'roster.json', JSON.stringify(roster, null, 1));
+writeRetry(DIR + 'roster.json', JSON.stringify(roster, null, 1));

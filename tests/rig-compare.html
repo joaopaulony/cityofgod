@@ -6,7 +6,7 @@
 <script type="module">
 // Comparação do rig (mesma câmera em todas as colunas; linha de cima de frente, de baixo de perfil):
 // malha original sem esqueleto | repouso (bind, sem animação) | parado em 3 instantes | poses de teste.
-// ?id=<personagem>&base=/ (pasta com assets/) &cols=orig,rest,idle0,idle50,walk25,crouch30,rifle_aim30,arms,neck,elbows,legs,fist (clipe+% do tempo) &zoom=torso|hips|hand|rhand
+// ?id=<personagem>&base=/ (pasta com assets/) &cols=orig,bones,diff,rest,idle0,idle50,walk25,crouch30,rifle_aim30,arms,neck,elbows,legs,fist (clipe+% do tempo) &zoom=torso|hips|hand|rhand
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {loadRoster} from '../js/npc-roster.mjs';
@@ -15,7 +15,7 @@ const q=new URLSearchParams(location.search),id=q.get('id')||'character-principa
 const POSES=TEST_POSES;
 const cols=(q.get('cols')||'orig,rest,idle0,idle50,arms,neck,elbows,legs').split(',');
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setScissorTest(true);document.body.appendChild(renderer.domElement);
-const roster=await loadRoster(new GLTFLoader(),{base}),meta=roster.characters.get(id);
+const roster=await loadRoster(new GLTFLoader(),{base,style:q.get('style')!=='0'}),meta=roster.characters.get(id);   // &style=0: sem o estilo por sexo
 const views=[];let frame=null;
 for(const col of cols){
  const {gltf}=await roster.load(id);   // cache: cada coluna usa um clone independente
@@ -29,9 +29,23 @@ for(const col of cols){
  }else{
   scene.add(root);
   if(col==='rest')label='repouso (bind)';
+  else if(col==='bones'){   // esqueleto aplicado, animações desligadas, ossos desenhados por cima
+   const h=new THREE.SkeletonHelper(root);h.material.depthTest=false;h.material.transparent=true;scene.add(h);label='esqueleto aplicado, sem animação';
+  }
+  else if(col==='diff'){    // desvio por vértice da malha skinada no repouso × geometria original (mesma conta da GPU)
+   let sk;root.traverse(o=>{if(o.isSkinnedMesh)sk=o;});root.updateMatrixWorld(true);sk.skeleton.update();
+   const pos=sk.geometry.attributes.position,n=pos.count,col3=new Float32Array(n*3),v=new THREE.Vector3(),o=new THREE.Vector3();let max=0,sum=0,over=0;
+   for(let i=0;i<n;i++){sk.getVertexPosition(i,v);o.fromBufferAttribute(pos,i);const d=v.distanceTo(o)*1000;max=Math.max(max,d);sum+=d;if(d>1)over++;const t=Math.min(1,d/1);col3.set([t,1-t*0.8,0.25*(1-t)],i*3);}
+   const g=sk.geometry.clone();g.setAttribute('color',new THREE.BufferAttribute(col3,3));
+   root.remove(sk);sk.parent?.remove(sk);scene.add(new THREE.SkinnedMesh(g,new THREE.MeshLambertMaterial({vertexColors:true})));
+   scene.children.at(-1).bind(sk.skeleton,sk.bindMatrix);
+   window.restDeviation={id,maxMm:+max.toFixed(4),meanMm:+(sum/n).toFixed(5),over1mm:over,vertices:n};
+   label=`desvio: máx ${max.toFixed(3)} mm · >1 mm: ${over} de ${n}`;
+  }
   else if(/^[a-z_]+\d+$/.test(col)&&!POSES[col]){const [,name,pct]=col.match(/^([a-z_]+?)(\d+)$/),c=gltf.animations.find(a=>a.name===name),t=+pct/100;const m=new THREE.AnimationMixer(root);m.clipAction(c).play();m.setTime(t*c.duration);label=(name==='idle'?'parado':name)+' @'+t;}
   else if(POSES[col]){applyTestPose(root,POSES[col]);label=POSES[col].label;}
  }
+ if(q.get('bones')==='1'&&col!=='orig'&&col!=='bones'){const h=new THREE.SkeletonHelper(root);h.material.depthTest=false;scene.add(h);}   // &bones=1: esqueleto por cima em todas as colunas
  scene.updateMatrixWorld(true);
  if(!frame){const box=new THREE.Box3().setFromObject(scene);frame={c:box.getCenter(new THREE.Vector3()),h:box.max.y-box.min.y};}
  for(const side of [0,1]){const cam=new THREE.PerspectiveCamera(20,1,0.05,50),c=frame.c.clone();let dist=frame.h*3.3;
