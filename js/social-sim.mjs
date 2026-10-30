@@ -40,6 +40,11 @@ export function factionAffinity(a,b){
  if((gangs.includes(a)&&b==='policia')||(gangs.includes(b)&&a==='policia'))return -38;
  return a===b?12:0;
 }
+
+// Chance de recusar um gesto romântico sem motivo de humor: 22% no começo, caindo com o romance; quem já namora quase
+// nunca recusa um carinho (antes era 22% fixo — até a namorada com romance 100 recusava beijo e travava o romance por 90 s;
+// entre namorados a pausa depois de um "hoje não" agora é de 20 s).
+export const romanticRefusalChance=r=>r.dating?.03:.22*(1-.7*Math.min(1,Math.max(0,r.romance)/100));
 export function createSocialSim(roster,{storage=null,random=Math.random}={}){
  const people=new Map(roster.map(c=>[c.id,{...c,age:c.age||22+hash(c.id)%24,trait:c.trait||traits[hash(c.id)%traits.length],interest:c.interest||interests[hash(c.id+'h')%interests.length]}]));
  people.set('player',{id:'player',name:'Você',group:'base',age:25,trait:'acolhedor',interest:'música'});
@@ -126,7 +131,7 @@ export function createSocialSim(roster,{storage=null,random=Math.random}={}){
   if(r.blockedUntil>time&&!repair){accepted=false;refusal='boundary';}
   else if(romantic&&r.romanceBoundaryUntil>time){accepted=false;refusal='boundary';}
   else if(r.friend<(spec.minFriend??(romantic?15:-100))||r.trust<(spec.minTrust??(romantic?5:-100))||r.romance<(spec.minRomance??-100)){accepted=false;refusal=romantic?'refusedRomance':'refusedTrust';}
-  else if(romantic&&(e.anger>=25||e.sadness>=55||random()>=.78)){accepted=false;refusal='refusedRomance';}
+  else if(romantic&&(e.anger>=25||e.sadness>=55||random()>=1-romanticRefusalChance(r))){accepted=false;refusal='refusedRomance';}
   else if(['humor','dark','tease'].includes(tone)&&((B.trait==='reservado'&&r.friend<10)||e.anger>=30||e.sadness>=45||(tone==='dark'&&B.trait==='acolhedor'))){accepted=false;refusal='refusedTrust';}
   else if(spec.event&&(e.anger>=30||e.energy<20)){accepted=false;refusal='refusedTrust';}
   if(action==='dreams'&&r.hurt>5&&r.memories.some(m=>m.action==='mockDream')){accepted=false;refusal='refusedTrust';}
@@ -154,6 +159,10 @@ export function createSocialSim(roster,{storage=null,random=Math.random}={}){
    if(spec.event){event={id:`social-${Math.floor(time)}-${++serial}`,actor:a,target:b,kind:spec.event,status:'planned',created:time,homeKey:context.homeKey||null};events.push(event);if(events.length>40)events.shift();}
    if(spec.finishEvent){const current=ongoing(a,b);if(current)finishEvent(current.id,action==='finishOuting'?'completed':'cancelled');}
    if(spec.gossip){const victim=[...people.values()].find(p=>p.id!==a&&p.id!==b&&p.id!=='player'&&p.group===B.group);if(victim){const other=relation(a,victim.id);other.friend=clamp(other.friend-8);other.trust=clamp(other.trust-12);remember(other,{action,actor:a,time,accepted:false,text:`Soube por ${B.name} que sua confiança foi exposta numa conversa.`});}}
+   // namoro é exclusivo: flertar/beijar outra pessoa magoa quem namora com o jogador (fica sabendo pela vizinhança)
+   if(accepted&&romantic&&a==='player'&&!r.dating){for(const [k,o] of relations){if(!o.dating||!k.split('|').includes('player'))continue;const pid=k.split('|').find(x=>x!=='player');if(pid===b||!people.has(pid))continue;
+    o.trust=clamp(o.trust-6);o.romance=clamp(o.romance-5);const pe=emotion(pid);pe.sadness=Math.min(100,pe.sadness+12);
+    remember(o,{action:'jealousy',actor:a,time,accepted:false,text:`Ficou sabendo que você trocou carinhos com ${B.name}.`});}}
    if(a==='player'&&action==='buyStreetParcel')crimeEvidence.push({kind:'drugDeal',actor:a,suspectId:b,created:time,reportedBy:null,summary:`Compra de drogas envolvendo ${B.name}.`});
   }
   let investigation=null;
@@ -161,7 +170,7 @@ export function createSocialSim(roster,{storage=null,random=Math.random}={}){
    const clue=crimeEvidence.find(e=>e.reportedBy==null);
    if(clue){investigation={id:`case-${Math.floor(time)}-${++serial}`,reporterId:a,suspectId:clue.suspectId,evidence:clue.kind,status:'Recebida · em apuração',created:time,updated:time,summary:clue.summary,confidential:action==='offerInformantTip'};clue.reportedBy=a;clue.caseId=investigation.id;investigations.push(investigation);if(investigations.length>30)investigations.shift();}
   }
-  if(!accepted&&romantic)r.romanceBoundaryUntil=time+90;
+  if(!accepted&&romantic)r.romanceBoundaryUntil=time+(r.dating?20:90);
   if(action==='breakup'||r.friend<=-30)r.dating=false;
   r.lastAction=action;r.cooldown=time+4;
   let text=accepted?(spec.replies?pick(b+action,spec.replies):baseResponse(b,action,r)):pick(b+'refusal',CONTEXT_REPLIES[refusal||'refusedTrust']);

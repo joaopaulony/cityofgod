@@ -8,7 +8,7 @@ Para executar uma conversa, pare a até quatro metros, no mesmo andar, sem pared
 
 ## Progressão obrigatória e iniciativa dos NPCs
 
-Todas as 98 interações têm um contrato de progressão em `js/social-rules.mjs`. `defineSocialActions` rejeita uma nova interação sem regra explícita ou com campos inválidos. Para acrescentar um diálogo, declare uma regra em `SOCIAL_RULES` ou um `gate(...)` válido no catálogo e mantenha os testes de limiar. Leque, diário, telefone, mensagens e decisões autônomas consultam a mesma validação do motor; uma ação bloqueada não altera relações nem cria memórias ou convites.
+Todas as 106 interações têm um contrato de progressão em `js/social-rules.mjs`. `defineSocialActions` rejeita uma nova interação sem regra explícita ou com campos inválidos. Para acrescentar um diálogo, declare uma regra em `SOCIAL_RULES` ou um `gate(...)` válido no catálogo e mantenha os testes de limiar. Leque, diário, telefone, mensagens e decisões autônomas consultam a mesma validação do motor; uma ação bloqueada não altera relações nem cria memórias ou convites.
 
 | Interação | Amizade | Confiança | Intimidade | Romance | Hostilidade máxima |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,9 @@ No leque, **Facções, rua e polícia → Assuntos da rua** reúne perguntar pel
 
 O registro fica em `cog-social-v1`, junto das relações, para sobreviver ao recarregamento. Os requisitos de grupo, saldo, capacidade da mochila e evidência são revalidados pelo motor central, então o diário e o leque mostram o mesmo motivo de bloqueio. O sistema não gera pistas inventadas nem acusa alguém sem o acontecimento que o jogador presenciou.
 
-Alegria, raiva, mágoa e energia afetam respostas e aceitação; emoções diminuem gradualmente com o tempo de simulação. Gostos e personalidade alteram afinidade. Humor pode falhar com alguém irritado ou reservado. Crueldade deixa ressentimento e pode fechar a conversa por três minutos de simulação; reparação continua disponível, mas recupera confiança lentamente. Uma recusa romântica impede trocar de flerte para insistir durante 90 segundos. Zombar de um sonho afeta a próxima tentativa de conversar sobre ele. Espalhar segredos também prejudica o vínculo com outra pessoa do círculo do interlocutor. Repetição frequente diminui os ganhos mesmo alternando assuntos. Namoro continua exclusivo; pernoite nunca cria namoro ou intimidade automaticamente.
+Alegria, raiva, mágoa e energia afetam respostas e aceitação; emoções diminuem gradualmente com o tempo de simulação. Gostos e personalidade alteram afinidade. Humor pode falhar com alguém irritado ou reservado. Crueldade deixa ressentimento e pode fechar a conversa por três minutos de simulação; reparação continua disponível, mas recupera confiança lentamente. Uma recusa romântica impede trocar de flerte para insistir durante 90 segundos. Zombar de um sonho afeta a próxima tentativa de conversar sobre ele. Espalhar segredos também prejudica o vínculo com outra pessoa do círculo do interlocutor. Repetição frequente diminui os ganhos mesmo alternando assuntos. Namoro continua exclusivo; pernoite nunca cria namoro ou intimidade automaticamente. Flertar, beijar ou trocar carinhos com outra pessoa enquanto namora magoa quem namora com o jogador: ela perde confiança e romance, fica triste e guarda a lembrança — o namoro não termina sozinho, mas a relação sente.
+
+A chance de recusar um gesto romântico sem motivo de humor começa em 22% e cai com o romance; entre namorados é de 3%, e a pausa depois de um "hoje não" é de 20 segundos (90 segundos fora do namoro). Raiva e tristeza continuam fazendo a pessoa recusar.
 
 ## Programas juntos
 
@@ -63,4 +65,4 @@ O leque está em `js/social-pie.mjs`, sua árvore e geometria em `js/social-pie-
 
 Referência pesquisada: [Sims Community: Social Pie Menu](https://simscommunity.info/2023/03/03/first-look-at-the-new-social-pie-menu-coming-to-base-game/), sobre categorias e subcategorias por assunto. Interface e implementação próprias, sem reutilizar imagens ou código de The Sims.
 
-Validação: `npm run test:social` e `npm run build`. Os testes de jornada/casa também verificam a integração de cozinha, navegação e convidados. `tests/social-phone.html` usa o celular real com dados e armazenamento isolados de demonstração.
+Validação: `npm run test:social`, `npm run build` e `npm run test:bundle` (o jogo carrega a vida social de dentro de `js/vehicle-webgl.bundle.js`; sem `npm run build` depois de mudar um `.mjs`, quem roda o jogo pelo repositório recebe o código antigo). Os testes de jornada/casa também verificam a integração de cozinha, navegação e convidados. `tests/social-phone.html` usa o celular real com dados e armazenamento isolados de demonstração.

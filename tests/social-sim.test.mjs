@@ -18,3 +18,22 @@ test('romance exige vínculo forte e namoro é exclusivo',()=>{
 });
 test('ofensas criam inimizade e memória; repetição tem retorno menor',()=>{const s=make(),id='aiko-sakura';s.interact('player',id,'insult');for(let i=0;i<5;i++)s.tick(1);s.interact('player',id,'insult');const r=s.relation('player',id);assert.equal(r.friend,-21.6);assert.equal(r.memories.length,2);for(let i=0;i<5;i++)s.tick(1);assert.equal(s.interact('player',id,'apologize').ok,true);assert.ok(r.trust<0);});
 test('vínculos sobrevivem ao recarregamento e storage indisponível não quebra simulação',()=>{let data;const storage={getItem:()=>data,setItem:(_,v)=>data=v};const s=make({storage});s.interact('player','aiko-sakura','greet');s.save();const loaded=make({storage});assert.equal(loaded.relation('player','aiko-sakura').friend,5);assert.equal(loaded.relation('player','aiko-sakura').memories.length,1);assert.doesNotThrow(()=>make({storage:{getItem(){throw Error();}}}));});
+test('quem namora quase nunca recusa carinho e um "hoje não" não trava o romance por 90 s',async()=>{
+ const {romanticRefusalChance}=await import('../js/social-sim.mjs');
+ assert.ok(romanticRefusalChance({dating:true,romance:100})<=.03);
+ assert.ok(romanticRefusalChance({dating:false,romance:0})>romanticRefusalChance({dating:false,romance:80}));
+ // sorteio no topo (recusa) entre namorados: pausa curta
+ let draw=0;const s=createSocialSim(roster,{random:()=>draw}),id=roster[0].id,r=s.relation('player',id);
+ Object.assign(r,{friend:100,trust:100,intimacy:100,romance:100,dating:true});
+ draw=.99;const res=s.interact('player',id,'kiss');assert.equal(res.accepted,false);
+ for(let k=0;k<25;k++)s.tick(1);draw=0;
+ assert.equal(s.interact('player',id,'kiss').accepted,true,'depois de ~20 s o casal volta a se beijar');
+});
+test('flertar com outra pessoa magoa quem namora com o jogador',()=>{
+ const s=make(),[A,B]=[roster[0].id,roster[1].id];
+ for(const id of [A,B])Object.assign(s.relation('player',id),{friend:100,trust:100,intimacy:100,romance:100});
+ assert.equal(s.interact('player',A,'date').accepted,true);for(let k=0;k<30;k++)s.tick(1);
+ assert.equal(s.interact('player',B,'flirt').accepted,true);
+ const ra=s.relation('player',A);assert.ok(ra.trust<100&&ra.romance<100,'parceira perde confiança e romance');
+ assert.match(ra.memories.at(-1).text,/trocou carinhos/);assert.equal(ra.dating,true,'não termina sozinho');
+});

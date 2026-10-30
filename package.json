@@ -16,7 +16,8 @@
     "judge:home": "node tools/judge-city-home.cjs",
     "test:cas": "node --test tests/cas-profile.test.mjs tests/cas-hair.test.mjs tests/cas-studio.test.mjs tests/cas-roster.test.mjs tests/cas-reborn.test.mjs tests/cas-reborn-upperbody.test.mjs tests/cas-reborn-hands.test.mjs && node --check js/cas-studio.mjs && node --check js/cas-hair.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs",
     "test:rig-archive": "python3 tools/check-rig-only.py",
-    "test:rig": "node --test tests/npc-rig.test.mjs"
+    "test:rig": "node --test tests/npc-rig.test.mjs",
+    "test:bundle": "node --test tests/bundle-fresh.test.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
