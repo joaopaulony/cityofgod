@@ -6,7 +6,7 @@
 <script type="module">
 // Comparação do rig (mesma câmera em todas as colunas; linha de cima de frente, de baixo de perfil):
 // malha original sem esqueleto | repouso (bind, sem animação) | parado em 3 instantes | poses de teste.
-// ?id=<personagem>&base=/ (pasta com assets/) &cols=orig,bones,diff,rest,idle0,idle50,walk25,crouch30,rifle_aim30,arms,neck,elbows,legs,fist (clipe+% do tempo) &zoom=torso|hips|hand|rhand
+// ?id=<personagem>&base=/ (pasta com assets/) &cols=orig,bones,diff,rest,idle0,idle50,walk25,crouch30,rifle_aim30,arms,neck,elbows,legs,fist (clipe+% do tempo) &zoom=torso|hips|face|hand|rhand
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {loadRoster} from '../js/npc-roster.mjs';
@@ -50,6 +50,7 @@ for(const col of cols){
  if(!frame){const box=new THREE.Box3().setFromObject(scene);frame={c:box.getCenter(new THREE.Vector3()),h:box.max.y-box.min.y};}
  for(const side of [0,1]){const cam=new THREE.PerspectiveCamera(20,1,0.05,50),c=frame.c.clone();let dist=frame.h*3.3;
   if(zoom==='torso'){c.y=frame.h*0.74;dist=frame.h*1.25;}
+  if(zoom==='face'){root.updateMatrixWorld(true);root.getObjectByName('mixamorigHead').getWorldPosition(c);c.y+=frame.h*0.01;dist=frame.h*0.75;}
   if(zoom==='hips'){c.y=frame.h*0.45;dist=frame.h*1.6;}
   if(zoom==='hand'||zoom==='rhand'){const h=root.getObjectByName(zoom==='rhand'?'mixamorigRightHandMiddle1':'mixamorigLeftHandMiddle1');root.updateMatrixWorld(true);h.getWorldPosition(c);dist=frame.h*0.22;cam.position.set(c.x,c.y+(side?0:dist),c.z+(side?dist:0.001));cam.lookAt(c);views.push({scene,cam,label:(side?'frente · ':'de cima · ')+label,col:cols.indexOf(col),row:side});continue;}
   cam.position.set(c.x+(side?dist:0),c.y,c.z+(side?0:dist));cam.lookAt(c);views.push({scene,cam,label:(side?'perfil · ':'frente · ')+label,col:cols.indexOf(col),row:side});}

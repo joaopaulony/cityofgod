@@ -43,21 +43,25 @@ export function restPose(root,{fromBind=true}={}){
 // Amortecimento (fração da rotação de cada osso em relação ao pai que passa p/ o personagem): a pose T do Mixamo tem
 // as clavículas erguidas e o clipe as abaixa ~25° — passado inteiro, isso afunda e comprime ombro e peito; o braço
 // continua na direção exata do clipe (mão e rifle no mesmo lugar). No parado, quadril, coluna, pescoço e cabeça só
-// respiram e balançam de leve, e as clavículas quase não se movem (o idle do Mixamo rola os ombros 16° p/ frente).
+// respiram e balançam de leve, e as clavículas quase não se movem (o idle do Mixamo rola os ombros 16° p/ frente). Andando e
+// correndo, a cabeça fica estável olhando p/ frente (o walk do Mixamo vira a cabeça 17° e a inclina 5° p/ o lado).
 // Membros: a pose T de cada malha nem sempre é a do Mixamo (braços um pouco p/ frente ou p/ baixo, cotovelo dobrado).
 // Antes de aplicar a variação, o osso do membro é girado (menor rotação) da direção que tem na malha p/ a direção
 // do repouso da biblioteca; assim braço e perna seguem a direção do clipe, cada um com o próprio comprimento. Tronco,
 // pescoço e clavículas não passam por isso: ficam com a anatomia da malha.
 const LIMB_CHILD={Arm:'ForeArm',ForeArm:'Hand',Hand:'HandMiddle1',UpLeg:'Leg',Leg:'Foot',Foot:'ToeBase'};
-export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Spine:0.35,Spine1:0.35,Spine2:0.35,Neck:0.35,Head:0.35,LeftShoulder:0.15,RightShoulder:0.15}};
+export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Spine:0.35,Spine1:0.35,Spine2:0.35,Neck:0.35,Head:0.35,LeftShoulder:0.15,RightShoulder:0.15},
+ walk:{Neck:0.3,Head:0.3},run:{Neck:0.4,Head:0.4},crouch_walk:{Neck:0.4,Head:0.4}};
 // Estilo por sexo, por cima do clipe transferido. As bibliotecas David (homens) e Megan (mulheres) trazem exatamente os
 // mesmos clipes, então sem isto a mulher anda e fica parada igual ao homem. Graus no referencial do personagem.
 //  - shoulder: clavículas mais baixas (drop) e um pouco p/ trás (back) em todas as animações — ombros relaxados; o braço
 //    mantém a direção do clipe, só sai do novo lugar do ombro;
 //  - por clipe: hips = quanto o balanço/giro do quadril é ampliado (o tronco continua estável), legIn = coxas um pouco
 //    p/ dentro (passo mais estreito, pés perto da linha do meio), armSwing = fração do balanço dos braços que fica,
-//    armIn = braços mais junto do corpo.
-export const STYLE=Object.freeze({female:{shoulder:{drop:10,back:5},walk:{hips:1.5,legIn:3,armSwing:0.6,armIn:-3},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}}});
+//    armIn = braços mais junto do corpo, elbow/wrist = fração da dobra do cotovelo/punho do clipe que fica (o clipe do
+//    Mixamo dobra o cotovelo até 45° ao levar o braço à frente — a mão ia p/ a cintura; feminino: braço balança do
+//    ombro, cotovelo levemente dobrado, mão solta perto da coxa).
+export const STYLE=Object.freeze({female:{shoulder:{drop:10,back:5},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}}});
 const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...{x:[1,0,0],y:[0,1,0],z:[0,0,1]}[axis]),THREE.MathUtils.degToRad(deg));
 // Folga dos braços no quadril, por personagem (roster.json → armOut, medido por tools/arm-clearance.mjs): em corpos de
 // quadril largo a mão e o antebraço encostavam no quadril nos clipes relaxados e pareciam "mãos na cintura"; o braço
@@ -111,6 +115,11 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
   const o=out[n],mean=new THREE.Quaternion(0,0,0,0),q=new THREE.Quaternion();
   for(let i=0;i<times.length;i++){q.fromArray(o,i*4);mean.x+=q.x;mean.y+=q.y;mean.z+=q.z;mean.w+=q.w;}mean.normalize();
   for(let i=0;i<times.length;i++){q.fromArray(o,i*4);new THREE.Quaternion().slerpQuaternions(mean,q,cs.armSwing).toArray(o,i*4);}
+ }
+ // cotovelo e punho mais soltos: cada quadro chega mais perto do repouso (antebraço reto, mão alinhada)
+ for(const [re,k] of [[/^mixamorig(Left|Right)ForeArm$/,cs?.elbow],[/^mixamorig(Left|Right)Hand$/,cs?.wrist]])if(k!=null)for(const n of names.filter(n=>re.test(n))){
+  const o=out[n],r=dst.get(n).q,q=new THREE.Quaternion();
+  for(let i=0;i<times.length;i++){q.fromArray(o,i*4);new THREE.Quaternion().slerpQuaternions(r,q,k).toArray(o,i*4);}
  }
  const result=new THREE.AnimationClip(name,clip.duration,names.map(n=>new THREE.QuaternionKeyframeTrack(n+'.quaternion',times,out[n])));
  if(hipsPos){

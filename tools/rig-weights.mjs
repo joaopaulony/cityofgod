@@ -21,10 +21,11 @@ export function anatomicalMask(J, H) {
       f *= top ? smooth(Math.abs(A.x) - 0.075 * H, Math.abs(A.x) - 0.03 * H, ax) : smooth(Math.abs(A.x) - 0.045 * H, Math.abs(A.x) - 0.01 * H, ax);
       f *= smooth(A.y - 0.2 * H, A.y - 0.12 * H, p.y);                                      // nada na cintura
     }
-    if (/Shoulder$/.test(b)) f *= smooth(J[b].y - 0.13 * H, J[b].y - 0.07 * H, p.y);       // clavícula: só ombro/peito alto
+    if (/Shoulder$/.test(b)) f *= smooth(J[b].y - 0.13 * H, J[b].y - 0.07 * H, p.y) * (1 - smooth(neck + 0.01 * H, neck + 0.035 * H, p.y));   // clavícula: ombro/peito alto, nunca o pescoço alto nem o rosto
     if (/(UpLeg|Leg|Foot|Toe)/.test(b)) f *= 1 - smooth(crotch + 0.02 * H, hipY + 0.01 * H, p.y);   // perna: do quadril p/ baixo
     if (b === 'Neck') f *= smooth(neck - 0.045 * H, neck - 0.015 * H, p.y);                // pescoço: não pega o peito
     if (b === 'Head') f *= smooth(neck - 0.005 * H, neck + 0.015 * H, p.y);
+    if (/^(Hips|Spine|Spine1)$/.test(b)) f *= 1 - smooth(neck - 0.02 * H, neck + 0.01 * H, p.y);   // coluna baixa não puxa pescoço nem rosto
     return f;
   };
 }
@@ -93,20 +94,31 @@ export function constrainWeights({ P, idx, JI, WT, names, J, H, segments }) {
   return { corrected: touched.reduce((a, b) => a + b, 0), movedWeight: +moved.toFixed(1) };
 }
 
-// Spine2 / pescoço / cabeça pela altura das articulações medidas (tools/rig-anatomy.mjs): a divisa pescoço/cabeça fica
-// na base do crânio atrás e desce p/ debaixo do queixo na frente, então a mandíbula inteira vai com a cabeça (sem isso
-// o queixo esticava quando a cabeça girava). anatomy = { chin, neckZ, throat } de measureUpperBody.
-export function splitNeckHead({ P, JI, WT, names, J, H, anatomy: { chin, neckZ, throat } }) {
+// Spine2 / pescoço / cabeça pela altura das articulações medidas (tools/rig-anatomy.mjs). O rosto tem de girar como um
+// bloco só com a cabeça — se boca/queixo ficam presos ao pescoço, o rosto "entorta" quando cabeça e pescoço giram
+// diferente (caminhada). Então:
+//  - acima do pivô da cabeça (que fica na altura do queixo) tudo é cabeça, inclusive o que os pesos de calor tinham
+//    deixado no pescoço/peito (bochecha, boca);
+//  - logo abaixo, na frente do pescoço, a cabeça desce até debaixo da mandíbula (2–4% da altura abaixo do pivô); atrás
+//    (nuca) a divisa fica no pivô — o pescoço continua dobrando;
+//  - Spine2 ↔ pescoço na base do pescoço.
+// Não depende da medida do queixo (cabelo comprido na frente do pescoço a confundia). anatomy = { neckZ } de measureUpperBody.
+export function splitNeckHead({ P, JI, WT, names, J, H, anatomy: { neckZ } }) {
   const jIdx = Object.fromEntries(names.map((n, k) => [n, k])), S2 = jIdx.Spine2, NK = jIdx.Neck, HD = jIdx.Head;
-  const lo = J.Neck.y - 0.035 * H, hi = J.Head.y + 0.02 * H, nv = P.length / 3;
+  const lo = J.Neck.y - 0.035 * H, nv = P.length / 3;
   let changed = 0;
   for (let i = 0; i < nv; i++) {
-    const y = P[i * 3 + 1]; if (y < lo || y > hi || Math.abs(P[i * 3]) > 0.1 * H) continue;
+    const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2]; if (y < lo || Math.abs(x) > 0.1 * H) continue;
     const w = new Map(); for (let k = 0; k < 4; k++) { const v = WT[i * 4 + k]; if (v > 0) w.set(JI[i * 4 + k], (w.get(JI[i * 4 + k]) || 0) + v); }
-    const t = (w.get(S2) || 0) + (w.get(NK) || 0) + (w.get(HD) || 0); if (t < 1e-4) continue;
-    const front = smooth(neckZ, throat.zf, P[i * 3 + 2]), split = J.Head.y * (1 - front) + (chin - 0.012) * H * front;
-    const s1 = smooth(J.Neck.y - 0.02 * H, J.Neck.y + 0.012 * H, y), s2 = smooth(split - 0.01 * H, split + 0.01 * H, y);
-    w.set(S2, t * (1 - s1)); w.set(NK, t * s1 * (1 - s2)); w.set(HD, t * s1 * s2);
+    const front = smooth(neckZ - 0.01 * H, neckZ + 0.01 * H, z), split = J.Head.y - 0.03 * H * front;
+    const s2 = smooth(split - 0.01 * H, split + 0.01 * H, y);
+    if (y > J.Head.y + 0.01 * H) {   // cabeça: tudo vai p/ ela (inclusive clavícula/coluna que o calor espalhou até aqui)
+      w.clear(); w.set(HD, 1);
+    } else {
+      const t = (w.get(S2) || 0) + (w.get(NK) || 0) + (w.get(HD) || 0); if (t < 1e-4) continue;
+      const s1 = smooth(J.Neck.y - 0.02 * H, J.Neck.y + 0.012 * H, y);
+      w.set(S2, t * (1 - s1) * (1 - s2)); w.set(NK, t * s1 * (1 - s2)); w.set(HD, t * s2);
+    }
     const top = [...w].filter(([, v]) => v > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((a, [, v]) => a + v, 0);
     for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
     changed++;

@@ -188,7 +188,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 6,
-    "walk": 6
+    "walk": 4
    }
   },
   {
@@ -366,7 +366,8 @@
    "source": "NPCs Socorristas/Laura-Lisboa,paramedic 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1
+    "idle": 1,
+    "walk": 2
    }
   },
   {
@@ -416,7 +417,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 6,
-    "walk": 4
+    "walk": 3
    }
   },
   {
@@ -451,7 +452,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 8,
-    "walk": 3
+    "walk": 5
    }
   },
   {
@@ -469,7 +470,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 8,
-    "walk": 4
+    "walk": 5
    }
   },
   {
@@ -522,7 +523,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 8,
-    "walk": 2
+    "walk": 3
    }
   },
   {
@@ -554,7 +555,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 6,
-    "walk": 2
+    "walk": 4
    }
   },
   {
@@ -571,7 +572,8 @@
    "source": "NPCs Urbanos Female/Thabata-Lisboa,woman 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2
+    "idle": 2,
+    "walk": 2
    }
   },
   {
@@ -588,7 +590,8 @@
    "source": "NPCs Urbanos Female/Yuki-Soo-jin,female figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5
+    "idle": 5,
+    "walk": 4
    }
   },
   {
@@ -804,7 +807,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 1,
-    "walk": 10
+    "walk": 9
    }
   },
   {
@@ -858,7 +861,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 6,
-    "walk": 11
+    "walk": 7
    }
   },
   {
