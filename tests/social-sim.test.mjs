@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createSocialSim,factionAffinity} from '../js/social-sim.mjs';
+import {NPC_STORIES} from '../js/npc-stories.mjs';
+const roster=JSON.parse(readFileSync(new URL('../assets/npcs/roster.json',import.meta.url))).characters;
+const make=opts=>createSocialSim(roster,{random:()=>0,...opts});
+test('todos os personagens têm história própria',()=>{assert.equal(roster.length,52);for(const c of roster)assert.ok(NPC_STORIES[c.id]?.length>90,c.id);assert.equal(new Set(Object.values(NPC_STORIES)).size,52);});
+test('rivalidade é recíproca e não afeta jogador por seu visual',()=>{assert.equal(factionAffinity('last-kings','novelis-crew'),-48);assert.equal(factionAffinity('policia','last-kings'),-38);const s=make();assert.equal(s.relation('player','christopher-brown').friend,0);assert.equal(s.relation('christopher-brown','ana-paula-novli'),s.relation('ana-paula-novli','christopher-brown'));});
+test('romance exige vínculo forte e namoro é exclusivo',()=>{
+ const s=make(),id='aiko-sakura';assert.equal(s.interact('player',id,'flirt').ok,false);
+ s.interact('player',id,'greet');s.tick(1);assert.equal(s.interact('player',id,'chat').ok,false);for(let i=0;i<5;i++)s.tick(1);
+ const r=s.relation('player',id);Object.assign(r,{friend:70,trust:60,intimacy:55,romance:75});
+ assert.equal(s.interact('player',id,'date').accepted,true);for(let i=0;i<5;i++)s.tick(1);
+ Object.assign(s.relation('player','jessica-alves'),{friend:70,trust:60,intimacy:55,romance:75});
+ assert.equal(s.interact('player','jessica-alves','date').ok,false);
+ assert.equal(s.interact('player',id,'breakup').ok,true);assert.equal(r.dating,false);
+});
+test('ofensas criam inimizade e memória; repetição tem retorno menor',()=>{const s=make(),id='aiko-sakura';s.interact('player',id,'insult');for(let i=0;i<5;i++)s.tick(1);s.interact('player',id,'insult');const r=s.relation('player',id);assert.equal(r.friend,-21.6);assert.equal(r.memories.length,2);for(let i=0;i<5;i++)s.tick(1);assert.equal(s.interact('player',id,'apologize').ok,true);assert.ok(r.trust<0);});
+test('vínculos sobrevivem ao recarregamento e storage indisponível não quebra simulação',()=>{let data;const storage={getItem:()=>data,setItem:(_,v)=>data=v};const s=make({storage});s.interact('player','aiko-sakura','greet');s.save();const loaded=make({storage});assert.equal(loaded.relation('player','aiko-sakura').friend,5);assert.equal(loaded.relation('player','aiko-sakura').memories.length,1);assert.doesNotThrow(()=>make({storage:{getItem(){throw Error();}}}));});

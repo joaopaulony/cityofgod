@@ -320,7 +320,7 @@ function initRenderer(){
  shadowGround.receiveShadow=true;scene.add(shadowGround);
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
- createCharacterSystem(scene,bridge);
+ createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
  createPets(scene,bridge);
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){

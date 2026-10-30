@@ -93,6 +93,8 @@ const CityApps = (() => {
       '<p class="city-help">Faça uma foto do mundo ao redor ou uma selfie com retrato do personagem. Você pode salvar o arquivo ou publicar a legenda no CitySocial.</p>')+'</div>';
   if(app==='social'){
    return banner('<strong>CitySocial</strong><small>Sua vida na cidade · feed local</small>')+
+    (window.cityCharacters?.social?.contacts()||[]).filter(p=>p.social).map(p=>card(p.name,p.handle+' · '+p.mood+' · “'+(['Alegre','Entusiasmado'].includes(p.mood)?'Boa companhia mudou meu dia. Estou com vontade de realizar meus planos.':['Irritado','Magoado','Furioso'].includes(p.mood)?'Hoje preciso de um pouco de espaço e de gente que respeite isso.':'Tentando encontrar um tempo para '+p.interest+' no meio da correria.')+'”',
+      btn('sim:npc-social:'+p.id+':likePhoto','❤ Curtir publicação')+' '+btn('sim:npc-social:'+p.id+':commentPhoto','Comentar'),'👤')).join('')+
     '<form id="city-social-form" class="city-panel"><label for="city-social-text">Nova publicação</label>'+
     '<textarea id="city-social-text" maxlength="180" rows="3" placeholder="O que aconteceu por aí?"></textarea>'+
     '<div class="city-row"><small>'+(lastPhoto?'📷 Última foto da sessão disponível':'Adicione uma foto pela CityCam')+'</small>'+
@@ -104,6 +106,11 @@ const CityApps = (() => {
      '<p class="city-help">Publicações locais neste navegador; perfis de outros jogadores exigirão backend online.</p>';
   }
   if(app==='calls')return banner('<strong>Ligações</strong><small>Chame seus contatos da cidade</small>')+
+    card('Polícia · denúncia confidencial',
+      window.cityCharacters?.social?.crimeEvidence?.some(e=>e.reportedBy==null)?'Você tem uma pista concreta que pode registrar. A denúncia abre um protocolo e diligências; não condena automaticamente ninguém.':'Relatos exigem um acontecimento concreto vivido no jogo.',
+      btn('sim:police-report','Registrar denúncia',!window.cityCharacters?.social?.crimeEvidence?.some(e=>e.reportedBy==null)),'🚔')+
+    (window.cityCharacters?.social?.contacts()||[]).filter(p=>p.phone).map(p=>card(p.name,'Seu contato · '+p.mood,
+      btn('sim:npc-call:'+p.id,'Ligar'),'📱')).join('')+
     ['Lucas','Ana'].map(name=>card(name,'Ligação simulada com NPC (não é chamada por voz)',
     btn('sim:call:'+name,'Ligar'),'📞')).join('')+
     (lastCall?'<div class="city-panel"><h3>Última ligação</h3><p>'+esc(lastCall)+'</p></div>':'');
@@ -163,7 +170,13 @@ const CityApps = (() => {
   if(args[0]!=='sim')return null;
   const [_,type,id,arg]=args;
   let result;
-  if(type==='apply')result=CitySim.applyJob(id);
+  if(type==='npc-social')result=window.cityCharacters?.social?.interact('player',id,arg,{channel:'social'});
+  else if(type==='npc-call'){
+    result=window.cityCharacters?.social?.message(id,'Oi! Como você está?');
+    if(result?.ok)lastCall=(window.cityCharacters.social.people.get(id)?.name||id)+': “'+result.text+'”';
+  }
+  else if(type==='police-report')result=window.cityCharacters?.fileCrimeReport?.();
+  else if(type==='apply')result=CitySim.applyJob(id);
   else if(type==='work')result=CitySim.work();
   else if(type==='travel')result=CitySim.travel(id);
   else if(type==='business-buy')result=CitySim.buyBusiness(id);

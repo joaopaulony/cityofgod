@@ -17,6 +17,11 @@ const CityUI = (() => {
   const labels = { hp:'Vida', food:'Fome', water:'Sede', stamina:'Fôlego', energy:'Energia', hygiene:'Higiene', bladder:'Banheiro' };
   let app = 'home', phoneOpen = false, wheelOpen = false, wheelChoice = 1, selectedContact = 'lucas', mounted = false;
   let toastTimer, currentSt, messages = [], notes = '', shownClock = '';
+  function syncSocialContacts(){
+    for(const [id,c] of Object.entries(contacts))if(c.roleplay)delete contacts[id];
+    for(const p of window.cityCharacters?.social?.contacts()||[])if(p.phone)contacts[p.id]={name:p.name,roleplay:true,mood:p.mood,number:p.number};
+    if(!contacts[selectedContact])selectedContact='lucas';
+  }
   const $ = id => document.getElementById(id);
   const safe = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const percent = value => Math.max(0, Math.min(100, Math.round(value * 100)));
@@ -135,10 +140,12 @@ const CityUI = (() => {
       <div class="city-panel" role="log" aria-label="Histórico de mensagens">${entries.length ? entries.map(m =>
         `<div class="city-message ${m.sender === 'me' ? 'sent' : ''}"><strong>${m.sender === 'me' ? 'Você' : who}:</strong> ${safe(m.text)}</div>`).join('') :
         '<p>Envie uma mensagem para começar.</p>'}</div>
-      <form id="city-sms-form" class="city-form"><input id="city-sms-input" maxlength="160" autocomplete="off" placeholder="Mensagem para ${who}…" aria-label="Mensagem"><button class="city-primary" type="submit">Enviar</button></form>`;
+      <form id="city-sms-form" class="city-form"><input id="city-sms-input" maxlength="160" autocomplete="off" placeholder="Mensagem para ${who}…" aria-label="Mensagem"><button class="city-primary" type="submit">Enviar</button></form>`+
+      (contacts[selectedContact].roleplay?'<div class="city-panel"><h3>Combinar um programa</h3>'+[['inviteWalk','🚶 Passear'],['inviteCoffee','☕ Café'],['inviteDate','🌹 Encontro'],['inviteDinner','🍽 Jantar em casa'],['inviteSleep','🌙 Passar a noite']].map(([action,label])=>{const reason=window.cityCharacters.social.unavailable('player',selectedContact,action,window.cityCharacters.socialActivities?.context(selectedContact));const locked=reason&&!reason.includes('Espere a outra pessoa');return '<button class="city-action" data-action="invite-npc:'+selectedContact+':'+action+'" '+(locked?'disabled':'')+' title="'+safe(reason)+'" aria-label="'+safe(label+(locked?'. Bloqueado: '+reason:''))+'">'+(locked?'🔒 ':'')+label+'</button>';}).join('')+'</div>':'');
   }
   function render() {
     if (!phoneOpen || !mounted) return;
+    syncSocialContacts();
     const screen = $('city-phone-screen');
     const title = appNames[app] || 'Início';
     $('city-phone-title').textContent = title;
@@ -180,7 +187,7 @@ const CityUI = (() => {
     else if (app === 'market') html = renderMarket();
     else if (app === 'wallet') html = renderWallet();
     else if (app === 'contacts') html = '<p class="city-help">Contatos dos NPCs locais (não é chat online).</p>' +
-      Object.entries(contacts).map(([id,c]) => `<div class="city-panel city-row"><strong>👤 ${safe(c.name)}</strong>${btn('contact:'+id,'Conversar')}</div>`).join('');
+      Object.entries(contacts).map(([id,c]) => `<div class="city-panel city-row"><strong>👤 ${safe(c.name)}${c.roleplay?'<small> · '+safe(c.mood)+' · '+safe(c.number)+'</small>':''}</strong>${btn('contact:'+id,'Conversar')}</div>`).join('')+'<p class="city-help">Novos contatos aparecem quando vocês trocam números pelo leque social.</p>';
     else if (app === 'sms') html = renderMessages();
     else if (app === 'notes') html = `<p class="city-help">Notas privadas salvas no navegador.</p><textarea id="city-notes" maxlength="1000" aria-label="Anotações"></textarea><p class="city-help">Salvamento automático.</p>`;
     else if (app === 'help') html = `<div class="city-panel"><h3>Controles</h3><p>P: celular · TAB ou U: roda de equipamentos · I: mochila · M: mapa. Role o mouse para aproximar a câmera do personagem.</p>
@@ -192,16 +199,21 @@ const CityUI = (() => {
     if (app === 'sms') $('city-sms-form')?.addEventListener('submit', sendMessage);
     if(CityApps.names[app]) CityApps.afterRender(app);
   }
-  function sendMessage(e) {
+  async function sendMessage(e) {
     e.preventDefault();
     const field = $('city-sms-input'), text = field?.value.trim();
     if (!text) return;
-    messages.push({ contact: selectedContact, sender: 'me', text });
-    messages.push({ contact: selectedContact, sender: 'npc', text: contacts[selectedContact].reply });
+    syncSocialContacts();
+    const recipient=selectedContact,social=window.cityCharacters?.social,intent=contacts[recipient].roleplay?social.messageIntent(text):null;
+    let result;
+    try{result=contacts[recipient].roleplay?(intent?.startsWith('invite')?await window.cityCharacters.inviteContact(recipient,intent):social.message(recipient,text)):{ok:true,text:contacts[recipient].reply};}catch{notify('Não foi possível entregar a mensagem.');return;}
+    if(!result.ok){notify(result.text);return;}
+    messages.push({ contact: recipient, sender: 'me', text });
+    messages.push({ contact: recipient, sender: 'npc', text:result.text });
     messages = messages.slice(-60);
     localWrite('cityofgod.phone.sms.v1',JSON.stringify(messages));
     render();
-    notify('Mensagem respondida por ' + contacts[selectedContact].name + ' (NPC)');
+    notify('Mensagem respondida por ' + contacts[recipient].name + ' (NPC)');
   }
   function setApp(next) {
     if (next === 'map') {
@@ -213,6 +225,11 @@ const CityUI = (() => {
     app = next; render();
   }
   function onAction(action) {
+    if(action.startsWith('invite-npc:')){
+      const [,id,kind]=action.split(':');
+      window.cityCharacters?.inviteContact?.(id,kind).then(result=>{notify(result.text);if(result.ok){messages.push({contact:id,sender:'me',text:result.line||'Quer combinar um programa juntos?'},{contact:id,sender:'npc',text:result.text});messages=messages.slice(-60);localWrite('cityofgod.phone.sms.v1',JSON.stringify(messages));}render();}).catch(()=>notify('Não foi possível combinar o convite.'));
+      return;
+    }
     if (action === 'phone') return togglePhone();
     if (action === 'wheel') return openWheel(!wheelOpen);
     if (action === 'bag') { togglePhone(true); setApp('bag'); return; }
@@ -231,7 +248,7 @@ const CityUI = (() => {
     currentSt = CityLife.state;
     if (!currentSt) return;
     notes = localRead('cityofgod.phone.notes.v1','');
-    try { const parsed=JSON.parse(localRead('cityofgod.phone.sms.v1','[]')); if (Array.isArray(parsed)) messages=parsed.filter(x => x && contacts[x.contact] && ['npc','me'].includes(x.sender) && typeof x.text === 'string').slice(-60); } catch (_) {}
+    try { const parsed=JSON.parse(localRead('cityofgod.phone.sms.v1','[]')); if (Array.isArray(parsed)) messages=parsed.filter(x => x && typeof x.contact==='string' && ['npc','me'].includes(x.sender) && typeof x.text === 'string').slice(-60); } catch (_) {}
     const root=document.createElement('div'); root.id='city-ui-root';
     root.innerHTML = `
       <div id="city-controls" aria-label="Ações do personagem">

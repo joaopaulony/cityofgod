@@ -56,6 +56,7 @@ window.cityVehicleBridge={
   movePet:moveTo,petStairs:updateHouseStairs,
   releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
   driving:()=>!!window.cityVehicles?.driver,
+  canPickSocial:()=>!wmap.open&&!window.CityHomeUI?.active&&!window.CityRealty?.dialogOpen&&!window.cityCharacterEditorOpen&&!window.CityPets?.uiOpen,
   get mapSize(){return MAP;}
 };
 
@@ -736,6 +737,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function tick(dt) {
+  if(window.cityCharacters?.socialInputBlocked){input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;}
   if(window.CityFront?.blocked){
     if(window.CityFront.loading){
       for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}

@@ -14,8 +14,9 @@
    "file": "char-principal-base.glb",
    "weights": "blender-heat (16244 copiados do vizinho)",
    "triangles": 32226,
-   "bytes": 2538424,
-   "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb"
+   "bytes": 2533336,
+   "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb",
+   "skeleton": "mixamo-reto"
   },
   {
    "id": "character-principal-base",
@@ -27,8 +28,9 @@
    "file": "character-principal-base.glb",
    "weights": "blender-heat",
    "triangles": 32068,
-   "bytes": 2458136,
-   "source": "Character Principal Base/Character-Principal-Base,human figure 3d model.glb"
+   "bytes": 2453432,
+   "source": "Character Principal Base/Character-Principal-Base,human figure 3d model.glb",
+   "skeleton": "mixamo-reto"
   },
   {
    "id": "miguel",

@@ -2,6 +2,7 @@
   "name": "cityofgod",
   "private": true,
   "scripts": {
+    "test:social": "node --test tests/social-sim.test.mjs tests/social-pie.test.mjs tests/social-roleplay.test.mjs tests/social-progression.test.mjs",
     "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
     "build:site": "npm run test:cas && npm run build && node tools/build-site.mjs",
     "audit:vehicles": "node tools/audit-vehicle-assets.mjs",

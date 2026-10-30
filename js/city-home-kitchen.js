@@ -74,6 +74,12 @@ const CityHomeKitchen=(()=>{
   CityLife.save();
   return {ok:true,text:'🍽️ Refeição consumida. Saciedade aumentada'};
  }
- return {pantry,bundle,prepare,cook,eat,canPrepare,recipes,bundles};
+ function serveGuest(H){
+  if(!CityHome.owned(H))return {ok:false,text:'A residência não está disponível.'};
+  const p=pantry(H);if(p.portions<1)return {ok:false,text:'Não restou uma porção preparada para o convidado.'};
+  p.portions--;if(!save()){p.portions++;return {ok:false,text:'Não foi possível guardar o consumo da refeição.'};}
+  return {ok:true,text:'A refeição do convidado foi servida.'};
+ }
+ return {pantry,bundle,prepare,cook,eat,serveGuest,canPrepare,recipes,bundles};
 })();
 window.CityHomeKitchen=CityHomeKitchen;

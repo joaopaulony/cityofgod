@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>City of God · Prévia da HUD social</title>
+<style>body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 20% 20%,#9eb6a8,transparent 60%),linear-gradient(135deg,#6c8598,#cad2b8);font:16px system-ui}body>p{position:fixed;left:25px;bottom:20px;color:#fff;max-width:370px;text-shadow:0 1px 4px #345}body>p b{display:block}</style>
+<p><b>City of God · Prévia da HUD</b>Interface real com dados de demonstração. Use Y para abrir ou fechar. Amizade e romance começam preenchidos para inspeção visual.</p>
+<script type="module">
+import {createSocialSim} from '../js/social-sim.mjs';
+import {installSocialUI} from '../js/social-ui.mjs';
+const roster=(await (await fetch('../assets/npcs/roster.json')).json()).characters;
+const sim=createSocialSim(roster,{random:()=>0});
+const npcs=['aiko-sakura','christopher-brown','ana-paula-novli','clara-migos'].map(lookId=>({lookId}));
+Object.assign(sim.relation('player','aiko-sakura'),{friend:64,romance:32,trust:47});
+Object.assign(sim.relation('player','christopher-brown'),{friend:-38,trust:-20});
+const ui=installSocialUI({sim:()=>sim,nearby:()=>npcs,blocked:()=>false,release(){},act:(id,action)=>sim.interact('player',id,action)});
+document.querySelector('#social-entry').click();
+let last=performance.now();function frame(now){const dt=(now-last)/1000;last=now;sim.tick(dt);ui.update(dt);requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script></html>
