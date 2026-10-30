@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import * as THREE from 'three';
-import { constrainWeights, splitNeckHead, shoulderWeights } from './rig-weights.mjs';
+import { constrainWeights, splitNeckHead, shoulderWeights, sleeveWeights } from './rig-weights.mjs';
 import { measureUpperBody } from './rig-anatomy.mjs';
 import { measureHands, applyFingerWeights } from './rig-hands.mjs';
 
@@ -92,6 +92,7 @@ for (const id of ids) {
   const DEFORM = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', ...['Left', 'Right'].flatMap(s => ['Shoulder', 'Arm', 'ForeArm', 'Hand', 'UpLeg', 'Leg', 'Foot', 'ToeBase'].map(b => s + b))];
   const seg = b => DEFORM.includes(b) && firstChild(b) && newPos[firstChild(b)] ? [newPos[b], newPos[firstChild(b)]] : null;
   const fix = constrainWeights({ P, idx, JI, WT, names: jointName, J: newPos, H, segments: seg });
+  sleeveWeights({ P, JI, WT, names: jointName, J: newPos, H });
   const ombro = shoulderWeights({ P, idx, JI, WT, names: jointName, J: newPos, H });
   applyFingerWeights({ JI, WT, names: jointName, weights: HANDS.weights, weld: HANDS.weld });
   json.asset.generator = 'City of God rig-npcs + npc-skeleton (Mixamo 65, articulações na malha, pesos com limites anatômicos)';

@@ -153,7 +153,9 @@ export function shoulderWeights({ P, idx, JI, WT, names, J, H }) {
       // região: do lado de fora do pescoço até um pouco depois da articulação, do peito alto ao alto do ombro
       const f = smooth(CX + 0.01 * H, CX + 0.035 * H, x) * (1 - smooth(AX + 0.045 * H, AX + 0.07 * H, x)) * smooth(-0.14 * H, -0.1 * H, dv) * (1 - smooth(0.05 * H, 0.08 * H, dv));
       if (f < 1e-3) continue;
-      const arm = smooth(-0.035 * H, 0.015 * H, du + 0.45 * dv);
+      // abaixo da articulação a divisa vai p/ fora (lateral do tronco e axila no tronco), mas o que está FORA da parede do
+      // tronco (além do ápice da axila: manga, parte de baixo do braço) é braço
+      const arm = Math.max(smooth(-0.035 * H, 0.015 * H, du + 0.45 * dv), dv < 0 ? smooth(-0.013 * H, 0.007 * H, du) : 0);
       const frontChest = smooth(0.02 * H, 0.05 * H, z - A.z);          // frente do peito (peitoral/seio)
       const top = smooth(-0.06 * H, -0.015 * H, dv) * (1 - frontChest) + smooth(-0.025 * H, 0.005 * H, dv) * frontChest;
       const clav = (1 - arm) * top * smooth(CX + 0.005 * H, CX + 0.035 * H, x);
@@ -187,4 +189,31 @@ export function shoulderWeights({ P, idx, JI, WT, names, J, H }) {
     for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
   }
   return rows.size;
+}
+
+// Mangas e a parte de baixo do braço na pose T: tudo que fica FORA da parede do tronco (além do ápice da axila, ao
+// longo do braço) é braço — antebraço depois do cotovelo. Os pesos de calor deixavam a metade de baixo de mangas
+// largas (camiseta oversized, jaqueta) no tronco: ao baixar o braço, a manga ficava na horizontal ("asa").
+// Só tira peso de tronco/clavícula/pescoço; o que já era braço, mão ou dedo não muda. Rode antes de shoulderWeights.
+export function sleeveWeights({ P, JI, WT, names, J, H }) {
+  const jIdx = Object.fromEntries(names.map((n, k) => [n, k])), nv = P.length / 3;
+  const body = new Set(['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'LeftShoulder', 'RightShoulder'].map(n => jIdx[n]).filter(v => v != null));
+  let changed = 0;
+  for (let i = 0; i < nv; i++) {
+    const x = P[i * 3], y = P[i * 3 + 1], side = x > 0 ? 'Left' : 'Right', A = J[side + 'Arm'], E = J[side + 'ForeArm'];
+    if (!A || !E) continue;
+    const ax = Math.abs(x), wall = Math.abs(A.x) - 0.008 * H;   // ápice da axila
+    if (ax < wall || y > A.y + 0.1 * H || y < A.y - 0.16 * H) continue;
+    const g = smooth(wall, wall + 0.02 * H, ax);
+    if (g < 1e-3) continue;
+    const w = new Map(); for (let k = 0; k < 4; k++) { const v = WT[i * 4 + k]; if (v > 0) w.set(JI[i * 4 + k], (w.get(JI[i * 4 + k]) || 0) + v); }
+    let t = 0; for (const [j, v] of w) if (body.has(j)) { const m = v * g; t += m; w.set(j, v - m); }
+    if (t < 1e-4) continue;
+    const fore = smooth(Math.abs(E.x) - 0.02 * H, Math.abs(E.x) + 0.02 * H, ax), jA = jIdx[side + 'Arm'], jF = jIdx[side + 'ForeArm'];
+    w.set(jA, (w.get(jA) || 0) + t * (1 - fore)); w.set(jF, (w.get(jF) || 0) + t * fore);
+    const top = [...w].filter(([, v]) => v > 1e-3).sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((a, [, v]) => a + v, 0);
+    for (let k = 0; k < 4; k++) { JI[i * 4 + k] = top[k] ? top[k][0] : 0; WT[i * 4 + k] = top[k] ? top[k][1] / sum : 0; }
+    changed++;
+  }
+  return changed;
 }

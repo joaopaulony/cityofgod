@@ -51,7 +51,7 @@
  function release(){game?.release?.();window.cityVehicleBridge?.releaseControls?.();if(window.__game?.player){window.__game.player.wantShot=false;window.__game.player.aiming=false;}}
  function inert(){for(const el of document.body.children)if(el!==root&&!['SCRIPT','TEMPLATE','STYLE'].includes(el.tagName))el.inert=blocked();}
  function change(next){phase=next;document.body.classList.toggle('front-open',blocked());document.body.classList.toggle('city-modal',!!(window.CityUI?.phoneOpen||window.CityUI?.wheelOpen));root.hidden=!blocked();root.setAttribute('aria-busy',String(next==='loading'));inert();release();updateVolume();}
- function otherModal(){return !!(window.CityPets?.uiOpen||window.CityHomeUI?.active||window.CityRealty?.dialogOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen||window.cityCharacterEditorOpen||game?.mapOpen?.());}
+ function otherModal(){return !!(window.CityPets?.uiOpen||window.CityHomeUI?.active||window.CityRealty?.dialogOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen||window.cityCharacterEditorOpen||game?.mapOpen?.()||window.cityCharacters?.socialPie?.active||document.querySelector('dialog:modal'));}   // leque social e diálogos modais (diário Y) tratam o próprio Esc
  function progress(){return Math.round(load.art*10+load.code*55+load.world*10+load.vehicle*10+load.characters*10+load.frame*5);}
  const back=()=>'<button class="front-back" data-front-action="back">← Voltar</button>';
  const top=()=>`<div class="front-top"><span>CITY OF GOD · ${parent==='pause'||phase==='pause'?'JOGO PAUSADO':'VIDA URBANA'}</span><button data-front-action="sound" aria-label="Ativar ou silenciar a música do menu">${settings.music===0?'SOM DESLIGADO':'♫ ÁUDIO'}</button></div>`;

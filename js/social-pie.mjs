@@ -56,7 +56,9 @@ export function installSocialPie(api){
  layer.addEventListener('cancel',event=>{event.preventDefault();if(trail.length){branch=trail.pop();render();}else close();});
  window.addEventListener('resize',()=>{if(layer.open)render(false);});
  return {open,close,get active(){return layer.open;},get target(){return layer.open?id:null;},update(){
-  if(layer.open){if(api.available&&!api.available(id)){close();return;}api.release();position();const sim=api.sim(),ctx=context(),r=sim.relation('player',id),state=JSON.stringify([ctx,sim.time<r.cooldown,r.friend,r.trust,r.intimacy,r.hostility,r.romance,r.dating,r.hurt,r.blockedUntil>sim.time,r.romanceBoundaryUntil>sim.time,r.memories.length]);if(state!==signature){signature=state;render(false);}}
+  if(layer.open){if(api.available&&!api.available(id)){close();return;}api.release();position();// assinatura só do que muda as opções: CityLife inteiro (relógio, posições) mudava a cada quadro, refazia o leque sem
+   // parar (a animação de entrada nunca terminava e as categorias ficavam invisíveis) e serializava o objeto todo por quadro
+   const sim=api.sim(),{cityLife,...ctx}=context(),r=sim.relation('player',id),state=JSON.stringify([ctx,Math.floor(cityLife?.funds??-1),sim.time<r.cooldown,r.friend,r.trust,r.intimacy,r.hostility,r.romance,r.dating,r.hurt,r.blockedUntil>sim.time,r.romanceBoundaryUntil>sim.time,r.memories.length]);if(state!==signature){signature=state;render(false);}}
   else if(!status.hidden&&performance.now()>expiry){status.hidden=true;feedback.hidden=true;}
  }};
 }

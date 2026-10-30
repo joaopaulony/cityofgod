@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { measureUpperBody } from './rig-anatomy.mjs';
 import { measureHands, applyFingerWeights } from './rig-hands.mjs';
-import { constrainWeights, splitNeckHead, shoulderWeights } from './rig-weights.mjs';
+import { constrainWeights, splitNeckHead, shoulderWeights, sleeveWeights } from './rig-weights.mjs';
 
 const SRC = process.argv[2] || 'C:/Users/JyOr/Documents/NPCs City Of God';
 const OUT = process.argv[3] || 'assets/npcs';
@@ -341,6 +341,7 @@ function rigOne(file, meta) {
   T.joints.forEach((n, k) => { if (J[n]) JM[mix[k]] = J[n]; });
   splitNeckHead({ P, JI, WT: W, names: mix, J: JM, H, anatomy: A });
   constrainWeights({ P, idx, JI, WT: W, names: mix, J: JM, H, segments: b => { const n = T.joints[mix.indexOf(b)]; return deform.includes(n) && J[childOf[n]] ? [J[n], J[childOf[n]]] : null; } });
+  sleeveWeights({ P, JI, WT: W, names: mix, J: JM, H });
   shoulderWeights({ P, idx, JI, WT: W, names: mix, J: JM, H });
   applyFingerWeights({ JI, WT: W, names: mix, weights: HANDS.weights, weld: HANDS.weld });
   meta.hands = Object.fromEntries(['Left', 'Right'].map(s => [s, typeof HANDS.report[s] === 'string' ? HANDS.report[s] : 'medidos']));
