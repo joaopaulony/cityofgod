@@ -16,7 +16,10 @@
    "triangles": 32226,
    "bytes": 2533336,
    "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6
+   }
   },
   {
    "id": "character-principal-base",
@@ -30,7 +33,10 @@
    "triangles": 32068,
    "bytes": 2453432,
    "source": "Character Principal Base/Character-Principal-Base,human figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1
+   }
   },
   {
    "id": "miguel",
@@ -44,7 +50,11 @@
    "triangles": 32052,
    "bytes": 3197660,
    "source": "Character Principal Base/Miguel,character-case,human character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3,
+    "walk": 5
+   }
   },
   {
    "id": "christopher-brown",
@@ -72,7 +82,10 @@
    "triangles": 22101,
    "bytes": 2987424,
    "source": "Gang Last Kings/Debora-Justus,Lastk-Kings,female,character,3d,model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6
+   }
   },
   {
    "id": "flavia-nisha",
@@ -86,7 +99,10 @@
    "triangles": 22308,
    "bytes": 2552028,
    "source": "Gang Last Kings/Flavia-Nisha,Last-Kings,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 2
+   }
   },
   {
    "id": "marco-rubio",
@@ -100,7 +116,11 @@
    "triangles": 21353,
    "bytes": 3005536,
    "source": "Gang Last Kings/Marco-Rubio,urban,gangster,LastKings,male,3d,model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5,
+    "walk": 1
+   }
   },
   {
    "id": "rubia-snyder",
@@ -114,7 +134,10 @@
    "triangles": 20554,
    "bytes": 2715156,
    "source": "Gang Last Kings/Rubia-Snyder,realistic,female,character,LastKings,3d,model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 2
+   }
   },
   {
    "id": "vinicius-duc",
@@ -128,7 +151,10 @@
    "triangles": 19613,
    "bytes": 2703660,
    "source": "Gang Last Kings/Vinicius-Duc,Last-Kings,urban,male,character,3d,model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5
+   }
   },
   {
    "id": "ana-paula-novli",
@@ -142,7 +168,10 @@
    "triangles": 28095,
    "bytes": 2772644,
    "source": "Gang Noveli's Crew/Ana-Paula-Novli,NovelisCrew,female fashion 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4
+   }
   },
   {
    "id": "carla-green",
@@ -156,7 +185,11 @@
    "triangles": 20589,
    "bytes": 2470900,
    "source": "Gang Noveli's Crew/Carla-Green,NovelisCrew,fitness model 3d.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6,
+    "walk": 6
+   }
   },
   {
    "id": "jacob-drew",
@@ -198,7 +231,10 @@
    "triangles": 22433,
    "bytes": 2694572,
    "source": "Gang Noveli's Crew/Pablo-Escob,NovelisCrew,streetwear man 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "walk": 1
+   }
   },
   {
    "id": "roseane-alencar",
@@ -212,7 +248,10 @@
    "triangles": 23362,
    "bytes": 2459528,
    "source": "Gang Noveli's Crew/Roseane-Alencar,NovelisCrew,anime male character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4
+   }
   },
   {
    "id": "bruno-martin",
@@ -226,7 +265,10 @@
    "triangles": 18538,
    "bytes": 2712140,
    "source": "NPCs Bombeiros/Bruno-Martin,firefighter 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1
+   }
   },
   {
    "id": "james-clington",
@@ -254,7 +296,11 @@
    "triangles": 18876,
    "bytes": 2728416,
    "source": "NPCs Bombeiros/Nouwa-Marcs,firefighter 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5,
+    "walk": 2
+   }
   },
   {
    "id": "rick-william",
@@ -282,7 +328,11 @@
    "triangles": 10726,
    "bytes": 2031076,
    "source": "NPCs Operarios/Drew-Carvalho,construction worker 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3,
+    "walk": 4
+   }
   },
   {
    "id": "erick-hill",
@@ -296,7 +346,11 @@
    "triangles": 10761,
    "bytes": 1915488,
    "source": "NPCs Operarios/Erick-Hill,construction worker 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 2,
+    "walk": 4
+   }
   },
   {
    "id": "laura-lisboa",
@@ -310,7 +364,10 @@
    "triangles": 19124,
    "bytes": 2552724,
    "source": "NPCs Socorristas/Laura-Lisboa,paramedic 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1
+   }
   },
   {
    "id": "peter-jordan",
@@ -338,7 +395,11 @@
    "triangles": 22308,
    "bytes": 2449532,
    "source": "NPCs Urbanos Female/Aiko-Sakura,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 7,
+    "walk": 2
+   }
   },
   {
    "id": "jessica-alves",
@@ -352,7 +413,11 @@
    "triangles": 21622,
    "bytes": 2472344,
    "source": "NPCs Urbanos Female/Jessica-Alves,woman 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6,
+    "walk": 4
+   }
   },
   {
    "id": "keiko-mikihana",
@@ -366,7 +431,10 @@
    "triangles": 23350,
    "bytes": 2400952,
    "source": "NPCs Urbanos Female/Keiko-Mikihana,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3
+   }
   },
   {
    "id": "kim-kawaki",
@@ -380,7 +448,11 @@
    "triangles": 22127,
    "bytes": 2460864,
    "source": "NPCs Urbanos Female/Kim-Kawaki,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 8,
+    "walk": 3
+   }
   },
   {
    "id": "larah-jucca",
@@ -394,7 +466,11 @@
    "triangles": 22043,
    "bytes": 2421224,
    "source": "NPCs Urbanos Female/Larah-Jucca,human female 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 8,
+    "walk": 4
+   }
   },
   {
    "id": "larissa-dwayne",
@@ -408,7 +484,10 @@
    "triangles": 22043,
    "bytes": 2387116,
    "source": "NPCs Urbanos Female/Larissa-Dwayne,3d female character model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 2
+   }
   },
   {
    "id": "lissandra-martin",
@@ -422,7 +501,11 @@
    "triangles": 21032,
    "bytes": 2191932,
    "source": "NPCs Urbanos Female/Lissandra-Martin,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 7,
+    "walk": 4
+   }
   },
   {
    "id": "marta-gonzales",
@@ -436,7 +519,11 @@
    "triangles": 20969,
    "bytes": 2311576,
    "source": "NPCs Urbanos Female/Marta-Gonzales,female figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 8,
+    "walk": 2
+   }
   },
   {
    "id": "monica-dream",
@@ -464,7 +551,11 @@
    "triangles": 21331,
    "bytes": 2474956,
    "source": "NPCs Urbanos Female/Monica-Megan,female 3d character model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6,
+    "walk": 2
+   }
   },
   {
    "id": "thabata-lisboa",
@@ -478,7 +569,10 @@
    "triangles": 21572,
    "bytes": 2488788,
    "source": "NPCs Urbanos Female/Thabata-Lisboa,woman 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 2
+   }
   },
   {
    "id": "yuki-soo-jin",
@@ -492,7 +586,10 @@
    "triangles": 22438,
    "bytes": 2349040,
    "source": "NPCs Urbanos Female/Yuki-Soo-jin,female figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5
+   }
   },
   {
    "id": "andersson-xuan",
@@ -506,7 +603,11 @@
    "triangles": 23495,
    "bytes": 2419580,
    "source": "NPCs Urbanos Male/Andersson-Xuan,human figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5,
+    "walk": 4
+   }
   },
   {
    "id": "chris-rock",
@@ -534,7 +635,10 @@
    "triangles": 23062,
    "bytes": 2514012,
    "source": "NPCs Urbanos Male/Flavio-August,human figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4
+   }
   },
   {
    "id": "henrique-josh",
@@ -548,7 +652,10 @@
    "triangles": 23341,
    "bytes": 2459716,
    "source": "NPCs Urbanos Male/Henrique-Josh,human figure 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1
+   }
   },
   {
    "id": "igor-kataguri",
@@ -604,7 +711,11 @@
    "triangles": 22921,
    "bytes": 2188928,
    "source": "NPCs Urbanos Male/Jim-Yakim,businessman suit 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1,
+    "walk": 1
+   }
   },
   {
    "id": "luis-james",
@@ -618,7 +729,11 @@
    "triangles": 24875,
    "bytes": 2302752,
    "source": "NPCs Urbanos Male/Luis-James,businessman character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4,
+    "walk": 2
+   }
   },
   {
    "id": "manuel-james",
@@ -632,7 +747,11 @@
    "triangles": 23177,
    "bytes": 2032784,
    "source": "NPCs Urbanos Male/Manuel-James,businessman in suit 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1,
+    "walk": 2
+   }
   },
   {
    "id": "mauro-oruam",
@@ -646,7 +765,11 @@
    "triangles": 21655,
    "bytes": 2421924,
    "source": "NPCs Urbanos Male/Mauro-Oruam,white athletic outfit 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 5,
+    "walk": 5
+   }
   },
   {
    "id": "ronald-junior",
@@ -660,7 +783,11 @@
    "triangles": 23929,
    "bytes": 2441656,
    "source": "NPCs Urbanos Male/Ronald-Junior,human character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4,
+    "walk": 1
+   }
   },
   {
    "id": "clara-migos",
@@ -674,7 +801,11 @@
    "triangles": 26320,
    "bytes": 6461428,
    "source": "Pilicia City Of God/Clara-Migos,police officer 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1,
+    "walk": 10
+   }
   },
   {
    "id": "dwayne-jhon",
@@ -688,7 +819,11 @@
    "triangles": 22060,
    "bytes": 7159284,
    "source": "Pilicia City Of God/Dwayne-Jhon,police, officer 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6,
+    "walk": 7
+   }
   },
   {
    "id": "john-steart",
@@ -702,7 +837,11 @@
    "triangles": 23927,
    "bytes": 6496040,
    "source": "Pilicia City Of God/John-Steart,police officer 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1,
+    "walk": 7
+   }
   },
   {
    "id": "jussara-duarte",
@@ -716,7 +855,11 @@
    "triangles": 24738,
    "bytes": 2213652,
    "source": "Pilicia City Of God/Jussara-Duarte,police officer 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 6,
+    "walk": 11
+   }
   },
   {
    "id": "niccolas-brown",

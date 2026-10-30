@@ -57,9 +57,14 @@ export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Sp
 //  - por clipe: hips = quanto o balanço/giro do quadril é ampliado (o tronco continua estável), legIn = coxas um pouco
 //    p/ dentro (passo mais estreito, pés perto da linha do meio), armSwing = fração do balanço dos braços que fica,
 //    armIn = braços mais junto do corpo.
-export const STYLE=Object.freeze({female:{shoulder:{drop:10,back:5},walk:{hips:1.5,legIn:3,armSwing:0.6,armIn:-7},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-2}}});
+export const STYLE=Object.freeze({female:{shoulder:{drop:10,back:5},walk:{hips:1.5,legIn:3,armSwing:0.6,armIn:-3},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}}});
 const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...{x:[1,0,0],y:[0,1,0],z:[0,0,1]}[axis]),THREE.MathUtils.degToRad(deg));
-export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=null}={}){
+// Folga dos braços no quadril, por personagem (roster.json → armOut, medido por tools/arm-clearance.mjs): em corpos de
+// quadril largo a mão e o antebraço encostavam no quadril nos clipes relaxados e pareciam "mãos na cintura"; o braço
+// abre só os graus necessários (até 16° parado, 12° andando) p/ não entrar no corpo. Clipes de rifle não mudam (a mira continua igual).
+// clipe → qual medida usar (parado ou caminhada)
+export const RELAXED_CLIPS=Object.freeze({idle:'idle',crouch:'idle',walk:'walk',run:'walk',crouch_walk:'walk'});
+export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=null,armOut=null}={}){
  const src=sourceRoot.userData.restPose||=restPose(sourceRoot,{fromBind:false}),dst=targetRoot.userData.restPose||=restPose(targetRoot);
  if(!src||!dst)return clip;
  const tracks={},hipsPos=clip.tracks.find(t=>t.name==='mixamorigHips.position');
@@ -69,11 +74,18 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  const ws=new Map(),wt=new Map(),dl=new Map(),de=new Map(),inv0=new Map(names.map(n=>[n,src.get(n).world.clone().invert()]));
  const damp=Object.assign({},DAMP.all,DAMP[clip.name]),I=new THREE.Quaternion();
  // estilo: rotações extras de mundo por osso e ampliação do quadril
- const extra=new Map(),cs=style?.[clip.name];
+ // extra: rotação de mundo só do osso (clavícula: o braço mantém a direção do clipe); tree: rotação rígida do osso e
+ // de tudo abaixo dele (abrir o braço/fechar a perna inteiros — sem isso o cotovelo/joelho dobrava)
+ const extra=new Map(),tree=new Map(),cs=style?.[clip.name];
  if(style?.shoulder){const {drop=0,back=0}=style.shoulder;extra.set('mixamorigLeftShoulder',worldRot('y',back).multiply(worldRot('z',-drop)));extra.set('mixamorigRightShoulder',worldRot('y',-back).multiply(worldRot('z',drop)));}
  if(cs){if(cs.hips)damp.Hips=cs.hips;
-  if(cs.legIn){extra.set('mixamorigLeftUpLeg',worldRot('z',-cs.legIn));extra.set('mixamorigRightUpLeg',worldRot('z',cs.legIn));}
-  if(cs.armIn){extra.set('mixamorigLeftArm',worldRot('z',-cs.armIn));extra.set('mixamorigRightArm',worldRot('z',cs.armIn));}}
+  if(cs.legIn){tree.set('mixamorigLeftUpLeg',worldRot('z',-cs.legIn));tree.set('mixamorigRightUpLeg',worldRot('z',cs.legIn));}
+  if(cs.armIn){tree.set('mixamorigLeftArm',worldRot('z',-cs.armIn));tree.set('mixamorigRightArm',worldRot('z',cs.armIn));}}
+ // folga no quadril (armOut do roster): soma à abertura do estilo, só nos clipes relaxados
+ const open=armOut?.[RELAXED_CLIPS[clip.name]]||0;
+ if(open>0)for(const [n,k] of [['mixamorigLeftArm',1],['mixamorigRightArm',-1]])tree.set(n,worldRot('z',k*open).multiply(tree.get(n)||new THREE.Quaternion()));
+ // rotação acumulada dos ancestrais (tree) de cada osso
+ const treeOf=new Map();for(const n of names){const par=dst.get(n).parent,up=par&&treeOf.get(par);const own=tree.get(n);treeOf.set(n,up&&own?up.clone().multiply(own):(own||up||null));}
  const align=new Map();
  for(const n of names){const m=n.match(/^mixamorig(Left|Right)(Arm|ForeArm|Hand|UpLeg|Leg|Foot)$/);if(!m)continue;
   const c='mixamorig'+m[1]+LIMB_CHILD[m[2]];if(!src.has(c)||!dst.has(c))continue;
@@ -88,7 +100,8 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
    let e=d;
    if(k!=null){const pd=S.parent&&dl.has(S.parent)?dl.get(S.parent):I,pe=S.parent&&de.has(S.parent)?de.get(S.parent):I;e=pe.clone().multiply(new THREE.Quaternion().slerp(pd.clone().invert().multiply(d),k));}
    de.set(n,e);
-   const w2=(extra.has(n)?extra.get(n).clone().multiply(e):e.clone()).multiply(align.has(n)?align.get(n).clone().multiply(D.world):D.world);wt.set(n,w2);
+   const tq=treeOf.get(n),xq=extra.has(n)?extra.get(n).clone().multiply(e):e.clone();
+   const w2=(tq?tq.clone().multiply(xq):xq).multiply(align.has(n)?align.get(n).clone().multiply(D.world):D.world);wt.set(n,w2);
    const q=D.parent&&wt.has(D.parent)?wt.get(D.parent).clone().invert().multiply(w2):w2.clone();q.normalize();
    const o=out[n];if(i&&q.x*o[i*4-4]+q.y*o[i*4-3]+q.z*o[i*4-2]+q.w*o[i*4-1]<0)q.set(-q.x,-q.y,-q.z,-q.w);q.toArray(o,i*4);
   }
@@ -112,7 +125,7 @@ export function clipSemantics(clips){
  return Object.fromEntries(clips.map(c=>[c.name,{name:c.name,duration:c.duration,loop:!ONE_SHOT.has(c.name),speed:SPEED[c.name]||0}]));
 }
 
-export async function loadRoster(loader,{base='',style=true}={}){   // style:false = clipes sem o estilo por sexo (comparação)
+export async function loadRoster(loader,{base='',style=true}={}){   // style:false = clipes sem o estilo por sexo nem a folga dos braços (comparação)
  const response=await fetch(base+NPC_DIR+'roster.json');
  if(!response.ok)throw Error('Roster dos personagens: '+response.status);
  const doc=await response.json();
@@ -132,7 +145,8 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
    const gltf=await loader.loadAsync(base+NPC_DIR+meta.file),lib=libraries[meta.sex];
    let bones=0,meshes=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;if(o.isSkinnedMesh){meshes++;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
    if(!meshes||!gltf.scene.getObjectByName('mixamorigHips'))throw Error(id+': GLB sem malha riggada no esqueleto Mixamo');
-   const animations=lib.animations.map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,{style:style?STYLE[meta.sex]:null}));
+   const armOut=style?meta.armOut||null:null;
+   const animations=lib.animations.map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,{style:style?STYLE[meta.sex]:null,armOut}));
    return {gltf:{...gltf,animations},spec:{...meta,label:meta.name,bones,meshes,clips:clipSemantics(animations),rig:'mixamo'}};
   })());
   try{return await cache.get(id);}catch(error){cache.delete(id);throw error;}
