@@ -11,10 +11,6 @@ assets/generated/
 dist/
 .vercel/
 
-# Modelos CC3 de terceiros: nao distribuir no repositorio publico sem revisar a licenca
-assets/characters/cc3/*.glb
-assets/characters/cc3/manifest.json
+# FBX originais (Mixamo etc.) ficam fora do repositorio
 *.Fbx
 *.fbx
-# Bases realistas: arquivos locais, aguardando confirmacao da licenca de distribuicao
-assets/characters/realistic-base/

@@ -1,5 +1,0 @@
-Tomb's Player Body Overhaul — Tomb
-https://steamcommunity.com/sharedfiles/filedetails/?id=3429790870
-Bodies and skin/face textures supplied by user with confirmed author permission for City of God.
-Conversion, material-based casual outfits, hair treatment and procedural animation adapter: City of God.
-No Project Zomboid vanilla assets or animations included.

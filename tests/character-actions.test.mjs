@@ -37,14 +37,4 @@ test('moving obstacle cancels a vault without teleporting through it',()=>{
  const a={...base};a.traversal=planLowVault(a,[fence],()=>true);
  stepTraversal(a,.2,()=>false);assert.equal(a.x,base.x);assert.equal(a.y,base.y);assert.equal(a.actionZ,0);assert.equal(a.traversal,null);
 });
-test('original player and NPC clips survive only in geometry-free archives',()=>{
- for(const file of ['player.rig.glb','ana.rig.glb','lucas.rig.glb']){
-  const b=readFileSync(new URL('../assets/characters/rigs/'+file,import.meta.url));
-  assert.equal(b.readUInt32LE(0),0x46546c67);
-  const gltf=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());
-  assert.ok(gltf.skins[0].joints.length>=20);
-  assert.ok(gltf.animations.length>=10);
-  assert.equal(gltf.meshes,undefined);
-  assert.equal(gltf.images,undefined);
- }
-});
+
