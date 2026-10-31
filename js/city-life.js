@@ -186,7 +186,7 @@ const CityLife = (() => {
     n.energy = cap(n.energy - dt * (running ? .00038 : .00016));
     n.hygiene = cap(n.hygiene - dt * (running ? .00025 : .00010));
     n.bladder = cap(n.bladder + dt * (st.water > .5 ? .00031 : .00021));
-    n.stamina = cap(n.stamina + dt * (running ? -.067 : (st.water < .1 || st.food < .1 ? .035 : .11)));
+    n.stamina = cap(n.stamina + dt * (running ? -.067 : (st.water < .1 || st.food < .1 ? .07 : .22)));   // fôlego volta 2× mais rápido
     if (st.food < .06 || st.water < .06 || n.energy < .04 || n.bladder > .96) st.hp = cap(st.hp - dt * .00034);
     else if (st.food > .55 && st.water > .55 && n.energy > .5) st.hp = cap(st.hp + dt * .000042);
     syncAmmo();

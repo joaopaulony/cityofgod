@@ -21,6 +21,8 @@
      isométrica, sem alterar texturas, malhas GLB ou alpha. */
   #view { image-rendering: auto; cursor: none;
     filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+  /* cursor: desarmado, dirigindo, com menu aberto ou segurando Alt (game.js) */
+  body.cursor-free #view, body.cursor-alt #view, body.city-modal #view, body:has(dialog[open]) #view { cursor: default; }
   #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045) brightness(var(--city-brightness,1)); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }

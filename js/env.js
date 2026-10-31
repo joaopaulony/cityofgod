@@ -34,7 +34,14 @@ function envPickWeather() {
   envSetWeather(1);
 }
 
-// dt: segundos reais; minutes: relógio do jogo (minutos desde a meia-noite, 1 min de jogo por segundo)
+// ritmo do relógio (minutos de jogo por segundo real): o dia (nascer ao pôr do sol, 12h30) dura 30 min reais e a
+// noite (11h30) dura 15 min reais
+const DAY_REAL_S = 30 * 60, NIGHT_REAL_S = 15 * 60;
+function envClockRate(minutes) {
+  const m = ((minutes % 1440) + 1440) % 1440, dayLen = SUNSET - SUNRISE;
+  return m >= SUNRISE && m < SUNSET ? dayLen / DAY_REAL_S : (1440 - dayLen) / NIGHT_REAL_S;
+}
+// dt: segundos reais; minutes: relógio do jogo (minutos desde a meia-noite; ritmo em envClockRate)
 function envTick(dt, minutes) {
   const m = ((minutes % 1440) + 1440) % 1440, E = ENV, W = envWeather();
   E.min = m; E.t += dt;

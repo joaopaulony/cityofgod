@@ -87,16 +87,32 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(!npc||!clearConversation(npc))return;
   if(socialPie.open(npc.lookId,{x:event.clientX,y:event.clientY})){event.preventDefault();event.stopImmediatePropagation();bridge.releaseControls?.();bridge.player.wantShot=false;}
  },true);
+ // balão de fala do tamanho do texto e com tamanho fixo NA TELA (texto ~22 px em qualquer zoom): o canvas é desenhado
+ // em 2× e a escala do sprite é refeita a cada quadro a partir da câmera ortográfica (bubbleScale)
+ const BUBBLE_FONT=44,BUBBLE_PAD=24,BUBBLE_MAX=560,BUBBLE_LINE=54,BUBBLE_TAIL=20;
  function say(actor,text,icon='💬'){
   const e=entries.get(actor);if(!e)return;
   if(e.bubble){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();}
-  const c=document.createElement('canvas');c.width=768;c.height=256;const g=c.getContext('2d');
-  g.fillStyle='#f4fff4';g.beginPath();g.roundRect(8,8,752,216,36);g.fill();g.beginPath();g.moveTo(350,220);g.lineTo(384,254);g.lineTo(410,220);g.fill();
-  g.fillStyle='#19333a';g.font='600 30px system-ui';g.textAlign='center';let line='',lines=[];
-  for(const word of (icon+' '+text).split(' ')){if(g.measureText(line+' '+word).width>690){lines.push(line);line=word;}else line+=(line?' ':'')+word;}lines.push(line);
-  lines.slice(0,4).forEach((s,i)=>g.fillText(i===3&&lines.length>4?s.slice(0,-2)+'…':s,384,55+i*43));
+  const c=document.createElement('canvas'),g=c.getContext('2d'),font='650 '+BUBBLE_FONT+'px system-ui,Segoe UI,sans-serif';g.font=font;
+  let line='',lines=[];
+  for(const word of (icon+' '+text).split(' ')){if(line&&g.measureText(line+' '+word).width>BUBBLE_MAX){lines.push(line);line=word;}else line+=(line?' ':'')+word;}lines.push(line);
+  if(lines.length>3){lines=lines.slice(0,3);lines[2]=lines[2].replace(/s*S*$/,'')+' …';}
+  const w=Math.ceil(Math.max(...lines.map(s=>g.measureText(s).width)))+BUBBLE_PAD*2,h=lines.length*BUBBLE_LINE+BUBBLE_PAD*2-10;
+  c.width=w;c.height=h+BUBBLE_TAIL;g.font=font;
+  g.fillStyle='rgba(16,24,28,.28)';g.beginPath();g.roundRect(3,6,w-6,h-6,26);g.fill();   // sombra
+  g.fillStyle='#f6fbf5';g.beginPath();g.roundRect(2,2,w-6,h-6,26);g.fill();
+  g.beginPath();g.moveTo(w/2-16,h-6);g.lineTo(w/2,h+BUBBLE_TAIL-2);g.lineTo(w/2+16,h-6);g.fill();
+  g.fillStyle='#14282e';g.textAlign='center';g.textBaseline='middle';
+  lines.forEach((s,i)=>g.fillText(s,w/2-2,BUBBLE_PAD+BUBBLE_LINE/2-4+i*BUBBLE_LINE));
   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
-  e.bubble=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));e.bubble.scale.set(3.5,1.17,1);e.bubble.position.set(0,e.spec.height+1.15,0);e.bubble.renderOrder=12;e.bubbleUntil=social.time+6;e.root.add(e.bubble);
+  e.bubble=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));e.bubble.center.set(.5,0);e.bubble.userData.px=[c.width/2,c.height/2];
+  e.bubble.position.set(0,e.spec.height+.25,0);e.bubble.renderOrder=12;e.bubbleUntil=social.time+6;e.root.add(e.bubble);bubbleScale(e);
+ }
+ // metros por pixel da câmera ortográfica (sem câmera: 1 cm por pixel)
+ function bubbleScale(e){
+  const b=e.bubble;if(!b)return;
+  const px=canvas?.clientHeight||innerHeight,m=camera&&camera.isOrthographicCamera?(camera.top-camera.bottom)/(camera.zoom||1)/px:.01,s=e.root.scale.y||1;
+  b.scale.set(b.userData.px[0]*m/s,b.userData.px[1]*m/s,1);
  }
  const clear=(x,y,ignore,r=.28)=>{
   if(x<.5||y<.5||x>bridge.mapSize-.5||y>bridge.mapSize-.5)return false;
@@ -317,6 +333,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   }
   for(const [a,e] of entries){
    if(e.bubble&&social.time>e.bubbleUntil){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
+   else if(e.bubble)bubbleScale(e);
    if(e.emote&&(performance.now()>e.emote.end||a.speed>.12||a.armed||a.jump||a.homeAction||bridge.driving()))e.emote=null;
    const requested=a.homeAction&&a.homeAction.kind==='sit'?'cas_sit':e.emote?'cas_'+e.emote.id:chooseCharacterClip(a);
    const clip=e.spec.clips[requested]?requested:(a.speed>.16?'walk':'idle');
@@ -333,7 +350,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    e.root.visible=!(a===p&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<70;
    if(e.root.visible&&e.action){
     const speed=info?.speed||0;
-    if(speed>.1)e.action.setEffectiveTimeScale(THREE.MathUtils.clamp((a.speed||0)/speed,.5,2));
+    if(speed>.1)e.action.setEffectiveTimeScale(THREE.MathUtils.clamp((a.speed||0)/speed,.5,3.5));
     e.mixer.update(Math.min(.06,Math.max(0,dt)));
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0),a.y);
     e.root.rotation.y=Math.PI/2-a.face;

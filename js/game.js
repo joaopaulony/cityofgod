@@ -96,6 +96,23 @@ view.addEventListener('mousedown', e => {
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
+// botão do mouse "preso": o clique num menu chega aqui como apertado, mas a soltura pode ficar com o menu; o navegador
+// informa os botões realmente apertados a cada movimento
+addEventListener('mousemove', e => { if (!(e.buttons & 1)) input.lmb = false; if (!(e.buttons & 2)) input.rmb = false; }, true);
+// ao fechar qualquer menu (celular, roda, conversa, diálogo): solta teclas, botões, mira e tiro em fila e tira o foco
+// do botão do menu (senão espaço/setas continuam acionando o menu e o personagem não segue a câmera)
+function releaseAfterMenu() {
+  input.keys.clear(); input.pressed.clear(); input.lmb = input.rmb = false;
+  player.wantShot = false; player.aiming = false; player.aimHold = 0;
+  const a = document.activeElement;
+  if (a && a !== document.body && !a.closest('dialog[open]') && !['INPUT','TEXTAREA','SELECT'].includes(a.tagName)) a.blur();
+}
+document.addEventListener('close', releaseAfterMenu, true);
+{ let wasModal = false; new MutationObserver(() => { const m = document.body.classList.contains('city-modal'); if (wasModal && !m) releaseAfterMenu(); wasModal = m; }).observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
+// cursor: aparece desarmado (p/ clicar em pessoas e menus) e com qualquer menu aberto; armado vira a mira. Alt mostra sempre.
+addEventListener('keydown', e => { if (e.key === 'Alt') { document.body.classList.add('cursor-alt'); e.preventDefault(); } });
+addEventListener('keyup', e => { if (e.key === 'Alt') document.body.classList.remove('cursor-alt'); });
+addEventListener('blur', () => document.body.classList.remove('cursor-alt'));
 addEventListener('mouseup', e => {
   if (e.button === 0 && wmap.open && wmap.clickStart && wmap.dragDistance<8 && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
   if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
@@ -205,13 +222,15 @@ function updatePlayer(dt) {
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
   p.aiming = input.rmb;
-  p.running = input.down('shift') && !p.aiming && !p.crouching && st.needs.stamina > .025;
+  // sem fôlego: só volta a correr com 30% (antes ligava/desligava a cada quadro e a animação piscava)
+  if (st.needs.stamina < .025) p.exhausted = true; else if (st.needs.stamina > .3) p.exhausted = false;
+  p.running = input.down('shift') && !p.aiming && !p.crouching && !p.exhausted;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
-    spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 3.7 : 1.75;
+    spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 11.1 : 5.25;   // andar e correr 3× mais rápidos
     if (st.water < .09 || st.food < .09 || st.needs.energy < .09) spd *= .68;
     if(p.crouching)spd=Math.min(spd,.75);
     if (p.reloadT >= 0) spd = Math.min(spd, 1.3);
@@ -780,7 +799,8 @@ function tick(dt) {
     }
   }
   T += dt;
-  st.clock += dt; hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
+  document.body.classList.toggle('cursor-free', !player.armed || !!window.cityVehicles?.driver);
+  st.clock += dt * envClockRate(st.clock); hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
   // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
   envTick(dt, st.clock);
   if (st.night !== ENV.night) st.night = world.night = ENV.night;
