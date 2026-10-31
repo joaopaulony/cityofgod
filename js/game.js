@@ -57,8 +57,40 @@ window.cityVehicleBridge={
   releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
   driving:()=>!!window.cityVehicles?.driver,
   canPickSocial:()=>!wmap.open&&!window.CityHomeUI?.active&&!window.CityRealty?.dialogOpen&&!window.cityCharacterEditorOpen&&!window.CityPets?.uiOpen,
-  get mapSize(){return MAP;}
+  get mapSize(){return MAP;},
+  // polícia (character-webgl.mjs): linha de visão, traçante do tiro e dano no jogador
+  raycast:(x,y,dx,dy,m)=>raycast(x,y,dx,dy,m),
+  npcShot:(a,b,missed)=>{
+    tracers.push({a,b,t:0.09});
+    emit({x:a[0],y:a[1],z:a[2],vx:0,vy:0,vz:0.3,life:0.5,max:0.5,kind:'puff',g:-0.8,size:0.12,col:'#cfcac0'});
+    if(missed)impact({x:b[0],y:b[1],kind:'none'},b[2]);
+  },
+  hurtPlayer:(dmg,from)=>hurtPlayer(dmg,from)
 };
+
+// ---------- vida do jogador: tiro da polícia fere; zerou → cai, apaga e acorda no hospital ----------
+function hurtPlayer(dmg,from){
+  if(player.dead||st.hp<=0)return;
+  st.hp=Math.max(0,st.hp-dmg/100);player.hurtT=0.55;st.shake=Math.max(st.shake,0.16);
+  window.cityCharacters?.bleed?.(player,from);
+  if(st.hp<=0)playerDown(from);
+}
+function playerDown(from){
+  const V=window.cityVehicles;
+  if(V?.driver){const c=V.car;V.exitAt?.({x:c.x-Math.sin(c.angle)*1.7,y:c.y+Math.cos(c.angle)*1.7});}
+  player.dead={kind:'shot',t:0};player.speed=0;player.aiming=false;player.aimHold=0;player.wantShot=false;player.running=false;player.reloadT=-1;player.meleeT=-1;
+  if(from)player.face=Math.atan2(from.y-player.y,from.x-player.x);
+  window.cityCharacters?.playerDown?.();
+  hud.msg='Você foi baleado';hud.msgT=4;
+}
+function respawnPlayer(){
+  // hospital: perde 15% do dinheiro (no mínimo R$ 50, se tiver), volta com 60% de vida no ponto de partida
+  const bill=Math.min(CityLife.funds,Math.max(50,Math.round(CityLife.funds*.15)));
+  if(bill>0)CityLife.debit(bill,'Hospital');
+  player.dead=null;player.x=world.spawn[0];player.y=world.spawn[1];player.floor=0;player.floorZ=0;player.hurtT=0;
+  st.hp=Math.max(st.hp,0.6);
+  hud.msg='Você acordou no hospital'+(bill>0?' · conta de '+CityLife.money(bill):'');hud.msgT=5;
+}
 
 function resize() {
   view.width = Math.ceil(innerWidth / RS); view.height = Math.ceil(innerHeight / RS);
@@ -216,6 +248,12 @@ function fire(J) {
 // ---------- atualização ----------
 function updatePlayer(dt) {
   const p = player;
+  p.hurtT = Math.max(0, (p.hurtT || 0) - dt);
+  if (p.dead) {   // caído: sem controle; depois de 6 s acorda no hospital
+    p.speed = 0; p.aiming = false; p.wantShot = false; p.running = false; p.aimHold = 0;
+    if ((p.dead.t += dt) > 6) respawnPlayer();
+    return;
+  }
   const traversing=window.cityCharacters?.move(dt);
   if(traversing){p.aiming=false;p.wantShot=false;p.running=false;return;}
   if(window.cityVehicles?.driver){
@@ -234,12 +272,12 @@ function updatePlayer(dt) {
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
-    // andar e correr 3× mais rápidos; atirando/recarregando dá p/ continuar correndo (um pouco mais devagar)
+    // andar 2,6 m/s e correr 5,55 m/s; atirando/recarregando dá p/ continuar correndo (um pouco mais devagar)
     const busy = !melee && (p.aimHold > 0 || p.reloadT >= 0);
-    spd = p.aiming ? 1.15 : p.running ? (busy ? 7.4 : 11.1) : busy ? 2.6 : 5.25;
+    spd = p.aiming ? 1.15 : p.running ? (busy ? 3.7 : 5.55) : busy ? 1.3 : 2.6;
     if (st.water < .09 || st.food < .09 || st.needs.energy < .09) spd *= .68;
     if(p.crouching)spd=Math.min(spd,.75);
-    if (p.reloadT >= 0 && !p.running) spd = Math.min(spd, 2.2);
+    if (p.reloadT >= 0 && !p.running) spd = Math.min(spd, 1.3);
     const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28, p.floor||0);
     const moved = Math.hypot(nx - p.x, ny - p.y);
     p.x = nx; p.y = ny; spd = dt > 0 ? moved / dt : p.speed;

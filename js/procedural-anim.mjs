@@ -136,5 +136,12 @@ export function makeCombatClips(root, height = 1.75) {
     { t: 1.1, dirs: { ...chest, LeftArm: [.25, -.7, .5], LeftForeArm: [-.5, .3, .8] } },
     { t: 1.5, dirs: { ...aim1 } }
   ], { upperOnly: true, height, fist: ['Right'] }));
+  // socorrista: ajoelhado nos dois joelhos, braços esticados sobre o peito da vítima, massagem cardíaca (laço)
+  const knees = { LeftUpLeg: [.12, -1, .12], RightUpLeg: [-.12, -1, .12], LeftLeg: [.02, -.12, -1], RightLeg: [-.02, -.12, -1], LeftFoot: [0, -.25, -1], RightFoot: [0, -.25, -1] };
+  const cpr = (k) => ({ ...knees, Spine1: [0, .82 - k * .1, .57 + k * .12], Spine2: [0, .7 - k * .12, .7 + k * .1], Neck: [0, .55, .85],
+    LeftArm: [.14, -.72, .68], RightArm: [-.14, -.72, .68], LeftForeArm: [-.12, -.8 - k * .1, .5], RightForeArm: [.12, -.8 - k * .1, .5] });
+  add(poseClip(root, 'kneel_aid', [
+    { t: 0, dirs: cpr(0), hipsH: .54 }, { t: .3, dirs: cpr(1), hipsH: .52 }, { t: .6, dirs: cpr(0), hipsH: .54 }
+  ], { height, fist: ['Right', 'Left'] }));
   return clips;
 }

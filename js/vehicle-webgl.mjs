@@ -482,6 +482,11 @@ function interact(){
     return parkAndExit({x,y});
    }
   }
+  // portas bloqueadas (garagem, entre carros): sai por trás — na garagem a traseira fica sempre livre; senão pela frente
+  for(const [sign,label] of [[-1,'Saiu pela traseira'],[1,'Saiu pela frente']]){
+   const back=(activeModel?.length||4.6)/2+.75,x=state.x+Math.cos(state.angle)*back*sign,y=state.y+Math.sin(state.angle)*back*sign;
+   if(!bridge.world.blocked(x,y,.33)&&bridge.pondVal(x,y)>1.1){p.x=x;p.y=y;return parkAndExit({x,y})&&label;}
+  }
   return 'Não há espaço para sair';
  }
  const parked=fleet.nearest(bridge.boxes,p.x,p.y);if(!parked||claiming)return false;

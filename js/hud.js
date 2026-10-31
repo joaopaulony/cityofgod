@@ -37,6 +37,25 @@ function drawHUD(h, W, H, st) {
   h.save(); h.imageSmoothingEnabled = true;
   const p = st.player, needs = st.needs || {};
   const {compact,ms,mx,my}=hudMapLayout(W,H);
+
+  // dano: borda vermelha ao levar tiro; vida baixa pulsa; caído escurece a tela
+  const hurtA=Math.max((p.hurtT||0)/.55*.55,st.hp<.25?(.18+.12*Math.sin(performance.now()/260))*(1-st.hp*4):0);
+  if(hurtA>0.01){
+    const vg=h.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.72);
+    vg.addColorStop(0,'rgba(150,0,0,0)');vg.addColorStop(1,`rgba(150,0,0,${Math.min(.75,hurtA)})`);
+    h.fillStyle=vg;h.fillRect(0,0,W,H);
+  }
+  if(p.dead){h.fillStyle=`rgba(0,0,0,${Math.min(.85,p.dead.t/5)})`;h.fillRect(0,0,W,H);}
+  // procurado pela polícia: estrelas e aviso piscando (vermelho/azul) no alto da tela
+  const wl=window.cityCharacters?.wanted?.level||0;
+  if(wl&&!p.dead){
+    h.save();h.textAlign='center';h.textBaseline='alphabetic';h.lineJoin='round';
+    h.font=(compact?'900 18px':'900 24px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
+    const txt='★'.repeat(wl)+'☆'.repeat(3-wl)+'  PROCURADO';
+    h.lineWidth=5;h.strokeStyle='#080c0e';h.strokeText(txt,W/2,compact?58:44);
+    h.fillStyle=Math.floor(performance.now()/350)%2?'#ff5a4f':'#5d95ff';h.fillText(txt,W/2,compact?58:44);
+    h.restore();
+  }
   const round = (x,y,w,hh,r,fill,stroke) => roundRect(h,x,y,w,hh,r,fill,stroke);
 
   // Radar inferior esquerdo. Mantém os dados reais do worldmap.js, com NPCs e direção atual.
