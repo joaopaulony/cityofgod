@@ -215,7 +215,9 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    const q=rd.pts[(Math.random()*rd.pts.length)|0],s=Math.random()<.5?1:-1,off=(bridge.ROAD_W||3.5)+(rd.off||0)+1;
    const x=q.x+q.nx*s*off,y=q.y+q.ny*s*off,d=Math.hypot(x-p.x,y-p.y);
    if(d<SPAWN_MIN||d>SPAWN_MAX||!clear(x,y,null,.35))continue;
-   return {x,y,face:Math.atan2(q.ty,q.tx)+(Math.random()<.5?0:Math.PI)};
+   const dir=Math.random()<.5?1:-1,i=rd.pts.indexOf(q);
+   // rota na calçada: a rua, o lado (s) e o sentido (dir) em que a pessoa caminha (walkSidewalk)
+   return {x,y,face:Math.atan2(q.ty*dir,q.tx*dir),route:{rd,i,s,dir,off}};
   }
   return null;
  }
@@ -226,7 +228,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const pool=roster.list().filter(c=>STREET_ROLES.includes(c.role)&&(c.role!=='gang'||turf)&&!busy.has(c.id));
   if(!pool.length)return;
   const c=pool[(Math.random()*pool.length)|0];
-  const n={x:spot.x,y:spot.y,face:spot.face,speed:0,lookId:c.id,kind:'street',walk:.9+Math.random()*.6,pause:0,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:spot.face};
+  const n={x:spot.x,y:spot.y,face:spot.face,speed:0,lookId:c.id,kind:'street',walk:.9+Math.random()*.6,pause:0,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:spot.face,route:spot.route};
   // gangue carrega pistola ou submetralhadora (guardada até sacar); quem não é de gangue não tem arma
   n.weaponId=window.CityWeapons?.npcWeapon(c.role)||null;
   npcs.push(n);
@@ -267,13 +269,65 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    const dx=n.target.x-n.x,dy=n.target.y-n.y,d=Math.hypot(dx,dy);
    if(d<1.2){n.speed=0;n.face=n.lookAt!=null?n.lookAt:n.face;if(n.leaving){remove(n);}return;}
    n.face=Math.atan2(dy,dx);
-  } else {
+  } else if(n.route){walkSidewalk(n,dt);return;}
+  else {
    if(n.pause>0){n.pause-=dt;n.speed=0;return;}
    if(Math.random()<dt*.04){n.pause=2+Math.random()*4;return;}
   }
-  const v=n.run?3.6:n.walk,nx=n.x+Math.cos(n.face)*v*dt,ny=n.y+Math.sin(n.face)*v*dt;
-  if(clear(nx,ny,null,.3)){n.x=nx;n.y=ny;n.speed=v;n.moveA=n.face;n.running=!!n.run;}
-  else{n.face+=Math.PI*(.5+Math.random());n.speed=0;}
+  stepToward(n,n.face,n.run?3.6:n.walk,dt);
+ }
+ // passo com desvio: tenta a direção pedida e, se bloqueada, ângulos crescentes p/ cada lado (sem girar ao acaso
+ // de cara na parede); devolve se andou
+ function stepToward(n,face,v,dt,{keepOffRoad=false}={}){
+  for(const da of [0,.35,-.35,.7,-.7,1.1,-1.1]){
+   const a=face+da,nx=n.x+Math.cos(a)*v*dt,ny=n.y+Math.sin(a)*v*dt;
+   if(!clear(nx,ny,null,.3))continue;
+   if(keepOffRoad&&bridge.roadDist&&bridge.roadDist(nx,ny)<(bridge.ROAD_W||3.5)+.15)continue;   // não pisa no asfalto fora da faixa
+   if(crowded(n,nx,ny))continue;
+   n.x=nx;n.y=ny;n.speed=v;n.face=a;n.moveA=a;n.running=!!n.run;return true;
+  }
+  n.speed=0;return false;
+ }
+ // outra pessoa (ou o jogador) logo à frente: abre espaço
+ function crowded(n,x,y){
+  const p=bridge.player;if(Math.hypot(p.x-x,p.y-y)<.7&&Math.hypot(p.x-x,p.y-y)<Math.hypot(p.x-n.x,p.y-n.y))return true;
+  for(const o of npcs)if(o!==n&&Math.hypot(o.x-x,o.y-y)<.65&&Math.hypot(o.x-x,o.y-y)<Math.hypot(o.x-n.x,o.y-n.y))return true;
+  return false;
+ }
+ // ---------- calçada: segue a rua pelo meio da calçada; no fim da quadra volta ou atravessa na esquina ----------
+ const sideOf=(r,i)=>{const q=r.rd.pts[i];return {x:q.x+q.nx*r.s*r.off,y:q.y+q.ny*r.s*r.off,q};};
+ function walkSidewalk(n,dt){
+  const r=n.route,pts=r.rd.pts;
+  if(n.pause>0){n.pause-=dt;n.speed=0;return;}
+  // atravessando: vai reto até a calçada do outro lado; com semáforo, só no boneco verde; sem, só sem carro perto
+  if(r.cross){
+   if(!r.cross.go){
+    const sig=(bridge.world.trafficSignals||[]).find(s=>Math.hypot(s.x-n.x,s.y-n.y)<14),car=window.cityVehicles?.driver?window.cityVehicles.car:null;
+    const walk=sig&&typeof bridge.trafficPhase==='function'?bridge.trafficPhase(bridge.gameTime).pedestrian==='walk':true;
+    const carNear=car&&Math.hypot(car.x-n.x,car.y-n.y)<18&&Math.abs(car.speed||0)>.5;
+    n.speed=0;n.face=Math.atan2(r.cross.y-n.y,r.cross.x-n.x);
+    if(walk&&!carNear)r.cross.go=true;else return;
+   }
+   const dx=r.cross.x-n.x,dy=r.cross.y-n.y,d=Math.hypot(dx,dy);
+   if(d<.4){r.s=-r.s;r.dir=-r.dir;r.cross=null;return;}
+   stepToward(n,Math.atan2(dy,dx),Math.max(n.walk,1.3),dt);return;
+  }
+  // próximo ponto da calçada uns 2 m adiante no sentido da caminhada
+  let j=r.i;while(j+r.dir>=0&&j+r.dir<pts.length&&Math.hypot(pts[j].x-pts[r.i].x,pts[j].y-pts[r.i].y)<2)j+=r.dir;
+  const atEnd=j+r.dir<0||j+r.dir>=pts.length,t=sideOf(r,j),dx=t.x-n.x,dy=t.y-n.y,d=Math.hypot(dx,dy);
+  if(d<.6){
+   r.i=j;
+   if(atEnd){
+    // esquina: metade das vezes atravessa (na faixa, que fica na esquina), senão dá meia-volta; às vezes para um pouco
+    if(Math.random()<.5){const q=pts[j],o=r.off;r.cross={x:q.x-q.nx*r.s*o,y:q.y-q.ny*r.s*o,go:false};}
+    else{r.dir=-r.dir;if(Math.random()<.4)n.pause=1+Math.random()*3;}
+   }else if(Math.random()<.015)n.pause=1.5+Math.random()*3;
+   return;
+  }
+  if(!stepToward(n,Math.atan2(dy,dx),n.walk,dt,{keepOffRoad:true})){
+   n.blocked=(n.blocked||0)+dt;
+   if(n.blocked>1.2){n.blocked=0;r.dir=-r.dir;n.pause=.5+Math.random();}   // calçada bloqueada: volta
+  }else n.blocked=0;
  }
 
  // ---------- ocorrências: serviços aparecem, vão até o local, ficam e vão embora ----------
