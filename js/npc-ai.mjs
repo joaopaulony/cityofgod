@@ -41,7 +41,7 @@ export function createNPCAI(THREE, scene, ctx) {
     const lvl = kind === 'copkill' ? 3 : kind === 'kill' || kind === 'copassault' ? 2 : 1, was = wanted.level;
     wanted.level = Math.min(3, Math.max(was, lvl) + (was >= lvl && lvl >= 2 ? 1 : 0)); wanted.sawAt = now();
     if (was) return;
-    wanted.since = now(); wanted.reinforce = 3; wanted.engaged = false;
+    wanted.since = now(); wanted.reinforce = 3; wanted.engaged = false; window.CityAudio?.ui('alert');
     notify(kind === 'shots' ? 'Disparos denunciados — a polícia está a caminho!' : 'Você é procurado pela polícia!');
     for (const n of npcs) if (n.cop && !n.dead && dist(n, p) < 70) { n.chase = true; n.leaving = false; n.target = null; }
     for (const u of fleet.units) if (u.kind === 'police' && dist(u, p) < 130) u.role = 'pursuit';
@@ -301,7 +301,7 @@ export function createNPCAI(THREE, scene, ctx) {
     crewT -= dt; if (crewT > 0) return; crewT = 3.5;
     const p = P(), turf = turfNear(p); if (!turf || p.dead) return;
     const gangsters = npcs.filter(n => n.gang && !n.dead && !n.leaving);
-    if (gangsters.length >= 9) return;
+    if (gangsters.length >= 14) return;
     const spot = sidewalkNear(p, 26, 55); if (!spot) return;
     const group = Math.random() < .2 ? (turf === 'last-kings' ? 'novelis-crew' : 'last-kings') : turf, c = { x: spot.x, y: spot.y };
     void spawnGangsters(group, 2 + (Math.random() < .5), c, k => ({ hang: { x: c.x + Math.cos(k * 2.1) * 1.1, y: c.y + Math.sin(k * 2.1) * 1.1 }, lookAt: Math.atan2(-Math.sin(k * 2.1), -Math.cos(k * 2.1)) }));
@@ -465,6 +465,7 @@ export function createNPCAI(THREE, scene, ctx) {
   function shoot(n, foe, d, W) {
     const p = P(), m = system.muzzle(n) || [n.x, n.y, (n.floorZ || 0) + 1.35];
     if (!n.cop) n.outlaw = now();
+    bridge.npcGun?.(window.CityWeapons?.list[n.weaponId]?.cat || 'pistol', n.x, n.y);
     n.recoilT = 0;
     const moving = foe.player ? p.speed > 3 || foe.car : (foe.actor?.speed || 0) > 2;
     const acc = Math.max(.08, Math.min(.9, W.acc - d * .012 - (moving ? .12 : 0) - (foe.car ? .1 : 0) - (n.speed > .5 ? .08 : 0))), hit = Math.random() < acc;

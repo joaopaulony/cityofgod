@@ -16,7 +16,7 @@ const SPEC = { police: { length: 4.85, width: 2.1, maxSp: 19 }, ambulance: { len
 export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {}) {
   const units = [], state = { units: 0, police: 0, ambulance: 0, routes: 0, failed: 0 };
   const world = bridge.world; world.aiCars = world.aiCars || [];
-  let graph = null, graphSrc = null, police = null, uid = 0, audio = null;
+  let graph = null, graphSrc = null, police = null, uid = 0;
 
   // ---------- rede de ruas ----------
   const roadSource = () => (typeof OW !== 'undefined' && OW.cw?.roads?.length) ? OW.cw.roads : (bridge.roads || []);
@@ -113,22 +113,11 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     return { group: g, beacon, width: 2.3, height: 2.9 };
   }
 
-  // ---------- sirene ----------
-  function siren(u, on, dist) {
-    const vol = window.CityFront?.effectsVolume ?? 1;
-    if (!on || vol <= 0 || dist > 140) { if (u.snd) { u.snd.g.gain.value = 0; } return; }
-    try {
-      if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume().catch(() => {});
-      if (!u.snd) {
-        const o = audio.createOscillator(), g = audio.createGain(), lfo = audio.createOscillator(), depth = audio.createGain();
-        o.type = 'square'; o.frequency.value = u.kind === 'police' ? 900 : 760; lfo.type = u.kind === 'police' ? 'triangle' : 'square';
-        lfo.frequency.value = u.kind === 'police' ? .45 : 1.1; depth.gain.value = u.kind === 'police' ? 320 : 140;
-        lfo.connect(depth); depth.connect(o.frequency); o.connect(g); g.connect(audio.destination); g.gain.value = 0; o.start(); lfo.start();
-        u.snd = { o, g, lfo };
-      }
-      u.snd.g.gain.value = .022 * vol * Math.max(0, 1 - dist / 140) ** 2;
-    } catch (_) { /* sem áudio: segue sem sirene */ }
+  // ---------- sirene (js/city-audio.js): wail da polícia, hi-lo do SAMU; posicionada e abafada pela distância ----------
+  function siren(u, on) {
+    const A = window.CityAudio; if (!A) return;
+    if (!u.snd && on) u.snd = A.siren(u.kind === 'police' ? 'police' : 'amb');
+    u.snd?.update(u.x, u.y, on);
   }
 
   // ---------- unidades ----------
@@ -149,7 +138,7 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     u.dead = true; const i = units.indexOf(u); if (i >= 0) units.splice(i, 1);
     const j = world.aiCars.indexOf(u.box); if (j >= 0) world.aiCars.splice(j, 1);
     if (u.root) { scene.remove(u.root); u.root.traverse(o => { if (o.isMesh && o.geometry && u.kind === 'ambulance') o.geometry.dispose(); }); }
-    if (u.snd) { try { u.snd.o.stop(); u.snd.lfo.stop(); u.snd.g.disconnect(); } catch (_) {} }
+    u.snd?.stop();
   }
   function place(u) {
     u.root.position.set(u.x, 0, u.y); u.root.rotation.y = -u.a;
@@ -224,7 +213,7 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
       const flash = Math.floor(time * 6 + u.id) % 2 === 0;
       if (u.lights) u.lights.apply({ emergencyLights: u.siren, headlights: night, braking: u.speed > .5 && u.slowFor }, time);
       if (u.beacon) for (const [i, b] of u.beacon.entries()) b.m.emissiveIntensity = u.siren && (i % 2 === 0) === flash ? 3 : 0;
-      siren(u, u.siren && Math.abs(u.speed) > 1, Math.hypot(u.x - p.x, u.y - p.y));
+      siren(u, u.siren && Math.abs(u.speed) > 1);
     }
     state.units = units.length; state.police = units.filter(u => u.kind === 'police').length; state.ambulance = units.filter(u => u.kind === 'ambulance').length;
   }

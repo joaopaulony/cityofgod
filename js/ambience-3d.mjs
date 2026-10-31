@@ -49,6 +49,8 @@ export function createAmbience(THREE, scene, bridge, L) {
     m.customProgramCacheKey = () => (prevKey ? prevKey.call(m) : '') + '|snow' + kf;
     m.needsUpdate = true; state.patched++;
   }
+  // pessoas (jogador, NPCs, pets) e o que elas carregam (arma, taco, balão) nunca ficam cobertas de neve
+  const noSnowUnder = o => { for (let p = o.parent; p; p = p.parent) if (p.userData.noSnow) return true; return false; };
   let patchT = 0;
 
   const v3 = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Euler(), s3 = new THREE.Vector3(), M = new THREE.Matrix4();
@@ -122,7 +124,7 @@ export function createAmbience(THREE, scene, bridge, L) {
       // neve pousada nos objetos 3D (só começa a mexer nos materiais quando neva)
       snowU.snowCover.value = E.snowCover;
       if (E.snowCover > 0.005 || E.snow > 0.05) {
-        if ((patchT -= dt) <= 0) { patchT = 1.5; scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material)) patch(o.material); }); }
+        if ((patchT -= dt) <= 0) { patchT = 1.5; scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material) && !o.isSkinnedMesh && !o.userData.noSnow && !noSnowUnder(o)) patch(o.material); }); }
         snowU.snowUp.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse);
       }
     },

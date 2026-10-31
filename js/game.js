@@ -65,6 +65,8 @@ window.cityVehicleBridge={
     emit({x:a[0],y:a[1],z:a[2],vx:0,vy:0,vz:0.3,life:0.5,max:0.5,kind:'puff',g:-0.8,size:0.12,col:'#cfcac0'});
     if(missed)impact({x:b[0],y:b[1],kind:'none'},b[2]);
   },
+  // tiro de NPC (polícia, gangue): som posicionado no atirador
+  npcGun:(cat,x,y)=>window.CityAudio?.gun(cat,x,y),
   hurtPlayer:(dmg,from)=>hurtPlayer(dmg,from),
   arrestPlayer:()=>arrestPlayer()
 };
@@ -165,7 +167,7 @@ const failScreen=(()=>{
   }
   const $=q=>el.querySelector(q);
   function start(kind,after){
-    if(s)return;ensure();
+    if(s)return;ensure();window.CityAudio?.ui('wasted');
     s={kind,t:0,after,ready:null,zoom0:cam.tzoom,loadT:0};
     el.className=kind;el.hidden=false;
     $('.cf-title').textContent=kind==='dead'?'VOCÊ MORREU':'VOCÊ FOI CAPTURADO';
@@ -342,9 +344,10 @@ function fire(J) {
     if (who) { tracers.push({ a: m, b: [who.x, who.y, who.z], t: 0.09 }); continue; }
     const hz = Math.max(0.05, m[2] - hit.t * 0.012);
     tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
-    impact(hit, hz);
+    impact(hit, hz); window.CityAudio?.bulletHit(hit.x, hit.y, hit.kind === 'tree' || hit.kind === 'none');
   }
   player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12;
+  window.CityAudio?.gun(W.cat || 'rifle', player.x, player.y, true);
   window.cityCharacters?.report?.('shot', player.x, player.y);   // tiros seguidos chamam a polícia
   // cápsula ejetada p/ a direita do fuzil
   const side = V.norm(V.cross([0, 0, 1], V.sub(R.muzzle, R.butt)));
@@ -392,7 +395,9 @@ function updatePlayer(dt) {
     p.x = nx; p.y = ny; spd = dt > 0 ? moved / dt : p.speed;
   }
   p.speed = lerp(p.speed, spd, 1 - Math.exp(-dt * 12));
+  const stepBefore = Math.floor(p.phase * 2);
   p.phase += p.speed * dt / lerp(1.45, 2.5, p.runW);
+  if (Math.floor(p.phase * 2) !== stepBefore && p.speed > .4 && !(p.floorZ > 0 && p.stairTravel)) window.CityAudio?.step(p.x, p.y, p.running);   // passos
   // virar: p/ o mouse quando mira/atira/recarrega; senão p/ onde anda
   const lookMouse = p.aiming || p.aimHold > 0 || p.reloadT >= 0 || p.meleeT >= 0 || input.lmb || p.wantShot;
   const want = lookMouse ? Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x) : (mx || my) ? p.moveA : p.face;
@@ -408,33 +413,35 @@ function updatePlayer(dt) {
     p.meleeT += dt;
     if (prev < at && p.meleeT >= at) {
       const W = p.weapon || {};
-      window.cityCharacters?.melee?.(p, p.meleeKind === 'bat' ? { range: W.range || 1.55, damage: W.damage || 42, kind: 'bat' } : { range: 1.05, damage: 12, kind: 'punch' });
+      const target = window.cityCharacters?.melee?.(p, p.meleeKind === 'bat' ? { range: W.range || 1.55, damage: W.damage || 42, kind: 'bat' } : { range: 1.05, damage: 12, kind: 'punch' });
+      if (target) window.CityAudio?.thump(target.x, target.y, p.meleeKind);
     }
     if (p.meleeT > (p.meleeKind === 'bat' ? .55 : .42)) p.meleeT = -1;
   }
   if (melee && (p.wantShot || input.hit('q')) && !p.jump && !p.traversal && !(p.meleeT >= 0) && fireCD <= 0) {
     p.wantShot = false; p.meleeT = 0; p.meleeKind = p.armed ? 'bat' : 'punch'; fireCD = p.armed ? .62 : .45;
+    window.CityAudio?.whoosh(p.x, p.y);
     p.face = Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x);
   }
   if (melee) p.wantShot = false;
   const auto = p.weapon?.auto !== false, mag = p.weapon?.mag || 30;
   if (p.armed && !melee && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump && (auto || p.trigger || p.wantShot)) {
     p.aimHold = 1.3;
-    if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
+    if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; window.CityAudio?.dryFire(p.x, p.y); } }
     else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = p.weapon?.rof || 0.12; p.wantShot = false; p.trigger = false; }
   }
   if (p.reloadT >= 0) p.wantShot = false;
   if (p.armed && !melee && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve <= 0) { hud.msg = 'Sem munição na mochila'; hud.msgT = 1.4; }
   if (p.armed && !melee && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
   for (const ev of p.events.splice(0)) {
-    if (ev === 'magOut') p.magState = 'hand';
+    if (ev === 'magOut') { p.magState = 'hand'; window.CityAudio?.reload('out', p.x, p.y); }
     if (ev === 'magDrop') {
       p.magState = 'none'; const hd = p.J.handL;
       emit({ x: hd[0], y: hd[1], z: hd[2] - 0.1, vx: rnd(-0.3, 0.3), vy: rnd(-0.3, 0.3), vz: -0.5, life: 6, max: 6, kind: 'mag', col: '#2b2b2e', bounce: 1 });
     }
     if (ev === 'magNew') p.magState = 'hand';
-    if (ev === 'magIn') { p.magState = 'in'; st.shake = 0.05; }
-    if (ev === 'ready') { const n = Math.min(mag - p.ammo, p.reserve); p.ammo += n; p.reserve -= n; }
+    if (ev === 'magIn') { p.magState = 'in'; st.shake = 0.05; window.CityAudio?.reload('in', p.x, p.y); }
+    if (ev === 'ready') { const n = Math.min(mag - p.ammo, p.reserve); p.ammo += n; p.reserve -= n; window.CityAudio?.reload('ready', p.x, p.y); }
   }
 }
 

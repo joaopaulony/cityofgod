@@ -16,7 +16,7 @@ export function createPets(scene,bridge){
   render(){
    for(const pet of controller.pets){
     let model=models.get(pet.id);
-    if(!model){model=createAnimatedPet(pet.breed,pet.color);models.set(pet.id,model);scene.add(model.root);}
+    if(!model){model=createAnimatedPet(pet.breed,pet.color);model.root.userData.noSnow=true;models.set(pet.id,model);scene.add(model.root);}
     const H=pet.homeHouse,inHouse=H&&(H.contains?H.contains(pet.x,pet.y,pet.floor):pet.x>H.x0&&pet.x<H.x1&&pet.y>H.y0&&pet.y<H.y1);
     model.root.visible=pet.visible&&Math.hypot(pet.x-bridge.cam.x,pet.y-bridge.cam.y)<65&&(!inHouse||H.inside&&pet.floor===(bridge.player.floor||0)||!!pet.stairTravel&&H.inside);
     model.root.position.set(pet.x,pet.floorZ||0,pet.y);model.root.rotation.y=-pet.face;

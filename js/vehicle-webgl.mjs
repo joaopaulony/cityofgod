@@ -413,6 +413,7 @@ function moveCar(dt){
   Object.assign(state,next,{speed:next.speed*.82});
   system.lastImpact=collision.impact.kind;
   registerCrash(damage,{kind:'object'},Math.abs(old.speed)*.3,lightingClock,collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact),activeModel.length/4.7);
+  window.CityAudio?.crash(state.x,state.y,.35);
   system.damage=damage;refreshDeformation();
   fuel.msg=collision.impact.kind==='lamp'?'Você derrubou um poste':collision.impact.kind==='trafficSignal'?'Você derrubou um semáforo':'Hidrante quebrado!';fuel.msgT=2.5;
  }else if(!collision.impact){
@@ -425,6 +426,7 @@ function moveCar(dt){
   system.lastImpact=collision.impact.kind;
   const panel=collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact);
   const crash=registerCrash(damage,collision.impact,old.speed,lightingClock,panel,activeModel.length/4.7);
+  if(Math.abs(old.speed)>1.5)window.CityAudio?.crash(state.x,state.y,Math.abs(old.speed)/14);
   if(crash){
    system.damage=damage;
    refreshDeformation();
@@ -564,6 +566,7 @@ function drawPanel(g,w,h){
  }
  g.restore();
 }
+let hornSound=null;
 function engineSound(){
  if((window.CityFront?.effectsVolume??1)<=0)return;
  const Context=window.AudioContext||window.webkitAudioContext;
@@ -593,7 +596,9 @@ system.update=dt=>{
  if(bridge.hit('k')&&system.driver)system.signal=system.signal==='right'?'off':'right';
  if(bridge.hit('u')&&system.driver)system.signal=system.signal==='hazard'?'off':'hazard';
  if(bridge.hit('o')&&system.driver&&lighting?.beacon!=='none')system.emergencyLights=!system.emergencyLights;
- if(bridge.hit('h')&&system.driver)engineSound();
+ // buzina: toca enquanto H estiver apertado (js/city-audio.js)
+ if(system.driver&&bridge.down('h')){if(!hornSound)hornSound=window.CityAudio?.horn(state.x,state.y,0)||(engineSound(),{stop(){}});}
+ else if(hornSound){hornSound.stop();hornSound=null;}
  lightingClock+=Math.max(0,Math.min(.1,dt||0));
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  moveCar(dt);

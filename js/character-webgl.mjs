@@ -19,8 +19,9 @@ import {createSocialAutonomy,installSocialIncoming} from './social-autonomy.mjs'
 import {makeCombatClips,splitClip} from './procedural-anim.mjs';
 import {createBlood} from './blood-fx.mjs';
 import {createNPCAI} from './npc-ai.mjs';
+import {createStreetLife,regionOf,pickStreetLook} from './npc-street-life.mjs';
 
-const STREET_MAX=4;                 // moradores/gangue andando ao mesmo tempo perto do jogador
+const STREET_MAX=8;                 // moradores/gangue andando ao mesmo tempo perto do jogador (12 nas quebradas)
 const SPAWN_MIN=26,SPAWN_MAX=58,DESPAWN=95;
 const OCCURRENCE={police:{group:'policia',count:2,label:'Polícia a caminho'},investigation:{group:'policia',count:2,label:'Investigação em andamento'},fire:{group:'bombeiros',count:3,label:'Bombeiros a caminho'},
  medical:{group:'socorristas',count:2,label:'Socorristas a caminho'},works:{group:'operarios',count:2,label:'Obra na via'},delivery:{group:'motoboy',count:1,label:'Entrega'}};
@@ -100,6 +101,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  const BUBBLE_FONT=44,BUBBLE_PAD=24,BUBBLE_MAX=560,BUBBLE_LINE=54,BUBBLE_TAIL=20;
  function say(actor,text,icon='💬'){
   const e=entries.get(actor);if(!e)return;
+  if(actor!==bridge.player&&distance(actor,bridge.player)<24)window.CityAudio?.babble(actor.x,actor.y,roster?.characters.get(actor.lookId)?.sex==='female');
   if(e.bubble){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();}
   const c=document.createElement('canvas'),g=c.getContext('2d'),font='650 '+BUBBLE_FONT+'px system-ui,Segoe UI,sans-serif';g.font=font;
   let line='',lines=[];
@@ -203,6 +205,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(!item.combat)item.combat=[...item.gltf.animations.flatMap(splitClip),...makeCombatClips(root,spec.height)];
   for(const clip of item.combat)actions.set(clip.name,mixer.clipAction(clip));
   const gun=new THREE.Group(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.7);gun.add(muzzle);gun.visible=false;
+  root.userData.noSnow=gun.userData.noSnow=true;   // neve pousada (ambience-3d.mjs) não cobre gente nem o que ela carrega
   scene.add(root);scene.add(gun);
   const entry={root,mixer,actions,spec,id,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),
    right:root.getObjectByName('mixamorigRightHand'),left:root.getObjectByName('mixamorigLeftHand'),fore:root.getObjectByName('mixamorigRightForeArm'),palm:root.getObjectByName('mixamorigRightHandMiddle1'),tag:tag?nameTag(spec.name,groupLabel(spec.group)):null};
@@ -235,11 +238,9 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  }
  async function spawnStreet(){
   const spot=sidewalkSpot();if(!spot)return;
-  const turf=GANG_TURF.has(districtAt(spot.x,spot.y));
-  const busy=new Set(npcs.map(n=>n.lookId));
-  const pool=roster.list().filter(c=>STREET_ROLES.includes(c.role)&&(c.role!=='gang'||turf)&&!busy.has(c.id));
-  if(!pool.length)return;
-  const c=pool[(Math.random()*pool.length)|0];
+  // quem aparece depende da região (npc-street-life.mjs): favela com gangue, centro com motoboys, porto com operários
+  const busy=new Set(npcs.map(n=>n.lookId)),c=pickStreetLook(roster,regionOf(districtAt,spot.x,spot.y),busy);
+  if(!c)return;
   const n={x:spot.x,y:spot.y,face:spot.face,speed:0,lookId:c.id,kind:'street',walk:.9+Math.random()*.6,pause:0,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:spot.face,route:spot.route};
   // gangue carrega pistola ou submetralhadora (guardada até sacar); quem não é de gangue não tem arma
   n.weaponId=window.CityWeapons?.npcWeapon(c.role)||null;if(c.role==='gang')n.gang=c.group;
@@ -384,6 +385,9 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  }
  // IA da rua (npc-ai.mjs): polícia de viatura, ambulâncias, gangues e combate
  const ai=createNPCAI(THREE,scene,{bridge,system,npcs,entries,roster:()=>roster,addNPC,remove,stepToward,walkNPC,clear,say,panic,sight,sidewalkSpot});
+ // encontros e conversas entre NPCs na rua
+ const streetLife=createStreetLife({npcs,entries,bridge,distance,say,stepToward,activities,social:()=>social});
+ system.streetLife=streetLife;
  system.clearWanted=ai.clearWanted;
  system.npcList=()=>npcs;   // depuração no console
  system.playerDown=()=>ai.clearWanted(null);
@@ -407,7 +411,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    const street=npcs.filter(n=>n.kind==='street'&&!n.dead);
    runOver(dt);
    for(const n of street)if(!activities.has(n)&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);
-   if(spawnT<=0&&street.length<(GANG_TURF.has(districtAt(p.x,p.y))?6:STREET_MAX)){spawnT=3+Math.random()*5;void spawnStreet();}
+   if(spawnT<=0&&street.length<(GANG_TURF.has(districtAt(p.x,p.y))?12:STREET_MAX)){spawnT=1.2+Math.random()*2.2;void spawnStreet();}
+   streetLife.tick(dt);
    for(const o of [...occurrences])if(now>o.until){
     occurrences.splice(occurrences.indexOf(o),1);
     for(const n of o.units){if(n.dead)continue;n.leaving=true;n.run=false;n.chase=false;n.aid=null;n.aiding=false;n.aiming=false;n.aimHold=0;const a=Math.random()*Math.PI*2;n.target={x:o.x+Math.cos(a)*70,y:o.y+Math.sin(a)*70};}
@@ -416,7 +421,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    for(const n of [...npcs]){if(entries.has(n)){
     if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
-    const controlled=activities.tick(n,dt);if(!visit&&!controlled)if(!ai.tickNPC(n,dt))walkNPC(n,dt);
+    const controlled=activities.tick(n,dt);if(!visit&&!controlled)if(!ai.tickNPC(n,dt)&&!streetLife.control(n,dt))walkNPC(n,dt);
     // ferido sangrando deixa rastro de pingos
     if(n.hp<100&&n.speed>.1){n.dripD=(n.dripD||0)+n.speed*dt;if(n.dripD>(n.hp<50?.35:.8)){n.dripD=0;blood.drip(n.x+(Math.random()-.5)*.2,n.y+(Math.random()-.5)*.2,.04+Math.random()*.05,n.floorZ||0);}}
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
@@ -596,6 +601,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const e=entries.get(n);if(e?.bubble){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
   panic(n.x,n.y,hit.from||n,25);
   system.lastDeath={kind:n.dead.kind,name:n.name,x:n.x,y:n.y};
+  setTimeout(()=>window.CityAudio?.thump(n.x,n.y,'fall'),hit.kind==='car'?700:450);
+  if(hit.kind==='car')window.CityAudio?.thump(n.x,n.y,'bat');
  }
  function deadTick(n,dt){
   const d=n.dead;d.t+=dt;n.speed=0;
@@ -623,7 +630,12 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const a=Math.atan2(n.y-from.y,n.x-from.x)+(Math.random()-.5)*.6;
   n.route=null;n.run=true;n.leaving=true;n.pause=0;n.socialUntil=0;n.target={x:n.x+Math.cos(a)*45,y:n.y+Math.sin(a)*45};
  }
- function panic(x,y,from,r){for(const n of npcs)if(!n.dead&&!n.leaving&&Math.hypot(n.x-x,n.y-y)<r)flee(n,from);}
+ let screamAt=0;
+ function panic(x,y,from,r){
+  let loud=null;
+  for(const n of npcs)if(!n.dead&&!n.leaving&&Math.hypot(n.x-x,n.y-y)<r){flee(n,from);if(n.kind==='street'&&(!loud||distance(n,bridge.player)<distance(loud,bridge.player)))loud=n;}
+  if(loud&&performance.now()-screamAt>1200){screamAt=performance.now();window.CityAudio?.scream(loud.x,loud.y,roster?.characters.get(loud.lookId)?.sex==='female');}
+ }
  // atropelamento: o carro do jogador acima de ~16 km/h derruba; devagar só empurra (e a pessoa sai correndo)
  let tireBlood=0,tireD=0;
  function runOver(dt){

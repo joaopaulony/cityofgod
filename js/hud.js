@@ -2,6 +2,8 @@
 'use strict';
 
 const hud = { portrait: null, msg: '', msgT: 0 };
+// mesma fonte da HUD em DOM (css/hud-system.css --hud-font)
+const HUD_FONT = '"Bahnschrift SemiCondensed","Arial Narrow","Segoe UI",system-ui,sans-serif';
 // ícones das armas p/ o HUD (carregados uma vez)
 const hudIcons = new Map();
 function hudIcon(id) {
@@ -22,7 +24,7 @@ function roundRect(g, x, y, w, h, r, fill, stroke) {
 
 function drawHudHeadline(g, text, x, y, size, maxWidth, align='left') {
   g.save();
-  g.font=`900 ${size}px "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif`;
+  g.font=`900 ${size}px ${HUD_FONT}`;
   g.textAlign=align;g.textBaseline='alphabetic';g.lineJoin='round';
   g.lineWidth=Math.max(3,size*.18);g.strokeStyle='#080c0e';g.fillStyle='#fff';
   g.shadowColor='#000';g.shadowBlur=Math.max(5,size*.3);
@@ -49,7 +51,7 @@ function drawHUD(h, W, H, st) {
   const wl=window.cityCharacters?.wanted?.level||0;
   if(wl&&!p.dead&&!p.busted){
     h.save();h.textAlign='center';h.textBaseline='alphabetic';h.lineJoin='round';
-    h.font=(compact?'900 18px':'900 24px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
+    h.font=(compact?'900 18px':'900 24px')+' '+HUD_FONT;
     const txt='★'.repeat(wl)+'☆'.repeat(3-wl)+'  PROCURADO';
     h.lineWidth=5;h.strokeStyle='#080c0e';h.strokeText(txt,W/2,compact?58:44);
     h.fillStyle=Math.floor(performance.now()/350)%2?'#ff5a4f':'#5d95ff';h.fillText(txt,W/2,compact?58:44);
@@ -69,7 +71,7 @@ function drawHUD(h, W, H, st) {
   h.beginPath();h.moveTo(11,0);h.lineTo(-7,-6);h.lineTo(-3,0);h.lineTo(-7,6);h.closePath();h.fill();h.stroke();h.restore();
   const north=screenDirOf(0,-1);
   h.fillStyle='#f8fcff';h.strokeStyle='#0b1720';h.lineWidth=3;
-  h.textAlign='center';h.font='bold 12px system-ui';
+  h.textAlign='center';h.font='800 12px '+HUD_FONT;
   const nmx=mx+ms/2+north[0]*(ms/2-13), nmy=my+ms/2+north[1]*(ms/2-13)+4;
   h.strokeText('N',nmx,nmy);h.fillText('N',nmx,nmy);
 
@@ -102,17 +104,17 @@ function drawHUD(h, W, H, st) {
   const minute = ((Math.floor(st.clock)%1440)+1440)%1440;
   const clock = String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
   const tx=W-(compact?13:24), ty=compact?17:23;
-  h.textAlign='right';h.textBaseline='alphabetic';h.font='800 11px "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';h.fillStyle='#f0f5ee';
+  h.textAlign='right';h.textBaseline='alphabetic';h.font='800 11px '+HUD_FONT;h.fillStyle='#f0f5ee';
   h.shadowColor='#06100f';h.shadowBlur=8;
   h.fillText('CITY OF GOD  ·  LIVE',tx,ty);
   h.textAlign='right';h.textBaseline='alphabetic';
-  h.fillStyle='#f7f9f2';h.font=(compact?'800 25px':'800 34px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
+  h.fillStyle='#f7f9f2';h.font=(compact?'800 25px':'800 34px')+' '+HUD_FONT;
   h.fillText(clock,tx,ty+32);
-  h.fillStyle='#9de0ae';h.font=(compact?'800 15px':'800 19px')+' "Arial Narrow",sans-serif';
+  h.fillStyle='#9de0ae';h.font=(compact?'800 15px':'800 19px')+' '+HUD_FONT;
   h.fillText(CityLife.money(CityLife.funds),tx,ty+54);
   const driving=!!window.cityVehicles?.driver;
   if(!driving){
-    h.fillStyle='#f5f7f5';h.font=(compact?'800 12px':'800 15px')+' "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';
+    h.fillStyle='#f5f7f5';h.font=(compact?'800 12px':'800 15px')+' '+HUD_FONT;
     const label=p.armed?(p.weapon?.name||'Fuzil').toUpperCase()+'  ·  '+p.ammo+' / '+p.reserve:'MÃOS LIVRES  ·  SEM ARMA';
     h.fillText(label,tx,ty+75);
     // ícone da arma em mãos ao lado do nome (assets/weapons/icons)
@@ -120,7 +122,7 @@ function drawHUD(h, W, H, st) {
     if(icon?.complete&&icon.naturalWidth){const w=compact?54:72,hh=w*icon.naturalHeight/icon.naturalWidth;h.drawImage(icon,tx+h.measureText(label).width+10,ty+75-hh*.78,w,hh);}
   }
   if(!compact) {
-    h.fillStyle='#e0e9df';h.font='700 12px "Arial Narrow",sans-serif';
+    h.fillStyle='#e0e9df';h.font='700 12px '+HUD_FONT;
     const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
     const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
      ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
@@ -130,7 +132,7 @@ function drawHUD(h, W, H, st) {
   const loc=window.CityDistrictsLocation?.();
   if(loc && !compact){
     const subY=ty+112;
-    h.textAlign='right';h.font='800 11px "Arial Narrow",sans-serif';h.fillStyle='#f7f6ed';
+    h.textAlign='right';h.font='800 11px '+HUD_FONT;h.fillStyle='#f7f6ed';
     h.fillText(loc.street||'Explorando a cidade',tx,subY);
     if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx,subY+16);}
   }

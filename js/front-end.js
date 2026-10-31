@@ -13,6 +13,8 @@
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
  function sound(){
+  // motor de som do jogo (js/city-audio.js): trilha bossa/lo-fi generativa e sons da interface
+  if(window.CityAudio){window.CityAudio.unlock();updateVolume();return;}
   try{
    if(!audio){
     const Context=window.AudioContext||window.webkitAudioContext;if(!Context)return;
@@ -28,14 +30,16 @@
   }catch{}
  }
  function updateVolume(){
-  if(!music||!audio)return;
   const audible=!document.hidden&&phase!=='playing'&&phase!=='pause'&&parent!=='pause';
+  if(window.CityAudio){window.CityAudio.menuMusic(audible);return;}
+  if(!music||!audio)return;
   music.gain.cancelScheduledValues(audio.currentTime);
   music.gain.setValueAtTime(audible?settings.master*settings.music:0,audio.currentTime);
   if(audible&&!musicConnected){music.connect(audio.destination);musicConnected=true;}
   else if(!audible&&musicConnected){music.disconnect();musicConnected=false;}
  }
  function clickSound(){
+  if(window.CityAudio){sound();window.CityAudio.ui('click');return;}
   sound();if(!audio||settings.effects*settings.master===0)return;
   const oscillator=audio.createOscillator(),gain=audio.createGain(),now=audio.currentTime;
   oscillator.type='sine';oscillator.frequency.setValueAtTime(440,now);oscillator.frequency.exponentialRampToValueAtTime(280,now+.045);
