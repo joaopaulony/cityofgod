@@ -173,12 +173,17 @@ function fire(J) {
   const R = J.rifle, m = window.cityCharacters?.muzzle(player)||R.muzzle, aim = unproj(input.mx / RS, input.my / RS, m[2]);
   let dx = aim[0] - m[0], dy = aim[1] - m[1];
   const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  const spread = (1 - player.aimV) * 0.08 + (player.speed > 0.1 ? 0.03 : 0.008), a = Math.atan2(dy, dx) + rnd(-spread, spread);
-  dx = Math.cos(a); dy = Math.sin(a);
-  const hit = raycast(m[0], m[1], dx, dy, 45);
-  const hz = Math.max(0.05, m[2] - hit.t * 0.012);
-  tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
-  impact(hit, hz);
+  // atributos da arma em mãos (js/weapons.js): abertura, alcance e, na escopeta, vários chumbos
+  const W = player.weapon || {}, base = Math.atan2(dy, dx);
+  const spread = ((1 - player.aimV) * 0.08 + (player.speed > 0.1 ? 0.03 : 0.008)) * (W.spread || 1);
+  for (let k = 0; k < (W.pellets || 1); k++) {
+    const a = base + rnd(-spread, spread) + (W.pellets ? rnd(-0.05, 0.05) : 0);
+    dx = Math.cos(a); dy = Math.sin(a);
+    const hit = raycast(m[0], m[1], dx, dy, W.range || 45);
+    const hz = Math.max(0.05, m[2] - hit.t * 0.012);
+    tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
+    impact(hit, hz);
+  }
   player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12;
   window.cityCharacters?.report?.('shot', player.x, player.y);   // tiros seguidos chamam a polícia
   // cápsula ejetada p/ a direita do fuzil
@@ -223,14 +228,17 @@ function updatePlayer(dt) {
 
   fireCD -= dt;
   // clique curto fica na fila: o fuzil sobe (antecipação) e o tiro sai quando a mira assenta
-  if (p.armed && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump) {
+  // semiautomáticas (pistola, revólver, escopeta, precisão): um tiro por clique
+  if (!input.lmb) p.trigger = true;
+  const auto = p.weapon?.auto !== false, mag = p.weapon?.mag || 30;
+  if (p.armed && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump && (auto || p.trigger || p.wantShot)) {
     p.aimHold = 1.3;
     if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
-    else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = 0.12; p.wantShot = false; }
+    else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = p.weapon?.rof || 0.12; p.wantShot = false; p.trigger = false; }
   }
   if (p.reloadT >= 0) p.wantShot = false;
-  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve <= 0) { hud.msg = 'Sem carregadores'; hud.msgT = 1.4; }
-  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < 30 && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
+  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve <= 0) { hud.msg = 'Sem munição na mochila'; hud.msgT = 1.4; }
+  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
   for (const ev of p.events.splice(0)) {
     if (ev === 'magOut') p.magState = 'hand';
     if (ev === 'magDrop') {
@@ -239,7 +247,7 @@ function updatePlayer(dt) {
     }
     if (ev === 'magNew') p.magState = 'hand';
     if (ev === 'magIn') { p.magState = 'in'; st.shake = 0.05; }
-    if (ev === 'ready') { const n = Math.min(30 - p.ammo, p.reserve); p.ammo += n; p.reserve -= n; }
+    if (ev === 'ready') { const n = Math.min(mag - p.ammo, p.reserve); p.ammo += n; p.reserve -= n; }
   }
 }
 

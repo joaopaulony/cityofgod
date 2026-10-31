@@ -129,14 +129,30 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  };
  system.has=a=>entries.has(a);
 
- // ---------- rifle (o mesmo do tempo dos personagens Mixamo): segue a mão direita, apoio na esquerda ----------
- function makeRifle(){
-  const group=new THREE.Group(),metal=new THREE.MeshStandardMaterial({color:0x303238,metalness:.65,roughness:.55}),polymer=new THREE.MeshStandardMaterial({color:0x202327,roughness:.9});
-  const part=(w,h,d,x,y,z,mat=polymer)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);mesh.position.set(x,y,z);mesh.castShadow=true;group.add(mesh);return mesh;};
-  part(.055,.12,.19,0,-.02,.06);part(.065,.09,.30,0,.015,.31,metal);part(.055,.08,.23,0,0,.57);
-  part(.025,.025,.25,0,.01,.805,metal);part(.03,.035,.045,0,.01,.92,metal);part(.04,.10,.04,0,-.065,.24);
-  const mag=part(.045,.16,.07,0,-.10,.38,metal);mag.rotation.x=-.2;group.userData.mag=mag;
-  part(.02,.035,.04,0,.075,.30,metal);return group;
+ // ---------- armas do inventário (assets/weapons, js/weapons.js): GLB com origem na empunhadura, cano em +Z ----------
+ // Cada personagem tem um grupo "gun"; quando a arma (ou os acessórios) muda, o conteúdo é trocado. Acessórios entram
+ // nos nós do modelo (muzzle/rail/under) na escala da arma; com silenciador a boca do cano vai p/ a ponta dele.
+ const weaponLoader=new GLTFLoader(),weaponCache=new Map();let weaponMeta=null;
+ const loadWeaponModel=id=>{if(!weaponCache.has(id))weaponCache.set(id,weaponLoader.loadAsync('assets/weapons/models/'+id+'.glb').then(g=>{g.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.material.transparent=false;o.material.opacity=1;}});return g.scene;}));return weaponCache.get(id);};
+ const loadWeaponMeta=()=>weaponMeta||(weaponMeta=fetch('assets/weapons/models.json').then(r=>r.json()).catch(()=>({items:{}})));
+ async function dressGun(e,id,mods){
+  const key=id+'|'+mods.join(),token=e.gunKey=key;
+  const [model,meta]=await Promise.all([loadWeaponModel(id),loadWeaponMeta()]);
+  const accs=await Promise.all(mods.map(m=>loadWeaponModel(m).then(s=>[m,s]).catch(()=>null)));
+  if(e.gunKey!==token)return;
+  for(const c of [...e.gun.children])if(c!==e.muzzle)e.gun.remove(c);
+  const body=model.clone(true);e.gun.add(body);
+  const node=n=>{const o=body.getObjectByName(n);return o?o.position.clone():null;};
+  const muzzle=node('muzzle')||new THREE.Vector3(0,0,.5),scale=meta.items?.[id]?.scale||1;
+  e.muzzle.position.copy(muzzle);e.gun.userData.mag=null;
+  for(const a of accs){if(!a)continue;const [m,scene]=a,acc=window.CityWeapons?.accessories[m],at=acc&&node(acc.mount);if(!at)continue;
+   const o=scene.clone(true);o.position.copy(at);o.scale.setScalar(scale);e.gun.add(o);
+   if(acc.mount==='muzzle')e.muzzle.position.set(at.x,at.y,at.z+(meta.items?.[m]?.length||0)*scale);}
+ }
+ function syncGun(e,a){
+  const id=a.weaponId||(a.armed?'rifle_ar_2':null),mods=a.weaponMods||[],key=id?id+'|'+mods.join():'';
+  if(key===e.gunWant)return;e.gunWant=key;
+  if(id)dressGun(e,id,mods).catch(error=>system.errors.push('arma '+id+': '+(error.message||error)));
  }
  // plaquinha com nome e sobrenome sobre a cabeça (aparece de perto)
  function nameTag(text,sub){
@@ -158,7 +174,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    actions.set(clip.name,mixer.clipAction(clip));
    if(clip.name.startsWith('cas_')){const meta=CAS_EMOTES[clip.name.slice(4)];if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};}
   }
-  const gun=makeRifle(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.94);gun.add(muzzle);gun.visible=false;
+  const gun=new THREE.Group(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.7);gun.add(muzzle);gun.visible=false;
   scene.add(root);scene.add(gun);
   const entry={root,mixer,actions,spec,id,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),
    right:root.getObjectByName('mixamorigRightHand'),left:root.getObjectByName('mixamorigLeftHand'),tag:tag?nameTag(spec.name,groupLabel(spec.group)):null};
@@ -195,6 +211,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(!pool.length)return;
   const c=pool[(Math.random()*pool.length)|0];
   const n={x:spot.x,y:spot.y,face:spot.face,speed:0,lookId:c.id,kind:'street',walk:.9+Math.random()*.6,pause:0,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:spot.face};
+  // gangue carrega pistola ou submetralhadora (guardada até sacar); quem não é de gangue não tem arma
+  n.weaponId=window.CityWeapons?.npcWeapon(c.role)||null;
   npcs.push(n);
   try{await mount(n,c.id,{tag:true});}catch(error){npcs.splice(npcs.indexOf(n),1);system.errors.push(String(error.message||error));}
  }
@@ -253,6 +271,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    for(let t=0;t<12&&!clear(sx,sy,null,.35);t++){const b=Math.random()*Math.PI*2;sx=x+Math.cos(b)*(24+t*2);sy=y+Math.sin(b)*(24+t*2);}
    const n={x:sx,y:sy,face:Math.atan2(y-sy,x-sx),speed:0,lookId:c.id,kind:'service',walk:1.4,run:kind!=='works'&&kind!=='delivery',target:{x:x+Math.cos(a)*(2+k*1.4),y:y+Math.sin(a)*(2+k*1.4)},lookAt:Math.atan2(-Math.sin(a),-Math.cos(a)),
     armed:kind==='police',reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:0};
+   // polícia na ocorrência: fuzil estilo AR (nada de AK)
+   if(kind==='police')n.weaponId=window.CityWeapons?.npcWeapon('police',{long:true})||null;
    npcs.push(n);occ.units.push(n);
    try{await mount(n,c.id,{tag:true});}catch(error){remove(n);}
   }
@@ -323,13 +343,15 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     e.root.updateMatrixWorld(true);
     if(e.tag)e.tag.visible=a.homeAction?.kind!=='rest'&&Math.hypot(a.x-p.x,a.y-p.y)<9;
    }
-   e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal;
+   if(a.armed)syncGun(e,a);
+   e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal&&e.gun.children.length>1;
    if(e.gun.visible&&e.right&&e.left){
     e.right.getWorldPosition(e.grip);e.left.getWorldPosition(e.support);
     const direction=a.reloadT>=0?e.support.clone().sub(e.grip).normalize():new THREE.Vector3(Math.cos(a.face),0,Math.sin(a.face));
-    e.gun.position.copy(e.grip).addScaledVector(direction,-.24);
+    // origem do modelo = empunhadura: na palma (um pouco à frente do punho e abaixo)
+    e.gun.position.copy(e.grip).addScaledVector(direction,.045);e.gun.position.y-=.035;
     e.gun.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);
-    e.gun.userData.mag.visible=a.magState!=='out';e.gun.updateMatrixWorld(true);
+    if(e.gun.userData.mag)e.gun.userData.mag.visible=a.magState!=='out';e.gun.updateMatrixWorld(true);
    }
    a.characterClip=a.homeAction?'home_'+a.homeAction.kind:clip;
   }

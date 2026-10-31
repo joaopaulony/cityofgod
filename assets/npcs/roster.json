@@ -18,7 +18,7 @@
    "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4
+    "idle": 9
    }
   },
   {
@@ -85,8 +85,7 @@
    "source": "Gang Last Kings/Debora-Justus,Lastk-Kings,female,character,3d,model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 2
+    "walk": 7
    }
   },
   {
@@ -103,8 +102,8 @@
    "source": "Gang Last Kings/Flavia-Nisha,Last-Kings,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 7,
-    "walk": 3
+    "idle": 14,
+    "walk": 10
    }
   },
   {
@@ -137,10 +136,7 @@
    "triangles": 20554,
    "bytes": 2715156,
    "source": "Gang Last Kings/Rubia-Snyder,realistic,female,character,LastKings,3d,model.glb",
-   "skeleton": "mixamo-reto",
-   "armOut": {
-    "idle": 4
-   }
+   "skeleton": "mixamo-reto"
   },
   {
    "id": "vinicius-duc",
@@ -174,7 +170,7 @@
    "source": "Gang Noveli's Crew/Ana-Paula-Novli,NovelisCrew,female fashion 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6
+    "idle": 15
    }
   },
   {
@@ -191,8 +187,7 @@
    "source": "Gang Noveli's Crew/Carla-Green,NovelisCrew,fitness model 3d.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 7,
-    "walk": 7
+    "walk": 12
    }
   },
   {
@@ -258,8 +253,8 @@
    "source": "Gang Noveli's Crew/Roseane-Alencar,NovelisCrew,anime male character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 7,
-    "walk": 2
+    "idle": 16,
+    "walk": 10
    }
   },
   {
@@ -383,8 +378,7 @@
    "source": "NPCs Socorristas/Laura-Lisboa,paramedic 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 7
+    "idle": 14
    }
   },
   {
@@ -418,8 +412,8 @@
    "source": "NPCs Urbanos Female/Aiko-Sakura,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 5
+    "idle": 14,
+    "walk": 7
    }
   },
   {
@@ -436,8 +430,7 @@
    "source": "NPCs Urbanos Female/Jessica-Alves,woman 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 9,
-    "walk": 7
+    "idle": 15
    }
   },
   {
@@ -454,7 +447,7 @@
    "source": "NPCs Urbanos Female/Keiko-Mikihana,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5
+    "idle": 14
    }
   },
   {
@@ -471,8 +464,8 @@
    "source": "NPCs Urbanos Female/Kim-Kawaki,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 9,
-    "walk": 6
+    "idle": 13,
+    "walk": 12
    }
   },
   {
@@ -489,8 +482,7 @@
    "source": "NPCs Urbanos Female/Larah-Jucca,human female 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 7
+    "idle": 12
    }
   },
   {
@@ -507,7 +499,7 @@
    "source": "NPCs Urbanos Female/Larissa-Dwayne,3d female character model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2
+    "idle": 8
    }
   },
   {
@@ -524,8 +516,8 @@
    "source": "NPCs Urbanos Female/Lissandra-Martin,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 9,
-    "walk": 5
+    "idle": 16,
+    "walk": 12
    }
   },
   {
@@ -542,8 +534,7 @@
    "source": "NPCs Urbanos Female/Marta-Gonzales,female figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 9,
-    "walk": 9
+    "idle": 13
    }
   },
   {
@@ -560,7 +551,7 @@
    "source": "NPCs Urbanos Female/Monica-Dream,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1
+    "idle": 6
    }
   },
   {
@@ -577,8 +568,8 @@
    "source": "NPCs Urbanos Female/Monica-Megan,female 3d character model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 5
+    "idle": 16,
+    "walk": 4
    }
   },
   {
@@ -595,8 +586,8 @@
    "source": "NPCs Urbanos Female/Thabata-Lisboa,woman 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2,
-    "walk": 3
+    "idle": 5,
+    "walk": 9
    }
   },
   {
@@ -613,8 +604,8 @@
    "source": "NPCs Urbanos Female/Yuki-Soo-jin,female figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 4
+    "idle": 12,
+    "walk": 5
    }
   },
   {
@@ -839,7 +830,7 @@
    "source": "Pilicia City Of God/Clara-Migos,police officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6
+    "idle": 15
    }
   },
   {
@@ -890,8 +881,7 @@
    "source": "Pilicia City Of God/Jussara-Duarte,police officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 10,
-    "walk": 11
+    "idle": 15
    }
   },
   {

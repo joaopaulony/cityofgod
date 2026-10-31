@@ -1,13 +1,14 @@
 // city-ui.js — celular local, mercado, inventário e roda de equipamentos.
 'use strict';
 const CityUI = (() => {
+  // roda: um espaço por categoria (js/weapons.js); equipa a última arma usada daquele tipo
   const wheelItems = [
     { id: 'unarmed', icon: 'wheel-hand', name: 'Mãos livres' },
-    { id: 'rifle', icon: 'weapons', name: 'Fuzil' },
-    { id: null, icon: 'wheel-pistol', name: 'Pistola' },
-    { id: null, icon: 'wheel-smg', name: 'SMG' },
-    { id: null, icon: 'wheel-shotgun', name: 'Escopeta' },
-    { id: null, icon: 'wheel-sniper', name: 'Precisão' },
+    { id: 'rifle', slot: 'rifle', icon: 'weapons', name: 'Fuzil' },
+    { id: 'pistol', slot: 'pistol', icon: 'wheel-pistol', name: 'Pistola' },
+    { id: 'smg', slot: 'smg', icon: 'wheel-smg', name: 'SMG' },
+    { id: 'shotgun', slot: 'shotgun', icon: 'wheel-shotgun', name: 'Escopeta' },
+    { id: 'sniper', slot: 'sniper', icon: 'wheel-sniper', name: 'Precisão' },
     { id: null, icon: 'wheel-grenade', name: 'Arremessáveis' },
     { id: null, icon: 'wheel-tools', name: 'Ferramentas' }
   ];
@@ -86,11 +87,18 @@ const CityUI = (() => {
     setModal();
     releaseControls();
   }
+  // arma do inventário que a roda equiparia naquele espaço (a última usada, senão a primeira)
+  function slotWeapon(slot) {
+    const mine = CityLife.weapons.filter(w => window.CityWeapons?.list[w.id]?.slot === slot);
+    const cur = mine.find(w => w.id === currentSt?.player?.weaponId && window.CityWeapons.list[w.id].slot === slot);
+    return cur || mine[0] || null;
+  }
   function chooseWheel(i) {
     const item = wheelItems[i];
     if (!item) return;
     if (!item.id) { notify(item.name + ' ainda não está disponível'); return; }
-    if (CityLife.equip(item.id)) notify(item.id === 'unarmed' ? 'Mãos livres' : item.name + ' equipado');
+    if (item.slot && !slotWeapon(item.slot)) { notify('Nenhuma arma do tipo ' + item.name + ' na mochila'); return; }
+    if (CityLife.equip(item.id)) notify(item.id === 'unarmed' ? 'Mãos livres' : (currentSt?.player?.weapon?.name || item.name) + ' em mãos');
   }
   function renderWheel() {
     const panel = $('city-wheel');
@@ -99,9 +107,15 @@ const CityUI = (() => {
     panel.innerHTML = wheelItems.map((entry, i) => {
       const a = -Math.PI / 2 + i * Math.PI / 4;
       const left = 50 + 37 * Math.cos(a), top = 50 + 37 * Math.sin(a);
-      return `<button type="button" class="city-wheel-slot ${wheelChoice === i ? 'active' : ''} ${!entry.id ? 'locked' : ''}" style="left:${left}%;top:${top}%" data-wheel="${i}" aria-label="${safe(entry.name)}">
-        <span class="wheel-icon">${icon(entry.icon)}</span><span>${safe(entry.name)}</span></button>`;
-    }).join('') + `<div class="wheel-center"><b>${safe(item.name)}</b><span>${item.id === 'rifle' && currentSt ? currentSt.player.ammo + '/' + currentSt.player.reserve + ' balas' : item.id ? 'Disponível' : 'Indisponível'}</span></div>`;
+      const w = entry.slot ? slotWeapon(entry.slot) : null, locked = !entry.id || (entry.slot && !w);
+      const art = w ? `<img class="wheel-gun" src="${window.CityWeapons.list[w.id].icon}" alt="">` : `<span class="wheel-icon">${icon(entry.icon)}</span>`;
+      return `<button type="button" class="city-wheel-slot ${wheelChoice === i ? 'active' : ''} ${locked ? 'locked' : ''}" style="left:${left}%;top:${top}%" data-wheel="${i}" aria-label="${safe(w ? window.CityWeapons.list[w.id].name : entry.name)}">
+        ${art}<span>${safe(w ? window.CityWeapons.list[w.id].name : entry.name)}</span></button>`;
+    }).join('') + (() => {
+      const w = item.slot ? slotWeapon(item.slot) : null, d = w && window.CityWeapons.list[w.id], p = currentSt?.player;
+      const sub = !item.id ? 'Indisponível' : item.slot && !w ? 'Nenhuma na mochila' : d ? (p?.weaponId === w.id ? p.ammo + ' / ' + p.reserve : w.mag + ' / ' + (CityLife.ammo[d.cal] || 0)) + ' · ' + window.CityWeapons.CAL[d.cal] : 'Disponível';
+      return `<div class="wheel-center"><b>${safe(d ? d.name : item.name)}</b><span>${safe(sub)}</span></div>`;
+    })();
   }
   const btn = (action, label, extra = '') => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
   const icon = id => `<svg class="city-svg-icon" aria-hidden="true" viewBox="0 0 24 24"><use href="assets/ui/city-icons.svg#${id}"></use></svg>`;
@@ -114,8 +128,33 @@ const CityUI = (() => {
         <div class="city-track"><span class="city-fill ${color}" style="width:${pct}%"></span></div></div>`;
     }).join('');
   }
+  // armas: cartões com ícone, calibre, munição e acessórios montados
+  function renderArsenal() {
+    const CW = window.CityWeapons; if (!CW) return '';
+    const p = currentSt?.player;
+    const cards = CityLife.weapons.map(w => {
+      const d = CW.list[w.id], inHand = p?.armed && p.weaponId === w.id && p.weaponMods?.join() === w.mods.join();
+      const mag = inHand ? p.ammo : w.mag;
+      const mods = w.mods.map(m => `<button type="button" class="city-gun-mod" data-action="detach:${w.uid}:${m}" title="Remover ${safe(CW.accessories[m].name)}"><img src="${CW.accessories[m].icon}" alt="">✕</button>`).join('');
+      return `<div class="city-gun ${inHand ? 'in-hand' : ''} cat-${d.cat}">
+        <div class="city-gun-art"><img src="${d.icon}" alt="${safe(d.name)}"></div>
+        <div class="city-gun-info"><strong>${safe(d.name)}</strong><small>${safe(CW.CATS[d.cat].label)} · ${safe(CW.CAL[d.cal])} · ${mag}/${d.mag} no pente</small>${mods ? '<div class="city-gun-mods">' + mods + '</div>' : ''}</div>
+        ${btn('equipw:' + w.uid, inHand ? 'Em mãos' : 'Equipar', inHand ? 'disabled' : '')}</div>`;
+    }).join('');
+    const ammo = Object.entries(CityLife.ammo).filter(([, n]) => n > 0).map(([c, n]) => `<span class="city-ammo-chip">${safe(CW.CAL[c])} <b>${n}</b></span>`).join('');
+    const loose = Object.entries(CityLife.mods).filter(([, n]) => n > 0).map(([m, n]) => {
+      const acc = CW.accessories[m], fits = p?.weaponId && CW.fits(m, p.weaponId);
+      return `<div class="city-gun city-gun-acc"><div class="city-gun-art"><img src="${acc.icon}" alt=""></div>
+        <div class="city-gun-info"><strong>${safe(acc.name)} ${n > 1 ? '×' + n : ''}</strong><small>${safe(acc.detail)}</small></div>
+        ${btn('attach:' + m, 'Montar', fits ? '' : 'disabled title="Equipe uma arma compatível"')}</div>`;
+    }).join('');
+    return `<div class="city-phone-label">Armas</div><div class="city-arsenal">${cards || '<p class="city-help">Nenhuma arma.</p>'}</div>
+      ${ammo ? '<div class="city-phone-label">Munição</div><div class="city-ammo">' + ammo + '</div>' : ''}
+      ${loose ? '<div class="city-phone-label">Acessórios</div><div class="city-arsenal">' + loose + '</div>' : ''}
+      <div class="city-phone-label">Itens</div>`;
+  }
   function renderBag() {
-    return `<p class="city-help">Itens da mochila. Consumir altera suas necessidades de verdade. Atalhos: 1–5.</p>` +
+    return renderArsenal() + `<p class="city-help">Itens da mochila. Consumir altera suas necessidades de verdade. Atalhos: 1–5.</p>` +
       Object.entries(CityLife.items).map(([id, it]) => `<div class="city-panel city-row">
       <div><strong>${it.icon} ${safe(it.name)}</strong><small>${safe(it.detail)} · Em estoque: ${CityLife.inventory[id] || 0}</small></div>
       ${btn('use:'+id,'Usar',!(CityLife.inventory[id] > 0) ? 'disabled' : '')}</div>`).join('');
@@ -125,7 +164,12 @@ const CityUI = (() => {
     <div class="city-panel"><div class="city-row"><b>Saldo</b><b>${CityLife.money(CityLife.funds)}</b></div></div>` +
       Object.entries(CityLife.items).map(([id, it]) => `<div class="city-panel city-row">
       <div><strong>${it.icon} ${safe(it.name)}</strong><small>${safe(it.detail)}</small></div>
-      ${btn('buy:'+id,CityLife.money(it.price),CityLife.funds < it.price ? 'disabled' : '')}</div>`).join('');
+      ${btn('buy:'+id,CityLife.money(it.price),CityLife.funds < it.price ? 'disabled' : '')}</div>`).join('') +
+      (window.CityWeapons ? '<div class="city-phone-label">Munição</div>' + Object.entries(CityLife.AMMO_PRICE).map(([cal, price]) => {
+        const qty = cal === '12' || cal === '.308' ? 10 : 30;
+        return `<div class="city-panel city-row"><div><strong>Caixa ${safe(window.CityWeapons.CAL[cal])}</strong><small>${qty} munições · na mochila: ${CityLife.ammo[cal] || 0}</small></div>
+        ${btn('ammo:' + cal + ':' + qty, CityLife.money(price * qty), CityLife.funds < price * qty ? 'disabled' : '')}</div>`;
+      }).join('') : '');
   }
   function renderWallet() {
     return `<div class="city-panel"><small>Saldo na carteira (salvo neste navegador)</small><div class="city-balance">${CityLife.money(CityLife.funds)}</div></div>
@@ -241,6 +285,10 @@ const CityUI = (() => {
       selectedContact=id; return setApp('sms');
     }
     if (action.startsWith('use:')) { const r=CityLife.use(action.slice(4)); notify(r.text); render(); return; }
+    if (action.startsWith('equipw:')) { if (CityLife.equip(action.slice(7))) notify((currentSt?.player?.weapon?.name || 'Arma') + ' em mãos'); render(); return; }
+    if (action.startsWith('attach:')) { const p=currentSt?.player, w=CityLife.weapons.find(x=>x.id===p?.weaponId&&x.mods.join()===p.weaponMods?.join()); const r=w?CityLife.attach(w.uid,action.slice(7)):{text:'Equipe uma arma primeiro'}; notify(r.text); render(); return; }
+    if (action.startsWith('detach:')) { const [,u,m]=action.split(':'); notify(CityLife.detach(u,m).text); render(); return; }
+    if (action.startsWith('ammo:')) { const [,cal,qty]=action.split(':'); notify(CityLife.buyAmmo(cal,+qty).text); render(); return; }
     if (action.startsWith('buy:')) { const r=CityLife.buy(action.slice(4)); notify(r.text); render(); }
   }
   function mount() {

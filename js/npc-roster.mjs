@@ -69,7 +69,9 @@ export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Sp
 //    clipe já dobra mais, nada muda.
 const ELBOW_MIN={idle:15,walk:16,crouch:38,crouch_walk:38,jump_start:22,jump_air:28,jump_land:28};
 export const STYLE=Object.freeze({
- female:{shoulder:{drop:15,back:8},elbowMin:{...ELBOW_MIN,walk:undefined},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}},
+ // feminino delicado: a folga do quadril vira braço levemente à frente (a mão passa na frente da coxa) em vez de aberto
+ // p/ o lado — aberto parecia "gorila"; cotovelo um pouco mais dobrado e p/ dentro, em direção ao corpo
+ female:{shoulder:{drop:15,back:8},relaxed:{forward:.75},elbowIn:.5,elbowMin:{...ELBOW_MIN,idle:20,crouch:40,walk:undefined},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}},
  // masculino: o mesmo ombro relaxado (o Mixamo deixa as clavículas erguidas; nos corpos largos parecia ombro encolhido)
  male:{shoulder:{drop:16,back:8},elbowMin:ELBOW_MIN}});
 const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...{x:[1,0,0],y:[0,1,0],z:[0,0,1]}[axis]),THREE.MathUtils.degToRad(deg));
@@ -97,7 +99,8 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
   if(cs.armIn){tree.set('mixamorigLeftArm',worldRot('z',-cs.armIn));tree.set('mixamorigRightArm',worldRot('z',cs.armIn));}}
  // folga no quadril (armOut do roster): soma à abertura do estilo, só nos clipes relaxados
  const open=armOut?.[RELAXED_CLIPS[clip.name]]||0;
- if(open>0)for(const [n,k] of [['mixamorigLeftArm',1],['mixamorigRightArm',-1]])tree.set(n,worldRot('z',k*open).multiply(tree.get(n)||new THREE.Quaternion()));
+ const fwdShare=style?.relaxed?.forward||0;   // parte da folga que vai p/ frente (gira em X) em vez de abrir (gira em Z)
+ if(open>0)for(const [n,k] of [['mixamorigLeftArm',1],['mixamorigRightArm',-1]])tree.set(n,worldRot('x',-open*fwdShare*1.3).multiply(worldRot('z',k*open*(1-fwdShare))).multiply(tree.get(n)||new THREE.Quaternion()));
  // rotação acumulada dos ancestrais (tree) de cada osso
  const treeOf=new Map();for(const n of names){const par=dst.get(n).parent,up=par&&treeOf.get(par);const own=tree.get(n);treeOf.set(n,up&&own?up.clone().multiply(own):(own||up||null));}
  // dobra mínima do cotovelo: antebraço e tudo abaixo dele (mão, dedos) giram juntos em volta do cotovelo
@@ -107,6 +110,7 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  const restDir=(a,b)=>dst.has(a)&&dst.has(b)?dst.get(b).pos.clone().sub(dst.get(a).pos).normalize():null;
  const fwdRest=bendMin&&restDir('mixamorigRightArm','mixamorigLeftArm')&&restDir('mixamorigHips','mixamorigHead')?
   new THREE.Vector3().crossVectors(restDir('mixamorigRightArm','mixamorigLeftArm'),restDir('mixamorigHips','mixamorigHead')).normalize():null;
+ const leftRest=bendMin?restDir('mixamorigRightArm','mixamorigLeftArm'):null;
  const nowDir=(n,d)=>d.clone().applyQuaternion(dst.get(n).world.clone().invert()).applyQuaternion(wt.get(n));
  const align=new Map();
  // dedos também: os do Tripo estão retos no repouso e os da biblioteca já têm uma curvinha — só com a variação, a
@@ -135,7 +139,9 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
     if(n==='mixamorig'+sd+'ForeArm'){
      wt.set(n,w2);const up=nowDir('mixamorig'+sd+'Arm',restDir('mixamorig'+sd+'Arm',n)),lo=nowDir(n,restDir(n,'mixamorig'+sd+'Hand')||up);
      const fwd=nowDir('mixamorigSpine2',fwdRest),k=Math.max(0,1-up.angleTo(lo)/(2*bendMin)),add=bendMin*k*k;
-     const tgt=fwd.clone().sub(up.clone().multiplyScalar(fwd.dot(up))),axis=new THREE.Vector3().crossVectors(lo,tgt);
+     // dobra p/ frente; no estilo feminino também p/ dentro (mão em direção ao corpo)
+     const side=leftRest?nowDir('mixamorigSpine2',leftRest).multiplyScalar(sd==='Left'?-1:1):null,aim=side&&style?.elbowIn?fwd.clone().addScaledVector(side,style.elbowIn):fwd;
+     const tgt=aim.clone().sub(up.clone().multiplyScalar(aim.dot(up))),axis=new THREE.Vector3().crossVectors(lo,tgt);
      bend.set(sd,add>1e-3&&axis.lengthSq()>1e-6?new THREE.Quaternion().setFromAxisAngle(axis.normalize(),add):null);
     }
     const r=bend.get(sd);if(r)w2=r.clone().multiply(w2);

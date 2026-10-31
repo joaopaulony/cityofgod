@@ -2,6 +2,12 @@
 'use strict';
 
 const hud = { portrait: null, msg: '', msgT: 0 };
+// ícones das armas p/ o HUD (carregados uma vez)
+const hudIcons = new Map();
+function hudIcon(id) {
+  if (!hudIcons.has(id)) { const img = new Image(); img.src = 'assets/weapons/icons/' + id + '.webp'; hudIcons.set(id, img); }
+  return hudIcons.get(id);
+}
 
 function hudMapLayout(W,H) {
   const compact=W<740,ms=compact?Math.min(118,Math.max(90,W*.29)):164;
@@ -89,7 +95,11 @@ function drawHUD(h, W, H, st) {
   const driving=!!window.cityVehicles?.driver;
   if(!driving){
     h.fillStyle='#f5f7f5';h.font=(compact?'800 12px':'800 15px')+' "Bahnschrift SemiCondensed","Arial Narrow",sans-serif';
-    h.fillText(p.armed?'FUZIL  ·  '+p.ammo+' / '+p.reserve+' BALAS':'MÃOS LIVRES  ·  SEM ARMA',tx,ty+75);
+    const label=p.armed?(p.weapon?.name||'Fuzil').toUpperCase()+'  ·  '+p.ammo+' / '+p.reserve:'MÃOS LIVRES  ·  SEM ARMA';
+    h.fillText(label,tx,ty+75);
+    // ícone da arma em mãos ao lado do nome (assets/weapons/icons)
+    const icon=p.armed&&p.weaponId?hudIcon(p.weaponId):null;
+    if(icon?.complete&&icon.naturalWidth){const w=compact?54:72,hh=w*icon.naturalHeight/icon.naturalWidth;h.drawImage(icon,tx+h.measureText(label).width+10,ty+75-hh*.78,w,hh);}
   }
   if(!compact) {
     h.fillStyle='#e0e9df';h.font='700 12px "Arial Narrow",sans-serif';

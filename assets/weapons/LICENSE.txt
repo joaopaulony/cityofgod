@@ -1,0 +1,2 @@
+Modelos: "Ultimate Gun Pack" por Quaternius (quaternius.com), licença CC0 1.0 (domínio público).
+Ícones e conversão: tools/import-weapons.mjs + tools/weapons-blender.py.
