@@ -64,7 +64,14 @@ export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Sp
 //    armIn = braços mais junto do corpo, elbow/wrist = fração da dobra do cotovelo/punho do clipe que fica (o clipe do
 //    Mixamo dobra o cotovelo até 45° ao levar o braço à frente — a mão ia p/ a cintura; feminino: braço balança do
 //    ombro, cotovelo levemente dobrado, mão solta perto da coxa).
-export const STYLE=Object.freeze({female:{shoulder:{drop:10,back:5},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}}});
+//  - elbowMin: dobra mínima do cotovelo (graus) por clipe. No parado, andar, agachar e pular do Mixamo o cotovelo fica
+//    100% reto (179°) e o braço parece engessado; o antebraço (com a mão) ganha essa dobra p/ frente, suave — onde o
+//    clipe já dobra mais, nada muda.
+const ELBOW_MIN={idle:15,walk:16,crouch:38,crouch_walk:38,jump_start:22,jump_air:28,jump_land:28};
+export const STYLE=Object.freeze({
+ female:{shoulder:{drop:10,back:5},elbowMin:{...ELBOW_MIN,walk:undefined},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}},
+ // masculino: o mesmo ombro relaxado (o Mixamo deixa as clavículas erguidas; nos corpos largos parecia ombro encolhido)
+ male:{shoulder:{drop:10,back:5},elbowMin:ELBOW_MIN}});
 const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...{x:[1,0,0],y:[0,1,0],z:[0,0,1]}[axis]),THREE.MathUtils.degToRad(deg));
 // Folga dos braços no quadril, por personagem (roster.json → armOut, medido por tools/arm-clearance.mjs): em corpos de
 // quadril largo a mão e o antebraço encostavam no quadril nos clipes relaxados e pareciam "mãos na cintura"; o braço
@@ -93,6 +100,14 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  if(open>0)for(const [n,k] of [['mixamorigLeftArm',1],['mixamorigRightArm',-1]])tree.set(n,worldRot('z',k*open).multiply(tree.get(n)||new THREE.Quaternion()));
  // rotação acumulada dos ancestrais (tree) de cada osso
  const treeOf=new Map();for(const n of names){const par=dst.get(n).parent,up=par&&treeOf.get(par);const own=tree.get(n);treeOf.set(n,up&&own?up.clone().multiply(own):(own||up||null));}
+ // dobra mínima do cotovelo: antebraço e tudo abaixo dele (mão, dedos) giram juntos em volta do cotovelo
+ const bendMin=THREE.MathUtils.degToRad(style?.elbowMin?.[clip.name]||0),underFore=new Map(),bend=new Map();
+ if(bendMin)for(const n of names){const m=n.match(/^mixamorig(Left|Right)ForeArm$/);const par=dst.get(n).parent;
+  if(m)underFore.set(n,m[1]);else if(par&&underFore.has(par))underFore.set(n,underFore.get(par));}
+ const restDir=(a,b)=>dst.has(a)&&dst.has(b)?dst.get(b).pos.clone().sub(dst.get(a).pos).normalize():null;
+ const fwdRest=bendMin&&restDir('mixamorigRightArm','mixamorigLeftArm')&&restDir('mixamorigHips','mixamorigHead')?
+  new THREE.Vector3().crossVectors(restDir('mixamorigRightArm','mixamorigLeftArm'),restDir('mixamorigHips','mixamorigHead')).normalize():null;
+ const nowDir=(n,d)=>d.clone().applyQuaternion(dst.get(n).world.clone().invert()).applyQuaternion(wt.get(n));
  const align=new Map();
  for(const n of names){const m=n.match(/^mixamorig(Left|Right)(Arm|ForeArm|Hand|UpLeg|Leg|Foot)$/);if(!m)continue;
   const c='mixamorig'+m[1]+LIMB_CHILD[m[2]];if(!src.has(c)||!dst.has(c))continue;
@@ -108,7 +123,18 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
    if(k!=null){const pd=S.parent&&dl.has(S.parent)?dl.get(S.parent):I,pe=S.parent&&de.has(S.parent)?de.get(S.parent):I;e=pe.clone().multiply(new THREE.Quaternion().slerp(pd.clone().invert().multiply(d),k));}
    de.set(n,e);
    const tq=treeOf.get(n),xq=extra.has(n)?extra.get(n).clone().multiply(e):e.clone();
-   const w2=(tq?tq.clone().multiply(xq):xq).multiply(align.has(n)?align.get(n).clone().multiply(D.world):D.world);wt.set(n,w2);
+   let w2=(tq?tq.clone().multiply(xq):xq).multiply(align.has(n)?align.get(n).clone().multiply(D.world):D.world);
+   const sd=fwdRest&&underFore.get(n);
+   if(sd){
+    if(n==='mixamorig'+sd+'ForeArm'){
+     wt.set(n,w2);const up=nowDir('mixamorig'+sd+'Arm',restDir('mixamorig'+sd+'Arm',n)),lo=nowDir(n,restDir(n,'mixamorig'+sd+'Hand')||up);
+     const fwd=nowDir('mixamorigSpine2',fwdRest),k=Math.max(0,1-up.angleTo(lo)/(2*bendMin)),add=bendMin*k*k;
+     const tgt=fwd.clone().sub(up.clone().multiplyScalar(fwd.dot(up))),axis=new THREE.Vector3().crossVectors(lo,tgt);
+     bend.set(sd,add>1e-3&&axis.lengthSq()>1e-6?new THREE.Quaternion().setFromAxisAngle(axis.normalize(),add):null);
+    }
+    const r=bend.get(sd);if(r)w2=r.clone().multiply(w2);
+   }
+   wt.set(n,w2);
    const q=D.parent&&wt.has(D.parent)?wt.get(D.parent).clone().invert().multiply(w2):w2.clone();q.normalize();
    const o=out[n];if(i&&q.x*o[i*4-4]+q.y*o[i*4-3]+q.z*o[i*4-2]+q.w*o[i*4-1]<0)q.set(-q.x,-q.y,-q.z,-q.w);q.toArray(o,i*4);
   }
