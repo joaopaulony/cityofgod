@@ -45,3 +45,5 @@
 @media (max-width:740px){:root{--dock-w:46px;--dock-h:42px;--dock-gap:6px;--dock-edge:10px}
   #city-controls button,#social-entry,#city-pets-entry,#city-cas-open{justify-content:center!important;padding:0!important}
   .hud-dock-label,#city-controls kbd,#social-entry kbd,#city-pets-entry kbd,#city-cas-open kbd{display:none!important}}
+/* janela aberta (celular etc.): o dock some */
+body.hud-dock-hidden #city-controls,body.hud-dock-hidden #social-entry,body.hud-dock-hidden #city-pets-entry,body.hud-dock-hidden #city-cas-open{opacity:0!important;visibility:hidden!important;pointer-events:none!important}

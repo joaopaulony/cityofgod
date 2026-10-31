@@ -28,8 +28,12 @@
     if (!l) { l = document.createElement('link'); l.id = 'hud-system-css'; l.rel = 'stylesheet'; l.href = 'css/hud-system.css'; }
     if (document.head.lastElementChild !== l) document.head.appendChild(l);
   }
+  // celular, mochila, mapa, conversa ou outra janela aberta: o dock some p/ não cobrir a interface
+  const uiOpen = () => document.getElementById('city-phone-layer')?.hidden === false || !!window.CityUI?.blocksGameInput?.() || document.body.classList.contains('city-modal')
+    || document.body.classList.contains('map-open') || document.body.classList.contains('city-home-open') || !!document.querySelector('dialog[open]');
   function layout() {
     sheet();
+    document.body.classList.toggle('hud-dock-hidden', uiOpen());
     tidyPhone();
     for (const it of ITEMS) tidy(document.getElementById(it.id), it);
     const css = getComputedStyle(document.documentElement), gap = parseFloat(css.getPropertyValue('--dock-gap')) || 8, edge = parseFloat(css.getPropertyValue('--dock-edge')) || 16;
@@ -41,7 +45,8 @@
       bottom += el.getBoundingClientRect().height + gap;
     }
   }
-  setInterval(layout, 400);
+  setInterval(layout, 150);
+  addEventListener('click', () => setTimeout(layout, 0), true); addEventListener('keydown', () => setTimeout(layout, 0), true);
   addEventListener('resize', layout);
   document.readyState === 'loading' ? addEventListener('DOMContentLoaded', layout) : layout();
 })();
