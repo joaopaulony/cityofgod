@@ -69,9 +69,9 @@ export const DAMP={all:{LeftShoulder:0.35,RightShoulder:0.35},idle:{Hips:0.35,Sp
 //    clipe já dobra mais, nada muda.
 const ELBOW_MIN={idle:15,walk:16,crouch:38,crouch_walk:38,jump_start:22,jump_air:28,jump_land:28};
 export const STYLE=Object.freeze({
- female:{shoulder:{drop:10,back:5},elbowMin:{...ELBOW_MIN,walk:undefined},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}},
+ female:{shoulder:{drop:15,back:8},elbowMin:{...ELBOW_MIN,walk:undefined},walk:{hips:1.5,legIn:3,armSwing:0.6,elbow:0.45,wrist:0.5},run:{hips:1.3,legIn:2,armSwing:0.8,armIn:-1}},
  // masculino: o mesmo ombro relaxado (o Mixamo deixa as clavículas erguidas; nos corpos largos parecia ombro encolhido)
- male:{shoulder:{drop:10,back:5},elbowMin:ELBOW_MIN}});
+ male:{shoulder:{drop:16,back:8},elbowMin:ELBOW_MIN}});
 const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...{x:[1,0,0],y:[0,1,0],z:[0,0,1]}[axis]),THREE.MathUtils.degToRad(deg));
 // Folga dos braços no quadril, por personagem (roster.json → armOut, medido por tools/arm-clearance.mjs): em corpos de
 // quadril largo a mão e o antebraço encostavam no quadril nos clipes relaxados e pareciam "mãos na cintura"; o braço
