@@ -210,6 +210,8 @@ export function createVegetation(THREE, scene, bridge) {
   }
 
   // ---------- palmeira: tronco curvo + folhas em fita arqueadas e caídas ----------
+  // rise/droop: a folha sobe no começo e cai no fim; a ponta precisa terminar ABAIXO da copa (coqueiro ~ -34% do
+  // comprimento) — com a subida maior que a queda as folhas ficavam em V p/ cima
   function palm(seed, o) {
     const r = mulberry(seed), H = o.trunkH, lean = o.lean * (r() < 0.5 ? -1 : 1), la = r() * TAU;
     const P = t => [Math.cos(la) * lean * t * t, H * t, Math.sin(la) * lean * t * t];
@@ -316,10 +318,10 @@ export function createVegetation(THREE, scene, bridge) {
     yard: () => broadleaf(104, { trunkH: 2.8, trunkR: 0.26, crownC: [0, 5.4, 0], crownR: [3.2, 2.8, 3.2], nClusters: 16, nLimbs: 5, clusterR: 1.6, cards: 32, cardSize: 1.4, bark: 'barkOak', leaf: 'broad', dark: '#24451c', light: '#82aa48', warm: '#b0b65a' }),
     poinciana: () => broadleaf(105, { trunkH: 2.6, trunkR: 0.32, crownC: [0, 5.6, 0], crownR: [5.6, 1.7, 5.6], nClusters: 22, nLimbs: 7, clusterR: 1.9, cards: 26, cardSize: 1.7, flat: 0.5, minY: -0.1, bark: 'barkRoyal', leaf: 'fine', dark: '#2a4a1e', light: '#86b04a', warm: '#aabc56', flowers: { tex: 'poinciana', n: 18, cards: 14 } }),
     pine: () => pine(106),
-    coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 20, dead: 3, len: 5.8, width: 1.05, rise: 0.7, droop: 1.65, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
+    coconut: () => palm(107, { trunkH: 8.6, lean: 1.6, r0: 0.21, n: 20, dead: 3, len: 5.8, width: 1.05, rise: 0.35, droop: 2.05, green: '#4c7a2e', tip: '#a9a84a', bark: 'barkPalm' }),
     // Washingtonia (Los Angeles): tronco altíssimo e fino, copa pequena e redonda de leques curtos e saia de folhas secas
-    washington: () => palm(109, { trunkH: 15, lean: 0.3, r0: 0.21, n: 38, dead: 30, len: 3.0, width: 1.45, rise: 1.15, droop: 0.75, green: '#5f7444', tip: '#8c9a62', bark: 'barkPalm' }),
-    royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 18, dead: 1, len: 6.6, width: 1.15, rise: 0.85, droop: 1.55, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
+    washington: () => palm(109, { trunkH: 15, lean: 0.3, r0: 0.21, n: 34, dead: 30, len: 3.5, width: 1.45, rise: 0.4, droop: 1.45, green: '#5f7444', tip: '#8c9a62', bark: 'barkPalm' }),
+    royal: () => palm(108, { trunkH: 11, lean: 0.25, r0: 0.3, royal: true, n: 18, dead: 1, len: 6.6, width: 1.15, rise: 0.45, droop: 1.85, green: '#3f6e2a', tip: '#8aa048', bark: 'barkRoyal' }),
     shrub: () => bush(201, { h: 1.4, w: 1.0, nClusters: 8, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1e3c18', light: '#78a444', warm: '#a8b456' }),
     hibiscus: () => bush(202, { h: 1.6, w: 1.1, nClusters: 9, clusterR: 0.55, cards: 22, cardSize: 0.75, leaf: 'broad', dark: '#1a3816', light: '#5e9038', warm: '#84a648', flowers: { tex: 'hibiscus', n: 9, cards: 4 } }),
     bougainvillea: () => bush(203, { h: 2.0, w: 1.3, nClusters: 10, clusterR: 0.65, cards: 18, cardSize: 0.85, leaf: 'broad', dark: '#22401a', light: '#6a9a40', warm: '#8aac48', flowers: { tex: 'bract', n: 16, cards: 7 } }),

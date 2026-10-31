@@ -258,7 +258,9 @@ function* owGenSector(S) {
       const ox = c.p.x + c.p.nx * c.s * (ROAD_W + c.off + SIDE + 7), oy = c.p.y + c.p.ny * c.s * (ROAD_W + c.off + SIDE + 7), d = dd(ox, oy);
       if (!BUILT.has(d)) continue;
       tries++;
-      const mix = MIX[d], key = mix[(rng() * mix.length) | 0];
+      const mix = MIX[d]; let key = mix[(rng() * mix.length) | 0];
+      // 90% das lojas viram casas (havia comércio demais); a semente continua a mesma
+      if (key === 'SHOP' && rng() < 0.9) { const homes = mix.filter(k => k !== 'SHOP'); if (homes.length) key = homes[(rng() * homes.length) | 0]; }
       const H = owTryHouse(S, key, c, rects);
       if (H) { placed++; yield; }
     }
@@ -557,8 +559,16 @@ function owStep(S, budget) {
 function owCleanStreetSector(S) {
   const discarded = new Set();
   const airport = owAirportReserve();
+  // frente das garagens livre até a rua (procedural, p/ qualquer gerador): nada de lixeira, poste, hidrante,
+  // banco, árvore etc. no corredor da entrada de carro — o carro precisa entrar e sair
+  const b0 = S.bounds, garages = typeof inGarageZone === 'function' ? (world.garages || []).filter(g => g.bb &&
+    g.bb[2] + 20 > b0[0] && g.bb[0] - 20 < b0[2] && g.bb[3] + 20 > b0[1] && g.bb[1] - 20 < b0[3]) : [];
+  const onDriveway = (o, pad) => garages.some(g => inGarageZone(g, o.x, o.y, pad));
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    if (garages.length && (kind === 'props' && ['tree', 'bush', 'rock', 'tuft'].includes(o.type) && onDriveway(o, o.type === 'tree' ? .8 : .4) ||
+      kind === 'lamps' && onDriveway(o, .5) || kind === 'bins' && onDriveway(o, .5) ||
+      kind === 'boxes' && !o.house && !['vehicle', 'parkedcar', 'garagedoor'].includes(o.kind) && !o.garage && onDriveway(o, Math.min(.7, Math.max(.2, Math.min(o.w || .4, o.d || .4) / 2))))) return true;
     if (airport && o.x > airport[0] && o.x < airport[2] && o.y > airport[1] && o.y < airport[3] &&
       (kind === 'props' || kind === 'bins' || kind === 'lamps' || kind === 'boxes' && !o.house && !['vehicle','planebody'].includes(o.kind))) return true;
     // pátio de posto/estacionamento: nada de árvore, arbusto ou pedra (nem o colisor invisível dela)

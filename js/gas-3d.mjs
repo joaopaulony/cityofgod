@@ -44,22 +44,25 @@ export function createGas3D(THREE, scene, bridge) {
   }
 
   function build(st) {
-    const grp = new THREE.Group(), body = Kit(), glow = Kit(), inside = Kit(), b = st.brand;
+    // roof/roofGlow: a cobertura (laje, faixas, rufos, luminárias do forro e placas da bandeira) num grupo próprio, que
+    // some quando o jogador — a pé ou no carro — está embaixo dela (senão não se vê nada do pátio)
+    const grp = new THREE.Group(), body = Kit(), glow = Kit(), inside = Kit(), roof = Kit(), roofGlow = Kit(), roofGrp = new THREE.Group(), b = st.brand;
+    grp.add(roofGrp); grp.userData.roof = roofGrp;
     const U = (u, v) => [st.ox + st.qx * u, st.oy + st.qy * v];
     // caixa nas coordenadas do lote (u,v) com altura y0..y1
     const box = (k, u0, v0, u1, v1, y0, y1, c, r = 0, set) => { const a = U(u0, v0), q = U(u1, v1); return k.box(Math.min(a[0], q[0]), y0, Math.min(a[1], q[1]), Math.max(a[0], q[0]), y1, Math.max(a[1], q[1]), c, r, set); };
     const cyl = (k, u, v, r, y0, y1, c, seg = 12) => { const p = U(u, v); return k.cyl(p[0], y0, p[1], r, y1, c, seg); };
     const C = st.canopy, H = C.h;
     // cobertura: laje branca, faixa da bandeira em volta, rufo e luminárias embutidas no forro
-    box(body, C.u0, C.v0, C.u1, C.v1, H, H + 0.18, '#f1f1ef');
-    box(body, C.u0 - 0.06, C.v0 - 0.06, C.u1 + 0.06, C.v1 + 0.06, H + 0.18, H + 0.92, b.a);
-    box(body, C.u0 - 0.08, C.v0 - 0.08, C.u1 + 0.08, C.v1 + 0.08, H + 0.74, H + 0.82, b.b);
-    box(body, C.u0 - 0.1, C.v0 - 0.1, C.u1 + 0.1, C.v1 + 0.1, H + 0.92, H + 0.98, '#d9d9d6');
+    box(roof, C.u0, C.v0, C.u1, C.v1, H, H + 0.18, '#f1f1ef');
+    box(roof, C.u0 - 0.06, C.v0 - 0.06, C.u1 + 0.06, C.v1 + 0.06, H + 0.18, H + 0.92, b.a);
+    box(roof, C.u0 - 0.08, C.v0 - 0.08, C.u1 + 0.08, C.v1 + 0.08, H + 0.74, H + 0.82, b.b);
+    box(roof, C.u0 - 0.1, C.v0 - 0.1, C.u1 + 0.1, C.v1 + 0.1, H + 0.92, H + 0.98, '#d9d9d6');
     // cobertura vista de cima: manta cinza rebaixada dentro da platibanda, rufos e alçapões de manutenção
-    box(body, C.u0 + 0.25, C.v0 + 0.25, C.u1 - 0.25, C.v1 - 0.25, H + 0.98, H + 1.0, '#b9bbbd');
-    for (const [a0, a1, b0, b1] of [[C.u0 - 0.1, C.u1 + 0.1, C.v0 - 0.1, C.v0 + 0.25], [C.u0 - 0.1, C.u1 + 0.1, C.v1 - 0.25, C.v1 + 0.1], [C.u0 - 0.1, C.u0 + 0.25, C.v0, C.v1], [C.u1 - 0.25, C.u1 + 0.1, C.v0, C.v1]]) box(body, a0, b0, a1, b1, H + 0.98, H + 1.12, '#eeeeec');
-    for (let u = C.u0 + 3; u < C.u1 - 2; u += 6) box(body, u, (C.v0 + C.v1) / 2 - 0.6, u + 1.2, (C.v0 + C.v1) / 2 + 0.6, H + 1.0, H + 1.16, '#a3a6a8');
-    for (let u = C.u0 + 2; u < C.u1 - 1; u += 3) for (let v = C.v0 + 2; v < C.v1 - 1; v += 3.2) box(glow, u - 0.45, v - 0.45, u + 0.45, v + 0.45, H - 0.03, H, '#fffbe8');
+    box(roof, C.u0 + 0.25, C.v0 + 0.25, C.u1 - 0.25, C.v1 - 0.25, H + 0.98, H + 1.0, '#b9bbbd');
+    for (const [a0, a1, b0, b1] of [[C.u0 - 0.1, C.u1 + 0.1, C.v0 - 0.1, C.v0 + 0.25], [C.u0 - 0.1, C.u1 + 0.1, C.v1 - 0.25, C.v1 + 0.1], [C.u0 - 0.1, C.u0 + 0.25, C.v0, C.v1], [C.u1 - 0.25, C.u1 + 0.1, C.v0, C.v1]]) box(roof, a0, b0, a1, b1, H + 0.98, H + 1.12, '#eeeeec');
+    for (let u = C.u0 + 3; u < C.u1 - 2; u += 6) box(roof, u, (C.v0 + C.v1) / 2 - 0.6, u + 1.2, (C.v0 + C.v1) / 2 + 0.6, H + 1.0, H + 1.16, '#a3a6a8');
+    for (let u = C.u0 + 2; u < C.u1 - 1; u += 3) for (let v = C.v0 + 2; v < C.v1 - 1; v += 3.2) box(roofGlow, u - 0.45, v - 0.45, u + 0.45, v + 0.45, H - 0.03, H, '#fffbe8');
     // ilhas, colunas, bombas, frades e lixeiras
     for (const is of st.islands) {
       box(body, is.u - 0.65, is.v0, is.u + 0.65, is.v1, 0, 0.22, '#c9c6bf', 0.05);
@@ -127,15 +130,16 @@ export function createGas3D(THREE, scene, bridge) {
     box(body, T.u - 0.55, T.v - 1.4, T.u + 0.55, T.v + 1.4, 0, 0.55, '#b9b4aa');
     box(body, T.u - 0.25, T.v - 1.2, T.u + 0.25, T.v + 1.2, 0.55, 7.2, b.a);
     box(body, T.u - 0.27, T.v - 1.25, T.u + 0.27, T.v + 1.25, 7.2, 7.32, '#e3e3e0');
-    const mk = (geos, mat, shadow = true) => { for (const g of Object.values(geos)) { const m = new THREE.Mesh(g, mat); m.castShadow = shadow; m.receiveShadow = true; grp.add(m); } };
+    const mk = (geos, mat, shadow = true, into = grp) => { for (const g of Object.values(geos)) { const m = new THREE.Mesh(g, mat); m.castShadow = shadow; m.receiveShadow = true; into.add(m); } };
     mk(body.done(), matBody); mk(glow.done(), matGlow, false); mk(inside.done(), matInside, false);
+    mk(roof.done(), matBody, true, roofGrp); mk(roofGlow.done(), matGlow, false, roofGrp);
     const pt = priceTex(st);
     for (const s of [-1, 1]) panel(grp, pt, 2.2, 3.3, tp[0] + st.qx * s * 0.26, 4.6, tp[1], st.qx * s, 0, true);
     // nome da bandeira nas faces da cobertura e "CONVENIÊNCIA 24H" na loja
     const ft = brandTex(b, 1024, 64, b.name), cu = (C.u0 + C.u1) / 2, cv = (C.v0 + C.v1) / 2, cp = U(cu, cv);
     for (const s of [-1, 1]) {
-      const pv = U(cu, s < 0 ? C.v0 - 0.08 : C.v1 + 0.08); panel(grp, ft, (C.u1 - C.u0) * 0.8, 0.66, pv[0], H + 0.5, pv[1], 0, st.qy * s, true);
-      const pu = U(s < 0 ? C.u0 - 0.08 : C.u1 + 0.08, cv); panel(grp, ft, (C.v1 - C.v0) * 0.8, 0.5, pu[0], H + 0.46, pu[1], st.qx * s, 0, true);
+      const pv = U(cu, s < 0 ? C.v0 - 0.08 : C.v1 + 0.08); roofGrp.add(panel(grp, ft, (C.u1 - C.u0) * 0.8, 0.66, pv[0], H + 0.5, pv[1], 0, st.qy * s, true));
+      const pu = U(s < 0 ? C.u0 - 0.08 : C.u1 + 0.08, cv); roofGrp.add(panel(grp, ft, (C.v1 - C.v0) * 0.8, 0.5, pu[0], H + 0.46, pu[1], st.qx * s, 0, true));
     }
     const stt = brandTex(b, 1024, 96, 'CONVENIÊNCIA  ·  24H'), sp = U((S.u0 + S.u1) / 2, S.v0 - 0.01);
     panel(grp, stt, (S.u1 - S.u0) * 0.7, 0.85, sp[0], 3.7, sp[1], 0, -st.qy, true);
@@ -167,6 +171,12 @@ export function createGas3D(THREE, scene, bridge) {
       matInside.emissive.setRGB(0.25 * dusk, 0.25 * dusk, 0.22 * dusk);
       matGlass.opacity = 0.38 - 0.12 * dusk;
       for (const g of built.values()) { for (const m of g.userData.lit || []) m.emissiveIntensity = 0.25 + 1.5 * dusk; for (const [l, k] of g.userData.lights || []) l.intensity = k * dusk; }
+      // jogador (ou o carro dele) embaixo da cobertura: ela some
+      const car = globalThis.cityVehicles?.driver ? globalThis.cityVehicles.car : null, who = car || bridge.player;
+      if (who) for (const [st, g] of built) {
+        const C = st.canopy, u = (who.x - st.ox) / st.qx, v = (who.y - st.oy) / st.qy, m = car ? 2.5 : 1;
+        g.userData.roof.visible = !(u > Math.min(C.u0, C.u1) - m && u < Math.max(C.u0, C.u1) + m && v > Math.min(C.v0, C.v1) - m && v < Math.max(C.v0, C.v1) + m);
+      }
     },
   };
 }

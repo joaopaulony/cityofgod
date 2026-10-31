@@ -88,7 +88,7 @@ export function createAirport3D(THREE, scene, bridge) {
   }
 
   // ======================= cenário =======================
-  let built = false, flyer = null, fenceMesh = null;
+  let built = false, flyer = null, fenceMesh = null, marquee = null;
   const fenceSync = { x: 1e9, y: 1e9, n: -1 };
   function build(L) {
     const { ap, x0, y0, w, d, gates } = L, k = Kit(), glow = Kit();
@@ -109,16 +109,18 @@ export function createAirport3D(THREE, scene, bridge) {
     });
     // terminal (inspirado no de Los Angeles): cobertura ondulada em abóbadas de metal claro sobre o terminal, que
     // avança 6 m sobre a calçada apoiada em pilares, cortina de vidro do saguão e letreiro na testeira
-    const TH = (bridge.houses || []).find(H => H.terminal), th = TH ? TH.h : 6.6, front = y0 + d, bays = 8, bw = w / bays;
+    // as abóbadas, vigas e testeira ficam num kit próprio (roofK) que some com o jogador embaixo (update)
+    const TH = (bridge.houses || []).find(H => H.terminal), th = TH ? TH.h : 6.6, front = y0 + d, bays = 8, bw = w / bays, roofK = Kit();
     for (let i = 0; i < bays; i++) {
       const cxb = x0 + bw * (i + 0.5), vault = new THREE.CylinderGeometry(bw / 2, bw / 2, d + 7, 20, 1, true, -Math.PI / 2, Math.PI);
-      vault.rotateX(Math.PI / 2); vault.scale(1, 0.75, 1); vault.translate(cxb, th + 0.55, y0 + (d + 7) / 2 - 0.5); k.raw(vault, '#e9ecee');
-      const sky = new THREE.BoxGeometry(0.9, 0.08, d + 6); sky.translate(cxb, th + 0.55 + bw / 2 * 0.75 + 0.02, y0 + (d + 7) / 2 - 0.5); k.raw(sky, '#7fa2b6', 'glass');
-      k.box(x0 + bw * i - 0.25, th + 0.2, y0 - 0.5, x0 + bw * i + 0.25, th + 0.65, front + 6.5, '#c9ced2');
+      vault.rotateX(Math.PI / 2); vault.scale(1, 0.75, 1); vault.translate(cxb, th + 0.55, y0 + (d + 7) / 2 - 0.5); roofK.raw(vault, '#e9ecee');
+      const sky = new THREE.BoxGeometry(0.9, 0.08, d + 6); sky.translate(cxb, th + 0.55 + bw / 2 * 0.75 + 0.02, y0 + (d + 7) / 2 - 0.5); roofK.raw(sky, '#7fa2b6', 'glass');
+      roofK.box(x0 + bw * i - 0.25, th + 0.2, y0 - 0.5, x0 + bw * i + 0.25, th + 0.65, front + 6.5, '#c9ced2');
     }
-    k.box(x0 + w - 0.25, th + 0.2, y0 - 0.5, x0 + w + 0.25, th + 0.65, front + 6.5, '#c9ced2');
+    roofK.box(x0 + w - 0.25, th + 0.2, y0 - 0.5, x0 + w + 0.25, th + 0.65, front + 6.5, '#c9ced2');
     for (let i = 0; i <= bays; i++) k.cyl(x0 + bw * i, 0, front + 5.6, 0.32, th + 0.4, '#dfe3e6', 14);   // pilares da marquise
-    k.box(x0 - 0.3, th + 0.1, front + 5.9, x0 + w + 0.3, th + 1.0, front + 6.6, '#2a4a66');   // testeira azul
+    roofK.box(x0 - 0.3, th + 0.1, front + 5.9, x0 + w + 0.3, th + 1.0, front + 6.6, '#2a4a66');   // testeira azul
+    marquee = { x0: x0 - 1, x1: x0 + w + 1, y0: y0 - 1.5, y1: front + 7.5, kit: roofK, meshes: [] };
     const gw = w * 0.62, gx0 = x0 + (w - gw) / 2;
     // Vão alinhado à porta funcional: a cortina decorativa não deve fechar a saída.
     const entryX = TH?.doorPt?.[0] ?? x0 + w / 2, gap = 1.6;
@@ -165,8 +167,8 @@ export function createAirport3D(THREE, scene, bridge) {
     const ca = Math.cos(ap.ang), sa = Math.sin(ap.ang), P = (u, v) => [ap.x + u * ca - v * sa, ap.y + u * sa + v * ca];
     for (let u = -ap.len / 2; u <= ap.len / 2 + 0.1; u += 60) for (const v of [-ap.width / 2 - 1.5, ap.width / 2 + 1.5]) { const [x, y] = P(u, v); k.cyl(x, 0, y, 0.12, 0.35, '#5a5f64', 6); glow.box(x - 0.14, 0.35, y - 0.14, x + 0.14, 0.5, y + 0.14, '#fff2c8'); }
     for (const [u, c] of [[-ap.len / 2 - 2, '#30ff70'], [ap.len / 2 + 2, '#ff3030']]) for (let v = -ap.width / 2; v <= ap.width / 2; v += 3) { const [x, y] = P(u, v); glow.box(x - 0.18, 0.05, y - 0.18, x + 0.18, 0.3, y + 0.18, c); }
-    const add = (geos, extraGlow) => { for (const [set, geo] of Object.entries(geos)) { const m = new THREE.Mesh(geo, set === 'glass' ? matGlass : set === 'glow' ? matGlow : matMetal); m.castShadow = set !== 'glow'; m.receiveShadow = true; scene.add(m); } };
-    add(k.done()); add(glow.done());
+    const add = (geos, out) => { for (const [set, geo] of Object.entries(geos)) { const m = new THREE.Mesh(geo, set === 'glass' ? matGlass : set === 'glow' ? matGlow : matMetal); m.castShadow = set !== 'glow'; m.receiveShadow = true; scene.add(m); out?.push(m); } };
+    add(k.done()); add(glow.done()); if (marquee) add(marquee.kit.done(), marquee.meshes);
     // avião que decola e pousa
     flyer = { mesh: planeMesh(LIVERIES[(gates.length) % LIVERIES.length]), t: 0, phase: 'wait', ap };
     flyer.mesh.visible = false; scene.add(flyer.mesh);
@@ -220,6 +222,12 @@ export function createAirport3D(THREE, scene, bridge) {
       const c = bridge.cam, n = (bridge.world.segs || []).length;
       if (Math.hypot(c.x - fenceSync.x, c.y - fenceSync.y) > 25 || n !== fenceSync.n) { fenceSync.x = c.x; fenceSync.y = c.y; fenceSync.n = n; syncFence(c.x, c.y); }
       if (flyer) fly(dt);
+      // jogador (ou o carro dele) sob a marquise do terminal: abóbadas e testeira somem
+      if (marquee) {
+        const car = globalThis.cityVehicles?.driver ? globalThis.cityVehicles.car : null, who = car || bridge.player;
+        const under = !!who && who.x > marquee.x0 && who.x < marquee.x1 && who.y > marquee.y0 && who.y < marquee.y1;
+        for (const m of marquee.meshes) m.visible = !under;
+      }
       const E = globalThis.ENV, night = E ? E.dark : (bridge.world.night ? 1 : 0);
       matGlow.color.setScalar(0.35 + 1.6 * night);
     },

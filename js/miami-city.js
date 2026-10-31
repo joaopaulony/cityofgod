@@ -1289,6 +1289,8 @@ function* miaGenSector(S, rects) {
     tries++; c.zone = z; (MIA.zt || (MIA.zt = {}))[z] = (MIA.zt[z] || 0) + 1;
     const mix = MIA_W[z]; let kind = mix[(rng() * mix.length) | 0];
     if ((z === 'bungalow' || z === 'town' || z === 'poor') && c.cls === 'avenue' && rng() < 0.2) kind = 'shop';
+    // 90% das lojas viram moradia da mesma zona (havia comércio demais)
+    if (kind === 'shop' && rng() < 0.9) { const homes = mix.filter(k => k !== 'shop'); kind = homes.length ? homes[(rng() * homes.length) | 0] : (z === 'poor' ? 'poor' : 'bungalow'); }
     // estacionamento de lote: comércio, centro e galpões (mais nas avenidas)
     if (z !== 'mansion' && z !== 'poor' && rng() < ({ brickell: 0.1, southbeach: 0.08, works: 0.08 }[z] || (c.cls === 'avenue' ? 0.05 : 0.012))) { if (parkingLot(S, c, rects)) { placed++; yield; } continue; }
     let H = null;
