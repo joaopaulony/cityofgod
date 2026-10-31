@@ -83,7 +83,22 @@ function remodelProperty(H){
  if(typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
  plan.openingSegments=plan.levels.flatMap(level=>level.segments.filter(s=>s.doorAnim||s.windowAnim));
  if(count>1){H.stair={house:H,z:height,architecture:true};
-  for(const level of plan.levels){const hall=level.rooms.find(r=>r.id==='hall'),x=(hall.x0+hall.x1)/2-.45,y=D*.45;level.stair={x,y,bottom:P(x,y+1.25),top:P(x,y-1.25),center:P(x,y)};}
+  // cada lance sobe do andar f ao f+1; com 3+ andares, vai-e-volta: lances alternam de lado e de sentido (não se sobrepõem)
+  for(const level of plan.levels){const hall=level.rooms.find(r=>r.id==='hall'),cx=(hall.x0+hall.x1)/2,y=D*.45,zig=count>2,f=level.floor;
+   const x=zig?cx+(f%2?.52:-.52):cx-.45,dir=zig&&f%2?-1:1;
+   level.stair={x,y,dir,w:.92,bottom:P(x,y+1.25*dir),top:P(x,y-1.25*dir),center:P(x,y)};}
+  stairColliders(plan,P,H);
  }
  return H;
+}
+// laterais da escada (só se entra por baixo) e guarda-corpo do vão no andar de cima (só se entra pelo topo)
+function stairColliders(plan,P,H){
+ for(const level of plan.levels){
+  const s=level.stair;if(!s||level.floor>=plan.levels.length-1)continue;
+  const x0=s.x-.5,x1=s.x+.5,yb=s.y+1.38*s.dir,yt=s.y-1.38*s.dir;
+  const seg=(floor,a,b)=>{const p=P(...a),q=P(...b),o={x1:p[0],y1:p[1],x2:q[0],y2:q[1],house:H,floor,architecture:true,kind:'stairrail',h:(floor+1)*H.floorHeight,z:floor*H.floorHeight};
+   if(floor)(world.upperSegs||(world.upperSegs=[])).push(o);else{world.segs.push(o);H.segs.push(o);}};
+  // embaixo: laterais e o fundo (debaixo do lance); em cima: laterais e a borda do lado de baixo do vão
+  for(const [floor,ends] of [[level.floor,[yt]],[level.floor+1,[yb]]]){seg(floor,[x0,yb],[x0,yt]);seg(floor,[x1,yb],[x1,yt]);for(const e of ends)seg(floor,[x0,e],[x1,e]);}
+ }
 }

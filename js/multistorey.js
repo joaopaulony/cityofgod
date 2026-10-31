@@ -126,6 +126,7 @@ function upstairsHouseAt(x,y){
     y>H.y0+.15&&y<H.y1-.15))||null;
 }
 function houseStairProximity(p){
+  return null;   // escadas são automáticas (updateHouseStairs): sem aviso nem tecla
   if(!p||p.stairTravel)return null;
   const H=upstairsHouseAt(p.x,p.y);
   if(!H?.stair)return null;
@@ -140,12 +141,14 @@ function houseStairProximity(p){
   const distance=Math.hypot(p.x-H.stair.x,p.y-H.stair.y);
   return distance<1.05?{distance,label:p.floor===1?'Descer escada':'Subir escada'}:null;
 }
-function updateHouseStairs(p,dt,activate){
+// move: direção (x,y) em que o jogador está andando. Chegou ao pé da escada andando p/ ela, sobe; ao topo andando
+// p/ o vão, desce — sem tecla. A travessia anda pelo lance no ritmo de uma caminhada.
+function updateHouseStairs(p,dt,activate,move){
   if(p.stairTravel){
     const tr=p.stairTravel;
-    tr.t=Math.min(1,tr.t+dt/1.55);
-    // Caminha por uma transicao de subida suave, sem escada instantanea.
-    const t=tr.t*tr.t*(3-2*tr.t);
+    tr.t=Math.min(1,tr.t+dt/(tr.dur||1.55));
+    const t=tr.t<.08||tr.t>.92?tr.t*tr.t*(3-2*tr.t):tr.t;   // anda em ritmo constante, só suaviza a entrada e a saída
+    p.face=tr.face??p.face;p.moveA=p.face;p.speed=tr.v||1.6;p.running=false;
     p.floorZ=tr.start+(tr.end-tr.start)*t;
     p.x=tr.fromX+(tr.toX-tr.fromX)*t;
     p.y=tr.fromY+(tr.toY-tr.fromY)*t;
@@ -154,18 +157,23 @@ function updateHouseStairs(p,dt,activate){
     }
     return true;
   }
-  if(!activate)return false;
+  if(!move&&!activate)return false;
   const H=upstairsHouseAt(p.x,p.y);
+  const go=(to,_,target,end)=>{const from=[p.x,p.y],dx=target[0]-from[0],dy=target[1]-from[1],run=Math.hypot(dx,dy),rise=Math.abs(end-(p.floorZ||0)),dur=Math.max(1.2,Math.hypot(run,rise)/2.3);
+    p.stairTravel={to,start:p.floorZ||0,end,fromX:from[0],fromY:from[1],toX:target[0],toY:target[1],t:0,dur,v:run/dur,face:Math.atan2(dy,dx)};return true;};
+  const heading=(a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;return [dx/l,dy/l];};
+  const toward=(dir)=>move?move[0]*dir[0]+move[1]*dir[1]>.5:!!activate;
+  // de frente p/ a entrada do lance (não encostado na lateral): até 0,9 m antes do ponto e no máx. 0,45 m de lado
+  const atEntry=(pt,dir)=>{const rx=p.x-pt[0],ry=p.y-pt[1],along=rx*dir[0]+ry*dir[1],lat=Math.abs(rx*dir[1]-ry*dir[0]);return along>-.9&&along<.2&&lat<.45;};
   if(H?.architecture){
-    const floor=p.floor||0,level=H.architecture.levels[floor],s=level.stair;
-    const down=floor>0&&Math.hypot(p.x-s.top[0],p.y-s.top[1])<1.1;
-    const up=floor<H.architecture.levels.length-1&&Math.hypot(p.x-s.bottom[0],p.y-s.bottom[1])<1.1;
-    if(!down&&!up)return false;
-    const to=floor+(down?-1:1),target=down?s.bottom:s.top;
-    p.stairTravel={to,start:p.floorZ||0,end:to*H.floorHeight,fromX:p.x,fromY:p.y,toX:target[0],toY:target[1],t:0};return true;
+    const floor=p.floor||0,levels=H.architecture.levels,up=floor<levels.length-1?levels[floor].stair:null,down=floor>0?levels[floor-1].stair:null;
+    if(up&&atEntry(up.bottom,heading(up.bottom,up.top))&&toward(heading(up.bottom,up.top)))return go(floor+1,up.bottom,up.top,(floor+1)*H.floorHeight);
+    if(down&&atEntry(down.top,heading(down.top,down.bottom))&&toward(heading(down.top,down.bottom)))return go(floor-1,down.top,down.bottom,(floor-1)*H.floorHeight);
+    return false;
   }
-  if(!H||Math.hypot(p.x-H.stair.x,p.y-H.stair.y)>1.05)return false;
+  if(!H?.stair||Math.hypot(p.x-H.stair.x,p.y-H.stair.y)>1.05)return false;
   const to=p.floor===1?0:1;
+  if(move&&H.stair.top&&H.stair.bottom&&!toward(heading(to===1?H.stair.bottom:H.stair.top,to===1?H.stair.top:H.stair.bottom)))return false;
   p.stairTravel={to,start:p.floorZ||0,
     end:to===1?H.stair.z:0,
     fromX:p.x,fromY:p.y,toX:to===1?H.stair.top[0]:H.stair.bottom[0],

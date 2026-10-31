@@ -55,14 +55,20 @@ test('doors and upper floors use the real colliders rather than obsolete enclosi
  const open=ctx.collide(...p,.28,0);assert.ok(Math.hypot(open[0]-p[0],open[1]-p[1])<.001);
  for(let floor=1;floor<4;floor++){assert.ok(A.levels[floor].segments.length);assert.ok(ctx.result.world.upperSegs.some(s=>s.floor===floor));}
 });
-test('stairs stay aligned and F reaches every floor, then descends to the previous one',()=>{
+test('switchback flights never overlap and walking into a flight climbs every floor, then walks back down',()=>{
  const ctx=fixture(.23),{H,updateHouseStairs}=ctx.result,A=H.architecture;
- const p={x:0,y:0,floor:0,floorZ:0};
+ const p={x:0,y:0,floor:0,floorZ:0},unit=(a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);return [dx/l,dy/l];};
  for(let floor=0;floor<3;floor++){
-  const s=A.levels[floor].stair,next=A.levels[floor+1].stair;assert.deepEqual(s.top,next.top);assert.deepEqual(s.bottom,next.bottom);
-  [p.x,p.y]=s.bottom;assert.equal(updateHouseStairs(p,.01,true),true);assert.equal(p.stairTravel.to,floor+1);updateHouseStairs(p,1.6,false);assert.equal(p.floor,floor+1);assert.equal(p.floorZ,(floor+1)*H.floorHeight);
+  const s=A.levels[floor].stair,up=unit(s.bottom,s.top);
+  if(floor<2){const next=A.levels[floor+1].stair;assert.ok(Math.abs(s.x-next.x)>=.9,'lances lado a lado, não empilhados');assert.ok(Math.hypot(s.top[0]-next.bottom[0],s.top[1]-next.bottom[1])<1.6,'chega perto do próximo lance');}
+  // andando de lado, encostado: não sobe
+  [p.x,p.y]=[s.bottom[0]-up[0]*.5,s.bottom[1]-up[1]*.5];assert.equal(updateHouseStairs(p,.01,false,[-up[1],up[0]]),false);
+  // andando p/ o pé da escada: sobe sozinho, sem tecla
+  assert.equal(updateHouseStairs(p,.01,false,up),true);assert.equal(p.stairTravel.to,floor+1);
+  updateHouseStairs(p,3,false);assert.equal(p.floor,floor+1);assert.equal(p.floorZ,(floor+1)*H.floorHeight);
  }
- [p.x,p.y]=A.levels[3].stair.top;assert.equal(updateHouseStairs(p,.01,true),true);updateHouseStairs(p,1.6,false);assert.equal(p.floor,2);
+ const s=A.levels[2].stair,down=unit(s.top,s.bottom);[p.x,p.y]=[s.top[0]-down[0]*.3,s.top[1]-down[1]*.3];
+ assert.equal(updateHouseStairs(p,.01,false,down),true);updateHouseStairs(p,3,false);assert.equal(p.floor,2);
 });
 
 test('player operates exterior doors and sash windows from either side, with persistent manual targets',()=>{

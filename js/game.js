@@ -394,6 +394,7 @@ function updatePlayer(dt) {
     const moved = Math.hypot(nx - p.x, ny - p.y);
     p.x = nx; p.y = ny; spd = dt > 0 ? moved / dt : p.speed;
   }
+  if (p.stairTravel) spd = p.stairTravel.v || 1.6;   // subindo/descendo: anima a caminhada
   p.speed = lerp(p.speed, spd, 1 - Math.exp(-dt * 12));
   const stepBefore = Math.floor(p.phase * 2);
   p.phase += p.speed * dt / lerp(1.45, 2.5, p.runW);
@@ -1003,14 +1004,14 @@ function tick(dt) {
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
   const realtyOpened=interactPressed&&!vehicleMessage&&!garageUsed&&!window.cityVehicles?.driver&&window.CityRealty?.onInteract(player);
-  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,interactPressed&&houseAction==='stair');
+  // escada automática: andando p/ o pé (ou p/ o vão, no andar de cima) já sobe/desce — sem tecla
+  let stairMove=null;{let sx=0,sy=0;if(input.down('w'))sy--;if(input.down('s'))sy++;if(input.down('a'))sx--;if(input.down('d'))sx++;
+   if((sx||sy)&&!window.cityVehicles?.driver&&!player.homeAction){const w=screenDirToWorld(sx,sy),l=Math.hypot(w[0],w[1])||1;stairMove=[w[0]/l,w[1]/l];}}
+  const stairStarted=!vehicleMessage&&!garageUsed&&!realtyOpened&&updateHouseStairs(player,dt,false,stairMove);
   if(interactPressed&&!vehicleMessage&&!garageUsed&&!realtyOpened&&!stairStarted&&houseAction==='object'&&useHouseInteraction(player,st,T)){
     hud.msg=st._interactionMessage||'Objeto utilizado';hud.msgT=2.0;
   }
-  if(stairStarted&&player.stairTravel&&player.stairTravel.t===0){
-    hud.msg=player.stairTravel.to===1?'Subindo as escadas':'Descendo as escadas';
-    hud.msgT=1.8;
-  }
+
   window.cityVehicles?.update(dt);
   // Indoor A* guide owns movement only while an autonomous domestic action
   // is running. Any manual movement key cancels it immediately.
