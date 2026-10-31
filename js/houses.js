@@ -117,11 +117,14 @@ function addBox(b) {
   b = Object.assign({ z: 0, rot: 0, kind: 'box' }, b);
   boxes.push(b);
   if (b.solid !== false) {
-    const c = boxCorners(b), hh = b.z + b.h;
-    for (let i = 0; i < 4; i++) (b.floor>0?(world.upperSegs=world.upperSegs||[]):world.segs).push({
+    const c = boxCorners(b), hh = b.z + b.h, list = b.floor>0?(world.upperSegs=world.upperSegs||[]):world.segs, added = [];
+    for (let i = 0; i < 4; i++) added.push({
       x1:c[i][0],y1:c[i][1],x2:c[(i+1)%4][0],
       y2:c[(i+1)%4][1],h:hh,kind:b.kind,house:b.house,floor:b.floor||0,sourceBox:b
     });
+    list.push(...added);
+    // já entra no índice de colisão (world.js), sem precisar de world.version++
+    if (typeof collInsertSegs === 'function') collInsertSegs(added, b.floor > 0);
   }
   return b;
 }

@@ -1214,6 +1214,18 @@ function raycast(ox, oy, dx, dy, maxD) {
 const COLL_CELL = 4;
 const collGrid = { key: '', n: 0, circ: null, segs: null, up: null, dyn: [], stamp: 0 };
 const NO_CELL = [];
+// encaixa paredes novas (ex.: a caixa de um carro estacionado) no índice já pronto, sem reindexar o mundo todo — no
+// mundo aberto a reindexação passa por todos os setores e, com world.version, ainda refaz casas/objetos/vegetação 3D
+// (era o congelamento ao entrar e sair do carro)
+function collInsertSegs(segs, upper = false) {
+  const G = collGrid; if (!G.segs || !segs.length) return;
+  const map = upper ? G.up : G.segs, n = G.n, M = 0.8;
+  for (const s of segs) {
+    const i0 = clamp(Math.floor((Math.min(s.x1, s.x2) - M) / COLL_CELL), 0, n - 1), i1 = clamp(Math.floor((Math.max(s.x1, s.x2) + M) / COLL_CELL), 0, n - 1);
+    const j0 = clamp(Math.floor((Math.min(s.y1, s.y2) - M) / COLL_CELL), 0, n - 1), j1 = clamp(Math.floor((Math.max(s.y1, s.y2) + M) / COLL_CELL), 0, n - 1);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * n + i; let a = map.get(k); if (!a) map.set(k, a = []); a.push(s); }
+  }
+}
 function collIndex() {
   // mundo grande: reindexa só quando um setor termina ou sai (world.version); objetos de um setor
   // ainda em geração ficam longe do jogador e entram juntos no fim

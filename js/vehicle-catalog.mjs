@@ -2,7 +2,7 @@ import {buildVehicleDirectory} from './vehicle-classification.mjs';
 // Catálogo auditável de modelos 3D GLB: malhas reais, sem capturas.
 export const VEHICLE_MODELS=Object.freeze([
  {id:'silvia',name:'Nissan Silvia S13 (1992)',file:'nissan-silvia-s13.glb',source:'silvia',length:4.47,front:'+Z'},
- {id:'compact',name:'Compacto',file:'compact.glb',source:'passenger',length:3.7,front:'-Z'},
+ {id:'compact',name:'Compacto',file:'compact.glb',source:'passenger',length:3.7,front:'+Z'},
  {id:'coupe',name:'Cupê',file:'coupe.glb',source:'passenger',length:4.5,front:'-Z'},
  {id:'hatchback',name:'Hatchback',file:'hatchback.glb',source:'passenger',length:4.2,front:'-Z'},
  {id:'minivan',name:'Minivan',file:'minivan.glb',source:'passenger',length:4.9,front:'-Z'},

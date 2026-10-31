@@ -28,8 +28,19 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  const targetSteer=(right-left)*steerLimit(car.speed,spec);
  car.steer=approach(car.steer,targetSteer,spec.steeringRate*step*steerLimit(car.speed,spec));
  let speed=car.speed;
+ // drift: o freio de mão com o volante virado solta a traseira; depois, acelerador + volante mantêm o carro de lado
+ // (dá p/ soltar o freio de mão e controlar o ângulo no contra-esterço); sem acelerador ou com o volante reto ele
+ // volta a ter aderência
+ const steering=Math.abs(car.steer)>.04,fast=Math.abs(car.speed)>6;
+ if(brake&&fast&&steering)car.driftT=.55;
+ else if(car.drifting&&gas&&Math.abs(car.steer)>.03&&Math.abs(car.speed)>5)car.driftT=Math.max(car.driftT||0,.22);
+ car.driftT=Math.max(0,(car.driftT||0)-step);
+ const inDrift=car.driftT>0;
  if(brake){
-  speed=approach(speed,0,spec.brakeAccel*(Math.abs(car.steer)>.04&&Math.abs(speed)>6?.38:1.35)*step);
+  speed=approach(speed,0,spec.brakeAccel*(steering&&fast?.22:1.35)*step);
+ }else if(inDrift&&gas&&!reverse&&speed>0){
+  // de lado o motor empurra menos e o atrito lateral come velocidade, mas devagar: o drift não morre
+  speed+=spec.engineAccel*.7*step-Math.abs(car.slip||0)*2.4*step;
  }else if(gas&&!reverse){
   speed=speed<-.08
     ?approach(speed,0,spec.brakeAccel*step)
@@ -44,12 +55,19 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  }
  if(!controls.engineOn)speed=approach(speed,0,(spec.rollingDrag*2+spec.airDrag*speed*speed)*step);
  car.speed=Math.max(-spec.maxReverse,Math.min(spec.maxForward,speed));
- // Modelo bicicleta: virar durante a re inverte corretamente a trajetoria.
- const drifting=brake&&Math.abs(car.speed)>6&&Math.abs(car.steer)>.04;
- const headingDelta=car.speed/spec.wheelbase*Math.tan(car.steer)*step*(drifting?1.35:1);
- car.angle=normalizeAngle(car.angle+headingDelta);
- const slipTarget=drifting?-Math.sign(car.steer)*Math.min(.65,Math.abs(car.speed)*.025):0;
- car.slip=approach(car.slip||0,slipTarget,step*(drifting?1.8:1.3));
+ // Modelo bicicleta: virar durante a re inverte corretamente a trajetoria. No drift o nariz gira mais (a traseira
+ // escorrega) e a direção do movimento só alcança o nariz devagar — o ângulo entre os dois é o slip.
+ let heading=normalizeAngle(car.angle+(car.slip||0));   // direção do movimento antes de girar o nariz
+ // contra-esterço (volante p/ o lado em que a traseira escorrega) endireita sem o reforço do drift
+ const counter=inDrift&&Math.sign(car.steer)===Math.sign(car.slip||0)&&Math.abs(car.slip||0)>.05;
+ const yaw=car.speed/spec.wheelbase*Math.tan(car.steer)*(inDrift&&!counter?1.75+(gas?.45:0):counter?.7:1);
+ car.angle=normalizeAngle(car.angle+yaw*step);
+ const grip=inDrift?1.4:9,gap=normalizeAngle(car.angle-heading);
+ heading=normalizeAngle(heading+Math.sign(gap)*Math.min(Math.abs(gap),grip*step));
+ let slip=normalizeAngle(heading-car.angle);
+ if(Math.abs(slip)>.96)slip=Math.sign(slip)*.96;   // no máximo ~55° de lado
+ if(!inDrift&&Math.abs(slip)<1e-3)slip=0;
+ car.slip=slip;
  car.drifting=Math.abs(car.slip)>.12&&Math.abs(car.speed)>4;
  car.x+=Math.cos(car.angle+car.slip)*car.speed*step;
  car.y+=Math.sin(car.angle+car.slip)*car.speed*step;

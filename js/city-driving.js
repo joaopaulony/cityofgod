@@ -18,6 +18,23 @@ const CityDriving=(()=>{
    }
    return true;
  }
+ // a parede (ou cerca/muro) cruza o caminho do carro até o ponto? (sair da garagem não pode atravessar p/ dentro de casa)
+ const cross=(ax,ay,bx,by,s)=>{
+   const d1=(bx-ax)*(s.y1-ay)-(by-ay)*(s.x1-ax),d2=(bx-ax)*(s.y2-ay)-(by-ay)*(s.x2-ax);
+   const d3=(s.x2-s.x1)*(ay-s.y1)-(s.y2-s.y1)*(ax-s.x1),d4=(s.x2-s.x1)*(by-s.y1)-(s.y2-s.y1)*(bx-s.x1);
+   return (d1>0)!==(d2>0)&&(d3>0)!==(d4>0);
+ };
+ function wallBetween(b,ax,ay,bx,by){
+   for(const s of b.world.segs||[]){
+     if(s.door&&s.doorAnim?.open>=.72)continue;
+     if(Math.max(s.x1,s.x2)<Math.min(ax,bx)-.1||Math.min(s.x1,s.x2)>Math.max(ax,bx)+.1||Math.max(s.y1,s.y2)<Math.min(ay,by)-.1||Math.min(s.y1,s.y2)>Math.max(ay,by)+.1)continue;
+     if(cross(ax,ay,bx,by,s))return true;
+   }
+   return false;
+ }
+ // Ponto de saída: livre de paredes, móveis e de qualquer carro (parado ou no trânsito) com 45 cm de folga — a
+ // carroceria visível é maior que a caixa de colisão, com 24 cm o jogador saía "dentro" do carro ao lado — e sem
+ // parede entre o carro e o ponto.
  function safePosition(v){
    const b=window.cityVehicleBridge,p=b?.player,car=v.car;if(!b||!p||!car)return null;
    const r=Math.max(1.6,(v.carLength||4.4)*.33);
@@ -28,10 +45,11 @@ const CityDriving=(()=>{
        const angle=normal + (j%2?-1:1)*Math.ceil(j/2)*Math.PI/12;
        const x=car.x+Math.cos(angle)*d,y=car.y+Math.sin(angle)*d;
        if(b.pondVal(x,y)<=1.12)continue;
-       // O collider do próprio carro não invalida os pontos ao redor.
-       const q=b.collide(x,y,.24,0);
-       if(Math.hypot(q[0]-x,q[1]-y)>.14)continue;
-       if(b.world.blocked(x,y,.23) && d<2.5)continue;
+       // conta todo carro, inclusive o próprio (o ponto precisa ficar fora da carroceria dele também)
+       const q=b.collide(x,y,.45,0);
+       if(Math.hypot(q[0]-x,q[1]-y)>.05)continue;
+       if(b.world.blocked(x,y,.3))continue;
+       if(wallBetween(b,car.x,car.y,x,y))continue;
        return {x,y};
      }
    }

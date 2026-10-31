@@ -21,7 +21,7 @@ import {createGas3D} from './gas-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
-import {createVehicleEffects} from './vehicle-effects.mjs';
+import {createSkidFX} from './vehicle-skids.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
@@ -76,7 +76,7 @@ system.restoreCheckpoint=async(saved,point)=>{
  fuel.level=saved.fuel;system.driver=true;system.engineOn=saved.engineOn&&engineEfficiency(damage)>0;system.headlights=saved.headlights;
  system.highBeams=!!saved.highBeams;system.signal=saved.signal||'off';system.emergencyLights=!!saved.emergencyLights;
  Object.assign(bridge.player,{x:point.x,y:point.y,floor:0,floorZ:0});
- system.collider.x=point.x;system.collider.y=point.y;bridge.world.version++;return true;
+ system.collider.x=point.x;system.collider.y=point.y;return true;
 };
 let renderer=null,model=null,scene=null,viewCamera=null,body=null,
  shadowGround=null,occluders=[],roofOccluders=new Map(),occlusionScene=null;
@@ -293,7 +293,7 @@ function initRenderer(){
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
- vehicleFX=createVehicleEffects(THREE,scene);
+ vehicleFX=createSkidFX(scene,THREE);   // marcas de pneu e fumaça (drift e freada forte)
  damageFX=createVehicleDamageEffects(THREE,scene);
  const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
@@ -427,7 +427,6 @@ function moveCar(dt){
     obstacle.damage=createVehicleDamage(obstacle.damage);
     registerCrash(obstacle.damage,{kind:'object'},Math.abs(old.speed)*.8,lightingClock,
       panel==='front'?'rear':panel==='rear'?'front':panel,Math.max(.7,(obstacle.w||4.7)/4.7));
-    bridge.world.version++;
    }
   }
  }
@@ -457,7 +456,7 @@ function parkAndExit(pos){
  parked.draw=bridge.drawParkedCar;const saved=bridge.addBox(parked);fleet.saved.set(activeKey,saved);
  system.driver=false;system.braking=false;system.engineOn=false;system.headlights=false;
  system.highBeams=false;system.signal='off';system.emergencyLights=false;activeKey=null;
- system.collider.x=-10000;system.collider.y=-10000;state.speed=0;state.steer=0;state.slip=0;state.drifting=false;bridge.world.version++;
+ system.collider.x=-10000;system.collider.y=-10000;state.speed=0;state.steer=0;state.slip=0;state.drifting=false;
  return 'Saiu do veículo';
 }
 system.exitAt=parkAndExit;
@@ -488,7 +487,7 @@ function interact(){
   system.driver=true;system.engineOn=engineEfficiency(damage)>0;
   system.headlights=!!parked.headlights;system.highBeams=!!parked.highBeams;
   system.signal=parked.hazardLights?'hazard':'off';system.emergencyLights=!!parked.emergencyLights;
-  p.x=state.x;p.y=state.y;bridge.world.version++;
+  p.x=state.x;p.y=state.y;
  }).finally(()=>{claiming=false;});
  return 'Entrando no veículo…';
 }
@@ -566,8 +565,9 @@ function engineSound(){
 }
 system.update=dt=>{
  if(!system.ready)return;
- const stationFleet=syncCivicFleetParking(bridge.boxes,VEHICLE_MODELS,fleet);
- if(stationFleet.activated||stationFleet.hidden)bridge.world.version++;
+ // carros do posto aparecem/somem só pela marca fleetHidden (a colisão já a respeita): sem world.version++, que
+ // reconstruía casas, objetos e vegetação 3D e o índice de colisão do mundo inteiro (congelava ao dirigir)
+ syncCivicFleetParking(bridge.boxes,VEHICLE_MODELS,fleet);
  refuel(dt);
  if(bridge.hit('x')&&system.driver){
   if(engineEfficiency(damage)<=0){fuel.msg='Motor destruído: necessário reparar';fuel.msgT=3;}
@@ -583,7 +583,7 @@ system.update=dt=>{
  lightingClock+=Math.max(0,Math.min(.1,dt||0));
  for(const b of bridge.boxes)if(b.kind==='parkedcar'&&fleet.hideOriginal(b)){b.fleetHidden=true;b.solid=false;}
  moveCar(dt);
- vehicleFX?.update(dt,state,system.driver,activeModel.length);
+ vehicleFX?.update(dt,state,{wheelbase:activeModel.wheelbase||Math.min(CAR_SPEC.wheelbase,activeModel.length*.65),width:system.bodyWidth||1.8,braking:!!system.braking,active:system.driver});
  damageFX?.update(dt);
  if(system.driver){
   const intensity=smokeIntensityForIntegrity(damage.integrity);
@@ -725,7 +725,7 @@ system.deliverVehicle=async id=>{
  const q=nearestSafeParking();if(!isFree(q.x,q.y,q.angle))return false;
  const key='owned:'+id,prior=fleet.saved.get(key);if(prior){prior.fleetHidden=true;prior.solid=false;}
  const b=fleet.park(key,{x:q.x,y:q.y,rot:q.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:id,col:'#c3c6c9',fuel:.65});
- b.draw=bridge.drawParkedCar;const saved=bridge.addBox(b);fleet.saved.set(key,saved);bridge.world.version++;return true;
+ b.draw=bridge.drawParkedCar;const saved=bridge.addBox(b);fleet.saved.set(key,saved);return true;
 };
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
