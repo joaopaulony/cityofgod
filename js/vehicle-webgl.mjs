@@ -22,6 +22,7 @@ import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {createSkidFX} from './vehicle-skids.mjs';
+import {createDestructibles} from './destructibles.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
@@ -36,7 +37,7 @@ const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
 const TANK_GAL=13.2,RANGE_M=12000;
 const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
 const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
-let vehicleFX=null,damageFX=null,lighting=null,lightingClock=0,deformation=null;
+let vehicleFX=null,damageFX=null,destructibles=null,lighting=null,lightingClock=0,deformation=null;
 let damage=createVehicleDamage();
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
  loadingSerial=0;
@@ -294,6 +295,7 @@ function initRenderer(){
  renderer.shadowMap.type=THREE.PCFShadowMap;
  scene=new THREE.Scene();
  vehicleFX=createSkidFX(scene,THREE);   // marcas de pneu e fumaça (drift e freada forte)
+ destructibles=createDestructibles(THREE,scene,bridge);system.destructibles=destructibles.state;
  damageFX=createVehicleDamageEffects(THREE,scene);
  const hemi=new THREE.HemisphereLight(0xf8ead9,0x343c32,1.95);scene.add(hemi);
  const sun=new THREE.DirectionalLight(0xffe0b7,2.7);
@@ -406,7 +408,14 @@ function moveCar(dt){
  const old={...state},next=stepCar(state,inControl,dt,spec);
  const collision=sweepCar(bridge.world,{...old,...hitbox()},
   {...next,...hitbox(next.x,next.y,next.angle)},collisionOptions());
- if(!collision.impact){
+ // poste, semáforo ou hidrante: o carro derruba e passa (perde velocidade, dano leve) em vez de parar seco
+ if(collision.impact&&destructibles?.hit(collision.impact,old)){
+  Object.assign(state,next,{speed:next.speed*.82});
+  system.lastImpact=collision.impact.kind;
+  registerCrash(damage,{kind:'object'},Math.abs(old.speed)*.3,lightingClock,collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact),activeModel.length/4.7);
+  system.damage=damage;refreshDeformation();
+  fuel.msg=collision.impact.kind==='lamp'?'Você derrubou um poste':collision.impact.kind==='trafficSignal'?'Você derrubou um semáforo':'Hidrante quebrado!';fuel.msgT=2.5;
+ }else if(!collision.impact){
   Object.assign(state,next);
   system.lastImpact=null;
  }else{
@@ -585,6 +594,7 @@ system.update=dt=>{
  moveCar(dt);
  vehicleFX?.update(dt,state,{wheelbase:activeModel.wheelbase||Math.min(CAR_SPEC.wheelbase,activeModel.length*.65),width:system.bodyWidth||1.8,braking:!!system.braking,active:system.driver});
  damageFX?.update(dt);
+ destructibles?.update(dt);
  if(system.driver){
   const intensity=smokeIntensityForIntegrity(damage.integrity);
   if(intensity>0){

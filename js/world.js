@@ -1250,11 +1250,12 @@ function collIndex() {
   return collGrid;
 }
 function pushOutCircle(c, x, y, r) {
+  if (c.broken) return null;   // poste/semáforo derrubado (destructibles.mjs)
   const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy), m = c.r + r * (c.soft ? 0.5 : 1);
   return d < m && d > 1e-6 ? [c.x + dx / d * m, c.y + dy / d * m] : null;
 }
 function pushOutSeg(s, x, y, r) {
-  if(s.sourceBox?.fleetHidden)return null;
+  if(s.sourceBox?.fleetHidden||s.sourceBox?.broken)return null;
   if (s.door && s.doorAnim?.open >= .72) return null;
   const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
   const u = clamp(((x - s.x1) * ex + (y - s.y1) * ey) / l2, 0, 1);

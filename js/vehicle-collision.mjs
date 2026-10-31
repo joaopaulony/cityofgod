@@ -97,7 +97,7 @@ export function carCollision(world,car,options={}){
   if(polyHit(verts,obstacle))return record('object',b);
  }
  for(const c of world.circles||[]){
-  if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.kind==='bush'||c.kind==='rock')continue;
+  if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.broken||c.kind==='bush'||c.kind==='rock')continue;
   if(Math.abs(c.x-car.x)>radius+c.r||
      Math.abs(c.y-car.y)>radius+c.r)continue;
   // Nunca considerar colisores esquecidos no asfalto após a limpeza procedural.

@@ -5,6 +5,7 @@
 // com cor por vértice, gerado uma vez e desenhado com InstancedMesh. Móveis aparecem só com o jogador dentro da casa
 // (e no andar em que ele está), virados p/ o centro do cômodo.
 import {makeKit} from './kit-3d.mjs';
+import {fallAngle} from './destructibles.mjs';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const TAU = Math.PI * 2;
@@ -422,11 +423,27 @@ export function createProps(THREE, scene, bridge) {
     const ped = new THREE.Group(); ped.position.set(s.x, 2.4, s.y); ped.rotation.y = Math.atan2(-s.ix, -s.iy); g.add(ped);
     ped.add(new THREE.Mesh(new RoundedBoxGeometry(0.4, 0.55, 0.22, 2, 0.03), yellow));
     for (const [y, c] of [[0.12, 'stop'], [-0.12, 'walk']]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.2), lm('ped|' + c)); p.position.set(0, y, 0.115); ped.add(p); }
-    scene.add(g); return g;
+    // o semáforo gira em volta da base (derrubado pelo carro: destructibles.mjs)
+    const pivot = new THREE.Group(); pivot.position.set(s.x, 0, s.y); g.position.set(-s.x, 0, -s.y); pivot.add(g);
+    scene.add(pivot); return pivot;
+  }
+  // poste em pé ou tombando p/ o lado do empurrão (fallen.dir), com quique no chão
+  const fallQ = new THREE.Quaternion(), fallAxis = new THREE.Vector3();
+  function tilt(fallen) {
+    fallAxis.set(fallen.dir[1], 0, -fallen.dir[0]).normalize();
+    return fallQ.setFromAxisAngle(fallAxis, fallAngle(fallen.t || 0));
+  }
+  let shownLamps = [];
+  function placeLamps() {
+    shownLamps.forEach((l, i) => {
+      ps.set(l.x, 0, l.y); q.setFromAxisAngle(up, -Math.atan2(l.ay || 0, l.ax || 1)); if (l.fallen) q.premultiply(tilt(l.fallen));
+      sc.set(1, 1, 1); mat.compose(ps, q, sc); for (const m of lampMeshes) m.setMatrixAt(i, mat);
+    });
+    for (const m of lampMeshes) { m.count = shownLamps.length; m.instanceMatrix.needsUpdate = true; }
   }
   function updateSignals(T, night) {
     const list = bridge.world.trafficSignals || [], seen = new Set();
-    for (const s of list) { seen.add(s); if (!signals.has(s)) signals.set(s, buildSignal(s)); }
+    for (const s of list) { seen.add(s); if (!signals.has(s)) signals.set(s, buildSignal(s)); const pv = signals.get(s); if (s.fallen) pv.quaternion.copy(tilt(s.fallen)); else pv.quaternion.identity(); }
     for (const [s, g] of signals) if (!seen.has(s)) { scene.remove(g); signals.delete(s); }
     if (!list.length || typeof bridge.trafficPhase !== 'function') return;
     const ph = bridge.trafficPhase(T), off = 0x26221e;
@@ -480,7 +497,7 @@ export function createProps(THREE, scene, bridge) {
     for (const k of kinds.values()) k.list.length = 0;
     let furniture = 0, objects = 0;
     for (const b of bridge.boxes || []) {
-      if (!handles(b)) continue;
+      if (!handles(b) || b.broken) continue;   // hidrante quebrado (destructibles.mjs) some
       const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
       const H = b.house;
       if (H && !b.exteriorFixture) { if (!H.inside || (H.architecture?(b.floor||0)!==(bridge.player.stairTravel?.to??bridge.player.floor??0):((b.floor === 1) !== !!upstairsIn(H)))) continue; furniture++; } else objects++;
@@ -521,9 +538,8 @@ export function createProps(THREE, scene, bridge) {
       for (const m of k.meshes) { m.count = k.list.length; m.instanceMatrix.needsUpdate = true; }
     }
     // postes de luz
-    const lamps = (bridge.world.lamps || []).filter(l => (l.x - cx) ** 2 + (l.y - cy) ** 2 < R * R);
-    lamps.forEach((l, i) => { ps.set(l.x, 0, l.y); q.setFromAxisAngle(up, -Math.atan2(l.ay || 0, l.ax || 1)); sc.set(1, 1, 1); mat.compose(ps, q, sc); for (const m of lampMeshes) m.setMatrixAt(i, mat); });
-    for (const m of lampMeshes) { m.count = lamps.length; m.instanceMatrix.needsUpdate = true; }
+    shownLamps = (bridge.world.lamps || []).filter(l => (l.x - cx) ** 2 + (l.y - cy) ** 2 < R * R);
+    placeLamps();
     Object.assign(state, { objects, furniture, lamps: lamps.length, ms: +(performance.now() - t0).toFixed(1) });
   }
 
@@ -587,7 +603,9 @@ export function createProps(THREE, scene, bridge) {
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(150, Math.hypot(halfW, halfH) + 22);
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;
-      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside }); rebuild(c.x, c.y, R); }
+      const bv = w.breakVersion || 0;   // algo foi derrubado/restaurado (destructibles.mjs)
+      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside || bv !== sync.bv) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside, bv }); rebuild(c.x, c.y, R); }
+      else if (shownLamps.some(l => l.fallen && l.fallen.t < 2)) placeLamps();   // poste caindo: anima
       const action=bridge.player.homeAction;
       cup.visible=!!(action?.kind==='drink'&&bridge.player.J?.handR);
       if(cup.visible){
