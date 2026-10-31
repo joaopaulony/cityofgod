@@ -14,7 +14,9 @@ const CityWeapons = (() => {
     smg:      { label: 'Submetralhadora', slot: 'smg', auto: true, rof: .075, spread: 1.35, range: 34 },
     rifle:    { label: 'Fuzil', slot: 'rifle', auto: true, rof: .11, spread: 1.0, range: 48 },
     shotgun:  { label: 'Escopeta', slot: 'shotgun', auto: false, rof: .85, spread: 2.2, range: 20, pellets: 8 },
-    sniper:   { label: 'Precisão', slot: 'sniper', auto: false, rof: 1.25, spread: .35, range: 90 }
+    sniper:   { label: 'Precisão', slot: 'sniper', auto: false, rof: 1.25, spread: .35, range: 90 },
+    // corpo a corpo: sem munição (cal nulo, pente 0); range = alcance do golpe em metros
+    melee:    { label: 'Corpo a corpo', slot: 'melee', auto: false, rof: .7, spread: 1, range: 1.55, melee: true }
   });
   const CAL = Object.freeze({ '9mm': '9 mm', '.40': '.40', '.45': '.45', '.38': '.38', '.357': '.357', '5.56': '5,56 mm', '12': 'calibre 12', '.308': '.308' });
   const w = (id, name, cat, cal, mag, extra = {}) => [id, Object.freeze({ id, name, cat, cal, mag, ...CATS[cat], ...extra, icon: DIR + 'icons/' + id + '.webp', model: DIR + 'models/' + id + '.glb' })];
@@ -53,7 +55,8 @@ const CityWeapons = (() => {
     w('sniper_3', 'Rifle de Precisão Ártico', 'sniper', '.308', 5, { price: 19500, damage: 92 }),
     w('sniper_4', 'Rifle de Precisão Tático', 'sniper', '.308', 10, { price: 18200, damage: 80, rof: .8 }),
     w('sniper_5', 'Rifle de Precisão com Bipé', 'sniper', '.308', 5, { price: 21000, damage: 92, spread: .25 }),
-    w('sniper_6', 'Rifle de Caça', 'sniper', '.308', 4, { price: 12500, damage: 80 })
+    w('sniper_6', 'Rifle de Caça', 'sniper', '.308', 4, { price: 12500, damage: 80 }),
+    w('bat_1', 'Taco de Beisebol', 'melee', null, 0, { price: 180, damage: 42 })
   ]);
   // acessórios: onde encaixa (nó do modelo da arma) e em que categorias
   const a = (id, name, mount, cats, extra = {}) => [id, Object.freeze({ id, name, mount, cats, ...extra, icon: DIR + 'icons/' + id + '.webp', model: DIR + 'models/' + id + '.glb' })];

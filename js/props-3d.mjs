@@ -540,7 +540,7 @@ export function createProps(THREE, scene, bridge) {
     // postes de luz
     shownLamps = (bridge.world.lamps || []).filter(l => (l.x - cx) ** 2 + (l.y - cy) ** 2 < R * R);
     placeLamps();
-    Object.assign(state, { objects, furniture, lamps: lamps.length, ms: +(performance.now() - t0).toFixed(1) });
+    Object.assign(state, { objects, furniture, lamps: shownLamps.length, ms: +(performance.now() - t0).toFixed(1) });
   }
 
   // Product photography: render the *same* procedural 3D mesh used in the city.

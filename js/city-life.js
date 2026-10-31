@@ -18,7 +18,7 @@ const CityLife = (() => {
   // jogadores. A munição de reserva fica por calibre; acessórios soltos ficam em mods.
   const W = () => window.CityWeapons;
   const uid = () => 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const startingWeapons = () => [{ uid: uid(), id: 'rifle_ar_2', mods: [], mag: 30 }, { uid: uid(), id: 'pistol_1', mods: [], mag: 15 }];
+  const startingWeapons = () => [{ uid: uid(), id: 'rifle_ar_2', mods: [], mag: 30 }, { uid: uid(), id: 'pistol_1', mods: [], mag: 15 }, { uid: uid(), id: 'bat_1', mods: [], mag: 0 }];
   let st = null, funds = 250, inventory = { ...starting }, history = [], equipped = 'rifle', autosave = 0;
   let weapons = startingWeapons(), ammo = { '5.56': 90, '9mm': 45 }, mods = { suppressor_short: 1, flashlight: 1 }, lastBySlot = {};
   const cap = n => Math.max(0, Math.min(1, Number.isFinite(Number(n)) ? Number(n) : 0));
@@ -29,7 +29,7 @@ const CityLife = (() => {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         v: 1, hp: st.hp, food: st.food, water: st.water,
-        needs: st.needs, funds, inventory, history, equipped, weapons, ammo, mods, lastBySlot
+        needs: st.needs, funds, inventory, history, equipped, weapons, ammo, mods, lastBySlot, kit: 2
       }));
     } catch (_) { /* armazenamento privado ou sem espaço: jogo continua */ }
   }
@@ -46,6 +46,7 @@ const CityLife = (() => {
           inventory[k] = Math.max(0, Math.min(999, raw.inventory[k]));
         if (Array.isArray(raw.history)) history = raw.history.filter(x => typeof x?.text === 'string').slice(0, 30);
         if (Array.isArray(raw.weapons)) weapons = raw.weapons.filter(validWeapon).slice(0, 60);
+        if (!(raw.kit >= 2) && W()?.list.bat_1) weapons.push({ uid: uid(), id: 'bat_1', mods: [], mag: 0 });   // saves antigos ganham o taco uma vez
         if (raw.ammo && typeof raw.ammo === 'object') for (const [c, n] of Object.entries(raw.ammo)) if (W()?.CAL[c] && Number.isInteger(n)) ammo[c] = Math.max(0, Math.min(9999, n));
         if (raw.mods && typeof raw.mods === 'object') for (const [m, n] of Object.entries(raw.mods)) if (W()?.accessories[m] && Number.isInteger(n)) mods[m] = Math.max(0, Math.min(99, n));
         if (raw.lastBySlot && typeof raw.lastBySlot === 'object') lastBySlot = { ...raw.lastBySlot };
@@ -68,7 +69,7 @@ const CityLife = (() => {
   // devolve a munição do pente e da reserva da arma em mãos p/ o inventário
   function syncAmmo() {
     const p = st?.player, cur = weaponByUid(equipped);
-    if (!p || !cur || !p.weapon) return;
+    if (!p || !cur || !p.weapon || !p.weapon.cal) return;   // taco: sem munição
     cur.mag = Math.max(0, Math.min(W().list[cur.id].mag, p.ammo | 0));
     ammo[W().list[cur.id].cal] = Math.max(0, p.reserve | 0);
   }

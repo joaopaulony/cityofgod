@@ -197,6 +197,9 @@ function fire(J) {
     const a = base + rnd(-spread, spread) + (W.pellets ? rnd(-0.05, 0.05) : 0);
     dx = Math.cos(a); dy = Math.sin(a);
     const hit = raycast(m[0], m[1], dx, dy, W.range || 45);
+    // pessoas na frente da parede/chão: hitbox dos personagens 3D (sangue e morte lá em character-webgl.mjs)
+    const who = window.cityCharacters?.shoot?.(m[0], m[1], dx, dy, hit.t, W.damage || 28, player);
+    if (who) { tracers.push({ a: m, b: [who.x, who.y, who.z], t: 0.09 }); continue; }
     const hz = Math.max(0.05, m[2] - hit.t * 0.012);
     tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
     impact(hit, hz);
@@ -225,15 +228,18 @@ function updatePlayer(dt) {
   // sem fôlego: só volta a correr com 30% (antes ligava/desligava a cada quadro e a animação piscava)
   if (st.needs.stamina < .025) p.exhausted = true; else if (st.needs.stamina > .3) p.exhausted = false;
   p.running = input.down('shift') && !p.aiming && !p.crouching && !p.exhausted;
+  const melee = !p.armed || !!p.weapon?.melee;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
     const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
     p.moveA = Math.atan2(w[1], w[0]);
-    spd = p.aiming || p.aimHold > 0 ? 1.15 : p.running ? 11.1 : 5.25;   // andar e correr 3× mais rápidos
+    // andar e correr 3× mais rápidos; atirando/recarregando dá p/ continuar correndo (um pouco mais devagar)
+    const busy = !melee && (p.aimHold > 0 || p.reloadT >= 0);
+    spd = p.aiming ? 1.15 : p.running ? (busy ? 7.4 : 11.1) : busy ? 2.6 : 5.25;
     if (st.water < .09 || st.food < .09 || st.needs.energy < .09) spd *= .68;
     if(p.crouching)spd=Math.min(spd,.75);
-    if (p.reloadT >= 0) spd = Math.min(spd, 1.3);
+    if (p.reloadT >= 0 && !p.running) spd = Math.min(spd, 2.2);
     const [nx, ny] = moveTo(p.x, p.y, p.x + w[0] / l * spd * dt, p.y + w[1] / l * spd * dt, 0.28, p.floor||0);
     const moved = Math.hypot(nx - p.x, ny - p.y);
     p.x = nx; p.y = ny; spd = dt > 0 ? moved / dt : p.speed;
@@ -241,7 +247,7 @@ function updatePlayer(dt) {
   p.speed = lerp(p.speed, spd, 1 - Math.exp(-dt * 12));
   p.phase += p.speed * dt / lerp(1.45, 2.5, p.runW);
   // virar: p/ o mouse quando mira/atira/recarrega; senão p/ onde anda
-  const lookMouse = p.aiming || p.aimHold > 0 || p.reloadT >= 0 || input.lmb || p.wantShot;
+  const lookMouse = p.aiming || p.aimHold > 0 || p.reloadT >= 0 || p.meleeT >= 0 || input.lmb || p.wantShot;
   const want = lookMouse ? Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x) : (mx || my) ? p.moveA : p.face;
   p.face += angDiff(p.face, want) * (1 - Math.exp(-dt * (lookMouse ? 16 : 10)));
 
@@ -249,15 +255,30 @@ function updatePlayer(dt) {
   // clique curto fica na fila: o fuzil sobe (antecipação) e o tiro sai quando a mira assenta
   // semiautomáticas (pistola, revólver, escopeta, precisão): um tiro por clique
   if (!input.lmb) p.trigger = true;
+  // corpo a corpo: soco (mãos livres) ou taco — clique ou Q; o golpe acerta no meio do movimento
+  if (p.meleeT >= 0) {
+    const prev = p.meleeT, at = p.meleeKind === 'bat' ? .15 : .09;
+    p.meleeT += dt;
+    if (prev < at && p.meleeT >= at) {
+      const W = p.weapon || {};
+      window.cityCharacters?.melee?.(p, p.meleeKind === 'bat' ? { range: W.range || 1.55, damage: W.damage || 42, kind: 'bat' } : { range: 1.05, damage: 12, kind: 'punch' });
+    }
+    if (p.meleeT > (p.meleeKind === 'bat' ? .55 : .42)) p.meleeT = -1;
+  }
+  if (melee && (p.wantShot || input.hit('q')) && !p.jump && !p.traversal && !(p.meleeT >= 0) && fireCD <= 0) {
+    p.wantShot = false; p.meleeT = 0; p.meleeKind = p.armed ? 'bat' : 'punch'; fireCD = p.armed ? .62 : .45;
+    p.face = Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x);
+  }
+  if (melee) p.wantShot = false;
   const auto = p.weapon?.auto !== false, mag = p.weapon?.mag || 30;
-  if (p.armed && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump && (auto || p.trigger || p.wantShot)) {
+  if (p.armed && !melee && (input.lmb || p.wantShot) && p.reloadT < 0 && !p.jump && (auto || p.trigger || p.wantShot)) {
     p.aimHold = 1.3;
     if (p.ammo <= 0) { p.wantShot = false; if (fireCD <= 0) { hud.msg = p.reserve > 0 ? 'Sem munição — aperte R' : 'Sem munição'; hud.msgT = 1.6; fireCD = 0.4; } }
     else if (p.aimV > 0.82 && fireCD <= 0 && p.J && Math.abs(angDiff(p.face, Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x))) < 0.25) { fire(p.J); fireCD = p.weapon?.rof || 0.12; p.wantShot = false; p.trigger = false; }
   }
   if (p.reloadT >= 0) p.wantShot = false;
-  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve <= 0) { hud.msg = 'Sem munição na mochila'; hud.msgT = 1.4; }
-  if (p.armed && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
+  if (p.armed && !melee && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve <= 0) { hud.msg = 'Sem munição na mochila'; hud.msgT = 1.4; }
+  if (p.armed && !melee && input.hit('r') && p.reloadT < 0 && p.ammo < mag && p.reserve > 0) { p.reloadT = 0; hud.msg = 'Recarregando…'; hud.msgT = 1.2; }
   for (const ev of p.events.splice(0)) {
     if (ev === 'magOut') p.magState = 'hand';
     if (ev === 'magDrop') {

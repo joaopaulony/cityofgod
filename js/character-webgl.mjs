@@ -16,6 +16,8 @@ import {installSocialPie} from './social-pie.mjs';
 import {pickSocialActor} from './social-picking.mjs';
 import {createSocialActivities} from './social-activities.mjs';
 import {createSocialAutonomy,installSocialIncoming} from './social-autonomy.mjs';
+import {makeCombatClips,splitClip} from './procedural-anim.mjs';
+import {createBlood} from './blood-fx.mjs';
 
 const STREET_MAX=4;                 // moradores/gangue andando ao mesmo tempo perto do jogador
 const SPAWN_MIN=26,SPAWN_MAX=58,DESPAWN=95;
@@ -41,7 +43,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    if(t>0&&t<1&&u>=0&&u<=1)return false;
   }return true;
  };
- const nearby=()=>npcs.filter(n=>entries.has(n)&&!n.leaving&&distance(n,bridge.player)<4&&(n.floorZ||0)===(bridge.player.floorZ||0)&&clearConversation(n)).sort((a,b)=>distance(a,bridge.player)-distance(b,bridge.player));
+ const nearby=()=>npcs.filter(n=>entries.has(n)&&!n.leaving&&!n.dead&&distance(n,bridge.player)<4&&(n.floorZ||0)===(bridge.player.floorZ||0)&&clearConversation(n)).sort((a,b)=>distance(a,bridge.player)-distance(b,bridge.player));
  const sociallyBlocked=()=>bridge.driving()||bridge.player.armed||bridge.player.speed>.2;
  const activities=createSocialActivities({sim:()=>social,actors:()=>npcs,player:()=>bridge.player,homes:()=>bridge.houses||[],home:()=>window.CityHome,visitors:()=>window.CityHomeVisitors,kitchen:()=>window.CityHomeKitchen,notify:text=>window.CityUI?.notify?.(text)});
  const socialAPI={sim:()=>social,nearby,blocked:sociallyBlocked,context:id=>({...activities.context(id),cityLife:window.CityLife}),release:()=>{bridge.releaseControls?.();bridge.player.wantShot=false;bridge.player.aiming=false;},act:(id,action)=>{
@@ -83,7 +85,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  // Capture before the 2D view sees mousedown, so choosing a person cannot fire a shot.
  window.addEventListener('mousedown',event=>{
   if(event.button!==0||event.target?.id!=='view'||!social||!camera||bridge.driving()||bridge.player.aiming||bridge.canPickSocial?.()===false||window.CityFront?.blocked||window.CityUI?.blocksGameInput?.()||document.querySelector('dialog[open]'))return;
-  const npc=pickSocialActor(raycaster,npcs,entries,camera,canvas.getBoundingClientRect(),event.clientX,event.clientY);
+  const npc=pickSocialActor(raycaster,npcs.filter(n=>!n.dead),entries,camera,canvas.getBoundingClientRect(),event.clientX,event.clientY);
   if(!npc||!clearConversation(npc))return;
   if(socialPie.open(npc.lookId,{x:event.clientX,y:event.clientY})){event.preventDefault();event.stopImmediatePropagation();bridge.releaseControls?.();bridge.player.wantShot=false;}
  },true);
@@ -166,7 +168,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    if(acc.mount==='muzzle')e.muzzle.position.set(at.x,at.y,at.z+(meta.items?.[m]?.length||0)*scale);}
  }
  function syncGun(e,a){
-  const id=a.weaponId||(a.armed?'rifle_ar_2':null),mods=a.weaponMods||[],key=id?id+'|'+mods.join():'';
+  const id=a.weaponId||(a.armed?'rifle_ar_2':null),mods=a.weaponId==='bat_1'?[]:a.weaponMods||[],key=id?id+'|'+mods.join():'';
   if(key===e.gunWant)return;e.gunWant=key;
   if(id)dressGun(e,id,mods).catch(error=>system.errors.push('arma '+id+': '+(error.message||error)));
  }
@@ -190,10 +192,14 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    actions.set(clip.name,mixer.clipAction(clip));
    if(clip.name.startsWith('cas_')){const meta=CAS_EMOTES[clip.name.slice(4)];if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};}
   }
+  // metades de cima/de baixo dos clipes Mixamo (atirar/recarregar andando, correndo, agachado) e os clipes de combate
+  // procedurais (mortes, soco, taco, pistola em uma mão) — montados uma vez por visual
+  if(!item.combat)item.combat=[...item.gltf.animations.flatMap(splitClip),...makeCombatClips(root,spec.height)];
+  for(const clip of item.combat)actions.set(clip.name,mixer.clipAction(clip));
   const gun=new THREE.Group(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.7);gun.add(muzzle);gun.visible=false;
   scene.add(root);scene.add(gun);
   const entry={root,mixer,actions,spec,id,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),
-   right:root.getObjectByName('mixamorigRightHand'),left:root.getObjectByName('mixamorigLeftHand'),tag:tag?nameTag(spec.name,groupLabel(spec.group)):null};
+   right:root.getObjectByName('mixamorigRightHand'),left:root.getObjectByName('mixamorigLeftHand'),fore:root.getObjectByName('mixamorigRightForeArm'),palm:root.getObjectByName('mixamorigRightHandMiddle1'),tag:tag?nameTag(spec.name,groupLabel(spec.group)):null};
   if(entry.tag){entry.tag.position.set(0,spec.height+.35,0);root.add(entry.tag);}
   const previous=entries.get(a);if(previous)dispose(previous);
   entries.set(a,entry);a.name=a===bridge.player?a.name:spec.name;
@@ -256,6 +262,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  };
  // anda pela calçada; parado de vez em quando; desvia virando quando algo bloqueia
  function walkNPC(n,dt){
+  if(n.stagger>0){n.stagger-=dt;n.speed=0;return;}   // cambaleando depois de apanhar
   if(social&&n.socialUntil>social.time){n.speed=0;n.running=false;return;}
   // Quem precisa de companhia procura alguém próximo; rivais preservam distância.
   if(social&&!n.target&&!n.leaving){
@@ -352,6 +359,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  // tiros perto do jogador chamam a polícia (3 disparos em 10 s)
  system.report=(event,x,y)=>{
   if(event!=='shot')return;
+  panic(x,y,{x,y},30);   // tiro espanta quem está perto
   const now=performance.now();shots=shots.filter(t=>now-t<10000);shots.push(now);
   if(shots.length>=3&&!occurrences.some(o=>o.kind==='police')){shots=[];setTimeout(()=>system.occurrence('police',x,y),6000);}
  };
@@ -363,8 +371,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    if(socialPie.active){const n=npcs.find(n=>n.lookId===socialPie.target);if(n){n.socialUntil=social.time+.5;n.speed=0;}}
    socialClock-=dt;
    if(socialClock<=0){socialClock=7+Math.random()*5;
-    const a=npcs.find(n=>entries.has(n)&&!n.target&&!n.socialApproaching&&!activities.has(n)&&!(n.socialUntil>social.time));
-    const b=a&&npcs.find(n=>n!==a&&n.lookId!==a.lookId&&entries.has(n)&&!n.target&&!n.socialApproaching&&!activities.has(n)&&!(n.socialUntil>social.time)&&distance(a,n)<5);
+    const a=npcs.find(n=>entries.has(n)&&!n.dead&&!n.target&&!n.socialApproaching&&!activities.has(n)&&!(n.socialUntil>social.time));
+    const b=a&&npcs.find(n=>n!==a&&n.lookId!==a.lookId&&entries.has(n)&&!n.dead&&!n.target&&!n.socialApproaching&&!activities.has(n)&&!(n.socialUntil>social.time)&&distance(a,n)<5);
     if(a&&b){const action=social.suggest(a.lookId,b.lookId);
      const result=social.interact(a.lookId,b.lookId,action);if(result.ok){a.socialUntil=b.socialUntil=social.time+6;a.face=Math.atan2(b.y-a.y,b.x-a.x);b.face=a.face+Math.PI;say(a,result.line,result.reaction);say(b,result.text,result.reaction);}}
    }
@@ -372,7 +380,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(roster&&system.ready){
    // gatos pingados: completa até STREET_MAX, tira quem ficou longe
    spawnT-=dt;
-   const street=npcs.filter(n=>n.kind==='street');
+   const street=npcs.filter(n=>n.kind==='street'&&!n.dead);
+   runOver();
    for(const n of street)if(!activities.has(n)&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);
    if(spawnT<=0&&street.length<STREET_MAX){spawnT=3+Math.random()*5;void spawnStreet();}
    for(const o of [...occurrences])if(now>o.until){
@@ -380,6 +389,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     for(const n of o.units){n.leaving=true;n.run=false;const a=Math.random()*Math.PI*2;n.target={x:o.x+Math.cos(a)*70,y:o.y+Math.sin(a)*70};}
    }
    for(const n of [...npcs]){if(entries.has(n)){
+    if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
     const controlled=activities.tick(n,dt);if(!visit&&!controlled)walkNPC(n,dt);
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
@@ -389,16 +399,31 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    if(e.bubble&&social.time>e.bubbleUntil){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
    else if(e.bubble)bubbleScale(e);
    if(e.emote&&(performance.now()>e.emote.end||a.speed>.12||a.armed||a.jump||a.homeAction||bridge.driving()))e.emote=null;
-   const requested=a.homeAction&&a.homeAction.kind==='sit'?'cas_sit':e.emote?'cas_'+e.emote.id:chooseCharacterClip(a);
-   const clip=e.spec.clips[requested]?requested:(a.speed>.16?'walk':'idle');
-   const info=e.spec.clips[clip],next=e.actions.get(info?.name);
-   if(next&&e.clip!==clip){
+   const want=pickClips(a,e);
+   const clip=actionName(e,want.base)?want.base:(a.speed>.16?'walk':'idle');
+   const info=e.spec.clips[clip],upName=want.upper?actionName(e,want.upper,'upper'):null;
+   const baseName=(upName&&actionName(e,clip,'lower'))||actionName(e,clip),next=e.actions.get(baseName);
+   if(next&&e.baseName!==baseName){
+    const loop=info?info.loop:false,sameClip=e.clip===clip&&e.action;
     next.reset().setEffectiveWeight(1).play();
-    next.setLoop(info.loop?THREE.LoopRepeat:THREE.LoopOnce,info.loop?Infinity:1);next.clampWhenFinished=!info.loop;
-    if(e.action&&next!==e.action)next.crossFadeFrom(e.action,clip.endsWith('fire')?.04:.14,false);
-    e.clip=clip;e.action=next;
+    next.setLoop(loop?THREE.LoopRepeat:THREE.LoopOnce,loop?Infinity:1);next.clampWhenFinished=!loop;
+    if(sameClip)next.time=e.action.time;   // mesma locomoção, só trocou p/ a metade de baixo (ou voltou): sem tropeço
+    if(e.action&&next!==e.action)next.crossFadeFrom(e.action,clip.endsWith('fire')?.04:a.dead?.1:.14,false);
+    e.clip=clip;e.baseName=baseName;e.action=next;
    }
-   if(clip.endsWith('fire')&&a.recoilT<(e.lastRecoil??9))e.action.reset().play();
+   // camada de cima (braços/tronco): tiro, recarga, soco, taco e pistola por cima das pernas
+   if(upName!==e.upName){
+    const up=upName?e.actions.get(upName):null;
+    if(e.up&&e.up!==up)e.up.fadeOut(.12);
+    if(up){
+     const once=/fire|swing|punch|reload/.test(upName);
+     up.reset().setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);up.clampWhenFinished=once;
+     up.setEffectiveTimeScale(upName.includes('reload')?up.getClip().duration/2.05:1);   // recarga dura o mesmo que a do jogo
+     up.setEffectiveWeight(1).fadeIn(upName.includes('fire')?.03:.1).play();
+    }
+    e.up=up;e.upName=upName;
+   }
+   if(/fire/.test(upName||clip)&&a.recoilT<(e.lastRecoil??9))(upName?e.up:e.action).reset().play();   // tiro novo: recuo de novo
    e.lastRecoil=a.recoilT;
    // dirigindo: o corpo some (como antes), nada de cabeça atravessando o teto do carro
    e.root.visible=!(a===p&&bridge.driving())&&Math.hypot(a.x-bridge.cam.x,a.y-bridge.cam.y)<70;
@@ -412,24 +437,163 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     if(a.homeAction?.kind==='rest'&&a.homeAction.item){const bed=a.homeAction.item,angle=(bed.rot||0)+(bed.d>bed.w?Math.PI/2:0),half=e.spec.height*.45;e.root.rotation.set(-Math.PI/2,Math.PI/2-angle,0,'YXZ');e.root.position.set(bed.x+Math.cos(angle)*half,(a.floorZ||0)+(bed.h||.7)+.16,bed.y+Math.sin(angle)*half);}
     if(a===p){const pr=system.casProfile;e.root.scale.set(pr.build,pr.height,pr.build);}
     e.root.updateMatrixWorld(true);
-    if(e.tag)e.tag.visible=a.homeAction?.kind!=='rest'&&Math.hypot(a.x-p.x,a.y-p.y)<9;
+    if(e.tag)e.tag.visible=!a.dead&&a.homeAction?.kind!=='rest'&&Math.hypot(a.x-p.x,a.y-p.y)<9;
    }
    if(a.armed)syncGun(e,a);
    e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal&&e.gun.children.length>1;
    if(e.gun.visible&&e.right&&e.left){
     e.right.getWorldPosition(e.grip);e.left.getWorldPosition(e.support);
-    const direction=a.reloadT>=0?e.support.clone().sub(e.grip).normalize():new THREE.Vector3(Math.cos(a.face),0,Math.sin(a.face));
-    // origem do modelo = empunhadura: na palma (um pouco à frente do punho e abaixo)
-    e.gun.position.copy(e.grip).addScaledVector(direction,.045);e.gun.position.y-=.035;
-    e.gun.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);
+    const cat=window.CityWeapons?.list[a.weaponId]?.cat;
+    if(cat==='melee'){
+     // taco: na mão direita; a direção segue o arco do golpe (ou fica apoiado no ombro) no referencial do personagem
+     e.gun.position.copy(e.grip);if(e.palm)e.gun.position.lerp(e.palm.getWorldPosition(PALM),.55);   // no meio da palma
+     e.gun.quaternion.setFromUnitVectors(Z,batDir(a,tmp));
+    }else{
+     // uma mão (pistola/revólver): na direção do antebraço; duas mãos: p/ frente (ou p/ a mão de apoio na recarga)
+     const one=cat==='pistol'||cat==='revolver';
+     if(one&&e.fore)e.fore.getWorldPosition(tmp);
+     const direction=one&&e.fore?e.grip.clone().sub(tmp).normalize():a.reloadT>=0?e.support.clone().sub(e.grip).normalize():new THREE.Vector3(Math.cos(a.face),0,Math.sin(a.face));
+     // origem do modelo = empunhadura: na palma (um pouco à frente do punho e abaixo)
+     e.gun.position.copy(e.grip).addScaledVector(direction,one?.06:.045);e.gun.position.y-=one?.02:.035;
+     e.gun.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);
+    }
     if(e.gun.userData.mag)e.gun.userData.mag.visible=a.magState!=='out';e.gun.updateMatrixWorld(true);
    }
    a.characterClip=a.homeAction?'home_'+a.homeAction.kind:clip;
   }
+  blood.update(dt);
   system.frames++;
  };
+ // ---------- animação: o que cada personagem toca (base = corpo todo ou pernas; upper = braços por cima) ----------
+ const ONE_HAND=new Set(['pistol','revolver']);
+ function actionName(e,key,half){
+  if(key.includes('@')||!half&&e.actions.has(key))return e.actions.has(key)?key:null;   // procedurais (death_*, punch@upper...) e nomes diretos
+  const info=e.spec.clips[key],n=(info?info.name:key)+(half?'@'+half:'');
+  return e.actions.has(n)?n:null;
+ }
+ function pickClips(a,e){
+  if(a.dead)return {base:a.dead.kind==='car'?'death_car':'death_shot'};
+  if(a.homeAction&&a.homeAction.kind==='sit')return {base:'cas_sit'};
+  if(e.emote)return {base:'cas_'+e.emote.id};
+  const cat=a.weaponId?window.CityWeapons?.list[a.weaponId]?.cat:null,busy=a.traversal||a.jump;
+  const melee=a.meleeT>=0&&!busy?(a.meleeKind==='bat'?'bat_swing@upper':'punch@upper'):null;
+  // mãos livres, taco e pistola: pernas da locomoção desarmada + braços por cima
+  if(!a.armed||cat==='melee'||ONE_HAND.has(cat)){
+   const legs=chooseCharacterClip({...a,armed:false,reloadT:-1,recoilT:9});
+   let upper=melee;
+   if(!upper&&a.armed&&!busy){
+    if(cat==='melee')upper='bat_idle@upper';
+    else upper=a.reloadT>=0?'pistol_reload@upper':a.recoilT<.2?'pistol_fire@upper':a.aiming||a.aimHold>0?'pistol_aim@upper':'pistol_idle@upper';
+   }
+   return {base:legs,upper};
+  }
+  // fuzil/SMG: atirando ou recarregando em movimento → pernas andando/correndo/agachadas + braços do tiro/recarga
+  if(a.speed>.12&&!busy&&(a.reloadT>=0||a.recoilT<.16))
+   return {base:chooseCharacterClip({...a,reloadT:-1,recoilT:9}),upper:a.reloadT>=0?(a.crouching?'rifle_crouch_reload':'rifle_reload'):(a.crouching?'rifle_crouch_fire':'rifle_fire')};
+  return {base:chooseCharacterClip(a)};
+ }
+ // taco: [esquerda, cima, frente] por instante do golpe (bat_swing@upper dura .55 s, acerta em .15)
+ const Z=new THREE.Vector3(0,0,1),PALM=new THREE.Vector3(),BAT_REST=[-.25,.8,-.55],BAT_KEYS=[[0,BAT_REST],[.14,[-.15,.05,1]],[.27,[.95,.1,.3]],[.55,BAT_REST]];
+ function batDir(a,out){
+  let v=BAT_REST;
+  if(a.meleeT>=0&&a.meleeKind==='bat'){
+   const i=Math.max(0,BAT_KEYS.findIndex(k=>k[0]>a.meleeT)-1),[t0,p]=BAT_KEYS[i],[t1,q]=BAT_KEYS[Math.min(i+1,BAT_KEYS.length-1)],u=t1>t0?Math.min(1,(a.meleeT-t0)/(t1-t0)):0;
+   v=p.map((x,j)=>x+(q[j]-x)*u);
+  }
+  // personagem olhando p/ face: frente (cos,_,sin), esquerda (sin,_,-cos) em three
+  const c=Math.cos(a.face),s=Math.sin(a.face);
+  return out.set(v[0]*s+v[2]*c,v[1],-v[0]*c+v[2]*s).normalize();
+ }
+
+ // ---------- combate: hitbox, sangue, mortes (tiro e atropelamento), soco e taco ----------
+ // Hitbox: cilindro de raio HIT_R em volta da pessoa. Vida 100; ferido foge correndo de quem atacou; morto cai (clipe
+ // procedural), sangra (poça cresce embaixo do corpo) e some depois de 60 s; socorristas vêm até o corpo.
+ const HIT_R=.32,blood=createBlood(THREE,scene);
+ system.blood=blood.state;
+ system.shoot=(ox,oy,dx,dy,maxT,damage,from)=>{
+  let best=null,bt=maxT;
+  for(const n of npcs){
+   if(n.dead||!entries.get(n)?.root.visible)continue;
+   const fx=n.x-ox,fy=n.y-oy,t=fx*dx+fy*dy;if(t<=0||t>=bt)continue;
+   const px=fx-dx*t,py=fy-dy*t;if(px*px+py*py>HIT_R*HIT_R)continue;
+   best=n;bt=t;
+  }
+  if(!best)return null;
+  const x=ox+dx*bt,y=oy+dy*bt,z=(best.floorZ||0)+(entries.get(best).spec.height||1.7)*.62;
+  hurt(best,damage,{kind:'shot',dx,dy,from,x,y,z});
+  return {x,y,z,t:bt,npc:best};
+ };
+ system.melee=(a,{range=1.1,damage=10,kind='punch'}={})=>{
+  const fx=Math.cos(a.face),fy=Math.sin(a.face);let hit=null;
+  for(const n of npcs){
+   if(n===a||n.dead||!entries.has(n))continue;
+   const dx=n.x-a.x,dy=n.y-a.y,d=Math.hypot(dx,dy);
+   if(d>range+HIT_R||d<.01||(dx*fx+dy*fy)/d<.5)continue;
+   if(!hit||d<hit.d)hit={n,d};
+  }
+  if(!hit)return null;
+  const n=hit.n,h=entries.get(n).spec.height||1.7;
+  hurt(n,damage,{kind,dx:fx,dy:fy,from:a,x:n.x-fx*.2,y:n.y-fy*.2,z:(n.floorZ||0)+h*.82});
+  if(!n.dead){const nx=n.x+fx*.35,ny=n.y+fy*.35;if(clear(nx,ny,null,.28)){n.x=nx;n.y=ny;}n.stagger=kind==='bat'?.6:.35;}
+  return n;
+ };
+ function hurt(n,damage,hit){
+  n.hp=(n.hp??100)-damage;
+  blood.spray(hit.x,hit.y,hit.z,hit.dx||0,hit.dy||0,hit.kind==='punch'?3:hit.kind==='car'?22:damage>35?16:10,n.floorZ||0);
+  if(n.hp<=0)return kill(n,hit);
+  if(n.kind==='street')flee(n,hit.from);
+  if(entries.has(n)&&social)say(n,hit.kind==='punch'?'Ei! Tá maluco?':'Socorro!','😱');
+ }
+ function kill(n,hit){
+  if(activities.has(n))activities.stop(n,'interrupted');
+  n.hp=0;n.speed=0;n.target=null;n.route=null;n.armed=false;n.aiming=false;n.aimHold=0;n.reloadT=-1;n.stagger=0;
+  n.dead={kind:hit.kind==='car'?'car':'shot',t:0,vx:0,vy:0,pool:false};
+  if(hit.kind==='car'){n.face=Math.atan2(hit.dy,hit.dx);n.dead.vx=hit.dx*hit.speed*.55;n.dead.vy=hit.dy*hit.speed*.55;}
+  else if(hit.from)n.face=Math.atan2(hit.from.y-n.y,hit.from.x-n.x);   // cai de costas, longe de quem atacou
+  const e=entries.get(n);if(e?.bubble){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
+  panic(n.x,n.y,hit.from||n,25);
+  // socorristas vêm até o corpo (a polícia já é chamada pelos tiros)
+  setTimeout(()=>{void system.occurrence('medical',n.x,n.y,{duration:50});},7000);
+  system.lastDeath={kind:n.dead.kind,name:n.name,x:n.x,y:n.y};
+ }
+ function deadTick(n,dt){
+  const d=n.dead;d.t+=dt;n.speed=0;
+  if(d.vx||d.vy){   // atropelado: é jogado e rola até parar (para em parede)
+   const nx=n.x+d.vx*dt,ny=n.y+d.vy*dt;if(clear(nx,ny,null,.2)){n.x=nx;n.y=ny;}else d.vx=d.vy=0;
+   const k=Math.exp(-dt*(d.t<.45?1.1:5));d.vx*=k;d.vy*=k;if(Math.hypot(d.vx,d.vy)<.05)d.vx=d.vy=0;
+  }
+  n.actionZ=d.kind==='car'&&d.t<.5?Math.sin(d.t/.5*Math.PI)*.55:0;
+  if(!d.pool&&d.t>1.1){
+   // poça embaixo do tronco: de costas o tronco fica atrás dos pés; de bruços, à frente
+   d.pool=true;const s=d.kind==='car'?.75:-.85;
+   blood.pool(n.x+Math.cos(n.face)*s,n.y+Math.sin(n.face)*s,.62+Math.random()*.2,9,n.floorZ||0);
+  }
+  if(d.t>60)remove(n);
+ }
+ // gente na rua foge (correndo) de quem atacou; serviços (polícia etc.) ficam
+ function flee(n,from){
+  if(!from||n.dead||n.kind!=='street')return;
+  if(activities.has(n))activities.stop(n,'interrupted');
+  const a=Math.atan2(n.y-from.y,n.x-from.x)+(Math.random()-.5)*.6;
+  n.route=null;n.run=true;n.leaving=true;n.pause=0;n.socialUntil=0;n.target={x:n.x+Math.cos(a)*45,y:n.y+Math.sin(a)*45};
+ }
+ function panic(x,y,from,r){for(const n of npcs)if(!n.dead&&!n.leaving&&Math.hypot(n.x-x,n.y-y)<r)flee(n,from);}
+ // atropelamento: o carro do jogador acima de ~16 km/h derruba; devagar só empurra (e a pessoa sai correndo)
+ function runOver(){
+  const V=window.cityVehicles,c=V?.driver?V.car:null;if(!c)return;
+  const sp=Math.abs(c.speed||0);if(sp<1)return;
+  const ca=Math.cos(c.angle),sa=Math.sin(c.angle),hl=(V.carLength||4.6)/2+.2,hw=(V.bodyWidth||1.9)/2+.2,dir=Math.sign(c.speed||1);
+  for(const n of npcs){
+   if(n.dead||!entries.has(n)||(n.floorZ||0)>.5)continue;
+   const dx=n.x-c.x,dy=n.y-c.y,lx=dx*ca+dy*sa,ly=-dx*sa+dy*ca;
+   if(Math.abs(lx)>hl||Math.abs(ly)>hw)continue;
+   if(sp>4.5){hurt(n,999,{kind:'car',dx:ca*dir,dy:sa*dir,speed:sp,x:n.x,y:n.y,z:(n.floorZ||0)+.9,from:bridge.player});continue;}
+   const side=Math.sign(ly)||1,push=hw-Math.abs(ly)+.05;n.x-=sa*side*push;n.y+=ca*side*push;
+   n.stagger=.4;flee(n,c);
+  }
+ }
  system.muzzle=a=>{const e=entries.get(a);if(!e||!e.gun.visible)return null;e.muzzle.getWorldPosition(tmp);return [tmp.x,tmp.z,tmp.y];};
- system.telemetry=()=>[...entries].map(([a,e])=>({name:a===bridge.player?(system.casProfile.name+' ('+e.spec.name+')'):e.spec.name,look:e.id,role:e.spec.role,clip:e.clip,x:a.x,y:a.y,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));
+ system.telemetry=()=>[...entries].map(([a,e])=>({name:a===bridge.player?(system.casProfile.name+' ('+e.spec.name+')'):e.spec.name,look:e.id,role:e.spec.role,clip:e.clip,upper:e.upName||null,x:a.x,y:a.y,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));
  system.appearances=()=>null;
  system.getAppearance=a=>a===bridge.player?{...system.casProfile}:null;
  const lookFor=(id,sex)=>roster?.characters.get(id)?.sex===sex?id:DEFAULT_LOOK[sex];

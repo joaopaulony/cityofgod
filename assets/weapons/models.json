@@ -776,6 +776,12 @@
    "id": "foregrip",
    "length": 0.2634,
    "mount": "under"
+  },
+  "bat_1": {
+   "id": "bat_1",
+   "length": 0.84,
+   "scale": 1,
+   "melee": true
   }
  }
 }

@@ -10,7 +10,7 @@ const CityUI = (() => {
     { id: 'shotgun', slot: 'shotgun', icon: 'wheel-shotgun', name: 'Escopeta' },
     { id: 'sniper', slot: 'sniper', icon: 'wheel-sniper', name: 'Precisão' },
     { id: null, icon: 'wheel-grenade', name: 'Arremessáveis' },
-    { id: null, icon: 'wheel-tools', name: 'Ferramentas' }
+    { id: 'melee', slot: 'melee', icon: 'wheel-tools', name: 'Corpo a corpo' }
   ];
   const quickItems = ['water','sandwich','burger','firstaid','coffee'];
   const appNames = { home: 'Início', status: 'Necessidades', bag: 'Mochila', market: 'Mercadinho', contacts: 'Contatos', sms: 'Mensagens', wallet: 'Carteira', notes: 'Anotações', help: 'Ajuda', ...CityApps.names };
@@ -114,6 +114,7 @@ const CityUI = (() => {
     }).join('') + (() => {
       const w = item.slot ? slotWeapon(item.slot) : null, d = w && window.CityWeapons.list[w.id], p = currentSt?.player;
       const sub = !item.id ? 'Indisponível' : item.slot && !w ? 'Nenhuma na mochila' : d ? (p?.weaponId === w.id ? p.ammo + ' / ' + p.reserve : w.mag + ' / ' + (CityLife.ammo[d.cal] || 0)) + ' · ' + window.CityWeapons.CAL[d.cal] : 'Disponível';
+      if (d && !d.cal) return `<div class="wheel-center"><b>${safe(d.name)}</b><span>Corpo a corpo · clique p/ golpear</span></div>`;
       return `<div class="wheel-center"><b>${safe(d ? d.name : item.name)}</b><span>${safe(sub)}</span></div>`;
     })();
   }
@@ -138,7 +139,7 @@ const CityUI = (() => {
       const mods = w.mods.map(m => `<button type="button" class="city-gun-mod" data-action="detach:${w.uid}:${m}" title="Remover ${safe(CW.accessories[m].name)}"><img src="${CW.accessories[m].icon}" alt="">✕</button>`).join('');
       return `<div class="city-gun ${inHand ? 'in-hand' : ''} cat-${d.cat}">
         <div class="city-gun-art"><img src="${d.icon}" alt="${safe(d.name)}"></div>
-        <div class="city-gun-info"><strong>${safe(d.name)}</strong><small>${safe(CW.CATS[d.cat].label)} · ${safe(CW.CAL[d.cal])} · ${mag}/${d.mag} no pente</small>${mods ? '<div class="city-gun-mods">' + mods + '</div>' : ''}</div>
+        <div class="city-gun-info"><strong>${safe(d.name)}</strong><small>${safe(CW.CATS[d.cat].label)}${d.cal ? ' · ' + safe(CW.CAL[d.cal]) + ' · ' + mag + '/' + d.mag + ' no pente' : ''}</small>${mods ? '<div class="city-gun-mods">' + mods + '</div>' : ''}</div>
         ${btn('equipw:' + w.uid, inHand ? 'Em mãos' : 'Equipar', inHand ? 'disabled' : '')}</div>`;
     }).join('');
     const ammo = Object.entries(CityLife.ammo).filter(([, n]) => n > 0).map(([c, n]) => `<span class="city-ammo-chip">${safe(CW.CAL[c])} <b>${n}</b></span>`).join('');
