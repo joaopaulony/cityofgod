@@ -109,8 +109,14 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
   new THREE.Vector3().crossVectors(restDir('mixamorigRightArm','mixamorigLeftArm'),restDir('mixamorigHips','mixamorigHead')).normalize():null;
  const nowDir=(n,d)=>d.clone().applyQuaternion(dst.get(n).world.clone().invert()).applyQuaternion(wt.get(n));
  const align=new Map();
- for(const n of names){const m=n.match(/^mixamorig(Left|Right)(Arm|ForeArm|Hand|UpLeg|Leg|Foot)$/);if(!m)continue;
-  const c='mixamorig'+m[1]+LIMB_CHILD[m[2]];if(!src.has(c)||!dst.has(c))continue;
+ // dedos também: os do Tripo estão retos no repouso e os da biblioteca já têm uma curvinha — só com a variação, a
+ // base do dedo dobrava 45–55° e as falanges de cima ficavam retas (dedos de vareta). A 2ª e a 3ª falange seguem a
+ // direção das da biblioteca, com a curva distribuída como no clipe.
+ for(const n of names){const m=n.match(/^mixamorig(Left|Right)(Arm|ForeArm|Hand|UpLeg|Leg|Foot)$/),fm=n.match(/^mixamorig(Left|Right)(Hand(?:Thumb|Index|Middle|Ring|Pinky))([123])$/);
+  // base dos dedos e o polegar inteiro ficam com a variação do clipe: alinhá-los rasga a membrana entre os dedos
+  if(fm&&(fm[3]==='1'||fm[2]==='HandThumb'))continue;
+  if(!m&&!fm)continue;
+  const c=m?'mixamorig'+m[1]+LIMB_CHILD[m[2]]:'mixamorig'+fm[1]+fm[2]+(+fm[3]+1);if(!src.has(c)||!dst.has(c))continue;
   const ds=src.get(c).pos.clone().sub(src.get(n).pos).normalize(),dt=dst.get(c).pos.clone().sub(dst.get(n).pos).normalize();
   align.set(n,new THREE.Quaternion().setFromUnitVectors(dt,ds));}
  times.forEach((t,i)=>{
@@ -149,6 +155,20 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  for(const [re,k] of [[/^mixamorig(Left|Right)ForeArm$/,cs?.elbow],[/^mixamorig(Left|Right)Hand$/,cs?.wrist]])if(k!=null)for(const n of names.filter(n=>re.test(n))){
   const o=out[n],r=dst.get(n).q,q=new THREE.Quaternion();
   for(let i=0;i<times.length;i++){q.fromArray(o,i*4);new THREE.Quaternion().slerpQuaternions(r,q,k).toArray(o,i*4);}
+ }
+ // torção do punho repartida com o antebraço: sem osso de torção, girar a mão em volta do antebraço torcia só a pele
+ // do punho (punho "quebrado", pele torcida). Metade da torção da mão (em relação ao repouso) passa ao antebraço;
+ // a mão fica exatamente onde o clipe a põe.
+ for(const sd of ['Left','Right']){
+  const nf='mixamorig'+sd+'ForeArm',nh='mixamorig'+sd+'Hand',nm='mixamorig'+sd+'HandMiddle1';if(!out[nf]||!out[nh]||!dst.has(nm))continue;
+  const r=dst.get(nh).q,ri=r.clone().invert(),ax=dst.get(nm).p.clone().normalize(),of=out[nf],oh=out[nh];
+  const qh=new THREE.Quaternion(),qf=new THREE.Quaternion(),d=new THREE.Quaternion(),tw=new THREE.Quaternion(),I=new THREE.Quaternion();
+  for(let i=0;i<times.length;i++){
+   qh.fromArray(oh,i*4);qf.fromArray(of,i*4);d.copy(ri).multiply(qh);
+   const p=ax.dot(new THREE.Vector3(d.x,d.y,d.z));tw.set(ax.x*p,ax.y*p,ax.z*p,d.w);if(tw.lengthSq()<1e-12)continue;tw.normalize();
+   const half=new THREE.Quaternion().slerpQuaternions(I,tw,0.5),tf=qh.clone().multiply(half).multiply(qh.clone().invert());
+   qf.multiply(tf).normalize().toArray(of,i*4);qh.multiply(half.invert()).normalize().toArray(oh,i*4);
+  }
  }
  const result=new THREE.AnimationClip(name,clip.duration,names.map(n=>new THREE.QuaternionKeyframeTrack(n+'.quaternion',times,out[n])));
  if(hipsPos){

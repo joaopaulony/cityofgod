@@ -158,7 +158,9 @@ export function shoulderWeights({ P, idx, JI, WT, names, J, H }) {
       const arm = Math.max(smooth(-0.035 * H, 0.015 * H, du + 0.45 * dv), dv < 0 ? smooth(-0.013 * H, 0.007 * H, du) : 0);
       const frontChest = smooth(0.02 * H, 0.05 * H, z - A.z);          // frente do peito (peitoral/seio)
       const top = smooth(-0.06 * H, -0.015 * H, dv) * (1 - frontChest) + smooth(-0.025 * H, 0.005 * H, dv) * frontChest;
-      const clav = (1 - arm) * top * smooth(CX + 0.005 * H, CX + 0.035 * H, x);
+      // clavícula: entra aos poucos do pescoço até perto da articulação (antes, numa faixa de 3% da altura junto ao
+      // pescoço — com o ombro relaxado p/ baixo a faixa dobrava em quina e o trapézio parecia pendurado num cabide)
+      const clav = (1 - arm) * top * smooth(CX + 0.005 * H, CX + (+(process.env.CLAV_RAMP ?? 0.085)) * H, x);
       const w = {}; w[jA] = arm; w[jC] = clav; w[jS2] = Math.max(0, 1 - arm - clav);
       target.set(u, { f, w });
     }

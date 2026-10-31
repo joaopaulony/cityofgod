@@ -18,7 +18,7 @@
    "source": "Character Principal Base/Char-Principal-Base,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6
+    "idle": 4
    }
   },
   {
@@ -35,7 +35,8 @@
    "source": "Character Principal Base/Character-Principal-Base,human figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1
+    "idle": 4,
+    "walk": 2
    }
   },
   {
@@ -52,8 +53,8 @@
    "source": "Character Principal Base/Miguel,character-case,human character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 3,
-    "walk": 5
+    "idle": 9,
+    "walk": 8
    }
   },
   {
@@ -84,7 +85,8 @@
    "source": "Gang Last Kings/Debora-Justus,Lastk-Kings,female,character,3d,model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6
+    "idle": 8,
+    "walk": 2
    }
   },
   {
@@ -101,7 +103,8 @@
    "source": "Gang Last Kings/Flavia-Nisha,Last-Kings,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2
+    "idle": 7,
+    "walk": 3
    }
   },
   {
@@ -118,8 +121,8 @@
    "source": "Gang Last Kings/Marco-Rubio,urban,gangster,LastKings,male,3d,model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 1
+    "idle": 9,
+    "walk": 4
    }
   },
   {
@@ -136,7 +139,7 @@
    "source": "Gang Last Kings/Rubia-Snyder,realistic,female,character,LastKings,3d,model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2
+    "idle": 4
    }
   },
   {
@@ -153,7 +156,8 @@
    "source": "Gang Last Kings/Vinicius-Duc,Last-Kings,urban,male,character,3d,model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5
+    "idle": 9,
+    "walk": 4
    }
   },
   {
@@ -170,7 +174,7 @@
    "source": "Gang Noveli's Crew/Ana-Paula-Novli,NovelisCrew,female fashion 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4
+    "idle": 6
    }
   },
   {
@@ -187,8 +191,8 @@
    "source": "Gang Noveli's Crew/Carla-Green,NovelisCrew,fitness model 3d.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6,
-    "walk": 4
+    "idle": 7,
+    "walk": 7
    }
   },
   {
@@ -217,7 +221,10 @@
    "triangles": 22764,
    "bytes": 2907052,
    "source": "Gang Noveli's Crew/Liam-Drake,NovelisCrew,stylized character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "walk": 5
+   }
   },
   {
    "id": "pablo-escob",
@@ -233,7 +240,8 @@
    "source": "Gang Noveli's Crew/Pablo-Escob,NovelisCrew,streetwear man 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "walk": 1
+    "idle": 7,
+    "walk": 7
    }
   },
   {
@@ -250,7 +258,8 @@
    "source": "Gang Noveli's Crew/Roseane-Alencar,NovelisCrew,anime male character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4
+    "idle": 7,
+    "walk": 2
    }
   },
   {
@@ -267,7 +276,8 @@
    "source": "NPCs Bombeiros/Bruno-Martin,firefighter 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1
+    "idle": 2,
+    "walk": 4
    }
   },
   {
@@ -282,7 +292,11 @@
    "triangles": 13551,
    "bytes": 2329868,
    "source": "NPCs Bombeiros/James-Clington,firefighter 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3,
+    "walk": 2
+   }
   },
   {
    "id": "nouwa-marcs",
@@ -298,8 +312,8 @@
    "source": "NPCs Bombeiros/Nouwa-Marcs,firefighter 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 2
+    "idle": 8,
+    "walk": 10
    }
   },
   {
@@ -314,7 +328,10 @@
    "triangles": 10164,
    "bytes": 1720360,
    "source": "NPCs Motoboy/Rick William,Motoboy, 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "walk": 3
+   }
   },
   {
    "id": "drew-carvalho",
@@ -330,8 +347,8 @@
    "source": "NPCs Operarios/Drew-Carvalho,construction worker 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 3,
-    "walk": 4
+    "idle": 10,
+    "walk": 11
    }
   },
   {
@@ -348,8 +365,8 @@
    "source": "NPCs Operarios/Erick-Hill,construction worker 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 2,
-    "walk": 4
+    "idle": 3,
+    "walk": 8
    }
   },
   {
@@ -366,8 +383,8 @@
    "source": "NPCs Socorristas/Laura-Lisboa,paramedic 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1,
-    "walk": 2
+    "idle": 5,
+    "walk": 7
    }
   },
   {
@@ -382,7 +399,10 @@
    "triangles": 19231,
    "bytes": 2289404,
    "source": "NPCs Socorristas/Peter-Jordan,paramedic in uniform 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3
+   }
   },
   {
    "id": "aiko-sakura",
@@ -398,8 +418,8 @@
    "source": "NPCs Urbanos Female/Aiko-Sakura,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 7,
-    "walk": 2
+    "idle": 8,
+    "walk": 5
    }
   },
   {
@@ -416,8 +436,8 @@
    "source": "NPCs Urbanos Female/Jessica-Alves,woman 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6,
-    "walk": 3
+    "idle": 9,
+    "walk": 7
    }
   },
   {
@@ -434,7 +454,7 @@
    "source": "NPCs Urbanos Female/Keiko-Mikihana,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 3
+    "idle": 5
    }
   },
   {
@@ -451,8 +471,8 @@
    "source": "NPCs Urbanos Female/Kim-Kawaki,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 5
+    "idle": 9,
+    "walk": 6
    }
   },
   {
@@ -470,7 +490,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 8,
-    "walk": 5
+    "walk": 7
    }
   },
   {
@@ -504,8 +524,8 @@
    "source": "NPCs Urbanos Female/Lissandra-Martin,female character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 7,
-    "walk": 4
+    "idle": 9,
+    "walk": 5
    }
   },
   {
@@ -522,8 +542,8 @@
    "source": "NPCs Urbanos Female/Marta-Gonzales,female figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 8,
-    "walk": 3
+    "idle": 9,
+    "walk": 9
    }
   },
   {
@@ -538,7 +558,10 @@
    "triangles": 10154,
    "bytes": 1542976,
    "source": "NPCs Urbanos Female/Monica-Dream,female character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 1
+   }
   },
   {
    "id": "monica-megan",
@@ -554,8 +577,8 @@
    "source": "NPCs Urbanos Female/Monica-Megan,female 3d character model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6,
-    "walk": 4
+    "idle": 8,
+    "walk": 5
    }
   },
   {
@@ -573,7 +596,7 @@
    "skeleton": "mixamo-reto",
    "armOut": {
     "idle": 2,
-    "walk": 2
+    "walk": 3
    }
   },
   {
@@ -608,8 +631,8 @@
    "source": "NPCs Urbanos Male/Andersson-Xuan,human figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 4
+    "idle": 7,
+    "walk": 10
    }
   },
   {
@@ -624,7 +647,11 @@
    "triangles": 23157,
    "bytes": 2407916,
    "source": "NPCs Urbanos Male/Chris-Rock,human character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 4,
+    "walk": 5
+   }
   },
   {
    "id": "flavio-august",
@@ -640,7 +667,8 @@
    "source": "NPCs Urbanos Male/Flavio-August,human figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4
+    "idle": 6,
+    "walk": 7
    }
   },
   {
@@ -657,7 +685,8 @@
    "source": "NPCs Urbanos Male/Henrique-Josh,human figure 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1
+    "idle": 6,
+    "walk": 2
    }
   },
   {
@@ -672,7 +701,11 @@
    "triangles": 22692,
    "bytes": 2126560,
    "source": "NPCs Urbanos Male/Igor-Kataguri,male character 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3,
+    "walk": 3
+   }
   },
   {
    "id": "jackie-sakur",
@@ -716,8 +749,8 @@
    "source": "NPCs Urbanos Male/Jim-Yakim,businessman suit 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1,
-    "walk": 1
+    "idle": 5,
+    "walk": 8
    }
   },
   {
@@ -734,8 +767,8 @@
    "source": "NPCs Urbanos Male/Luis-James,businessman character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4,
-    "walk": 2
+    "idle": 6,
+    "walk": 5
    }
   },
   {
@@ -752,8 +785,8 @@
    "source": "NPCs Urbanos Male/Manuel-James,businessman in suit 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1,
-    "walk": 2
+    "idle": 4,
+    "walk": 7
    }
   },
   {
@@ -770,8 +803,8 @@
    "source": "NPCs Urbanos Male/Mauro-Oruam,white athletic outfit 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 5,
-    "walk": 5
+    "idle": 8,
+    "walk": 11
    }
   },
   {
@@ -788,8 +821,8 @@
    "source": "NPCs Urbanos Male/Ronald-Junior,human character 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 4,
-    "walk": 1
+    "idle": 7,
+    "walk": 3
    }
   },
   {
@@ -806,8 +839,7 @@
    "source": "Pilicia City Of God/Clara-Migos,police officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1,
-    "walk": 9
+    "idle": 6
    }
   },
   {
@@ -824,8 +856,7 @@
    "source": "Pilicia City Of God/Dwayne-Jhon,police, officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6,
-    "walk": 7
+    "idle": 15
    }
   },
   {
@@ -842,8 +873,7 @@
    "source": "Pilicia City Of God/John-Steart,police officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 1,
-    "walk": 7
+    "idle": 13
    }
   },
   {
@@ -860,8 +890,8 @@
    "source": "Pilicia City Of God/Jussara-Duarte,police officer 3d model.glb",
    "skeleton": "mixamo-reto",
    "armOut": {
-    "idle": 6,
-    "walk": 7
+    "idle": 10,
+    "walk": 11
    }
   },
   {
@@ -876,7 +906,11 @@
    "triangles": 22379,
    "bytes": 6572488,
    "source": "Pilicia City Of God/Niccolas-Brown,Police,police officer 3d model.glb",
-   "skeleton": "mixamo-reto"
+   "skeleton": "mixamo-reto",
+   "armOut": {
+    "idle": 3,
+    "walk": 3
+   }
   }
  ]
 }
