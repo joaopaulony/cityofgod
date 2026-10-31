@@ -45,10 +45,9 @@ function drawHUD(h, W, H, st) {
     vg.addColorStop(0,'rgba(150,0,0,0)');vg.addColorStop(1,`rgba(150,0,0,${Math.min(.75,hurtA)})`);
     h.fillStyle=vg;h.fillRect(0,0,W,H);
   }
-  if(p.dead){h.fillStyle=`rgba(0,0,0,${Math.min(.85,p.dead.t/5)})`;h.fillRect(0,0,W,H);}
   // procurado pela polícia: estrelas e aviso piscando (vermelho/azul) no alto da tela
   const wl=window.cityCharacters?.wanted?.level||0;
-  if(wl&&!p.dead){
+  if(wl&&!p.dead&&!p.busted){
     h.save();h.textAlign='center';h.textBaseline='alphabetic';h.lineJoin='round';
     h.font=(compact?'900 18px':'900 24px')+' "Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif';
     const txt='★'.repeat(wl)+'☆'.repeat(3-wl)+'  PROCURADO';

@@ -82,13 +82,18 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   reply:(n,action)=>socialAPI.act(n.lookId,action),choose:n=>socialPie.open(n.lookId)
  });
  system.socialInitiative=initiative;
- Object.defineProperty(system,'socialInputBlocked',{get:()=>socialUI.active||socialPie.active});
+ // conversa aberta (e meio segundo depois de fechar): o clique que fecha a roda/diálogo não vira soco
+ let socialSeen=-1e9;
+ Object.defineProperty(system,'socialInputBlocked',{get:()=>{if(socialUI.active||socialPie.active)socialSeen=performance.now();return performance.now()-socialSeen<450;}});
  // Capture before the 2D view sees mousedown, so choosing a person cannot fire a shot.
  window.addEventListener('mousedown',event=>{
   if(event.button!==0||event.target?.id!=='view'||!social||!camera||bridge.driving()||bridge.player.aiming||bridge.canPickSocial?.()===false||window.CityFront?.blocked||window.CityUI?.blocksGameInput?.()||document.querySelector('dialog[open]'))return;
   const npc=pickSocialActor(raycaster,npcs.filter(n=>!n.dead),entries,camera,canvas.getBoundingClientRect(),event.clientX,event.clientY);
-  if(!npc||!clearConversation(npc))return;
-  if(socialPie.open(npc.lookId,{x:event.clientX,y:event.clientY})){event.preventDefault();event.stopImmediatePropagation();bridge.releaseControls?.();bridge.player.wantShot=false;}
+  if(!npc)return;
+  // clicar numa pessoa é p/ interagir: sem mirar (botão direito) nunca vira soco/tiro, mesmo se a roda não abrir
+  const opened=clearConversation(npc)&&socialPie.open(npc.lookId,{x:event.clientX,y:event.clientY});
+  event.preventDefault();event.stopImmediatePropagation();bridge.releaseControls?.();bridge.player.wantShot=false;
+  if(!opened)say(npc,'Agora não, tô ocupado.','💬');
  },true);
  // balão de fala do tamanho do texto e com tamanho fixo NA TELA (texto ~22 px em qualquer zoom): o canvas é desenhado
  // em 2× e a escala do sprite é refeita a cada quadro a partir da câmera ortográfica (bubbleScale)

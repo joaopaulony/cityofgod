@@ -71,7 +71,7 @@ window.cityVehicleBridge={
 
 // ---------- vida do jogador: tiro da polícia fere; zerou → cai, apaga e acorda no hospital ----------
 function hurtPlayer(dmg,from){
-  if(player.dead||st.hp<=0)return;
+  if(player.dead||player.busted||st.hp<=0)return;
   st.hp=Math.max(0,st.hp-dmg/100);player.hurtT=0.55;st.shake=Math.max(st.shake,0.16);
   window.cityCharacters?.bleed?.(player,from);
   if(st.hp<=0)playerDown(from);
@@ -82,7 +82,7 @@ function playerDown(from){
   player.dead={kind:'shot',t:0};player.speed=0;player.aiming=false;player.aimHold=0;player.wantShot=false;player.running=false;player.reloadT=-1;player.meleeT=-1;
   if(from)player.face=Math.atan2(from.y-player.y,from.x-player.x);
   window.cityCharacters?.playerDown?.();
-  hud.msg='Você foi baleado';hud.msgT=4;
+  failScreen.start('dead',respawnPlayer);
 }
 function respawnPlayer(){
   // Hospital City of God: perde 15% do dinheiro (no mínimo R$ 50, se tiver) e acorda ao lado de um leito da
@@ -91,14 +91,15 @@ function respawnPlayer(){
   if(bill>0)CityLife.debit(bill,'Hospital');
   player.dead=null;player.floor=0;player.floorZ=0;player.hurtT=0;player.speed=0;
   const site=(world.civicSites||[]).find(s=>s.kind==='hospital');
-  if(site){player.x=site.x;player.y=site.y-1;player.face=-Math.PI/2;hospitalArrival=8;}
+  if(site){player.x=site.x;player.y=site.y-1;player.face=-Math.PI/2;hospitalArrival=12;}
   else{player.x=world.spawn[0];player.y=world.spawn[1];}
   st.hp=Math.max(st.hp,0.6);
   hospitalBill=bill;
   if(!placeInHospital())hud.msg='Você acordou no Hospital City of God'+(bill>0?' · conta de '+CityLife.money(bill):'');
   hud.msgT=5;
+  return ()=>hospitalArrival<=0;   // pronto quando o jogador já está dentro do hospital
 }
-let hospitalArrival=0,hospitalBill=0;
+let hospitalArrival=0,hospitalBill=0,policeArrival=0,jailFine=0;
 // leito livre da recuperação (térreo): o jogador fica de pé no corredor entre os leitos, de frente p/ a cama
 function placeInHospital(){
   const H=houses.find(H=>H.civic&&H.miaKind==='hospital'&&H.architecture);if(!H)return false;
@@ -109,16 +110,92 @@ function placeInHospital(){
   hud.msg='Você acordou no Hospital City of God · recuperação'+(hospitalBill>0?' · conta de '+CityLife.money(hospitalBill):'');hud.msgT=5;
   return true;
 }
-// preso: fiança de 10% (mín. R$ 80, se tiver) e solto na porta da delegacia, sem estrelas
+// preso: algemado na hora (sem controle), tela "VOCÊ FOI CAPTURADO" e liberado no saguão da delegacia após a fiança
 function arrestPlayer(){
-  const fine=Math.min(CityLife.funds,Math.max(80,Math.round(CityLife.funds*.1)));
-  if(fine>0)CityLife.debit(fine,'Fiança');
+  if(player.dead||player.busted)return;
   const V=window.cityVehicles;if(V?.driver){const c=V.car;V.exitAt?.({x:c.x-Math.sin(c.angle)*1.7,y:c.y+Math.cos(c.angle)*1.7});}
-  const site=(world.civicSites||[]).find(s=>s.kind==='police');
-  if(site){player.x=site.x;player.y=site.y-1;}
-  player.floor=0;player.floorZ=0;player.aiming=false;player.aimHold=0;player.wantShot=false;player.reloadT=-1;player.speed=0;
-  st.shake=.2;hud.msg='Você foi preso · fiança de '+CityLife.money(fine)+' · liberado na Delegacia Central';hud.msgT=6;
+  player.busted={t:0};player.aiming=false;player.aimHold=0;player.wantShot=false;player.reloadT=-1;player.speed=0;player.running=false;player.meleeT=-1;
+  failScreen.start('busted',releaseFromJail);
 }
+function releaseFromJail(){
+  jailFine=Math.min(CityLife.funds,Math.max(80,Math.round(CityLife.funds*.1)));
+  if(jailFine>0)CityLife.debit(jailFine,'Fiança');
+  player.busted=null;player.floor=0;player.floorZ=0;player.speed=0;
+  const site=(world.civicSites||[]).find(s=>s.kind==='police');
+  if(site){player.x=site.x;player.y=site.y-1;policeArrival=12;}
+  if(!placeInPolice()){hud.msg='Liberado na Delegacia Central · fiança de '+CityLife.money(jailFine);hud.msgT=6;}
+  return ()=>policeArrival<=0;
+}
+// saguão da delegacia: em frente ao balcão de atendimento
+function placeInPolice(){
+  const H=houses.find(H=>H.civic&&H.miaKind==='police'&&H.architecture);if(!H)return false;
+  const A=H.architecture,L=A.levels[0],room=L.rooms.find(r=>r.use==='lobby')||L.rooms.find(r=>r.id==='hall');
+  const p=A.toWorld((room.x0+room.x1)/2,room.y1-3.4),q=A.toWorld((room.x0+room.x1)/2,room.y1);   // na frente do balcão, de frente p/ ele
+  player.x=p[0];player.y=p[1];player.face=Math.atan2(q[1]-p[1],q[0]-p[0]);policeArrival=0;
+  hud.msg='Liberado na Delegacia Central · fiança de '+CityLife.money(jailFine);hud.msgT=6;
+  return true;
+}
+// ---------- "VOCÊ MORREU" / "VOCÊ FOI CAPTURADO" (estilo GTA V): câmera lenta, imagem sem cor escurecendo, câmera
+// subindo, letreiro; depois tela de carregamento até o jogador já estar dentro do hospital/delegacia carregado ----------
+const failScreen=(()=>{
+  let el=null,s=null;
+  const TIPS=['Fuja da polícia de carro: quanto mais longe, mais fácil despistar.','Não mexa com os bondes das quebradas — eles voltam com reforço.','Kit de primeiros socorros recupera a vida.','Com 1 estrela e sem arma apontada, a polícia tenta te prender em vez de atirar.','Socorristas reanimam quem cai na rua em menos de um minuto.'];
+  function ensure(){
+    if(el)return el;
+    const css=document.createElement('style');css.textContent=`
+#cog-fail{position:fixed;inset:0;z-index:60;pointer-events:none;font-family:"Bahnschrift SemiCondensed","Arial Narrow",Impact,sans-serif}
+#cog-fail .cf-grade{position:absolute;inset:0}
+#cog-fail .cf-shade{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.15),rgba(0,0,0,.75));opacity:0}
+#cog-fail .cf-band{position:absolute;left:0;right:0;top:50%;height:150px;transform:translateY(-50%) scaleY(0);background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.72) 18%,rgba(0,0,0,.72) 82%,rgba(0,0,0,0));transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+#cog-fail .cf-title{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%) scale(1.25);text-align:center;font-size:clamp(46px,9vw,118px);font-weight:900;letter-spacing:.04em;opacity:0;transition:opacity .45s ease,transform .7s cubic-bezier(.2,.8,.2,1);text-shadow:0 3px 0 #000,2px 0 0 #000,-2px 0 0 #000,0 -2px 0 #000,0 0 30px rgba(0,0,0,.85)}
+#cog-fail.dead .cf-title{color:#d8312b}#cog-fail.busted .cf-title{color:#f4f6f8}
+#cog-fail .cf-sub{position:absolute;left:0;right:0;top:calc(50% + 70px);text-align:center;color:#e9e9e9;font-size:20px;letter-spacing:.18em;opacity:0;transition:opacity .6s ease .3s;text-shadow:0 2px 6px #000}
+#cog-fail .cf-black{position:absolute;inset:0;background:#050607;opacity:0;transition:opacity .7s ease}
+#cog-fail .cf-load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#f1f1ee;opacity:0;transition:opacity .5s ease}
+#cog-fail .cf-place{font-size:34px;font-weight:800;letter-spacing:.08em}
+#cog-fail .cf-bar{width:min(420px,70vw);height:6px;background:rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
+#cog-fail .cf-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3f8f8a,#9fe0c8);transition:width .3s ease}
+#cog-fail .cf-tip{max-width:560px;text-align:center;font:500 16px system-ui,sans-serif;color:#b9c0bd;padding:0 16px}
+#cog-fail .cf-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#9fe0c8;animation:cfspin .9s linear infinite}
+@keyframes cfspin{to{transform:rotate(360deg)}}`;
+    document.head.appendChild(css);
+    el=document.createElement('div');el.id='cog-fail';el.hidden=true;
+    el.innerHTML='<div class="cf-grade"></div><div class="cf-shade"></div><div class="cf-band"></div><div class="cf-title"></div><div class="cf-sub"></div><div class="cf-black"></div><div class="cf-load"><div class="cf-spin"></div><div class="cf-place"></div><div class="cf-bar"><i></i></div><div class="cf-tip"></div></div>';
+    document.body.appendChild(el);return el;
+  }
+  const $=q=>el.querySelector(q);
+  function start(kind,after){
+    if(s)return;ensure();
+    s={kind,t:0,after,ready:null,zoom0:cam.tzoom,loadT:0};
+    el.className=kind;el.hidden=false;
+    $('.cf-title').textContent=kind==='dead'?'VOCÊ MORREU':'VOCÊ FOI CAPTURADO';
+    $('.cf-sub').textContent=kind==='dead'?'LEVADO AO HOSPITAL CITY OF GOD':'LEVADO À DELEGACIA CENTRAL';
+    $('.cf-place').textContent=kind==='dead'?'Hospital City of God':'Delegacia Central';
+    $('.cf-tip').textContent=TIPS[(Math.random()*TIPS.length)|0];
+    for(const q of ['.cf-shade','.cf-black','.cf-load','.cf-title','.cf-sub'])$(q).style.opacity=0;
+    $('.cf-grade').style.backdropFilter='none';
+    $('.cf-band').style.transform='translateY(-50%) scaleY(0)';$('.cf-title').style.transform='translateY(-50%) scale(1.25)';$('.cf-bar i').style.width='0';
+    window.__timeScale=.35;
+  }
+  function tick(dt){   // dt real (sem a câmera lenta)
+    if(!s)return false;
+    s.t+=dt;const t=s.t,k=Math.min(1,t/3.8);
+    // câmera subindo (afasta) e imagem perdendo a cor e escurecendo
+    if(t<4.6){cam.tzoom=s.zoom0*(1-.55*k*k*(3-2*k));$('.cf-grade').style.backdropFilter=`grayscale(${Math.min(1,t/1.2)}) brightness(${1-.35*k}) contrast(${1+.15*k})`;$('.cf-shade').style.opacity=Math.min(1,t/2.5);}
+    if(t>.7&&!s.shown){s.shown=true;$('.cf-band').style.transform='translateY(-50%) scaleY(1)';$('.cf-title').style.opacity=1;$('.cf-title').style.transform='translateY(-50%) scale(1)';$('.cf-sub').style.opacity=1;}
+    if(t>2.4)window.__timeScale=1;
+    if(t>4.2&&!s.black){s.black=true;$('.cf-black').style.opacity=1;}
+    if(t>5&&!s.ready){$('.cf-load').style.opacity=1;$('.cf-title').style.opacity=0;$('.cf-sub').style.opacity=0;$('.cf-band').style.transform='translateY(-50%) scaleY(0)';s.ready=s.after?.()||(()=>true);cam.tzoom=s.zoom0;}
+    if(s.ready){
+      s.loadT+=dt;const done=s.ready()||s.loadT>15;
+      $('.cf-bar i').style.width=Math.min(done?100:92,s.loadT/3*100)+'%';
+      if(done&&s.loadT>1.6&&!s.out){s.out=t;$('.cf-load').style.opacity=0;$('.cf-black').style.opacity=0;$('.cf-shade').style.opacity=0;$('.cf-grade').style.backdropFilter='none';cam.x=cam.tx;cam.y=cam.ty;}
+      if(s.out&&t-s.out>.8){el.hidden=true;s=null;window.__timeScale=1;}
+    }
+    return true;
+  }
+  return {start,tick,get active(){return !!s;}};
+})();
 
 function resize() {
   view.width = Math.ceil(innerWidth / RS); view.height = Math.ceil(innerHeight / RS);
@@ -190,8 +267,11 @@ function chat(who, text) {
   logEl.append(d); while (logEl.children.length > 4) logEl.firstChild.remove();
 }
 for (const n of npcs) { n.x = n.home[0] + n.home[2] / 2; n.y = n.home[1] + n.home[3] / 2; }
-if (world.arrival) { hud.msg = 'Bem-vindo! Você desembarcou no ' + world.arrival.airport; hud.msgT = 6; }
-chat('Sistema', world.open ? `voo pousou — você desembarcou no ${world.spawnName}. Pegue um carro e vá para a cidade. (G abre um mapa de teste)` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
+// boas-vindas do aeroporto só na primeira vez (jogador novo); quem já jogou entra direto
+let firstArrival = false;
+try { firstArrival = !localStorage.getItem('cityofgod.arrived.v1'); localStorage.setItem('cityofgod.arrived.v1', '1'); } catch (_) {}
+if (firstArrival && world.arrival) { hud.msg = 'Bem-vindo! Você desembarcou no ' + world.arrival.airport; hud.msgT = 6; }
+if (firstArrival || !world.open) chat('Sistema', world.open ? `voo pousou — você desembarcou no ${world.spawnName}. Pegue um carro e vá para a cidade. (G abre um mapa de teste)` : `mundo ${MAP}×${MAP} m (4× a área) — semente ${world.seed}. G gera outro.`);
 addEventListener('keydown', e => {
   if (document.activeElement === say && e.key === 'Escape') {
     e.preventDefault(); say.value = ''; say.blur(); return;
@@ -278,9 +358,9 @@ function updatePlayer(dt) {
   const p = player;
   p.hurtT = Math.max(0, (p.hurtT || 0) - dt);
   if (hospitalArrival > 0 && (hospitalArrival -= dt) > 0) placeInHospital();   // hospital ainda carregando: entra quando o setor chegar
-  if (p.dead) {   // caído: sem controle; depois de 6 s acorda no hospital
+  if (p.dead || p.busted) {   // caído ou algemado: sem controle (failScreen leva ao hospital/delegacia)
     p.speed = 0; p.aiming = false; p.wantShot = false; p.running = false; p.aimHold = 0;
-    if ((p.dead.t += dt) > 6) respawnPlayer();
+    (p.dead || p.busted).t += dt;
     return;
   }
   const traversing=window.cityCharacters?.move(dt);
@@ -852,6 +932,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function tick(dt) {
+  failScreen.tick(dt / (window.__timeScale || 1));
   if(window.cityCharacters?.socialInputBlocked){input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;}
   if(window.CityFront?.blocked){
     if(window.CityFront.loading){

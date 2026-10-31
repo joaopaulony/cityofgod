@@ -8,6 +8,7 @@ import {makeKit} from './kit-3d.mjs';
 import {fallAngle} from './destructibles.mjs';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mjs';
+import {policeModels,POLICE_FABRIC,POLICE_STEEL} from './police-props.mjs';
 
 const TAU = Math.PI * 2;
 const hash2 = (x, y, k = 0) => { let h = Math.imul((x * 73856093) ^ (y * 19349663) ^ (k * 83492791), 0x45d9f3b); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
@@ -72,6 +73,7 @@ export function createProps(THREE, scene, bridge) {
     for(const x of [-.55,.55]){k.cyl(x,.5,0,.02,.84,'#b5c5c8',8);k.box(x-.02,.82,-.5,x+.02,.86,.5,'#b5c5c8',.01);}
   }};
   Object.assign(M,hospitalModels(THREE,{chair}));   // Hospital City of God (hospital-props.mjs)
+  Object.assign(M,policeModels(THREE,{chair}));     // Delegacia Central (police-props.mjs)
   // ---------- rua ----------
   M.hydrant = { dims: [0.3, 0.75, 0.3], make(k) {
     k.cyl(0, 0, 0, 0.16, 0.07, '#cfc9b8'); k.cyl(0, 0.07, 0, 0.115, 0.52, '#e7c21e', 16); k.cyl(0, 0.52, 0, 0.15, 0.58, '#d9b01a', 16);
@@ -362,9 +364,9 @@ export function createProps(THREE, scene, bridge) {
   const matHomeWood=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.67,metalness:0});
   const matHomeCeramic=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.28,metalness:.07});
   const matHomeSteel=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.46});
-  const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug',...HOSPITAL_FABRIC]);
-  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL]);
-  const hospitalSet=new Set(Object.keys(hospitalModels(THREE,{chair})));   // demais aparelhos: plástico lavável (cerâmico)
+  const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug',...HOSPITAL_FABRIC,...POLICE_FABRIC]);
+  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL,...POLICE_STEEL]);
+  const hospitalSet=new Set([...Object.keys(hospitalModels(THREE,{chair})),...Object.keys(policeModels(THREE,{chair}))]);   // demais aparelhos: plástico lavável (cerâmico)
   const ceramicSet=new Set(['sink','toilet','shower']);
   const indoorMaterial=name=>fabricSet.has(name)?matHomeFabric:metallicSet.has(name)?matHomeSteel:
     ceramicSet.has(name)||hospitalSet.has(name)?matHomeCeramic:matHomeWood;
@@ -520,7 +522,7 @@ export function createProps(THREE, scene, bridge) {
     for (const k of kinds.values()) {
       const [W, Hn, D] = k.def.dims;
       k.list.forEach((b, i) => {
-        let rot = b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0), sx = b.w / W, sz = b.d / D;
+        let rot = (b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0)) + (b.turn || 0), sx = b.w / W, sz = b.d / D;   // turn: giro extra da planta (mesas em pares, plateia)
         const H = b.house, face = k.def.face;
         if (H && face && !b.homeManaged) {   // vira a frente (+z) p/ o centro do cômodo
           const hx = (b.roomCenter?.[0]??(H.x0 + H.x1) / 2) - b.x, hy = (b.roomCenter?.[1]??(H.y0 + H.y1) / 2) - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);

@@ -97,7 +97,7 @@ export function createNPCAI(THREE, scene, ctx) {
     pendingPolice++;
     const u = await fleet.spawn('police', sp.x, sp.y, sp.a); pendingPolice--;
     if (!u) return footUnit('police', at, 2, { chase: role === 'pursuit' });
-    u.role = role; u.crewIn = 2; u.war = role === 'gang' ? at : null;
+    u.role = role; u.crewIn = 2; u.war = role === 'gang' ? at : null; u.suspect = role === 'outlaw' ? at : null;
     system.lastOccurrence = { kind: 'police', label: 'Viatura a caminho', x: at.x, y: at.y };
   }
   async function dispatchAmbulance(v) {
@@ -143,6 +143,7 @@ export function createNPCAI(THREE, scene, ctx) {
     let target = null;
     if (u.role === 'pursuit' && wanted.level && !p.dead) target = car ? { x: car.x, y: car.y, car, spd: Math.abs(car.speed || 0) } : { x: p.x, y: p.y };
     else if (u.role === 'gang' && u.war && !u.war.over) target = u.war;
+    else if (u.role === 'outlaw') { const o = u.suspect; if (o && !o.dead && npcs.includes(o) && outlaw(o) && dist(o, u) < 160) target = { x: o.x, y: o.y, war: true }; }
     if (!target) {
       for (const n of u.crew) n.board = true;
       u.siren = false;
@@ -325,6 +326,10 @@ export function createNPCAI(THREE, scene, ctx) {
     n.angry = true; n.armed = true; n.leaving = false; n.route = null; n.target = null; n.pause = 0; n.hang = null; n.socialUntil = 0;
     ctx.say(n, pick(GANG_RAGE), '😡');
   }
+  function giveUp(n) {
+    n.angry = false; n.armed = false; n.aiming = false; n.aimHold = 0; n.leaving = true; n.run = false; n.sawPlayer = null; n.lastSeen = null; n.flank = null;
+    const a = Math.atan2(n.y - P().y, n.x - P().x) + rnd(-.8, .8); n.target = { x: n.x + Math.cos(a) * 60, y: n.y + Math.sin(a) * 60 };
+  }
   function calm(group) {
     for (const n of npcs) if (n.gang === group && n.angry && !n.dead) {
       n.angry = false; n.armed = false; n.aiming = false; n.aimHold = 0; n.leaving = true; n.run = false;
@@ -335,8 +340,12 @@ export function createNPCAI(THREE, scene, ctx) {
     const p = P(), t = now();
     for (const [g, a] of [...anger]) {
       const active = npcs.filter(n => n.gang === g && n.angry && !n.dead);
+      for (const n of active) {
+        if (n.sees) n.sawPlayer = t; else n.sawPlayer ??= t;
+        if (dist(n, p) > 55 || t - n.sawPlayer > 15000) giveUp(n);   // longe ou sem ver há 15 s: desiste e esquece
+      }
       if (active.some(n => n.sees)) a.sawAt = t;
-      if (p.dead || t > a.until || t - a.sawAt > 40000) { calm(g); anger.delete(g); if (!p.dead) notify(GANG_NAME[g] + ' perdeu você de vista.'); continue; }
+      if (p.dead || t > a.until || t - a.sawAt > 25000 || !npcs.some(n => n.gang === g && n.angry && !n.dead) && a.waves >= 1) { calm(g); anger.delete(g); if (!p.dead) notify(GANG_NAME[g] + ' perdeu você de vista.'); continue; }
       a.waveT -= dt;
       if (a.waveT <= 0 && a.waves < 3 && active.length < 6) { a.waveT = 25; a.waves++; void spawnGangsters(g, 2 + (Math.random() < .5), hiddenSpot(p, 32, 48), { angry: true, armed: true }); }
     }
@@ -381,11 +390,22 @@ export function createNPCAI(THREE, scene, ctx) {
   }
 
   // ======================= combate =======================
+  const outlaw = o => o.outlaw && now() - o.outlaw < 60000;
+  // criminosos (NPC) que atiraram: sem viatura por perto, chama uma p/ ir atrás do suspeito
+  let outlawT = 2;
+  function outlawTick(dt) {
+    outlawT -= dt; if (outlawT > 0) return; outlawT = 2;
+    for (const o of npcs) {
+      if (!outlaw(o) || o.dead || o.cop || o.war) continue;
+      if (fleet.units.some(u => u.kind === 'police' && !u.abandoned && (u.suspect === o || dist(u, o) < 90)) || pendingPolice) continue;
+      void dispatchPolice('outlaw', o); notify('Polícia a caminho: tiros de ' + (GANG_NAME[o.gang] || 'um suspeito') + '.'); break;
+    }
+  }
   function copFoe(n) {
     const p = P();
     if (wanted.level && !p.dead && (n.chase || dist(n, p) < 40)) { n.chase = true; return playerFoe(); }
     let best = null, bd = 50;
-    for (const o of npcs) if (o.gang && !o.dead && o.armed && (o.war || o.shotCop) && entries.has(o)) { const d = dist(n, o); if (d < bd) { bd = d; best = o; } }
+    for (const o of npcs) if (!o.cop && !o.dead && o.armed && (o.war || o.shotCop || outlaw(o)) && entries.has(o)) { const d = dist(n, o); if (d < bd) { bd = d; best = o; } }
     return best ? { x: best.x, y: best.y, actor: best } : null;
   }
   function gangFoe(n) {
@@ -395,7 +415,7 @@ export function createNPCAI(THREE, scene, ctx) {
     let best = null, bd = 42;
     for (const o of npcs) {
       if (o === n || o.dead || !entries.has(o)) continue;
-      const hostile = o.cop && (n.war || n.shotCop) || n.war && o.war === n.war && o.gang !== n.gang;
+      const hostile = o.cop && (n.war || n.shotCop || outlaw(n) && o.chaseNPC !== false && dist(o, n) < 30) || n.war && o.war === n.war && o.gang !== n.gang;
       if (!hostile) continue; const d = dist(n, o); if (d < bd) { bd = d; best = o; }
     }
     return best ? { x: best.x, y: best.y, actor: best } : null;
@@ -444,6 +464,7 @@ export function createNPCAI(THREE, scene, ctx) {
   }
   function shoot(n, foe, d, W) {
     const p = P(), m = system.muzzle(n) || [n.x, n.y, (n.floorZ || 0) + 1.35];
+    if (!n.cop) n.outlaw = now();
     n.recoilT = 0;
     const moving = foe.player ? p.speed > 3 || foe.car : (foe.actor?.speed || 0) > 2;
     const acc = Math.max(.08, Math.min(.9, W.acc - d * .012 - (moving ? .12 : 0) - (foe.car ? .1 : 0) - (n.speed > .5 ? .08 : 0))), hit = Math.random() < acc;
@@ -483,7 +504,7 @@ export function createNPCAI(THREE, scene, ctx) {
       return false;
     }
     if (n.gang) {
-      const foe = n.angry || n.war || n.shotCop || n.shotBy ? gangFoe(n) : null;
+      const foe = n.angry || n.war || n.shotCop || n.shotBy || outlaw(n) ? gangFoe(n) : null;
       if (foe) { combat(n, dt, foe); return true; }
       if (n.armed && !n.angry && !n.war) { n.armed = false; n.aiming = false; n.aimHold = 0; n.shotCop = false; n.shotBy = null; }
       if (n.hang && !n.leaving) { hangTick(n, dt); return true; }
@@ -509,7 +530,7 @@ export function createNPCAI(THREE, scene, ctx) {
   function tick(dt) {
     fleet.update(dt);
     for (const u of [...fleet.units]) (u.kind === 'police' ? policeUnit : ambulanceUnit)(u, dt);
-    wantedTick(dt); medicalTick(dt); angerTick(dt); warTick(dt); crewTick(dt); threatTick(dt);
+    wantedTick(dt); outlawTick(dt); medicalTick(dt); angerTick(dt); warTick(dt); crewTick(dt); threatTick(dt);
     const p = P();
     for (const n of [...npcs]) if (n.kind === 'gang' && !n.angry && !n.war && !n.dead && dist(n, p) > 95) ctx.remove(n);
   }
