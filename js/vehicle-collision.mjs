@@ -104,6 +104,12 @@ export function carCollision(world,car,options={}){
   if(world.roadDistFn&&world.roadDistFn(c.x,c.y)<3.68)continue;
   if(hitCircle(car,c,margin))return record(c.kind||'circle',c);
  }
+ // viaturas e ambulâncias da IA (ai-vehicles.mjs); a própria unidade se ignora
+ for(const b of world.aiCars||[]){
+  if(b===options.ignoreAI)continue;
+  if(Math.abs(b.x-car.x)>radius+b.hl+.5||Math.abs(b.y-car.y)>radius+b.hl+.5)continue;
+  if(polyHit(verts,carFootprint(b.x,b.y,b.a,b.hl*2,b.hw*2,0)))return record('vehicle',b);
+ }
  return null;
 }
 export function canPlaceCar(world,car,options={}){

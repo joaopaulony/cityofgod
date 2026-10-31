@@ -1270,6 +1270,7 @@ function collide(x, y, r, floor=0) {
     if (floor === 0) {
       for (const c of Cc) { const q = pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
       for (const c of G.dyn) { const vb = vehicleBox(c), q = vb ? pushOutBox(vb, x, y, r) : pushOutCircle(c, x, y, r); if (q) { x = q[0]; y = q[1]; } }
+      for (const b of world.aiCars || NO_CELL) { const q = pushOutBox(b, x, y, r); if (q) { x = q[0]; y = q[1]; } }   // viaturas/ambulâncias da IA
       for (const s of Cs) { const q = pushOutSeg(s, x, y, r); if (q) { x = q[0]; y = q[1]; } }
     } else {
       // andar de cima: paredes externas, cercas soltas e as paredes do pavimento superior

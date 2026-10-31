@@ -7,6 +7,7 @@
 import {makeKit} from './kit-3d.mjs';
 import {fallAngle} from './destructibles.mjs';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mjs';
 
 const TAU = Math.PI * 2;
 const hash2 = (x, y, k = 0) => { let h = Math.imul((x * 73856093) ^ (y * 19349663) ^ (k * 83492791), 0x45d9f3b); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
@@ -63,13 +64,14 @@ export function createProps(THREE, scene, bridge) {
     for(const x of [-.5,.5])for(const z of [-.23,.23])k.cyl(x,0,z,.025,.71,'#687780',6);
     k.box(-.6,.7,-.325,.6,.75,.325,c||'#bf9b68',.025);k.box(-.18,.75,-.13,.14,.765,.1,'#e8e4da');
   }};
-  M.hospitalbed={dims:[1.15,.9,2.05],make(k){
+  M.hospitalbed={dims:[1.15,.9,2.05],face:'long',make(k){
     for(const x of [-.43,.43])for(const z of [-.75,.75]){k.cyl(x,.1,z,.035,.48,'#9aa8ae',8);k.sph(x,.1,z,.09,'#3c464d');}
     k.box(-.53,.43,-.97,.53,.55,.97,'#d1dadb',.04);k.box(-.5,.55,-.94,.5,.7,.94,'#e8eee9',.06);
     k.box(-.45,.7,-.86,.45,.8,-.48,'#faf9f2',.06);k.box(-.5,.7,-.4,.5,.73,.88,'#85b3b0',.02);
     for(const z of [-1,1])k.box(-.55,.55,z-.025,.55,.9,z+.025,'#d5dedf',.03);
     for(const x of [-.55,.55]){k.cyl(x,.5,0,.02,.84,'#b5c5c8',8);k.box(x-.02,.82,-.5,x+.02,.86,.5,'#b5c5c8',.01);}
   }};
+  Object.assign(M,hospitalModels(THREE,{chair}));   // Hospital City of God (hospital-props.mjs)
   // ---------- rua ----------
   M.hydrant = { dims: [0.3, 0.75, 0.3], make(k) {
     k.cyl(0, 0, 0, 0.16, 0.07, '#cfc9b8'); k.cyl(0, 0.07, 0, 0.115, 0.52, '#e7c21e', 16); k.cyl(0, 0.52, 0, 0.15, 0.58, '#d9b01a', 16);
@@ -360,11 +362,12 @@ export function createProps(THREE, scene, bridge) {
   const matHomeWood=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.67,metalness:0});
   const matHomeCeramic=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.28,metalness:.07});
   const matHomeSteel=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.46});
-  const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug']);
-  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk']);
+  const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug',...HOSPITAL_FABRIC]);
+  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL]);
+  const hospitalSet=new Set(Object.keys(hospitalModels(THREE,{chair})));   // demais aparelhos: plástico lavável (cerâmico)
   const ceramicSet=new Set(['sink','toilet','shower']);
   const indoorMaterial=name=>fabricSet.has(name)?matHomeFabric:metallicSet.has(name)?matHomeSteel:
-    ceramicSet.has(name)?matHomeCeramic:matHomeWood;
+    ceramicSet.has(name)||hospitalSet.has(name)?matHomeCeramic:matHomeWood;
   const matBody = new THREE.MeshLambertMaterial({ vertexColors: true });
   const matGlass = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false });
   const matShiny = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 70, specular: 0x555555 });   // plástico, lata, vidro

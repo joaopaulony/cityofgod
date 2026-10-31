@@ -2,7 +2,7 @@
 (function(G){
  const C=G.COG;
  C.CIVIC_TYPES=[
-  {kind:'hospital',name:'Hospital Geral',floors:3,color:'#e7eeeb',reserved:'AMBULÂNCIA',spaces:3},
+  {kind:'hospital',name:'Hospital City of God',floors:3,color:'#e7eeeb',reserved:'AMBULÂNCIA',spaces:3},
   {kind:'police',name:'Delegacia Central',floors:2,color:'#cdd9e1',reserved:'VIATURA',spaces:3},
   {kind:'military',name:'Batalhão da Cidade',floors:2,color:'#bac3af',reserved:'EXÉRCITO',spaces:4},
   {kind:'cityhall',name:'Prefeitura Municipal',floors:3,color:'#f0e8d5',reserved:'SERVIÇO',spaces:2},

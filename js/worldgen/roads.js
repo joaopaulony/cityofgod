@@ -320,7 +320,7 @@
     place('Catedral', 'church', dc.x + 170, dc.y - 80, [Dd.DOWNTOWN], 45);
     place('Mercado Municipal', 'market', dc.x - 180, dc.y + 60, [Dd.DOWNTOWN], 50);
     place('Delegacia Central', 'police', dc.x + 120, dc.y + 170, [Dd.DOWNTOWN, Dd.URBAN], 35);
-    place('Hospital Geral', 'hospital', dc.x - 440, dc.y - 240, [Dd.URBAN, Dd.DOWNTOWN], 80);
+    place('Hospital City of God', 'hospital', dc.x - 440, dc.y - 240, [Dd.URBAN, Dd.DOWNTOWN], 80);
     place('Estádio Municipal', 'stadium', dc.x + 560, dc.y - 440, [Dd.URBAN], 150);
     place('Shopping', 'mall', dc.x - 680, dc.y - 120, [Dd.URBAN], 110);
     place('Universidade', 'university', dc.x - 200, dc.y - 740, [Dd.URBAN], 140);

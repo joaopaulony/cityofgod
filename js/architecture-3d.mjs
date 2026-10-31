@@ -234,6 +234,15 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   sign(H,e);scene.add(root);return e;
  }
  function disposeGroup(g){if(!g)return;g.traverse(o=>{if(o.isMesh)o.geometry.dispose();});g.removeFromParent();}
+ // Hospital City of God: piso vinílico por setor e faixa teal + rodapé nas paredes (interrompidos em portas e janelas)
+ const HOSPITAL_FLOOR={trauma:'#cfe0dd',surgery:'#cde3e0',icu:'#d2e1e4',reception:'#e4e1d6',cafe:'#e8dfcd',lounge:'#e3dccd',circulation:'#d2dcd8',
+  bathroom:'#dfe6e6',pharmacy:'#e5e7e0',lab:'#dce5e9',xray:'#d8dee7',maternity:'#f0e3e6',recovery:'#e1ebe6',ward:'#e1ebe6',nurses:'#dde6e1',office:'#e6e1d6',clinic:'#e0e9e6'};
+ function hospitalBand(kit,w,z,h){
+  const dx=w.b[0]-w.a[0],dy=w.b[1]-w.a[1],L=Math.hypot(dx,dy);if(L<.3)return;
+  const P=t=>[w.a[0]+dx*t/L,w.a[1]+dy*t/L],seg=(t0,t1)=>{if(t1-t0<.08)return;
+   span(kit,P(t0),P(t1),z+.84,z+Math.min(h,.98),.205,'#3f8f8a','trim');span(kit,P(t0),P(t1),z,z+.11,.205,'#8fb0aa','trim');};
+  let s=0;for(const o of [...w.openings].sort((a,b)=>a.at-b.at)){const a=o.at-o.width/2-.06,b=o.at+o.width/2+.06;seg(s,Math.max(s,a));s=Math.max(s,b);}seg(s,L);
+ }
  function interior(e,floor,key){
   disposeGroup(e.interior);e.interior=new THREE.Group();e.root.add(e.interior);e.cutKey=key;e.innerDoors=[];e.innerWindows=[];
   const A=e.H.architecture,level=A.levels[floor],kit=Kit();if(!level)return;
@@ -242,7 +251,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const r of level.rooms){const wet=['bathroom','kitchen','laundry','loading'].includes(r.use),use=wet?'tile':'wood';
    const finish=custom?CityHomePlus.surface(e.H,floor,r.id):null;
    const slab=(x0,y0,x1,y1)=>{if(x1-x0>.01&&y1-y0>.01)kit.box(x0,level.z-.07,y0,x1,level.z-.005,y1,
-     finish?.floor|| (e.H.civic?'#d9e0dc':wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0'),
+     finish?.floor|| (A.kind==='hospital'?HOSPITAL_FLOOR[r.use]||'#dfe6e2':e.H.civic?'#d9e0dc':wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0'),
      0,finish?.material|| (e.H.civic?'tile':use));};
    if(r.id==='hall'&&floor>0&&level.stair){const s=level.stair,x0=Math.max(r.x0,s.x-.51),x1=Math.min(r.x1,s.x+.51),y0=s.y-1.45,y1=s.y+1.45;slab(r.x0,r.y0,x0,r.y1);slab(x1,r.y0,r.x1,r.y1);slab(x0,r.y0,x1,y0);slab(x0,y1,x1,r.y1);}else slab(r.x0,r.y0,r.x1,r.y1);
   }
@@ -251,7 +260,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
     const facing=w.normal[0]*camera[0]+w.normal[1]*camera[1],h=w.ext?(facing>0?.55:A.floorHeight):.75;
     const roomId=(w.rooms||[]).find(id=>level.rooms.some(r=>r.id===id))||level.rooms[0]?.id;
     const color=custom&&roomId?CityHomePlus.surface(e.H,floor,roomId)?.wall:null;
-    buildWall(kit,w,level.z,h,color||(w.ext?'#e7e0d2':'#e5ddcc'),true,e.innerDoors,e.glass,{},e.innerWindows);
+    buildWall(kit,w,level.z,h,color||(A.kind==='hospital'?(w.ext?'#e9f1ee':'#e2eeea'):w.ext?'#e7e0d2':'#e5ddcc'),true,e.innerDoors,e.glass,{},e.innerWindows);
+    if(A.kind==='hospital'&&h>.7)hospitalBand(kit,w,level.z,Math.min(h,1.05));
   }
   const flight=base=>{const s=base.stair;for(let i=0;i<15;i++){const y=s.y+1.35-i*.18,z=base.z+(i+1)*A.floorHeight/15;kit.box(s.x-.45,base.z,y-.18,s.x+.45,z,y,'#b39b77',0,'wood');}for(const x of [s.x-.48,s.x+.48])for(let i=0;i<8;i++){const y=s.y+1.3-i*.36,z=base.z+i*A.floorHeight/8;kit.box(x-.02,z,y-.02,x+.02,z+.9,y+.02,'#ded3bf',0,'trim');}};
   if(level.stair&&floor<A.levels.length-1)flight(level);if(floor>0&&level.stair)flight(A.levels[floor-1]);

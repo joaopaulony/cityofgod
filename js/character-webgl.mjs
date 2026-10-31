@@ -18,6 +18,7 @@ import {createSocialActivities} from './social-activities.mjs';
 import {createSocialAutonomy,installSocialIncoming} from './social-autonomy.mjs';
 import {makeCombatClips,splitClip} from './procedural-anim.mjs';
 import {createBlood} from './blood-fx.mjs';
+import {createNPCAI} from './npc-ai.mjs';
 
 const STREET_MAX=4;                 // moradores/gangue andando ao mesmo tempo perto do jogador
 const SPAWN_MIN=26,SPAWN_MAX=58,DESPAWN=95;
@@ -236,7 +237,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const c=pool[(Math.random()*pool.length)|0];
   const n={x:spot.x,y:spot.y,face:spot.face,speed:0,lookId:c.id,kind:'street',walk:.9+Math.random()*.6,pause:0,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:spot.face,route:spot.route};
   // gangue carrega pistola ou submetralhadora (guardada até sacar); quem não é de gangue não tem arma
-  n.weaponId=window.CityWeapons?.npcWeapon(c.role)||null;
+  n.weaponId=window.CityWeapons?.npcWeapon(c.role)||null;if(c.role==='gang')n.gang=c.group;
   npcs.push(n);
   try{await mount(n,c.id,{tag:true});}catch(error){npcs.splice(npcs.indexOf(n),1);system.errors.push(String(error.message||error));}
  }
@@ -362,117 +363,25 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  // tiros do jogador espantam quem está perto; 3 disparos em 10 s (ou ferir/matar alguém) = procurado pela polícia
  system.report=(event,x,y)=>{
   if(event!=='shot')return;
-  panic(x,y,{x,y},30);
+  panic(x,y,{x,y},30);ai.shot();
   const now=performance.now();shots=shots.filter(t=>now-t<10000);shots.push(now);
-  if(shots.length>=3){shots=[];crime('shots');}
+  if(shots.length>=3){shots=[];ai.crime('shots');}
  };
-
- // ---------- procurado: a polícia persegue, atira e mata; perde o rastro depois de 30 s sem ver o jogador ----------
- const wanted={level:0,sawAt:0,since:0,reinforce:0};system.wanted=wanted;
- const LOST_S=30;
- function crime(kind){
-  const p=bridge.player;if(p.dead)return;
-  const lvl=kind==='copkill'?3:kind==='kill'?2:1,was=wanted.level;
-  wanted.level=Math.min(3,Math.max(was,lvl)+(was>=lvl&&lvl>=2?1:0));wanted.sawAt=performance.now();
-  if(!was){
-   wanted.since=performance.now();wanted.reinforce=5;
-   window.CityUI?.notify?.(kind==='shots'?'Disparos denunciados — a polícia está a caminho!':'Você é procurado pela polícia!');
-   // policiais já na rua (outras ocorrências) entram na perseguição
-   for(const n of npcs)if(n.cop&&!n.dead&&distance(n,p)<70){n.chase=true;n.target=null;n.leaving=false;}
-  }
- }
- function clearWanted(text){
-  if(!wanted.level)return;
-  wanted.level=0;
-  for(const o of occurrences)if(o.chase)o.until=0;   // vão embora no próximo quadro
-  for(const n of npcs)if(n.cop){n.chase=false;n.aiming=false;n.aimHold=0;}
-  if(text)window.CityUI?.notify?.(text);
- }
- system.clearWanted=clearWanted;
- system.playerDown=()=>clearWanted(null);
  // linha de visão pelo raycast do mundo (paredes, muros, árvores)
- const sight=(ax,ay,bx,by)=>{const d=Math.hypot(bx-ax,by-ay);if(d<.5)return true;if(!bridge.raycast)return d<25;return bridge.raycast(ax,ay,(bx-ax)/d,(by-ay)/d,d).t>=d-.6;};
- function wantedTick(dt,now){
-  if(!wanted.level)return;
-  const p=bridge.player;
-  if(p.dead)return clearWanted(null);
-  if((now-wanted.sawAt)/1000>LOST_S)return clearWanted('Você despistou a polícia.');
-  // reforço: viaturas chegam enquanto houver menos policiais perseguindo que 1 + nível
-  wanted.reinforce-=dt;
-  if(wanted.reinforce<=0){
-   wanted.reinforce=14;
-   const near=npcs.filter(n=>n.cop&&n.chase&&!n.dead&&distance(n,p)<80);
-   for(const n of npcs)if(n.cop&&n.chase&&!n.dead&&distance(n,p)>110)remove(n);
-   const need=1+wanted.level-near.length;
-   if(need>0)void system.occurrence('police',p.x,p.y,{duration:900,chase:true,count:Math.min(2,need)});
-  }
+ // margin: o alvo é um carro (o raio bate na lataria antes do centro)
+ const sight=(ax,ay,bx,by,margin=0)=>{const d=Math.hypot(bx-ax,by-ay);if(d<.5+margin)return true;if(!bridge.raycast)return d<25;return bridge.raycast(ax,ay,(bx-ax)/d,(by-ay)/d,d).t>=d-.6-margin;};
+ // personagem novo na rua (serviços, gangue): entra na lista já e ganha o modelo 3D quando carregar
+ async function addNPC(c,props){
+  const n={speed:0,lookId:c.id,kind:'service',walk:1.3,armed:false,reloadT:-1,recoilT:9,aiming:false,aimHold:0,moveA:props.face||0,...props};
+  npcs.push(n);
+  try{await mount(n,c.id,{tag:true});}catch(error){remove(n);return null;}
+  return npcs.includes(n)?n:null;
  }
- // policial perseguindo: corre até ter linha de visão a ≤ 24 m, para, mira e atira em rajadas; recarrega no pente vazio
- function policeTick(n,dt){
-  n.recoilT=(n.recoilT??9)+dt;
-  if(n.stagger>0){n.stagger-=dt;n.speed=0;return;}
-  const p=bridge.player,V=window.cityVehicles,car=V?.driver?V.car:null;
-  if(!wanted.level||p.dead){n.chase=false;n.aiming=false;n.aimHold=0;return walkNPC(n,dt);}
-  const tx=car?car.x:p.x,ty=car?car.y:p.y,dx=tx-n.x,dy=ty-n.y,d=Math.hypot(dx,dy);
-  n.losT=(n.losT||0)-dt;if(n.losT<=0){n.losT=.25;n.sees=d<40&&sight(n.x,n.y,tx,ty);}
-  if(n.sees)wanted.sawAt=performance.now();
-  if(n.reloadT>=0){n.reloadT+=dt;if(n.reloadT>2.1){n.reloadT=-1;n.mag=30;}}
-  if(n.sees&&d<24){
-   n.speed=0;n.running=false;n.face=Math.atan2(dy,dx);n.aiming=true;n.aimHold=1.3;
-   n.fireT=(n.fireT??1.1)-dt;   // reação ao avistar antes do primeiro tiro
-   if(n.fireT<=0&&n.reloadT<0){
-    policeFire(n,tx,ty,d,car);n.burst=(n.burst||0)+1;n.mag=(n.mag??30)-1;
-    if(n.mag<=0)n.reloadT=0;
-    n.fireT=n.burst%3?.15:1.4+Math.random()*.9;
-   }
-   return;
-  }
-  n.aiming=false;n.aimHold=Math.max(0,(n.aimHold||0)-dt);n.run=true;n.fireT=Math.max(n.fireT??0,.8);
-  if(!stepToward(n,Math.atan2(dy,dx),4.6,dt)){n.blocked=(n.blocked||0)+dt;if(n.blocked>1.5){n.blocked=0;n.face+=Math.PI/2;}}else n.blocked=0;
- }
- function policeFire(n,tx,ty,d,car){
-  const p=bridge.player,m=system.muzzle(n)||[n.x,n.y,(n.floorZ||0)+1.35];
-  n.recoilT=0;
-  // pontaria: piora com a distância, com o alvo correndo e dentro do carro
-  const acc=Math.max(.1,.5-d*.012-(p.speed>3?.12:0)-(car?.12:0)),hit=Math.random()<acc;
-  const a=Math.atan2(ty-m[1],tx-m[0])+(hit?0:(Math.random()<.5?-1:1)*(.04+Math.random()*.14)),ux=Math.cos(a),uy=Math.sin(a);
-  const wall=bridge.raycast?bridge.raycast(m[0],m[1],ux,uy,45).t:45;
-  // quem estiver na frente leva o tiro (civis; colegas e socorristas não)
-  const who=system.shoot(m[0],m[1],ux,uy,hit?Math.min(wall,d-.4):wall,26,n);
-  let end=who?[who.x,who.y,who.z]:[m[0]+ux*wall,m[1]+uy*wall,Math.max(.05,m[2]-wall*.012)];
-  if(!who&&hit&&wall>=d-.6){end=[tx,ty,(p.floorZ||0)+(car?1:1.2)];bridge.hurtPlayer?.(car?5:8,n);}
-  bridge.npcShot?.(m,end,!who&&!(hit&&wall>=d-.6));
-  panic(n.x,n.y,n,22);
- }
-
- // ---------- socorristas: ajoelham junto ao tronco da vítima, reanimam e em 55 s a pessoa levanta ----------
- const REVIVE_S=55;
- function aidSpot(v,side){
-  const s=v.dead?.kind==='car'?.45:-.45,cx=v.x+Math.cos(v.face)*s,cy=v.y+Math.sin(v.face)*s;   // peito da vítima
-  return {x:cx-Math.sin(v.face)*side*.58,y:cy+Math.cos(v.face)*side*.58,tx:cx,ty:cy};
- }
- function aidTick(n,dt){
-  const v=n.aid;
-  if(!v||!v.dead||!entries.has(v)){n.aid=null;n.aiding=false;return walkNPC(n,dt);}
-  const t=aidSpot(v,n.aidSide),dx=t.x-n.x,dy=t.y-n.y,d=Math.hypot(dx,dy);
-  if(!n.aiding&&d>.3){
-   n.run=d>4;
-   if(!stepToward(n,Math.atan2(dy,dx),d>4?3.6:1.4,dt)){n.stuck=(n.stuck||0)+dt;if(n.stuck>2&&clear(t.x,t.y,null,.2)){n.x=t.x;n.y=t.y;}}
-   return;
-  }
-  if(!n.aiding){n.aiding=true;n.x=t.x;n.y=t.y;if(n.aidSide<0)say(n,'Aguenta firme! Tá me ouvindo?','🚑');}
-  n.speed=0;n.running=false;n.face=Math.atan2(t.ty-n.y,t.tx-n.x);
- }
- function revive(v){
-  const occ=occurrences.find(o=>o.victim===v);
-  v.dead=null;v.hp=55;v.stagger=1.6;v.actionZ=0;v.revived=true;v.chase=false;v.aid=null;v.aiding=false;
-  for(const m of npcs)if(m.aid===v){m.aid=null;m.aiding=false;}
-  if(occ)occ.until=performance.now()+4000;
-  if(social)say(v,'O que... aconteceu?','😵');
-  // levanta e vai embora andando
-  const a=Math.random()*Math.PI*2;v.leaving=true;v.run=false;v.route=null;v.target={x:v.x+Math.cos(a)*45,y:v.y+Math.sin(a)*45};
-  system.lastRevive={name:v.name,x:v.x,y:v.y};
- }
+ // IA da rua (npc-ai.mjs): polícia de viatura, ambulâncias, gangues e combate
+ const ai=createNPCAI(THREE,scene,{bridge,system,npcs,entries,roster:()=>roster,addNPC,remove,stepToward,walkNPC,clear,say,panic,sight,sidewalkSpot});
+ system.clearWanted=ai.clearWanted;
+ system.npcList=()=>npcs;   // depuração no console
+ system.playerDown=()=>ai.clearWanted(null);
 
  system.update=dt=>{
   const p=bridge.player,now=performance.now();
@@ -493,16 +402,16 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    const street=npcs.filter(n=>n.kind==='street'&&!n.dead);
    runOver(dt);
    for(const n of street)if(!activities.has(n)&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);
-   if(spawnT<=0&&street.length<STREET_MAX){spawnT=3+Math.random()*5;void spawnStreet();}
+   if(spawnT<=0&&street.length<(GANG_TURF.has(districtAt(p.x,p.y))?6:STREET_MAX)){spawnT=3+Math.random()*5;void spawnStreet();}
    for(const o of [...occurrences])if(now>o.until){
     occurrences.splice(occurrences.indexOf(o),1);
     for(const n of o.units){if(n.dead)continue;n.leaving=true;n.run=false;n.chase=false;n.aid=null;n.aiding=false;n.aiming=false;n.aimHold=0;const a=Math.random()*Math.PI*2;n.target={x:o.x+Math.cos(a)*70,y:o.y+Math.sin(a)*70};}
    }
-   wantedTick(dt,now);
+   ai.tick(dt);
    for(const n of [...npcs]){if(entries.has(n)){
     if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
-    const controlled=activities.tick(n,dt);if(!visit&&!controlled)(n.aid?aidTick:n.chase?policeTick:walkNPC)(n,dt);
+    const controlled=activities.tick(n,dt);if(!visit&&!controlled)if(!ai.tickNPC(n,dt))walkNPC(n,dt);
     // ferido sangrando deixa rastro de pingos
     if(n.hp<100&&n.speed>.1){n.dripD=(n.dripD||0)+n.speed*dt;if(n.dripD>(n.hp<50?.35:.8)){n.dripD=0;blood.drip(n.x+(Math.random()-.5)*.2,n.y+(Math.random()-.5)*.2,.04+Math.random()*.05,n.floorZ||0);}}
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
@@ -627,7 +536,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  system.shoot=(ox,oy,dx,dy,maxT,damage,from)=>{
   let best=null,bt=maxT;
   for(const n of npcs){
-   if(n===from||n.dead||!entries.get(n)?.root.visible||from?.cop&&n.kind==='service')continue;   // polícia não acerta colegas nem socorristas
+   if(n===from||n.dead||!entries.get(n)?.root.visible||ai.friendly(from,n))continue;   // fogo amigo não pega (polícia×colegas/socorristas, mesma facção)
    const fx=n.x-ox,fy=n.y-oy,t=fx*dx+fy*dy;if(t<=0||t>=bt)continue;
    const px=fx-dx*t,py=fy-dy*t;if(px*px+py*py>HIT_R*HIT_R)continue;
    best=n;bt=t;
@@ -665,7 +574,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    blood.spray(hit.x,hit.y,hit.z,-dx,-dy,7,f,{power:.6});
    blood.splat(hit.x+dx*(1+Math.random()*.8),hit.y+dy*(1+Math.random()*.8),.3+Math.random()*.25,f);
   }
-  if(hit.from===bridge.player&&hit.kind!=='car'&&n.hp>0)crime('assault');
+  if(n.hp>0)ai.onHurt(n,hit);
   if(n.hp<=0)return kill(n,hit);
   if(n.kind==='street')flee(n,hit.from);
   if(entries.has(n)&&social)say(n,hit.kind==='punch'?'Ei! Tá maluco?':'Socorro!','😱');
@@ -677,12 +586,10 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   n.hp=0;n.speed=0;n.target=null;n.route=null;n.armed=false;n.aiming=false;n.aimHold=0;n.reloadT=-1;n.stagger=0;
   n.dead={kind:hit.kind==='car'?'car':'shot',t:0,vx:0,vy:0,pool:false,sp:hit.speed||0};
   if(hit.kind==='car'){n.face=Math.atan2(hit.dy,hit.dx);n.dead.vx=hit.dx*hit.speed*.7;n.dead.vy=hit.dy*hit.speed*.7;}
-  if(hit.from===bridge.player)crime(n.cop?'copkill':'kill');
   else if(hit.from)n.face=Math.atan2(hit.from.y-n.y,hit.from.x-n.x);   // cai de costas, longe de quem atacou
+  ai.onKill(n,hit);   // procurado, vingança da gangue; a ambulância é chamada pela IA
   const e=entries.get(n);if(e?.bubble){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
   panic(n.x,n.y,hit.from||n,25);
-  // socorristas vêm até o corpo (a polícia já é chamada pelos tiros)
-  setTimeout(()=>{if(n.dead&&entries.has(n))void system.occurrence('medical',n.x,n.y,{duration:180,victim:n});},7000);
   system.lastDeath={kind:n.dead.kind,name:n.name,x:n.x,y:n.y};
  }
  function deadTick(n,dt){
@@ -701,7 +608,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    blood.pool(n.x+Math.cos(n.face)*s*1.6,n.y+Math.sin(n.face)*s*1.6,.45+Math.random()*.2,8,n.floorZ||0);   // cabeça
   }
   // socorristas ajoelhados: a reanimação conta 55 s; sem socorro o corpo some em 2 min
-  if(npcs.some(m=>m.aid===n&&m.aiding)){d.aidT=(d.aidT||0)+dt;if(d.aidT>=REVIVE_S)return revive(n);}
+  if(ai.deadTick(n,dt))return;
   if(d.t>(d.medic?300:120))remove(n);
  }
  // gente na rua foge (correndo) de quem atacou; serviços (polícia etc.) ficam

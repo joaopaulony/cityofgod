@@ -65,7 +65,8 @@ window.cityVehicleBridge={
     emit({x:a[0],y:a[1],z:a[2],vx:0,vy:0,vz:0.3,life:0.5,max:0.5,kind:'puff',g:-0.8,size:0.12,col:'#cfcac0'});
     if(missed)impact({x:b[0],y:b[1],kind:'none'},b[2]);
   },
-  hurtPlayer:(dmg,from)=>hurtPlayer(dmg,from)
+  hurtPlayer:(dmg,from)=>hurtPlayer(dmg,from),
+  arrestPlayer:()=>arrestPlayer()
 };
 
 // ---------- vida do jogador: tiro da polícia fere; zerou → cai, apaga e acorda no hospital ----------
@@ -84,12 +85,39 @@ function playerDown(from){
   hud.msg='Você foi baleado';hud.msgT=4;
 }
 function respawnPlayer(){
-  // hospital: perde 15% do dinheiro (no mínimo R$ 50, se tiver), volta com 60% de vida no ponto de partida
+  // Hospital City of God: perde 15% do dinheiro (no mínimo R$ 50, se tiver) e acorda ao lado de um leito da
+  // recuperação, com 60% de vida. O prédio pode estar em outro setor: vai até a porta e entra quando ele carregar.
   const bill=Math.min(CityLife.funds,Math.max(50,Math.round(CityLife.funds*.15)));
   if(bill>0)CityLife.debit(bill,'Hospital');
-  player.dead=null;player.x=world.spawn[0];player.y=world.spawn[1];player.floor=0;player.floorZ=0;player.hurtT=0;
+  player.dead=null;player.floor=0;player.floorZ=0;player.hurtT=0;player.speed=0;
+  const site=(world.civicSites||[]).find(s=>s.kind==='hospital');
+  if(site){player.x=site.x;player.y=site.y-1;player.face=-Math.PI/2;hospitalArrival=8;}
+  else{player.x=world.spawn[0];player.y=world.spawn[1];}
   st.hp=Math.max(st.hp,0.6);
-  hud.msg='Você acordou no hospital'+(bill>0?' · conta de '+CityLife.money(bill):'');hud.msgT=5;
+  hospitalBill=bill;
+  if(!placeInHospital())hud.msg='Você acordou no Hospital City of God'+(bill>0?' · conta de '+CityLife.money(bill):'');
+  hud.msgT=5;
+}
+let hospitalArrival=0,hospitalBill=0;
+// leito livre da recuperação (térreo): o jogador fica de pé no corredor entre os leitos, de frente p/ a cama
+function placeInHospital(){
+  const H=houses.find(H=>H.civic&&H.miaKind==='hospital'&&H.architecture);if(!H)return false;
+  const A=H.architecture,beds=A.levels[0].furniture.filter(f=>f.kind==='hospitalbed'&&A.levels[0].rooms.find(r=>r.id===f.room)?.use==='recovery');
+  const f=beds[(Math.random()*beds.length)|0];if(!f)return false;
+  const room=A.levels[0].rooms.find(r=>r.id===f.room),dir=f.y<(room.y0+room.y1)/2?1:-1,p=A.toWorld(f.x,f.y+dir*1.55),q=A.toWorld(f.x,f.y);
+  player.x=p[0];player.y=p[1];player.face=Math.atan2(q[1]-p[1],q[0]-p[0]);hospitalArrival=0;
+  hud.msg='Você acordou no Hospital City of God · recuperação'+(hospitalBill>0?' · conta de '+CityLife.money(hospitalBill):'');hud.msgT=5;
+  return true;
+}
+// preso: fiança de 10% (mín. R$ 80, se tiver) e solto na porta da delegacia, sem estrelas
+function arrestPlayer(){
+  const fine=Math.min(CityLife.funds,Math.max(80,Math.round(CityLife.funds*.1)));
+  if(fine>0)CityLife.debit(fine,'Fiança');
+  const V=window.cityVehicles;if(V?.driver){const c=V.car;V.exitAt?.({x:c.x-Math.sin(c.angle)*1.7,y:c.y+Math.cos(c.angle)*1.7});}
+  const site=(world.civicSites||[]).find(s=>s.kind==='police');
+  if(site){player.x=site.x;player.y=site.y-1;}
+  player.floor=0;player.floorZ=0;player.aiming=false;player.aimHold=0;player.wantShot=false;player.reloadT=-1;player.speed=0;
+  st.shake=.2;hud.msg='Você foi preso · fiança de '+CityLife.money(fine)+' · liberado na Delegacia Central';hud.msgT=6;
 }
 
 function resize() {
@@ -249,6 +277,7 @@ function fire(J) {
 function updatePlayer(dt) {
   const p = player;
   p.hurtT = Math.max(0, (p.hurtT || 0) - dt);
+  if (hospitalArrival > 0 && (hospitalArrival -= dt) > 0) placeInHospital();   // hospital ainda carregando: entra quando o setor chegar
   if (p.dead) {   // caído: sem controle; depois de 6 s acorda no hospital
     p.speed = 0; p.aiming = false; p.wantShot = false; p.running = false; p.aimHold = 0;
     if ((p.dead.t += dt) > 6) respawnPlayer();
