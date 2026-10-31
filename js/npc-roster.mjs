@@ -6,6 +6,9 @@ import * as THREE from 'three';
 
 export const NPC_DIR='assets/npcs/';
 export const MIXAMO_LIBRARY=Object.freeze({male:'assets/characters/rigs/mixamo/david.rig.glb',female:'assets/characters/rigs/mixamo/megan.rig.glb'});
+// animações do Kimodo (tools/import-kimodo.mjs), no esqueleto do David; valem p/ os dois sexos e substituem o clipe
+// Mixamo de mesmo nome. Opcional: sem o arquivo, ficam só as do Mixamo.
+export const KIMODO_LIBRARY='assets/characters/rigs/kimodo.rig.glb';
 // papel no jogo: 'player' (bases principais), 'civil' e 'gang' andam pela rua; 'service' e 'worker' só em ocorrências
 export const STREET_ROLES=Object.freeze(['civil','gang']);
 export const DEFAULT_LOOK=Object.freeze({male:'miguel',female:'char-principal-base'});
@@ -145,6 +148,8 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
   if(gltf.animations.length<10)throw Error('Biblioteca Mixamo '+sex+' incompleta');
   libraries[sex]=gltf;
  }
+ let kimodo=null;
+ try{kimodo=await loader.loadAsync(base+KIMODO_LIBRARY);}catch{}
  const characters=new Map(doc.characters.map(c=>[c.id,c]));
  const cache=new Map();
  // carrega um personagem sob demanda (os 52 não ficam na memória ao mesmo tempo)
@@ -155,11 +160,13 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
    let bones=0,meshes=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;if(o.isSkinnedMesh){meshes++;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
    if(!meshes||!gltf.scene.getObjectByName('mixamorigHips'))throw Error(id+': GLB sem malha riggada no esqueleto Mixamo');
    const armOut=style?meta.armOut||null:null;
-   const animations=lib.animations.map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,{style:style?STYLE[meta.sex]:null,armOut}));
+   const opts={style:style?STYLE[meta.sex]:null,armOut},own=new Set(kimodo?kimodo.animations.map(c=>c.name):[]);
+   const animations=lib.animations.filter(c=>!own.has(c.name)).map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,opts));
+   if(kimodo)for(const c of kimodo.animations)animations.push(retargetMixamo(c,kimodo.scene,gltf.scene,c.name,opts));
    return {gltf:{...gltf,animations},spec:{...meta,label:meta.name,bones,meshes,clips:clipSemantics(animations),rig:'mixamo'}};
   })());
   try{return await cache.get(id);}catch(error){cache.delete(id);throw error;}
  }
  const list=role=>[...characters.values()].filter(c=>!role||c.role===role);
- return {characters,load,list,libraries};
+ return {characters,load,list,libraries,kimodo};
 }
