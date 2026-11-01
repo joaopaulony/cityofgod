@@ -4,7 +4,9 @@
 // ?quality=performance mantém a renderização antiga em meia resolução.
 const RS = new URLSearchParams(location.search).get('quality') === 'performance' ? 2 : 1;
 const RENDER_SCALE = 2 / RS; // mantém o tamanho visual dos objetos ao mudar a resolução
-let TILT = 0.5; // inclinação vertical ajustável
+let TILT = 0.5; // inclinação vertical ajustável (seno do ângulo da câmera acima do chão)
+// limites da inclinação (arrastar com o botão do meio / Page Up e Page Down): 0,12 ≈ 7° rasante · 0,84 ≈ 57° de cima
+const TILT_MIN = 0.12, TILT_MAX = 0.84;
 let HZ = Math.sqrt(1 - TILT * TILT); // sincronizada com câmera 3D
 const INK = VISUAL_REFERENCE.anchors.outline;   // contorno de tinta
 const TAU = Math.PI * 2;

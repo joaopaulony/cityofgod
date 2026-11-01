@@ -5,7 +5,7 @@
 // (terrain.js: faixas, rachaduras, pisos) continua na tela 2D por cima, entrando com um fade quando fica pronto;
 // onde ainda não ficou, aparece este chão — nunca mais cinza, minimapa esticado ou base borrada.
 //
-// Dados que o shader lê, preenchidos aos poucos pela CPU em volta da câmera (janela toroidal de 256 m, por blocos
+// Dados que o shader lê, preenchidos aos poucos pela CPU em volta da câmera (janela toroidal de 512 m, folga p/ a câmera rasante, por blocos
 // de 16 m, só os que faltam — custa ~0,35 ms por bloco):
 //   fino (1 m/texel, RGBA8): distância até a borda do asfalto (roadDist, normalizada: ROAD_W na borda de qualquer via),
 //                            o bairro (districtFn) e, na roça, a direção das fileiras e a cultura do talhão (fieldFn)
@@ -13,7 +13,7 @@
 'use strict';
 
 const GroundGPU = (() => {
-  const WIN = 256, TILE = 16, SLOTS = WIN / TILE, FINE = 1, COARSE = 2;
+  const WIN = 512, TILE = 16, SLOTS = WIN / TILE, FINE = 1, COARSE = 2;
   const TEXS = { lawn: 'ground-lawn', weeds: 'ground-weeds', sand: 'ground-sand', dirt: 'ground-dirt', walk: 'ground-sidewalk', conc: 'ground-concrete-worn' };
   let gl = null, canvas = null, prog = null, uni = {}, fineTex = null, coarseTex = null, ready = false, failed = false;
   const slot = new Array(SLOTS * SLOTS).fill(null);   // bloco do mundo que ocupa cada posição da janela

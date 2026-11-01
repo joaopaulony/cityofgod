@@ -224,7 +224,7 @@ view.addEventListener('mousemove', e => {
   }
   if (dragX !== null) {
     cam.tang += (e.clientX - dragX) * .008;
-    cam.ttilt = clamp(cam.ttilt - (e.clientY - dragY) * .0025, .34, .84);
+    cam.ttilt = clamp(cam.ttilt - (e.clientY - dragY) * .0025, TILT_MIN, TILT_MAX);
     dragX = e.clientX; dragY = e.clientY;
   }
 });
@@ -989,7 +989,7 @@ function tick(dt) {
   const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
   if (spin) cam.tang += spin * 1.6 * dt;   // ~90°/s; cam.update suaviza a chegada ao soltar
   const pitch = (input.down('pageup') ? 1 : 0) - (input.down('pagedown') ? 1 : 0);
-  if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, .34, .84);
+  if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, TILT_MIN, TILT_MAX);
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   // N pula p/ a manhã ou p/ a noite; K troca o clima (calmo, brisa, ventania, neve)
