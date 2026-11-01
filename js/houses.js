@@ -110,7 +110,7 @@ function houseTex(H) {
 const PROPS3D_KINDS = new Set(['hospitalbed','studentdesk',
   'stretcher','monitor','ivstand','curtain','nursedesk','crashcart','medcabinet','wheelchair','exambed','scale','medshelf','waitingrow','receptiondesk','infoboard','watercooler','tvwall','bigplant','toiletstall','sinkrow','xray','leadscreen','locker','coffeestation','vending','cafetable','hbench','labbench','labfridge','ortable','surglamp','anesthesia','mayo','ventilator','crib','plant',
   'cellbars','cellwall','bunk','steeltoilet','itable','onewaymirror','filingcab','camstand','evidenceshelf','safe','frontdesk','flagstand','wantedboard','trophycase','metaldetector','policedesk','printer','videowall','consoledesk','radiorack','lectern','gunrack','vestrack','ammocrate','execdesk',
-  'turntable','infokiosk','spotbar','brandwall','salesdesk','bannerstand','tirestand','rimwall','carlift','toolchest','workbench','compressor','tirestack','oildrum','keybox','chair','hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
+  'turntable','infokiosk','spotbar','brandwall','salesdesk','bannerstand','tirestand','rimwall','carlift','toolchest','workbench','compressor','tirestack','oildrum','keybox','pallet','forklift','chair','hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
   'trashbag', 'tire', 'mattress', 'hoop', 'cooler', 'bin', 'porchroof', 'portico', 'deck', 'column', 'gatepost', 'hedge', 'planebody', 'forsale',
   'gasstore', 'gasisland', 'gascol', 'gaspump', 'gassign', 'gasair', 'gasice', 'gaspropane', 'container']);   // + house-3d.mjs
 function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || (b.kind === 'post' && (!b.house || b.exteriorFixture)) || (b.kind === 'canopy' && !b.draw) || (b.kind === 'step' && !b.house)); }
@@ -426,7 +426,7 @@ world.buildHouses = buildHouses;
 world.blocked = (x, y, r) => {
   for (const H of houses) {const b=H.drawBounds||[H.x0,H.y0,H.x1,H.y1];if (x > b[0] - r - 1.5 && x < b[2] + r + 1.5 && y > b[1] - r - 1.5 && y < b[3] + r + 1.5) return true;}
   for (const Y of world.yards) if (x > Y[0] - r && x < Y[2] + r && y > Y[1] - r && y < Y[3] + r) return true;
-  for (const b of boxes) if(Math.hypot(b.x-x,b.y-y)<
+  for (const b of boxes) if(!b.fleetHidden&&Math.hypot(b.x-x,b.y-y)<
       Math.max(b.w,b.d)/2+r+.6)return true;
   return false;
 };

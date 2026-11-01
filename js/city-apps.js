@@ -18,11 +18,11 @@ const CityApps = (() => {
      ['business','🏪','Negócios'],['services','🛎️','Serviços'],['taxi','🚕','CityTaxi']
     ].map(x=>'<button class="city-app" data-app="'+x[0]+'"><span class="city-app-icon">'+x[1]+'</span>'+x[2]+'</button>').join('')+'</div><p class="city-help">Este navegador contém portais fictícios integrados à economia do jogo, não sites externos.</p>';
   if(app==='jobs')return banner('<strong>Carreiras</strong><small>Conquiste seu próprio dinheiro</small>')+
-    (data.job?card('Seu emprego: '+CitySim.JOBS[data.job].title,
-      'Faça um turno a cada 4 minutos reais. O trabalho reduz energia, fome e sede.',
-      btn('sim:work','Iniciar turno'),'💼'):'')+
-    Object.entries(CitySim.JOBS).map(([id,j])=>card(j.title,j.detail+' · salário por turno '+price(j.pay),
-      btn('sim:apply:'+id,id===data.job?'Emprego atual':'Candidatar-se',id===data.job),j.icon)).join('');
+    (data.job&&CitySim.JOBS[data.job]?card('Seu emprego: '+CitySim.JOBS[data.job].title,
+      (window.CityJobs?.shift?'Em turno agora: '+window.CityJobs.shift.task+' · '+window.CityJobs.shift.done+'/'+window.CityJobs.shift.total:'Local: '+CitySim.JOBS[data.job].place+'. Vá até lá e aperte F para bater o ponto.'),
+      (window.CityJobs?.shift?btn('sim:job-abandon','Abandonar turno'):btn('sim:job-route','Ir para o trabalho (GPS)'))+btn('sim:job-quit','Pedir demissão'),'💼'):'')+
+    Object.entries(CitySim.JOBS).map(([id,j])=>{const d=window.CityJobs?.defs?.[id];return card(j.title,(d?d.detail+' · '+d.pay:j.detail)+' · Local: '+j.place,
+      btn('sim:apply:'+id,id===data.job?'Emprego atual':'Candidatar-se',id===data.job),j.icon);}).join('');
   if(app==='taxi')return banner('<strong>CityTaxi</strong><small>Viaje sem usar o mapa principal</small>')+
     '<p class="city-help">As corridas cobram o valor indicado e transferem o personagem para um ponto seguro próximo ao bairro. Animação do táxi será adicionada depois.</p>'+
     (CitySim.destinations().length?CitySim.destinations().map(d=>card(d.name,
@@ -178,6 +178,9 @@ const CityApps = (() => {
   else if(type==='police-report')result=window.cityCharacters?.fileCrimeReport?.();
   else if(type==='apply')result=CitySim.applyJob(id);
   else if(type==='work')result=CitySim.work();
+  else if(type==='job-route')result=window.CityJobs?.route()||{ok:false,text:'Indisponível'};
+  else if(type==='job-quit')result=CitySim.quitJob();
+  else if(type==='job-abandon')result=window.CityJobs?.abandon()||{ok:false,text:'Indisponível'};
   else if(type==='travel')result=CitySim.travel(id);
   else if(type==='business-buy')result=CitySim.buyBusiness(id);
   else if(type==='business')result=CitySim.manage(id,arg);

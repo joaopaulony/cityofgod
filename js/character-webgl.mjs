@@ -390,6 +390,14 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  system.streetLife=streetLife;
  system.clearWanted=ai.clearWanted;
  system.npcList=()=>npcs;   // depuração no console
+ system.say=(n,text,icon)=>say(n,text,icon);
+ system.spawnExtra=async(x,y,{face=0,floor=0}={})=>{
+  const pool=roster?.list().filter(c=>c.role==='civil')||[];if(!pool.length)return null;
+  const c=pool[(Math.random()*pool.length)|0];
+  return addNPC(c,{x,y,face,kind:'extra',walk:1.2,floor,floorZ:floor*3.3,socialUntil:1e12,lookAt:face});
+ };
+ system.releaseExtra=(n,target,run=false)=>{if(!n)return;n.socialUntil=0;n.target=target;n.run=run;n.leaving=!!target?.leave;};
+ system.removeExtra=n=>{if(n&&npcs.includes(n))remove(n);};
  system.playerDown=()=>ai.clearWanted(null);
 
  system.update=dt=>{
@@ -472,7 +480,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     if(e.tag)e.tag.visible=!a.dead&&a.homeAction?.kind!=='rest'&&Math.hypot(a.x-p.x,a.y-p.y)<9;
    }
    if(a.armed)syncGun(e,a);
-   e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal&&e.gun.children.length>1;
+   e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal&&!a.carry&&e.gun.children.length>1;
+   carryProp(a,e);
    if(e.gun.visible&&e.right&&e.left){
     e.right.getWorldPosition(e.grip);e.left.getWorldPosition(e.support);
     const cat=window.CityWeapons?.list[a.weaponId]?.cat;
@@ -505,6 +514,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  }
  function pickClips(a,e){
   if(a.dead)return {base:a.dead.kind==='car'?'death_car':'death_shot'};
+  if(a.carry&&!a.traversal)return {base:chooseCharacterClip({...a,armed:false,reloadT:-1,recoilT:9}),upper:'carry@upper'};   // pacote/saco/bandeja nos braços
   if(a.aiding)return {base:'kneel_aid'};   // socorrista reanimando
   if(a.homeAction&&a.homeAction.kind==='sit')return {base:'cas_sit'};
   if(e.emote)return {base:'cas_'+e.emote.id};
@@ -656,6 +666,21 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    const side=Math.sign(ly)||1,push=hw-Math.abs(ly)+.05;n.x-=sa*side*push;n.y+=ca*side*push;
    n.stagger=.4;flee(n,c);
   }
+ }
+ // objeto carregado (empregos): caixa de papelão, saco de lixo ou bandeja — entre as mãos, à frente do peito
+ const CARRY_V=new THREE.Vector3(),CARRY_W=new THREE.Vector3();
+ function carryMesh(kind){
+  const g=new THREE.Group(),M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:.8,...o}),add=(geo,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;g.add(o);return o;};
+  if(kind==='package'){add(new THREE.BoxGeometry(.46,.32,.36),M(0xb98a52));add(new THREE.BoxGeometry(.47,.04,.08),M(0xd9c79a),0,.15,0);add(new THREE.BoxGeometry(.2,.005,.14),M(0xffffff),.08,.162,.05);}
+  else if(kind==='bag'){const s=add(new THREE.SphereGeometry(.24,12,10),M(0x15171a,{roughness:.35}));s.scale.set(1,.85,1);add(new THREE.ConeGeometry(.07,.14,8),M(0x15171a,{roughness:.35}),0,.24,0);}
+  else{add(new THREE.BoxGeometry(.42,.025,.3),M(0x6d4c41));add(new THREE.CylinderGeometry(.04,.035,.11,12),M(0xf5f5f5),-.08,.07,0);add(new THREE.CylinderGeometry(.1,.1,.02,16),M(0xf5f5f5),.09,.025,0);add(new THREE.BoxGeometry(.12,.05,.09),M(0xe0a96d),.09,.06,0);}
+  return g;
+ }
+ function carryProp(a,e){
+  if(!a.carry||!e.root.visible||!e.right||!e.left){if(e.carry)e.carry.visible=false;return;}
+  if(!e.carry||e.carryKind!==a.carry){if(e.carry)scene.remove(e.carry);e.carry=carryMesh(a.carry);e.carryKind=a.carry;e.carry.userData.noSnow=true;scene.add(e.carry);}
+  e.right.getWorldPosition(CARRY_V);e.left.getWorldPosition(CARRY_W);
+  e.carry.visible=true;e.carry.position.copy(CARRY_V).add(CARRY_W).multiplyScalar(.5);e.carry.position.y+=a.carry==='tray'?.02:.05;e.carry.rotation.y=e.root.rotation.y;
  }
  system.muzzle=a=>{const e=entries.get(a);if(!e||!e.gun.visible)return null;e.muzzle.getWorldPosition(tmp);return [tmp.x,tmp.z,tmp.y];};
  system.telemetry=()=>[...entries].map(([a,e])=>({name:a===bridge.player?(system.casProfile.name+' ('+e.spec.name+')'):e.spec.name,look:e.id,role:e.spec.role,clip:e.clip,upper:e.upName||null,x:a.x,y:a.y,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));

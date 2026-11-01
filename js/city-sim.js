@@ -3,12 +3,13 @@
 'use strict';
 const CitySim = (() => {
   const KEY = 'cityofgod.sim.v2';
+  // vagas de emprego (o trabalho de verdade fica em js/jobs.mjs: bater o ponto no local e cumprir o turno)
   const JOBS = {
-    courier: { title:'Entregador', icon:'🚴', pay:95, cost:.12, detail:'Turno curto de entregas pela cidade' },
-    mechanic:{ title:'Mecânico', icon:'🔧', pay:130, cost:.15, detail:'Oficina e manutenção de carros' },
-    barista: { title:'Barista', icon:'☕', pay:85, cost:.10, detail:'Atendimento em cafeteria' },
-    security:{ title:'Segurança', icon:'🛡️', pay:165, cost:.18, detail:'Turno de vigilância' },
-    medic: { title:'Auxiliar de clínica', icon:'🩺', pay:145, cost:.14, detail:'Apoio nos serviços de saúde' }
+    courier: { title:'Entregador de encomendas', icon:'📦', pay:450, cost:.12, place:'Central Logística City', detail:'Entregas de van na porta dos clientes' },
+    taxi:    { title:'Taxista', icon:'🚕', pay:420, cost:.12, place:'Central Logística City', detail:'Corridas com passageiros pela cidade' },
+    garbage: { title:'Gari da coleta', icon:'🗑️', pay:400, cost:.15, place:'Central Logística City', detail:'Coleta de lixo com o caminhão' },
+    mechanic:{ title:'Mecânico', icon:'🔧', pay:520, cost:.15, place:'Oficina City Motors', detail:'Consertos na oficina da concessionária' },
+    barista: { title:'Atendente da lanchonete', icon:'☕', pay:320, cost:.10, place:'Lanchonete do Hospital City of God', detail:'Atendimento e preparo de pedidos' }
   };
   const BUSINESSES = {
     cafe:  { title:'Cafeteria', icon:'☕', price:550, income:110 },
@@ -84,8 +85,14 @@ const CitySim = (() => {
   }
   function applyJob(id){
     if(!JOBS[id])return fail('Vaga indisponível');
+    if(typeof window!=='undefined'&&window.CityJobs?.shift)return fail('Termine o turno atual antes de trocar de emprego');
     state.job=id;commit();
-    return ok('Contratado(a) como '+JOBS[id].title+' · turnos disponíveis no aplicativo');
+    return ok('Entrevista aprovada! Contratado(a) como '+JOBS[id].title+'. Vá até '+JOBS[id].place+' e bata o ponto (F).');
+  }
+  function quitJob(){
+    if(!state.job)return fail('Você não tem emprego');
+    if(typeof window!=='undefined'&&window.CityJobs?.shift)window.CityJobs.abandon();
+    const t=JOBS[state.job]?.title;state.job=null;commit();return ok('Você pediu demissão de '+t);
   }
   function work(){
     const job=JOBS[state.job];
@@ -282,7 +289,7 @@ const CitySim = (() => {
       state.lastBillDay=day;commit();
     }
   }
-  const api={init,save,work,applyJob,buyBusiness,manage,buyCar,sellCar,usedPrice,deliverCar,get cars(){return [...state.cars];},get carColors(){return {...(state.carColors||{})};},nearbyLots,buyLot,rentApartment,setHome,payBills,destinations,travel,service,post,like,theme,tick,JOBS,BUSINESSES,CARS,SERVICES,
+  const api={init,save,work,applyJob,quitJob,buyBusiness,manage,buyCar,sellCar,usedPrice,deliverCar,get cars(){return [...state.cars];},get carColors(){return {...(state.carColors||{})};},nearbyLots,buyLot,rentApartment,setHome,payBills,destinations,travel,service,post,like,theme,tick,JOBS,BUSINESSES,CARS,SERVICES,
     get data(){return state;},get game(){return game;}};
   return api;
 })();

@@ -242,6 +242,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   briefing:'#cdd1d6',armory:'#b9bcbb',lockers:'#cfd3d4',chief:'#a88a6a',break:'#ddd6c8',office:'#cdd2d6',bathroom:'#dfe3e3',circulation:'#c9ced1'};
  const CIVIC_STYLE={hospital:{floor:{...HOSPITAL_FLOOR,default:'#dfe6e2'},wall:['#e9f1ee','#e2eeea'],band:'#3f8f8a',base:'#8fb0aa'},
   police:{floor:{...POLICE_FLOOR,default:'#cdd2d6'},wall:['#e6e9ee','#dde3ea'],band:'#24406b',base:'#4f5d70'},
+  depot:{floor:{dispatch:'#dfe2e4',storehouse:'#9ea4a8',office:'#d7d2c8',lockers:'#d6dadc',bathroom:'#e1e5e6',circulation:'#d9dde0',default:'#dfe3e6'},wall:['#f1efe9','#ebe8e1'],band:'#e1a100',base:'#3b4045'},
   dealer:{floor:{showroom:'#eceff1',workshop:'#8f969c',sales:'#d7d2c8',lounge:'#e2ddd2',bathroom:'#e1e5e6',circulation:'#d9dde0',default:'#dfe3e6'},wall:['#f4f5f6','#eceeef'],band:'#2b3036',base:'#2b3036'}};
  function civicBand(kit,w,z,h,style){
   const dx=w.b[0]-w.a[0],dy=w.b[1]-w.a[1],L=Math.hypot(dx,dy);if(L<.3)return;

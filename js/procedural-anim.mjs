@@ -136,6 +136,9 @@ export function makeCombatClips(root, height = 1.75) {
     { t: 1.1, dirs: { ...chest, LeftArm: [.25, -.7, .5], LeftForeArm: [-.5, .3, .8] } },
     { t: 1.5, dirs: { ...aim1 } }
   ], { upperOnly: true, height, fist: ['Right'] }));
+  // carregando algo com as duas mãos à frente do peito (caixa, saco, bandeja)
+  const carry = { RightArm: [-.22, -.78, .55], LeftArm: [.22, -.78, .55], RightForeArm: [.32, .12, .94], LeftForeArm: [-.32, .12, .94], Spine2: [0, 1, -.04] };
+  add(poseClip(root, 'carry@upper', [{ t: 0, dirs: carry }, { t: 1, dirs: carry }], { upperOnly: true, height }));
   // socorrista: ajoelhado nos dois joelhos, braços esticados sobre o peito da vítima, massagem cardíaca (laço)
   const knees = { LeftUpLeg: [.12, -1, .12], RightUpLeg: [-.12, -1, .12], LeftLeg: [.02, -.12, -1], RightLeg: [-.02, -.12, -1], LeftFoot: [0, -.25, -1], RightFoot: [0, -.25, -1] };
   const cpr = (k) => ({ ...knees, Spine1: [0, .82 - k * .1, .57 + k * .12], Spine2: [0, .7 - k * .12, .7 + k * .1], Neck: [0, .55, .85],

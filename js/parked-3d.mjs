@@ -138,7 +138,8 @@ export function createParked3D(THREE, scene, bridge, damageFX=null) {
       const halfW=c.W/(2*Math.max(1,c.zoom)),halfH=c.H/(2*Math.max(1,c.zoom)*(c.tilt||.5));
       const R=Math.min(160,Math.max(95,Math.hypot(halfW,halfH)+22));
       const want=[];
-      for(const b of bridge.boxes)if(b.kind==='parkedcar'&&!b.fleetHidden){
+      // carro de exposição dentro de um prédio (showroom): só aparece com o jogador lá dentro, como os móveis
+      for(const b of bridge.boxes)if(b.kind==='parkedcar'&&!b.fleetHidden&&!(b.house&&!b.house.inside)){
         const d=Math.hypot(b.x-c.x,b.y-c.y);
         if(d<R)want.push([d,b]);
       }

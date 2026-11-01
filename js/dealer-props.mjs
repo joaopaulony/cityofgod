@@ -95,5 +95,20 @@ export function dealerModels(THREE, { chair }) {
     k.box(-.4, .7, -.06, .4, 1.8, .02, '#5d6d7e', .01); k.box(-.37, .73, .02, .37, 1.77, .025, '#e5e8e8');
     for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) { const x = -.3 + c * .12, y = 1.65 - r * .24; k.box(x - .005, y, .025, x + .005, y + .03, .05, CHROME); k.box(x - .025, y - .1, .03, x + .025, y - .02, .04, ['#c0392b', '#2471a3', '#f1c40f', '#27ae60'][(r + c) % 4]); }
   } };
+  // Central Logística: palete com caixas embaladas e filme, empilhadeira amarela com garfos
+  M.pallet = { dims: [1.3, 1.4, 1.2], face: 'any', make(k) {
+    for (const z of [-.55, 0, .55]) k.box(-.65, 0, z - .05, .65, .1, z + .05, '#a07a4f'); k.box(-.65, .1, -.6, .65, .14, .6, '#b88d5c');
+    const C = ['#c9a06a', '#b8894f', '#d2ae78'];
+    for (let y = 0; y < 3; y++) for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const x0 = -.6 + i * .6, z0 = -.55 + j * .55, yy = .14 + y * .4; k.box(x0, yy, z0, x0 + .58, yy + .38, z0 + .53, C[(y + i + j) % 3], .01); k.box(x0 + .25, yy + .38, z0, x0 + .33, yy + .385, z0 + .53, '#e8dcc0'); }
+    k.box(-.62, .14, -.57, .62, 1.36, .57, '#e6f2f5', 0, 'glass');
+  } };
+  M.forklift = { dims: [1.3, 2.2, 2.4], face: 'long', make(k) {
+    k.box(-.6, .25, -1.0, .6, .95, .55, '#f1c40f', .05); k.box(-.55, .95, -.95, .55, 1.25, -.35, '#2d3436', .04); k.box(-.6, .2, -1.15, .6, .7, -.95, '#2d3436');
+    for (const x of [-.55, .55]) { k.box(x - .03, .95, -.3, x + .03, 2.1, -.24, '#2d3436'); k.box(x - .03, .95, .45, x + .03, 2.1, .51, '#2d3436'); } k.box(-.6, 2.08, -.32, .6, 2.14, .52, '#2d3436');
+    k.box(-.45, .55, -.1, .45, .95, .35, '#2d3436'); chair(k, 0, -.05, Math.PI, '#2d3436');
+    for (const x of [-.48, .48]) { k.box(x - .04, .3, .58, x + .04, 2.0, .66, '#636e72'); k.box(x - .06, .05, .62, x + .06, .1, 1.2, '#636e72'); }
+    for (const [x, z, r] of [[-.6, .35, .27], [.6, .35, .27], [-.6, -.75, .22], [.6, -.75, .22]]) { const t = new THREE.CylinderGeometry(r, r, .22, 14); t.rotateZ(Math.PI / 2); t.translate(x, r, z); k.raw(t, '#16181a'); }
+    k.box(-.15, 1.25, -.4, .15, 1.3, -.3, '#e17055');
+  } };
   return M;
 }

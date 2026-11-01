@@ -8,6 +8,8 @@
   {kind:'cityhall',name:'Prefeitura Municipal',floors:3,color:'#f0e8d5',reserved:'SERVIÇO',spaces:2},
   {kind:'school',name:'Escola Municipal',floors:2,color:'#e8d6b4',reserved:'ESCOLAR',spaces:2},
   // três concessionárias City Motors: centro, bairro residencial e a cidade vizinha
+  // Central Logística: empregos de entregador, taxista e gari (frota no pátio)
+  {kind:'depot',id:'civic-depot',name:'Central Logística City',floors:1,floorHeight:4.4,color:'#e8e4da',reserved:'FROTA',spaces:0,target:A=>({x:A.urban.x+180,y:A.urban.y+220})},
   {kind:'dealer',id:'civic-dealer-centro',name:'City Motors · Centro',floors:1,floorHeight:4.4,color:'#eef1f3',reserved:'TEST DRIVE',spaces:0,target:A=>({x:A.downtown.x+300,y:A.downtown.y+140})},
   {kind:'dealer',id:'civic-dealer-bairro',name:'City Motors · Zona Norte',floors:1,floorHeight:4.4,color:'#eef1f3',reserved:'TEST DRIVE',spaces:0,target:A=>({x:A.urban.x-420,y:A.urban.y-260})},
   {kind:'dealer',id:'civic-dealer-cidade',name:'City Motors · Litoral',floors:1,floorHeight:4.4,color:'#eef1f3',reserved:'TEST DRIVE',spaces:0,target:A=>A.towns?.[0]?{x:A.towns[0].x+60,y:A.towns[0].y+40}:{x:A.urban.x+520,y:A.urban.y+300}}
@@ -68,7 +70,12 @@ function civicPlaceSector(S){
     col:'#f0f0f0',top:'#f0f0f0',side:'#f0f0f0',draw:drawParkedCar});
   }
   // The opposite row stays available for regular civilian parking.
-  if(site.kind==='dealer'){
+  if(site.kind==='depot'){
+   // frota da empresa no pátio (exposição; o veículo do turno é entregue na vaga de saída)
+   const FLEET=[['minivan','#f4f4f2'],['minivan','#f4f4f2'],['minivan','#f4f4f2'],['sedan','#f1c40f'],['sedan','#f1c40f'],['pickup','#2e7d32'],['pickup','#2e7d32'],['minivan','#f4f4f2']];
+   for(let i=0;i<8;i++){const [m,c]=FLEET[i],sx=i<4?x+7+i*3.2:x-8-(i-4)*3.2,b=addBox({x:sx,y:site.y-15.5,w:4.8,d:1.95,h:1.6,rot:Math.PI/2,kind:'parkedcar',modelId:m,col:c,top:c,side:c,display:true,solid:true,street:true,draw:drawParkedCar});b.vehicleKey='depot:'+i;}
+   site.delivery={x:x+18,y:site.y-5,angle:Math.PI};
+  }else if(site.kind==='dealer'){
    // pátio de seminovos: carros de verdade em exposição (não dá p/ entrar), virados p/ a rua; vaga de entrega do comprado
    const MODELS=['sedan','suv','hatchback','pickup','coupe','compact','wagon','offroad'],COLS=['#c0392b','#f2f2f0','#1d2b3a','#7f8c8d','#2c6e49','#e1b12c','#2f3640','#5d6d7e'];
    for(let i=0;i<8;i++){const sx=i<4?x+7+i*3.2:x-8-(i-4)*3.2,b=addBox({x:sx,y:site.y-15.5,w:4.6,d:1.9,h:1.5,rot:Math.PI/2,kind:'parkedcar',modelId:MODELS[i],col:COLS[i],top:COLS[i],side:COLS[i],display:true,solid:true,street:true,draw:drawParkedCar});b.vehicleKey='dealer:'+site.id+':'+i;}

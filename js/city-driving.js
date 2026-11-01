@@ -26,7 +26,7 @@ const CityDriving=(()=>{
  };
  function wallBetween(b,ax,ay,bx,by){
    for(const s of b.world.segs||[]){
-     if(s.door&&s.doorAnim?.open>=.72)continue;
+     if(s.door&&s.doorAnim?.open>=.72||s.sourceBox?.fleetHidden)continue;
      if(Math.max(s.x1,s.x2)<Math.min(ax,bx)-.1||Math.min(s.x1,s.x2)>Math.max(ax,bx)+.1||Math.max(s.y1,s.y2)<Math.min(ay,by)-.1||Math.min(s.y1,s.y2)>Math.max(ay,by)+.1)continue;
      if(cross(ax,ay,bx,by,s))return true;
    }

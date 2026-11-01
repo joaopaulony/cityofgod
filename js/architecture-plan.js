@@ -170,6 +170,27 @@
    default:furnishHospital(r,put,level,dims);
   }
  }
+ // Central Logística: despacho com telões de rastreamento e mesas de despachante; armazém com estantes porta-paletes,
+ // paletes de caixas, empilhadeiras e bancada de embalagem; escritório e vestiário da equipe
+ function furnishDepot(r,put,level,dims){
+  const {W,D,cx,cy}=dims,E={exact:true};
+  switch(r.use){
+   case'dispatch':put('receptiondesk',3.4,1.7,1.15,[cx,r.y0+1.6],E);put('videowall',3.6,.3,2.4,[cx-4.4,r.y0+.35],E);put('videowall',3.6,.3,2.4,[cx+4.4,r.y0+.35],E);
+    for(const s of [-1,1])for(let k=0;k<2;k++){const x=cx+s*(9.5+k*1.65);put('policedesk',1.5,1.3,1.25,[x,r.y0+3],{...E,turn:Math.PI});put('policedesk',1.5,1.3,1.25,[x,r.y0+4.3],{...E,turn:0});}
+    for(let y=cy+1.2;y<r.y1-2;y+=1.85)for(let x=cx-4.4;x<=cx+4.4;x+=2.9)put('waitingrow',2.3,.68,.85,[x,y],E);
+    put('keybox',.8,.12,1.1,[r.x0+.4,cy-1],{...E,overlay:true});put('infoboard',1.6,.08,1.5,[r.x1-.2,cy-1],{...E,overlay:true});put('vending',.95,.8,1.9,[r.x0+.6,cy+2],E);put('watercooler',.35,.35,1.25,[r.x0+.5,cy+3.4],E);
+    put('pallet',1.3,1.2,1.4,[r.x1-1.2,cy+2.4],E);put('bannerstand',.9,.4,2.1,[r.x1-.8,r.y1-1.4],E);put('printer',.7,.6,1.1,[cx+2.6,r.y0+.5],E);
+    for(const [x,y] of [[r.x0+.6,r.y1-.6],[r.x1-.6,r.y1-.6]])put('bigplant',.7,.7,1.6,[x,y],E);break;
+   case'storehouse':for(let y=r.y0+.5;y<r.y1-1;y+=3.4)for(let x=r.x0+1.3;x<r.x1-2;x+=2.35)put('evidenceshelf',2.2,.6,2.1,[x,y],E);
+    for(let x=r.x0+1.4;x<r.x1-1.4;x+=1.7)put('pallet',1.3,1.2,1.4,[x,r.y1-.8],E);put('forklift',1.3,2.4,2.2,[cx-2,cy+1.6],E);put('forklift',1.3,2.4,2.2,[cx+3,cy+1.6],E);
+    put('workbench',2,.8,1,[r.x1-1.4,cy+1.8],E);put('oildrum',.6,.6,.9,[r.x0+.5,cy+1.7],E);break;
+   case'office':put('execdesk',2.2,2.15,1.3,[cx,r.y0+1.5],E);for(let x=r.x0+1.3;x<cx-2;x+=2.6)put('desk',1.1,.62,.74,[x,r.y1-.55],{...E,top:'#d9dcd6'});
+    put('filingcab',.5,.65,1.35,[r.x1-.5,r.y1-.5],E);put('filingcab',.5,.65,1.35,[r.x1-1.1,r.y1-.5],E);put('safe',.8,.7,1.2,[r.x1-.6,r.y0+.6],E);put('shelf',2.5,.45,1.9,[cx+3.6,r.y1-.35],E);put('bigplant',.7,.7,1.6,[r.x0+.5,r.y0+.5],E);break;
+   case'lockers':for(let x=r.x0+.9;x<r.x1-.8;x+=1.3)put('locker',1.2,.5,1.95,[x,r.y0+.4],E);for(let x=r.x0+2;x<r.x1-2;x+=2.4)put('hbench',1.8,.5,.85,[x,r.y1-.9],E);
+    put('coffeestation',1.4,.6,1.25,[r.x1-1.2,r.y1-.45],E);break;
+   default:furnishHospital(r,put,level,dims);
+  }
+ }
  function makePlan({width:W,depth:D,kind='house',seed=1,floors=1,height=3}){
   if(W<6||D<6)throw Error('Property envelope too small');
   const random=rng(seed),family=Math.floor(random()*4),palette=Math.floor(random()*6);
@@ -211,9 +232,9 @@
      rooms.push(side==='left'?rect(id,use,0,y0,hl,y1):rect(id,use,hr,y0,w,y1));return y1;},0);
     rooms.push(rect('hall','circulation',hl,0,hr,he));hospital={hl,hr,he};
    }
-   if(kind==='dealer'){
-    const sy=round(d*.4),HW=3.4,hl=round(w*.46),hr=round(hl+HW),r1=round(sy*.42),r2=round(sy*.66);
-    rooms=[rect('front-left','showroom',0,sy,w,d),rect('rear-left','workshop',0,0,hl,sy),rect('rear-right','sales',hr,0,w,r1),rect('bath','bathroom',hr,r1,w,r2),rect('lounge','lounge',hr,r2,w,sy),rect('hall','circulation',hl,0,hr,sy)];
+   if(kind==='dealer'||kind==='depot'){
+    const sy=round(d*.4),HW=3.4,hl=round(w*.46),hr=round(hl+HW),r1=round(sy*.42),r2=round(sy*.66),dep=kind==='depot';
+    rooms=[rect('front-left',dep?'dispatch':'showroom',0,sy,w,d),rect('rear-left',dep?'storehouse':'workshop',0,0,hl,sy),rect('rear-right',dep?'office':'sales',hr,0,w,r1),rect('bath','bathroom',hr,r1,w,r2),rect('lounge',dep?'lockers':'lounge',hr,r2,w,sy),rect('hall','circulation',hl,0,hr,sy)];
     hospital={hl,hr,he:d};
    }
    if(civic&&!hospital){for(const room of rooms.slice()){if(room.id==='hall'||room.y1-room.y0<8)continue;
@@ -243,13 +264,13 @@
    if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12)wall.openings.push({kind:'door',style:[left.use,right.use].includes('holding')?'bars':undefined,at:len/2,width:1.02,height:2.16});
    if(ext&&owner.id==='hall'&&n[1]!==0&&Math.abs((a[1]+b[1])/2-level.entry[1])<.01)wall.openings.push({kind:'door',style:level.floor?'glazed':undefined,at:len/2,width:Math.min(1.15,len-.16),height:2.25});
    else if(ext&&owner.id==='hall'&&wall.normal[1]<-.5&&level.outdoor.some(r=>r.rear))wall.openings.push({kind:'door',style:'glazed',at:len/2,width:1.15,height:2.25});
-   else if(ext&&owner.use==='showroom'&&len>=1.8){
+   else if(ext&&(owner.use==='showroom'||owner.use==='dispatch')&&len>=1.8){
     const front=wall.normal[1]>.5,count=Math.max(1,Math.floor(len/2.7));
     for(let i=0;i<count;i++){const at=len*(i+.5)/count;if(front&&Math.abs(at-len/2)<2)continue;wall.openings.push({kind:'window',at,width:Math.min(2.45,len/count-.25),sill:.25,height:3.4});}
     if(front)wall.openings.push({kind:'door',style:'glazed',at:len/2,width:2.6,height:2.7});
     wall.openings.sort((a,b)=>a.at-b.at);
    }
-   else if(ext&&owner.use==='workshop'&&wall.normal[1]<-.5&&len>5){wall.openings.push({kind:'door',style:'roller',at:len/2,width:3.6,height:3.6});}
+   else if(ext&&(owner.use==='workshop'||owner.use==='storehouse')&&wall.normal[1]<-.5&&len>5){wall.openings.push({kind:'door',style:'roller',at:len/2,width:3.6,height:3.6});}
    else if(ext&&owner.use!=='circulation'&&len>=1.8){
     const privacy=owner.use==='bathroom',count=Math.max(1,Math.floor(len/(privacy?3.7:2.6)));
     const office=level.kind==='office';
@@ -269,7 +290,7 @@
  function furnish(level,seed){
   const random=rng(seed);
   for(const r of level.rooms){
-   if(r.use==='circulation'&&!['hospital','police','dealer'].includes(level.kind))continue;
+   if(r.use==='circulation'&&!['hospital','police','dealer','depot'].includes(level.kind))continue;
    const W=r.x1-r.x0,D=r.y1-r.y0,cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
    const portals=level.walls.filter(w=>w.rooms.includes(r.id)).flatMap(w=>w.openings.filter(o=>o.kind==='door').map(o=>{const L=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),x=w.a[0]+(w.b[0]-w.a[0])*o.at/L,y=w.a[1]+(w.b[1]-w.a[1])*o.at/L;return{x,y};}));
    const items=[];
@@ -290,6 +311,7 @@
    if(level.kind==='hospital')furnishHospital(r,put,level,{W,D,cx,cy});
    else if(level.kind==='police')furnishPolice(r,put,level,{W,D,cx,cy});
    else if(level.kind==='dealer')furnishDealer(r,put,level,{W,D,cx,cy});
+   else if(level.kind==='depot')furnishDepot(r,put,level,{W,D,cx,cy});
    else switch(r.use){
     case'ward':case'barracks':for(let y=r.y0+1.5;y<r.y1-1;y+=3.2)for(const x of [r.x0+1.2,r.x1-1.2]){put(r.use==='ward'?'hospitalbed':'bed',1.15,2.05,.9,[x,y],{top:r.use==='ward'?'#e1eee9':'#657361'});put('cabinet',.5,.55,.75,[x+.85,y-.6],{top:'#bfcac8'});}break;
     case'clinic':put('hospitalbed',1.15,2.05,.9,[cx,cy],{top:'#d3e6e1'});put('sink',.8,.6,.9,[r.x0+.7,r.y0+.7]);put('desk',1.6,.7,.8,[cx,r.y0+.7]);put('shelf',2,.5,1.8,[r.x1-1.4,r.y1-.5]);break;

@@ -22,6 +22,7 @@ import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {installDealership} from './dealership.mjs';
+import {installJobs} from './jobs.mjs';
 import {createSkidFX} from './vehicle-skids.mjs';
 import {createDestructibles} from './destructibles.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
@@ -324,6 +325,7 @@ function initRenderer(){
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
  createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
+ installJobs(THREE,scene,bridge);   // empregos de verdade (entregador, taxista, gari, mecânico, atendente)
  createPets(scene,bridge);
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){
@@ -747,11 +749,15 @@ system.deliverVehicle=async (id,opts={})=>{
  if(system.driver||claiming||!await selectModel(id))return false;
  let q=Number.isFinite(opts.x)?{x:opts.x,y:opts.y,angle:opts.angle||0}:nearestSafeParking();
  if(!isFree(q.x,q.y,q.angle)){if(!Number.isFinite(opts.x))return false;let ok=false;for(let k=1;k<10&&!ok;k++){const t={x:opts.x-Math.sin(opts.angle||0)*k*2.6,y:opts.y+Math.cos(opts.angle||0)*k*2.6,angle:opts.angle||0};if(isFree(t.x,t.y,t.angle)){q=t;ok=true;}}if(!ok)q=nearestSafeParking();}
- const key='owned:'+id,prior=fleet.saved.get(key);if(prior){prior.fleetHidden=true;prior.solid=false;}
+ const key=opts.key||'owned:'+id,prior=fleet.saved.get(key);if(prior){prior.fleetHidden=true;prior.solid=false;}
  const b=fleet.park(key,{x:q.x,y:q.y,rot:q.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:id,col:opts.col||'#c3c6c9',fuel:.85});
  b.draw=bridge.drawParkedCar;const saved=bridge.addBox(b);fleet.saved.set(key,saved);return true;
 };
 // carro vendido: some do mundo (o estacionado com a chave do dono)
+// veículo de empresa (empregos): chave própria; devolvido no fim do turno
+system.removeKey=key=>{if(system.driver&&activeKey===key)return false;const b=fleet.saved.get(key);if(b){b.fleetHidden=true;b.solid=false;fleet.saved.delete(key);}return true;};
+Object.defineProperty(system,'activeKey',{get:()=>activeKey});
+system.parkedOf=key=>fleet.saved.get(key)||null;
 system.removeOwned=id=>{const b=fleet.saved.get('owned:'+id);if(b){b.fleetHidden=true;b.solid=false;fleet.saved.delete('owned:'+id);}return !!b;};
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
