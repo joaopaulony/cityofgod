@@ -53,5 +53,5 @@ test('source asset exists after import pipeline',()=>{
  if(!existsSync(url))return; // bundled during asset workflow
  const glb=readFileSync(url);
  assert.equal(glb.toString('ascii',0,4),'glTF');
- assert.equal(glb.length,1621824);
+ assert.ok(glb.length<=1621824,'texturas otimizadas (tools/optimize-assets.mjs): nunca maior que o original '+glb.length);
 });

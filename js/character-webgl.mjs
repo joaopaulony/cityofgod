@@ -196,7 +196,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  }
 
  async function mount(a,id,{tag=false}={}){
-  const item=await roster.load(id);
+  const item=await roster.load(id,{hd:a===bridge.player});
   const root=cloneSkeleton(item.gltf.scene),mixer=new THREE.AnimationMixer(root);
   root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
   const spec={...item.spec,clips:{...item.spec.clips}},actions=new Map();

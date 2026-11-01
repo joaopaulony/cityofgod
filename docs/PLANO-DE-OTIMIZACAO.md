@@ -139,8 +139,8 @@ Legenda — Impacto: ★★★ alto · Esforço: P (horas–1 dia), M (dias), G 
 
 | # | Ação | Impacto | Esforço |
 |---|---|---|---|
-| 2.1 | **Pipeline de assets** (`npm run assets:optimize` com gltf-transform): redimensionar, **KTX2/Basis** para texturas, **meshopt** para malhas, remover dados não usados. Rodar em todo GLB novo. | ★★★ | M |
-| 2.2 | **Resolução de textura por uso**: na câmera isométrica um carro ocupa ~100–200 px na tela → 1024² é visualmente igual a 2048². Jogador e close-ups podem manter 2048. | ★★★ | P |
+| 2.1 | ✅ **Pipeline de assets** (parcial: texturas; KTX2 e meshopt pendentes) (`npm run assets:optimize` com gltf-transform): redimensionar, **KTX2/Basis** para texturas, **meshopt** para malhas, remover dados não usados. Rodar em todo GLB novo. | ★★★ | M |
+| 2.2 | ✅ **Resolução de textura por uso** (1024 p/ carros e NPCs; jogador usa o original): na câmera isométrica um carro ocupa ~100–200 px na tela → 1024² é visualmente igual a 2048². Jogador e close-ups podem manter 2048. | ★★★ | P |
 | 2.3 | **Texturas por nível de qualidade** (KTX2 já traz as versões menores; baixa usa 512–1024). | ★★ | P |
 | 2.4 | **Cache local** (Service Worker / Cache API): a 2ª visita abre quase instantânea, sem baixar 70 MB de novo. | ★★ | P |
 | 2.5 | **Carregamento por prioridade**: só o que está perto; NPCs e carros por demanda com versão leve enquanto o modelo completo chega. | ★★ | M |
@@ -213,7 +213,35 @@ O que sobrou nas travadas (próximas fases):
 - **Programas de shader** subindo (168 → 239) e **chamadas de desenho** (até 327): cada prédio clona materiais → 1.4 (unificar materiais), ainda pendente.
 - **Memória do JavaScript** continua crescendo (805 MB) → 4.6.
 
-## 8. Feito durante a análise
+## 8. Resultados da Fase 2 (texturas)
+
+`npm run assets:optimize` (`tools/optimize-assets.mjs`): texturas no máximo 1024 px em WebP (mapas normais sem perda),
+vértices em blocos separados como no original. Lê sempre do original e grava a versão do jogo.
+
+| Item | Antes | Depois |
+|---|---|---|
+| Carros (12 modelos) | 36,7 MB | 7,6 MB |
+| NPCs (52) | 137,7 MB | 77,1 MB (o resto é malha + esqueleto) |
+| Download de uma sessão | 71 MB | 32 MB |
+| Texturas na placa de vídeo | ~663 MB | ~318 MB (com mais objetos na cena) |
+| Centro dirigindo (aquecido) | 52 qps · 99% < 50 ms · pior 183 ms | 54,4 qps · 99% < 33,5 ms · pior 150 ms |
+| Até a tela de jogo | ~7–8 s | ~3 s |
+
+Onde ficam os originais:
+- **Carros**: `assets/references/glb-originals/vehicles/` (não vai p/ o site).
+- **NPCs**: `assets/npcs/hd/` — também usados pelo **jogador** (editor de personagem e jogo), que não perde nada.
+
+**Fluxo para modelos novos ou alterados** (rig-npcs, npc-skeleton, import de carros): gravar o arquivo na pasta do
+original e rodar `npm run assets:optimize`. Testes que garantem: `npc-rig` (NPC_RIG_ALL=1 nos 52) e `live-vehicle`.
+
+Pendentes desta fase:
+- **KTX2** (textura comprimida na placa, ~4× menos memória que agora): precisa do KTX-Software (`toktx`) instalado.
+- **Malha dos NPCs** (meshopt): ~1,3 MB por NPC; exige o decodificador no carregador dos personagens e cuidado com
+  código que lê `position.array` direto.
+- **Lixo temporário**: a memória do JS chega a ~2 GB no carregamento e cai p/ ~615 MB na coleta — as pausas de
+  coleta são parte das travadas "fora do JavaScript" → Fase 4.6.
+
+## 9. Feito durante a análise
 
 - NPCs consultam só a vizinhança na grade de colisão (`collNear`): centro a pé de 38 → 59 qps.
 - Medidores leves por camada/sistema: `cityVehicles.layerMs` (camadas 3D e desenho) e

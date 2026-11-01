@@ -204,11 +204,13 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
  try{kimodo=await loader.loadAsync(base+KIMODO_LIBRARY);}catch{}
  const characters=new Map(doc.characters.map(c=>[c.id,c]));
  const cache=new Map();
- // carrega um personagem sob demanda (os 52 não ficam na memória ao mesmo tempo)
- async function load(id){
+ // carrega um personagem sob demanda (os 52 não ficam na memória ao mesmo tempo). hd: texturas originais (npcs/hd)
+ // p/ o jogador e o editor de personagem; na rua, a versão leve (texturas 1024 WebP, tools/optimize-assets.mjs)
+ async function load(id,{hd=false}={}){
   const meta=characters.get(id);if(!meta)throw Error('Personagem desconhecido: '+id);
-  if(!cache.has(id))cache.set(id,(async()=>{
-   const gltf=await loader.loadAsync(base+NPC_DIR+meta.file),lib=libraries[meta.sex];
+  const key=hd?id+':hd':id;
+  if(!cache.has(key))cache.set(key,(async()=>{
+   const gltf=await loader.loadAsync(base+NPC_DIR+(hd?'hd/':'')+meta.file),lib=libraries[meta.sex];
    let bones=0,meshes=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;if(o.isSkinnedMesh){meshes++;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
    if(!meshes||!gltf.scene.getObjectByName('mixamorigHips'))throw Error(id+': GLB sem malha riggada no esqueleto Mixamo');
    (globalThis.__gpuWarm||(globalThis.__gpuWarm=[])).push(gltf.scene);   // shaders/texturas antes de aparecer (vehicle-webgl.mjs)
@@ -218,7 +220,7 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
    if(kimodo)for(const c of kimodo.animations)animations.push(retargetMixamo(c,kimodo.scene,gltf.scene,c.name,opts));
    return {gltf:{...gltf,animations},spec:{...meta,label:meta.name,bones,meshes,clips:clipSemantics(animations),rig:'mixamo'}};
   })());
-  try{return await cache.get(id);}catch(error){cache.delete(id);throw error;}
+  try{return await cache.get(key);}catch(error){cache.delete(key);throw error;}
  }
  const list=role=>[...characters.values()].filter(c=>!role||c.role===role);
  return {characters,load,list,libraries,kimodo};
