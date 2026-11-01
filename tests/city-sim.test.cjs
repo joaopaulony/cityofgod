@@ -44,14 +44,22 @@ test('business management is transactional and cannot collect before cooldown',(
 });
 test('vehicle ownership and customization persist across reload',()=>{
  const {life,sim,store}=boot();
- life.credit(2600,'teste concessionária');
- assert.equal(sim.buyCar('compact').ok,true);
+ life.credit(sim.CARS.compact.price+1000,'teste concessionária');
+ assert.equal(sim.buyCar('compact','#c0392b').ok,true);
  assert.equal(sim.buyCar('compact').ok,false);
+ assert.equal(sim.carColors.compact,'#c0392b');
  assert.equal(sim.theme('rose','pink'),true);
  const next=boot(Object.fromEntries(store));
  assert.ok(next.sim.data.cars.includes('compact'));
  assert.equal(next.sim.data.themes.wallpaper,'rose');
  assert.equal(next.sim.data.themes.caseColor,'pink');
+});
+test('the dealership buys a used car back for 60% of the list price',()=>{
+ const {life,sim}=boot();
+ life.credit(sim.CARS.sedan.price,'teste');assert.equal(sim.buyCar('sedan').ok,true);
+ const before=life.funds;assert.equal(sim.sellCar('sedan').ok,true);
+ assert.equal(life.funds-before,Math.round(sim.CARS.sedan.price*.6/100)*100);
+ assert.ok(!sim.cars.includes('sedan'));assert.equal(sim.sellCar('sedan').ok,false);
 });
 test('social feed is stored locally and user input is bounded',()=>{
  const {sim,store}=boot();

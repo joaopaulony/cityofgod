@@ -104,6 +104,8 @@ function remodelProperty(H){
  H.h=count*height;H.floorHeight=height;H.lightOn=true;H._warm=true;
  H.contains=(x,y,floor=0)=>{const p=local(x,y),l=plan.levels[floor];return !!l&&[...l.rooms,...l.outdoor].some(r=>CityArchitecture.inside(r,...p));};
  H.solidFootprints=plan.levels[0].rooms.map(r=>[[r.x0,r.y0],[r.x1,r.y0],[r.x1,r.y1],[r.x0,r.y1]].map(p=>P(...p)));
+ // carro de exposição (concessionária): GLB de verdade, comprimento ao longo do eixo pedido, sobre a plataforma, sem dar p/ dirigir
+ const showCar=(f,level)=>f.kind!=='parkedcar'?{}:{w:Math.max(f.w,f.d),d:Math.min(f.w,f.d),rot:f.carAlong==='y'?Math.atan2(ey[1],ey[0]):plan.angle,z:level.z+(f.lift||0),solid:true,display:true,draw:typeof drawParkedCar==='function'?drawParkedCar:undefined,vehicleKey:'show:'+H.seed+':'+Math.round(f.x*10)+':'+Math.round(f.y*10)};
  const putSegment=(level,wall,from,to,opening=null)=>{
   const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);
   const p=t=>P(wall.a[0]+(wall.b[0]-wall.a[0])*t/L,wall.a[1]+(wall.b[1]-wall.a[1])*t/L);
@@ -129,7 +131,7 @@ function remodelProperty(H){
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});H.interactables.push(b);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});H.interactables.push(b);
     }
   }
   const hall=level.rooms.find(r=>r.id==='hall'),center=P((hall.x0+hall.x1)/2,(hall.y0+hall.y1)/2);
@@ -144,7 +146,7 @@ function remodelProperty(H){
    for(const level of plan.levels)for(const f of level.furniture){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay});
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});
      H.interactables.push(b);newBoxes.push(b);
    }
    if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())

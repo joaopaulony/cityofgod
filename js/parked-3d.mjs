@@ -117,7 +117,7 @@ export function createParked3D(THREE, scene, bridge, damageFX=null) {
     const cfg=VEHICLE_MODELS.find(v=>v.id===id);
     const damageView=b.damage?.integrity<.999?createVehicleDeformation(THREE,obj,cfg):null;
     damageView?.apply(b.damage);
-    const g = new THREE.Group(); g.add(obj); g.position.set(b.x, 0, b.y); g.rotation.y = -b.rot;
+    const g = new THREE.Group(); g.add(obj); g.position.set(b.x, b.z || 0, b.y); g.rotation.y = -b.rot;   // z: carro de exposição sobre a plataforma
     const pieces=[];obj.traverse(o=>{if(o.isMesh)pieces.push(o);});
     scene.add(g);b.r3d=true;
     // Only add meshes to parked cars with lights left switched on; never attach SpotLights.

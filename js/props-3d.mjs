@@ -9,6 +9,7 @@ import {fallAngle} from './destructibles.mjs';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mjs';
 import {policeModels,POLICE_FABRIC,POLICE_STEEL} from './police-props.mjs';
+import {dealerModels,DEALER_STEEL} from './dealer-props.mjs';
 
 const TAU = Math.PI * 2;
 const hash2 = (x, y, k = 0) => { let h = Math.imul((x * 73856093) ^ (y * 19349663) ^ (k * 83492791), 0x45d9f3b); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
@@ -74,6 +75,7 @@ export function createProps(THREE, scene, bridge) {
   }};
   Object.assign(M,hospitalModels(THREE,{chair}));   // Hospital City of God (hospital-props.mjs)
   Object.assign(M,policeModels(THREE,{chair}));     // Delegacia Central (police-props.mjs)
+  Object.assign(M,dealerModels(THREE,{chair}));     // concessionárias City Motors (dealer-props.mjs)
   // ---------- rua ----------
   M.hydrant = { dims: [0.3, 0.75, 0.3], make(k) {
     k.cyl(0, 0, 0, 0.16, 0.07, '#cfc9b8'); k.cyl(0, 0.07, 0, 0.115, 0.52, '#e7c21e', 16); k.cyl(0, 0.52, 0, 0.15, 0.58, '#d9b01a', 16);
@@ -365,8 +367,8 @@ export function createProps(THREE, scene, bridge) {
   const matHomeCeramic=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.28,metalness:.07});
   const matHomeSteel=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.46});
   const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug',...HOSPITAL_FABRIC,...POLICE_FABRIC]);
-  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL,...POLICE_STEEL]);
-  const hospitalSet=new Set([...Object.keys(hospitalModels(THREE,{chair})),...Object.keys(policeModels(THREE,{chair}))]);   // demais aparelhos: plástico lavável (cerâmico)
+  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL,...POLICE_STEEL,...DEALER_STEEL]);
+  const hospitalSet=new Set([...Object.keys(hospitalModels(THREE,{chair})),...Object.keys(policeModels(THREE,{chair})),...Object.keys(dealerModels(THREE,{chair}))]);   // demais aparelhos: plástico lavável (cerâmico)
   const ceramicSet=new Set(['sink','toilet','shower']);
   const indoorMaterial=name=>fabricSet.has(name)?matHomeFabric:metallicSet.has(name)?matHomeSteel:
     ceramicSet.has(name)||hospitalSet.has(name)?matHomeCeramic:matHomeWood;

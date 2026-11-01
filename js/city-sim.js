@@ -16,15 +16,21 @@ const CitySim = (() => {
     food:  { title:'Restaurante', icon:'🍝', price:1600, income:240 },
     vet:   { title:'Clínica veterinária', icon:'🐕', price:2100, income:290 }
   };
+  // catálogo da concessionária City Motors (e do app do celular): preço, categoria, lugares e a descrição do vendedor
   const CARS = {
-    compact: { title:'Compacto', icon:'🚗', price:1200 },
-    coupe: { title:'Cupê', icon:'🏎️', price:4500 },
-    hatchback:{ title:'Hatchback', icon:'🚙', price:1900 },
-    sedan: { title:'Sedã', icon:'🚘', price:3000 },
-    pickup: { title:'Picape', icon:'🛻', price:5200 },
-    suv: { title:'SUV', icon:'🚙', price:6800 },
-    sport: { title:'Esportivo', icon:'🏎️', price:14500 }
+    compact:  { title:'Compacto', icon:'🚗', price:18900, cat:'Urbano', seats:4, text:'Econômico, fácil de estacionar e barato de manter. O primeiro carro ideal.' },
+    hatchback:{ title:'Hatchback', icon:'🚙', price:24900, cat:'Urbano', seats:5, text:'Porta-malas prático, bom consumo e direção leve no trânsito da cidade.' },
+    sedan:    { title:'Sedã', icon:'🚘', price:34900, cat:'Família', seats:5, text:'Confortável e silencioso, com espaço de sobra p/ a família e viagens.' },
+    wagon:    { title:'Perua', icon:'🚙', price:37900, cat:'Família', seats:5, text:'O espaço de uma SUV com a dirigibilidade de um sedã. Leva tudo.' },
+    minivan:  { title:'Minivan', icon:'🚐', price:42900, cat:'Família', seats:7, text:'Sete lugares, portas largas e muito conforto p/ quem precisa de espaço.' },
+    pickup:   { title:'Picape', icon:'🛻', price:58900, cat:'Trabalho', seats:5, text:'Caçamba grande e motor forte. Encara obra, sítio e estrada de terra.' },
+    suv:      { title:'SUV', icon:'🚙', price:69900, cat:'Utilitário', seats:5, text:'Posição de dirigir alta, robustez e segurança em qualquer bairro.' },
+    offroad:  { title:'Off-road', icon:'🚙', price:79900, cat:'Aventura', seats:5, text:'Tração e suspensão p/ morro, lama e praia. Não tem caminho ruim.' },
+    coupe:    { title:'Cupê', icon:'🏎️', price:89900, cat:'Esportivo', seats:2, text:'Linhas baixas, motor nervoso e muito estilo p/ chegar no baile.' },
+    silvia:   { title:'Silvia S13', icon:'🏎️', price:109900, cat:'Esportivo', seats:4, text:'Clássico japonês de tração traseira, queridinho do drift.' },
+    sport:    { title:'Esportivo', icon:'🏎️', price:189900, cat:'Superesportivo', seats:2, text:'O mais rápido da loja: aceleração brutal e velocidade máxima de pista.' }
   };
+  const USED_RATE = .6;   // a concessionária paga 60% do preço de tabela no usado
   const SERVICES = {
     pizza: { title:'Delivery de comida', icon:'🍕', price:32, note:'Entrega instantânea para o inventário nesta versão' },
     cleaner:{ title:'Faxineiro(a)', icon:'🧹', price:90, note:'Melhora a higiene do personagem e o estado da casa virtual' },
@@ -60,6 +66,7 @@ const CitySim = (() => {
         for(const [k,v] of Object.entries(s.businesses||{}))if(BUSINESSES[k])
           state.businesses[k]={open:!!v.open,staff:Math.max(0,Math.min(3,Number(v.staff)||0)),lastCollect:Math.max(0,Number(v.lastCollect)||0)};
         if(Array.isArray(s.cars))state.cars=s.cars.filter(k=>CARS[k]);
+        if(s.carColors&&typeof s.carColors==='object')state.carColors=Object.fromEntries(Object.entries(s.carColors).filter(([k,v])=>CARS[k]&&/^#[0-9a-f]{6}$/i.test(v)));
         if(s.home && Number.isFinite(s.home.x)&&Number.isFinite(s.home.y)&&typeof s.home.name==='string')state.home={name:s.home.name,x:s.home.x,y:s.home.y,price:Number(s.home.price)||0};
         if(Array.isArray(s.ownedLots))state.ownedLots=s.ownedLots.filter(x=>x&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&typeof x.name==='string').slice(0,15);
         if(Number.isFinite(s.maintenance))state.maintenance=Math.max(0,Math.min(100,s.maintenance));
@@ -119,18 +126,31 @@ const CitySim = (() => {
     }
     return fail('Ação desconhecida');
   }
-  function buyCar(id) {
+  function buyCar(id, col) {
     const c=CARS[id];
     if(!c||state.cars.includes(id))return fail('Carro indisponível ou já comprado');
     if(!transact(c.price,'Compra do veículo: '+c.title))return fail('Saldo insuficiente');
-    state.cars.push(id);commit();return ok(c.title+' comprado! Use Entregar veículo.');
+    state.cars.push(id);if(col)(state.carColors||(state.carColors={}))[id]=col;commit();return ok(c.title+' comprado! Use Entregar veículo.');
   }
-  async function deliverCar(id){
+  // venda do usado p/ a concessionária: 60% da tabela; o carro some do mundo
+  function sellCar(id) {
+    const c=CARS[id];
+    if(!c||!state.cars.includes(id))return fail('Este carro não é seu');
+    const V=window.cityVehicles;
+    if(V?.driver&&V.modelId===id)return fail('Saia do carro antes de vendê-lo');
+    const value=Math.round(c.price*USED_RATE/100)*100;
+    V?.removeOwned?.(id);
+    state.cars=state.cars.filter(k=>k!==id);if(state.carColors)delete state.carColors[id];
+    if(typeof CityLife!=='undefined')CityLife.credit(value,'Venda do veículo: '+c.title);
+    commit();return ok(c.title+' vendido por '+money(value));
+  }
+  const usedPrice=id=>CARS[id]?Math.round(CARS[id].price*USED_RATE/100)*100:0;
+  async function deliverCar(id,at){
     if(!state.cars.includes(id))return fail('Este carro não está na sua garagem');
     const vehicle=window.cityVehicles;
     if(!vehicle?.selectModel)return fail('Carregamento 3D do veículo indisponível');
     if(vehicle.driver)return fail('Saia do carro antes de chamar outro');
-    if(vehicle.deliverVehicle){const delivered=await vehicle.deliverVehicle(id);return delivered?ok('Seu '+CARS[id].title+' está próximo do personagem'):fail('Não há local livre para entregar o veículo');}
+    if(vehicle.deliverVehicle){const delivered=await vehicle.deliverVehicle(id,{...(at||{}),col:state.carColors?.[id]});if(delivered&&at)return ok('Seu '+CARS[id].title+' está no pátio da concessionária');return delivered?ok('Seu '+CARS[id].title+' está próximo do personagem'):fail('Não há local livre para entregar o veículo');}
     const changed=await vehicle.selectModel(id);
     if(!changed)return fail('O modelo 3D não pôde ser carregado');
     // O módulo do carro expõe a mesma instância mutável de posição.
@@ -262,7 +282,7 @@ const CitySim = (() => {
       state.lastBillDay=day;commit();
     }
   }
-  const api={init,save,work,applyJob,buyBusiness,manage,buyCar,deliverCar,nearbyLots,buyLot,rentApartment,setHome,payBills,destinations,travel,service,post,like,theme,tick,JOBS,BUSINESSES,CARS,SERVICES,
+  const api={init,save,work,applyJob,buyBusiness,manage,buyCar,sellCar,usedPrice,deliverCar,get cars(){return [...state.cars];},get carColors(){return {...(state.carColors||{})};},nearbyLots,buyLot,rentApartment,setHome,payBills,destinations,travel,service,post,like,theme,tick,JOBS,BUSINESSES,CARS,SERVICES,
     get data(){return state;},get game(){return game;}};
   return api;
 })();

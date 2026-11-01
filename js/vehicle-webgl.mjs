@@ -21,6 +21,7 @@ import {createGas3D} from './gas-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
+import {installDealership} from './dealership.mjs';
 import {createSkidFX} from './vehicle-skids.mjs';
 import {createDestructibles} from './destructibles.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
@@ -740,13 +741,18 @@ system.getWheelTelemetry=()=>wheelRig?Array.from(wheelRig.wheels).map(
   }):[];
 
 system.selectModel=selectModel;
-system.deliverVehicle=async id=>{
+installDealership(THREE,bridge);   // concessionárias City Motors: vitrine 3D, compra e venda
+// opts: {x,y,angle} p/ entregar num lugar (pátio da concessionária) e col (cor escolhida na compra)
+system.deliverVehicle=async (id,opts={})=>{
  if(system.driver||claiming||!await selectModel(id))return false;
- const q=nearestSafeParking();if(!isFree(q.x,q.y,q.angle))return false;
+ let q=Number.isFinite(opts.x)?{x:opts.x,y:opts.y,angle:opts.angle||0}:nearestSafeParking();
+ if(!isFree(q.x,q.y,q.angle)){if(!Number.isFinite(opts.x))return false;let ok=false;for(let k=1;k<10&&!ok;k++){const t={x:opts.x-Math.sin(opts.angle||0)*k*2.6,y:opts.y+Math.cos(opts.angle||0)*k*2.6,angle:opts.angle||0};if(isFree(t.x,t.y,t.angle)){q=t;ok=true;}}if(!ok)q=nearestSafeParking();}
  const key='owned:'+id,prior=fleet.saved.get(key);if(prior){prior.fleetHidden=true;prior.solid=false;}
- const b=fleet.park(key,{x:q.x,y:q.y,rot:q.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:id,col:'#c3c6c9',fuel:.65});
+ const b=fleet.park(key,{x:q.x,y:q.y,rot:q.angle,w:activeModel.length,d:system.bodyWidth,h:1.5,modelId:id,col:opts.col||'#c3c6c9',fuel:.85});
  b.draw=bridge.drawParkedCar;const saved=bridge.addBox(b);fleet.saved.set(key,saved);return true;
 };
+// carro vendido: some do mundo (o estacionado com a chave do dono)
+system.removeOwned=id=>{const b=fleet.saved.get('owned:'+id);if(b){b.fleetHidden=true;b.solid=false;fleet.saved.delete('owned:'+id);}return !!b;};
 system.nextModel=()=>selectModel(VEHICLE_MODELS[
  (VEHICLE_MODELS.findIndex(x=>x.id===activeModel.id)+1)%VEHICLE_MODELS.length].id);
 (async()=>{
