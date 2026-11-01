@@ -473,8 +473,11 @@ const owCounts = S => ({ houses: (S.own.houses || []).length, yards: (S.own.yard
 const owSeed = (S, tag) => { let h = (S.sx * 73856093) ^ (S.sy * 19349663) ^ COG.WORLD_SEED; for (const ch of tag) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 function withSeed(S, n, fn) { return fn(); }
 
+// casas 30% maiores que o modelo (corredor largo com escada encostada); o lote continua checado contra rua e vizinhos
+const OW_HOUSE_SCALE = 1.3;
 function owTryHouse(S, key, c, rects) {
-  const T = TPL[key]; if (!T) return null;
+  const T0 = TPL[key]; if (!T0) return null;
+  const T = key === 'TERMINAL' ? T0 : { ...T0, w: Math.round(T0.w * OW_HOUSE_SCALE), d: Math.round(T0.d * OW_HOUSE_SCALE) };
   if(c.rd&&!CityStreetLayout.alignedFront(c.rd,c.i,T.w))return null;
   const p = c.p, o = [p.nx * c.s, p.ny * c.s], [sx0, sy0, sx1, sy1] = S.bounds;
   let k = 0, best = -9;
@@ -496,6 +499,7 @@ function owTryHouse(S, key, c, rects) {
   const pal = SIDINGS[(rng() * SIDINGS.length) | 0], rr = rng();
   const roofKind = key === 'SHOP' ? 'flat' : key === 'C' ? (rr < 0.55 ? 'hip' : 'gable') : key === 'D' ? (rr < 0.62 ? 'gable' : 'flat') : key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') : (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
   const H = placeTemplate(T, x0, y0, k, Object.assign(key === 'SHOP' ? {} : { ext: pal[0], roof: pal[1], roofKind }, { seed: owSeed(S, 'h' + x0 + ',' + y0) }));
+  H.templateKey = key;   // T é uma cópia ampliada do modelo
   owIndexOwnedLive(S);
   return H;
 }

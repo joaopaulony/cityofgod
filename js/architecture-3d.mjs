@@ -248,6 +248,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    span(kit,P(t0),P(t1),z+.84,z+Math.min(h,.98),.205,style.band,'trim');span(kit,P(t0),P(t1),z,z+.11,.205,style.base,'trim');};
   let s=0;for(const o of [...w.openings].sort((a,b)=>a.at-b.at)){const a=o.at-o.width/2-.06,b=o.at+o.width/2+.06;seg(s,Math.max(s,a));s=Math.max(s,b);}seg(s,L);
  }
+ // caixa (planta) do lance, p/ o vão do piso
+ const stairBox=(s,pad=0)=>{const ax=s.axis==='x',hu=1.38+pad,hv=(s.w||.92)/2+.05+pad;return ax?[s.x-hu,s.y-hv,s.x+hu,s.y+hv]:[s.x-hv,s.y-hu,s.x+hv,s.y+hu];};
  function interior(e,floor,key){
   disposeGroup(e.interior);e.interior=new THREE.Group();e.root.add(e.interior);e.cutKey=key;e.innerDoors=[];e.innerWindows=[];
   const A=e.H.architecture,level=A.levels[floor],kit=Kit();if(!level)return;
@@ -258,7 +260,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    const slab=(x0,y0,x1,y1)=>{if(x1-x0>.01&&y1-y0>.01)kit.box(x0,level.z-.07,y0,x1,level.z-.005,y1,
      finish?.floor|| (CIVIC_STYLE[A.kind]?CIVIC_STYLE[A.kind].floor[r.use]||CIVIC_STYLE[A.kind].floor.default:e.H.civic?'#d9e0dc':wet?'#deded1':A.palette%2?'#c0a582':'#d4bea0'),
      0,finish?.material|| (e.H.civic?'tile':use));};
-   if(r.id==='hall'&&floor>0&&A.levels[floor-1]?.stair){const s=A.levels[floor-1].stair,x0=Math.max(r.x0,s.x-.51),x1=Math.min(r.x1,s.x+.51),y0=s.y-1.45,y1=s.y+1.45;slab(r.x0,r.y0,x0,r.y1);slab(x1,r.y0,r.x1,r.y1);slab(x0,r.y0,x1,y0);slab(x0,y1,x1,r.y1);}else slab(r.x0,r.y0,r.x1,r.y1);
+   const hole=floor>0&&A.levels[floor-1]?.stair?stairBox(A.levels[floor-1].stair,.01):null;
+   if(hole&&hole[0]<r.x1&&hole[2]>r.x0&&hole[1]<r.y1&&hole[3]>r.y0){const x0=Math.max(r.x0,hole[0]),x1=Math.min(r.x1,hole[2]),y0=Math.max(r.y0,hole[1]),y1=Math.min(r.y1,hole[3]);slab(r.x0,r.y0,x0,r.y1);slab(x1,r.y0,r.x1,r.y1);slab(x0,r.y0,x1,y0);slab(x0,y1,x1,r.y1);}
+   else slab(r.x0,r.y0,r.x1,r.y1);
   }
   for(const r of level.outdoor)balcony(kit,r,level.z,palettes[A.palette][1]);
   for(const w of level.walls){
@@ -275,21 +279,24 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    g.applyMatrix4(new THREE.Matrix4().lookAt(new THREE.Vector3(b[0],b[1],b[2]),new THREE.Vector3(a[0],a[1],a[2]),new THREE.Vector3(0,1,0)));
    g.translate((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);kit.raw(g,color,set);};
   const WOOD='#b88a5c',RISER='#efe9de',STEEL='#2f3439',RAIL='#5a3c28';
-  const flight=base=>{const s=base.stair,dir=s.dir||1,n=15,H=A.floorHeight,run=2.7,dy=run/n,rise=H/n,w=s.w||.92,x0=s.x-w/2,x1=s.x+w/2,yb=s.y+1.35*dir,Y=i=>yb-dir*i*dy;
-   for(let i=0;i<n;i++){const a=Y(i),b=Y(i+1),z=base.z+(i+1)*rise,lo=Math.min(a,b),hi=Math.max(a,b),nose=dir>0?hi+.025:lo-.025;
-    kit.box(x0+.03,z-.045,dir>0?lo:nose,x1-.03,z,dir>0?nose:hi,WOOD,.008,'wood');                       // piso do degrau com bocel
-    kit.box(x0+.05,z-rise,dir>0?a-.025:a,x1-.05,z-.045,dir>0?a:a+.025,RISER,0,'trim');}                 // espelho
-   for(const x of [x0+.02,x1-.02]){beam([x,base.z-.02,yb+dir*.04],[x,base.z+H-.05,Y(n)],.06,.3,STEEL,'metal');   // viga lateral
-    for(let i=1;i<n;i+=2){const z=base.z+(i+1)*rise,y=(Y(i)+Y(i+1))/2;kit.box(x-.012,z,y-.012,x+.012,z+.88,y+.012,STEEL,0,'metal');}   // montantes
-    beam([x,base.z+rise+.92,Y(0)],[x,base.z+H+.92,Y(n)],.028,0,RAIL,'wood',true);                    // corrimão
-    kit.box(x-.045,base.z,yb-.045,x+.045,base.z+1.02,yb+.045,RAIL,.01,'wood');kit.sph(x,base.z+1.05,yb,.05,RAIL,1,'wood');   // pilarete do pé
+  // pt(s,u,v): ponto da planta a u m ao longo do lance (+u = pé) e v m de lado; caixas alinhadas pelos dois cantos
+  const pt=(s,u,v)=>s.axis==='x'?[s.x+u,s.y+v]:[s.x+v,s.y+u];
+  const sbox=(s,u0,u1,v0,v1,y0,y1,color,r,set)=>{const a=pt(s,u0,v0),b=pt(s,u1,v1);kit.box(Math.min(a[0],b[0]),y0,Math.min(a[1],b[1]),Math.max(a[0],b[0]),y1,Math.max(a[1],b[1]),color,r,set);};
+  const flight=base=>{const s=base.stair,dir=s.dir||1,n=15,H=A.floorHeight,du=2.7/n,rise=H/n,hw=(s.w||.92)/2,ub=1.35*dir,U=i=>ub-dir*i*du;
+   for(let i=0;i<n;i++){const a=U(i),b=U(i+1),z=base.z+(i+1)*rise;
+    sbox(s,a+.025*dir,b,-hw+.03,hw-.03,z-.045,z,WOOD,.008,'wood');                                    // piso do degrau com bocel
+    sbox(s,a,a-.025*dir,-hw+.05,hw-.05,z-rise,z-.045,RISER,0,'trim');}                               // espelho
+   for(const v of [-hw+.02,hw-.02]){const P0=pt(s,ub+dir*.04,v),P1=pt(s,U(n),v);beam([P0[0],base.z-.02,P0[1]],[P1[0],base.z+H-.05,P1[1]],.06,.3,STEEL,'metal');   // viga lateral
+    for(let i=1;i<n;i+=2){const z=base.z+(i+1)*rise,m=(U(i)+U(i+1))/2;sbox(s,m-.012,m+.012,v-.012,v+.012,z,z+.88,STEEL,0,'metal');}   // montantes
+    const R0=pt(s,U(0),v),R1=pt(s,U(n),v);beam([R0[0],base.z+rise+.92,R0[1]],[R1[0],base.z+H+.92,R1[1]],.028,0,RAIL,'wood',true);   // corrimão
+    sbox(s,ub-.045,ub+.045,v-.045,v+.045,base.z,base.z+1.02,RAIL,.01,'wood');const N=pt(s,ub,v);kit.sph(N[0],base.z+1.05,N[1],.05,RAIL,1,'wood');   // pilarete do pé
    }};
   // guarda-corpo do vão: laterais e a borda de baixo; aberto onde o lance chega
-  const guard=below=>{const s=below.stair,w=(s.w||.92)/2+.05,yb=s.y+1.38*s.dir,yt=s.y-1.38*s.dir,z=level.z;
+  const guard=below=>{const s=below.stair,w=(s.w||.92)/2+.05,ub=1.38*s.dir,ut=-1.38*s.dir,z=level.z;
    const rail=(a,b)=>{const L=Math.hypot(b[0]-a[0],b[1]-a[1]),k=Math.max(1,Math.round(L/.45));for(let i=0;i<=k;i++){const x=a[0]+(b[0]-a[0])*i/k,y=a[1]+(b[1]-a[1])*i/k;kit.box(x-.012,z,y-.012,x+.012,z+1,y+.012,STEEL,0,'metal');}
     beam([a[0],z+1,a[1]],[b[0],z+1,b[1]],.03,0,RAIL,'wood',true);beam([a[0],z+.5,a[1]],[b[0],z+.5,b[1]],.015,0,STEEL,'metal',true);
     kit.box(Math.min(a[0],b[0])-.03,z,Math.min(a[1],b[1])-.03,Math.max(a[0],b[0])+.03,z+.1,Math.max(a[1],b[1])+.03,RISER,0,'trim');};
-   rail([s.x-w,yb],[s.x-w,yt]);rail([s.x+w,yb],[s.x+w,yt]);rail([s.x-w,yb],[s.x+w,yb]);};
+   rail(pt(s,ub,-w),pt(s,ut,-w));rail(pt(s,ub,w),pt(s,ut,w));rail(pt(s,ub,-w),pt(s,ub,w));};
   if(level.stair&&floor<A.levels.length-1)flight(level);if(floor>0&&A.levels[floor-1]?.stair){flight(A.levels[floor-1]);guard(A.levels[floor-1]);}
   groups(kit,e.interior,{...innerMats,glass:e.glass});for(const d of e.innerDoors)e.interior.add(d.object);e.innerSashes=installSashes(e.innerWindows,e.interior,e.glass,innerMats.trim);
  }
@@ -302,7 +309,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   }catch(error){builds.delete(H);state.errors.push(String(error));console.error('Architecture 3D',error);continue;}}
    const A=H.architecture,isInside=H.inside,floor=Math.min(A.levels.length-1,bridge.player.stairTravel?.to??bridge.player.floor??0);
    e.exterior.visible=e.roof.visible=!isInside;
-   if(isInside){const key=floor+':'+Math.sign(Math.sin(c.ang-A.angle))+':'+Math.sign(Math.cos(c.ang-A.angle))+':'+(H.homeFinishVersion||0);if(e.cutKey!==key)interior(e,floor,key);e.interior.visible=true;}else if(e.interior)e.interior.visible=false;
+   if(isInside){const key=floor+':'+Math.sign(Math.sin(c.ang-A.angle))+':'+Math.sign(Math.cos(c.ang-A.angle))+':'+(H.homeFinishVersion||0)+':'+(A.stairRev||0);if(e.cutKey!==key)interior(e,floor,key);e.interior.visible=true;}else if(e.interior)e.interior.visible=false;
    for(const d of [...e.doors,...(e.innerDoors||[])]){const open=d.opening.segment?.doorAnim?.open||0;if(d.opening.style==='roller')d.object.position.y=d.baseY+open*d.opening.height;else d.object.rotation.y=d.base+open*1.3;}
    if(e.garageDoor){const o=e.garageDoor.g.seg?.doorAnim?.open||0,d=e.garageDoor.object;d.rotation.x=o*1.5;d.position.z=e.garageDoor.g.y1-.05-o*.18;}
    updateSashes(e.sashes);if(e.interior?.visible)updateSashes(e.innerSashes);

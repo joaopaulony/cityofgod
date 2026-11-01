@@ -137,6 +137,7 @@ const CityHomeUI=(()=>{
     '<div class="home-footer"><div class="home-floor-control"><span>Andar</span>'+Array.from({length:Math.min(10,fcount)},(_,i)=>
       '<button data-home-action="floor" data-value="'+i+'" class="'+(floor===i?'on':'')+'">'+(i+1)+'</button>').join('')+'</div>'+
     '<div id="city-home-status" class="home-status" data-ok="1">'+(draft?'Movimente e confirme a peça':'Selecione um móvel para começar')+'</div>'+
+    (fcount>1&&window.CityStairs?'<button class="home-stairs-tool" data-home-action="stairs" title="Escolha onde fica a escada · R gira · clique confirma">🪜 Posicionar escada</button>':'')+
     '<div class="home-footer-actions"><button data-home-action="grid">'+(grid?'▦ Grade ligada':'▦ Grade desligada')+'</button><button data-home-action="undo">↶ Desfazer</button><button data-home-action="confirm" class="primary">✓ Confirmar</button></div>'+
     '<details class="home-help"><summary>Controles e atalhos</summary><small>Arrastar: mover · R: girar 45° · Shift+R: giro fino · Scroll: zoom · Botão direito: câmera · Q/E: girar câmera · Delete: guardar · Ctrl+Z: desfazer · Esc: sair</small></details></div>';
    const body=root.querySelector('.home-shop-content');if(body)body.scrollTop=previousScroll;
@@ -174,6 +175,7 @@ const CityHomeUI=(()=>{
      }
      if(action==='place'){beginPlace(value);return;}
      if(action==='confirm'){confirm();return;}
+     if(action==='stairs'){beginStairs();return;}
      if(action==='paint'){
        if(!draft||draft.mode!=='move')return;
        const r=CityHome.recolor(H,draft.id,value);
@@ -205,10 +207,26 @@ const CityHomeUI=(()=>{
     z:H.architecture?.levels?.[floor]?.z||floor*(H.floorHeight||3),floor};
    selectedId=id;applyFloor();renderPanel();message('Escolha a posição verde para colocar o móvel');
  }
- function test(){return draft&&CityHome.check(H,{...draft,status:'placed'},draft.mode==='move'?draft.id:null);}
+ function test(){if(draft?.mode==='stair')return draft.spec?CityStairs.check(H,draft.spec):null;return draft&&CityHome.check(H,{...draft,status:'placed'},draft.mode==='move'?draft.id:null);}
+ // escada: o contorno (dois lances, se houver vai-e-volta) segue o mouse no térreo; R gira 90°; clique confirma
+ const STAIR_DIRS=[['y',1],['x',1],['y',-1],['x',-1]];
+ function beginStairs(){
+   if(!H?.architecture||H.architecture.levels.length<2)return;
+   const cur=H.architecture.stairSpec||{x:0,y:0,axis:'y',dir:1,side:1};
+   floor=0;applyFloor();draft={mode:'stair',spec:{...cur},turn:Math.max(0,STAIR_DIRS.findIndex(([a,d])=>a===cur.axis&&d===cur.dir)),z:0,top:'#70ffc7'};
+   stairShape();renderPanel();message('Mova o mouse até onde quer a escada · R gira · clique p/ confirmar');
+ }
+ function stairShape(){
+   const A=H.architecture,s=draft.spec,[axis,dir]=STAIR_DIRS[draft.turn%4];s.axis=axis;s.dir=dir;s.side=s.side||1;
+   // contorno do 1º lance: retângulo a partir dos cantos da caixa na planta (vale p/ casa girada ou espelhada)
+   const b=CityStairs.box(CityStairs.flightOf(s,0,A.levels.length)),p0=A.toWorld(b[0],b[1]),p1=A.toWorld(b[2],b[1]),p3=A.toWorld(b[0],b[3]),c=A.toWorld((b[0]+b[2])/2,(b[1]+b[3])/2);
+   draft.x=c[0];draft.y=c[1];draft.w=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]);draft.d=Math.hypot(p3[0]-p0[0],p3[1]-p0[1]);draft.rot=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]);
+   const el=document.getElementById('city-home-status'),r=test();if(el){el.textContent=r?.text||'Posicionando';el.dataset.ok=r?.ok?'1':'0';}
+ }
  function pointerPosition(e){
    const z=draft?.z||H.architecture?.levels?.[floor]?.z||0;
    const pp=unproj(e.clientX/RS,e.clientY/RS,z);
+   if(draft?.mode==='stair'){const q=H.architecture.toLocal(pp[0],pp[1]);draft.spec.x=Math.round(q[0]*4)/4;draft.spec.y=Math.round(q[1]*4)/4;stairShape();return;}
    if(draft){
      draft.x=grid?Math.round(pp[0]*2)/2:Math.round(pp[0]*100)/100;
      draft.y=grid?Math.round(pp[1]*2)/2:Math.round(pp[1]*100)/100;
@@ -221,6 +239,7 @@ const CityHomeUI=(()=>{
  }
  function confirm(){
    if(!draft)return;
+   if(draft.mode==='stair'){const r=CityStairs.save(H,draft.spec);if(r.ok){clean();renderPanel();}message(r.text,r.ok);return;}
    const validation=test();
    if(!validation?.ok){message(validation?.text||'Local inválido',false);return;}
    const r=draft.mode==='place'?CityHome.place(H,draft.id,draft):CityHome.move(H,draft.id,draft);
@@ -282,6 +301,7 @@ const CityHomeUI=(()=>{
    }
    if(k==='g'){grid=!grid;renderPanel();return;}
    if(k==='q'||k==='e'){cam.tang+=(k==='q'?1:-1)*Math.PI/8;return;}
+   if(k==='r'&&draft?.mode==='stair'){draft.turn=(draft.turn+1)%4;stairShape();return;}
    if(k==='r'&&draft){
      draft.rot=(draft.rot+(e.shiftKey?Math.PI/16:Math.PI/4))%(Math.PI*2);
      pointerStatus();return;

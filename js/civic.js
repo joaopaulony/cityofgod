@@ -35,7 +35,7 @@
 function civicPlaceSector(S){
  for(const site of world.civicSites||[]){
   const x=site.x,y=site.y-44;if(x<S.bounds[0]||x>=S.bounds[2]||y<S.bounds[1]||y>=S.bounds[3])continue;
-  const H=addHouse({x0:x-19,y0:y-16,x1:x+19,y1:y+16,h:site.floors*3.3,nFloors:site.floors,floorHeight:3.3,seed:owSeed(S,site.id),roofKind:'flat',frontSide:'S',open:{S:{door:[19]}},civic:true,miaKind:site.kind,bName:site.name});
+  const H=addHouse({x0:x-23,y0:y-18,x1:x+23,y1:y+18,h:site.floors*3.3,nFloors:site.floors,floorHeight:3.3,seed:owSeed(S,site.id),roofKind:'flat',frontSide:'S',open:{S:{door:[19]}},civic:true,miaKind:site.kind,bName:site.name});
   H.style={...H.style,plaster:site.color};remodelProperty(H);H.walk=[H.doorPt,[H.doorPt[0],site.y+3]];
   const bb=[x-25,site.y-25,x+25,site.y+2];world.paved.push(bb);
   world.decals.push({kind:'civic-parking',bb,site,paint(g){

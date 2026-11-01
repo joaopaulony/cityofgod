@@ -148,7 +148,7 @@
    const w=W-setback*2,d=D-setback*2,ox=setback,oy=setback;
    const civic=['hospital','police','military','cityhall','school'].includes(kind);
    const publicFloor=civic||floor===0&&['office','condo','projects','deco','shop','airport','warehouse'].includes(kind);
-   const hallW=publicFloor?(kind==='airport'?3.6:kind==='warehouse'?2.8:2.5):count>1?2.15:1.35;
+   const hallW=publicFloor?(kind==='airport'?3.6:kind==='warehouse'?2.8:3.4):count>1?3.0:1.8;   // corredores largos: a escada encosta numa parede e sobra passagem
    const left=round(coreX-hallW/2-ox),right=round(left+hallW),rear=round(Math.max(2.8,d*rearFraction));
    const inset=round(Math.min(1.8,d*.18)),wingRecess=count>3&&floor>=Math.ceil(count*.6)?Math.min(1.4,d*.1):0;
    const leftEnd=Math.max(rear+2.8,d-(family===2?inset:0)-(family%2===0?wingRecess:0)),rightEnd=Math.max(rear+2.8,d-(family===1||family===3?inset:0)-(family%2?wingRecess:0)),entry=d-(floor>0?1.65:family===0?inset:inset*.55);
@@ -171,7 +171,7 @@
    let hospital=null;
    const custom={hospital:HOSPITAL_FLOORS,police:POLICE_FLOORS}[kind];
    if(custom){
-    const HW=3.2,hl=round(w/2-HW/2),hr=round(hl+HW),he=round(d-1.2),plan=custom[Math.min(floor,custom.length-1)];
+    const HW=4.4,hl=round(w/2-HW/2),hr=round(hl+HW),he=round(d-1.2),plan=custom[Math.min(floor,custom.length-1)];
     rooms=[];
     for(const [side,list] of [['left',plan.L],['right',plan.R]])list.reduce((y0,[use,f],i)=>{
      const last=i===list.length-1,y1=last?d:round(d*f),id=last?'front-'+side:side+'-'+i;

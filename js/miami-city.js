@@ -96,7 +96,8 @@ function miaLot(S, c, rects, front, depth, set, margin, keepRoad = 0.3, rotateBu
 
 // ---------- prédio (fachada pintada por andar) ----------
 function miaBuilding(S, c, rects, kind) {
-  const r = rng, sp = MIA_SPEC[kind](r);
+  // prédios 25% maiores (frente e fundo, em metros pares)
+  const r = rng, sp = MIA_SPEC[kind](r); sp.w = 2 * Math.round(sp.w * 1.25 / 2); sp.d = 2 * Math.round(sp.d * 1.25 / 2);
   const L = miaLot(S, c, rects, sp.w, sp.d, Math.max(.7, Math.min(sp.set, kind === 'warehouse' ? 1.3 : kind === 'projects' ? .85 : .72)), kind === 'warehouse' ? 2 : kind === 'shop' ? .6 : 1.2, .3, true);
   if (!L) return null;
   rects.push(L.box);
@@ -248,7 +249,7 @@ const miaQuad = (fx, fy, n, t, half, ext) => [[fx - t[0] * half, fy - t[1] * hal
 // pórtico de colunas, entrada circular com chafariz, piscina com deque e palmeiras imperiais ----------
 function miaMansion(S, c, rects) {
   let L = null, HW = 0, HD = 0;
-  for (const [hw, hd, lw, ld] of [[20, 14, 34, 33], [18, 12, 30, 29], [16, 11, 27, 26]]) if ((L = miaLot(S, c, rects, lw, ld, 0.7, 0.3))) { HW = hw; HD = hd; break; }
+  for (const [hw, hd, lw, ld] of [[24, 17, 40, 38], [22, 15, 36, 34], [19, 13, 32, 30]]) if ((L = miaLot(S, c, rects, lw, ld, 0.7, 0.3))) { HW = hw; HD = hd; break; }
   if (!L) return null;
   rects.push(L.box);
   const { fk, n } = L, t = [-n[1], n[0]], ax = Math.abs(n[0]) > 0.5;

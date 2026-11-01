@@ -1,5 +1,77 @@
 // Installs the shared plan into the real streamed city, including its colliders.
 'use strict';
+// ---------- escadas: um lance por andar (f → f+1); vai-e-volta com 3+ andares; posição salva pelo dono no modo construção ----------
+// spec (coordenadas da planta): {x,y} centro do 1º lance, axis 'y'|'x' (direção do lance), dir ±1 (sentido da subida)
+const CityStairs=(()=>{
+ const KEY='cityofgod.home-stairs.v1',RUN=1.35,HALF=.5;
+ let saves=null;
+ const load=()=>{if(saves)return saves;try{saves=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(_){saves={};}return saves;};
+ const id=H=>(typeof world!=='undefined'?world.seed:'city')+':'+(typeof CityRealty!=='undefined'?CityRealty.id(H):H.seed);
+ // ponto do lance: u ao longo da subida, v de lado
+ const pt=(s,u,v)=>s.axis==='x'?[s.x+u,s.y+v]:[s.x+v,s.y+u];
+ // lance do andar f a partir do spec: com 3+ andares os lances alternam de lado (1,05 m) e de sentido
+ function flightOf(spec,f,count){
+  const zig=count>2&&f%2,side=spec.side||1;
+  const s={axis:spec.axis||'y',dir:(spec.dir||1)*(zig?-1:1),w:.92};
+  const off=zig?1.05*side:0;s.x=spec.axis==='x'?spec.x:spec.x+off;s.y=spec.axis==='x'?spec.y+off:spec.y;
+  return s;
+ }
+ // caixa (planta) que o lance ocupa: entrada (u=+RUN*dir) livre, laterais e fundo sólidos
+ const box=s=>{const a=pt(s,RUN*s.dir+.05*s.dir,-HALF),b=pt(s,-RUN*s.dir-.05*s.dir,HALF);return [Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];};
+ const inRect=(r,x0,y0,x1,y1,pad=0)=>x0>=r.x0+pad-1e-6&&y0>=r.y0+pad-1e-6&&x1<=r.x1-pad+1e-6&&y1<=r.y1-pad+1e-6;
+ const segHit=(w,b,pad)=>{const minx=Math.min(w.a[0],w.b[0]),maxx=Math.max(w.a[0],w.b[0]),miny=Math.min(w.a[1],w.b[1]),maxy=Math.max(w.a[1],w.b[1]);return maxx>b[0]-pad&&minx<b[2]+pad&&maxy>b[1]-pad&&miny<b[3]+pad;};
+ // cabe? cada lance dentro de um cômodo só (sem atravessar parede) nos dois andares que liga, longe das portas,
+ // e com a entrada (embaixo) e a saída (em cima) desimpedidas
+ function check(plan,spec){
+  const n=plan.levels.length;if(n<2)return {ok:false,text:'Casa térrea: não há escada'};
+  for(let f=0;f<n-1;f++){
+   const s=flightOf(spec,f,n),b=box(s),ent=pt(s,(RUN+.7)*s.dir,0),ext=pt(s,-(RUN+.7)*s.dir,0);
+   for(const L of [plan.levels[f],plan.levels[f+1]]){
+    const room=L.rooms.find(r=>inRect(r,b[0],b[1],b[2],b[3],.04));
+    if(!room)return {ok:false,text:'A escada precisa caber inteira num cômodo, sem atravessar parede'};
+    for(const w of L.walls)for(const o of w.openings)if(o.kind==='door'){const len=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),px=w.a[0]+(w.b[0]-w.a[0])*o.at/len,py=w.a[1]+(w.b[1]-w.a[1])*o.at/len;
+     if(px>b[0]-.9&&px<b[2]+.9&&py>b[1]-.9&&py<b[3]+.9)return {ok:false,text:'Não pode bloquear uma porta'};}
+   }
+   const inside=(L,p)=>L.rooms.some(r=>p[0]>r.x0+.25&&p[0]<r.x1-.25&&p[1]>r.y0+.25&&p[1]<r.y1-.25);
+   if(!inside(plan.levels[f],ent))return {ok:false,text:'Deixe espaço livre no pé da escada'};
+   if(!inside(plan.levels[f+1],ext))return {ok:false,text:'Deixe espaço livre no topo da escada'};
+  }
+  return {ok:true,text:'Clique para colocar a escada aqui · R gira'};
+ }
+ // padrão: encostada numa parede do corredor, do lado sem portas na frente, perto do meio
+ function auto(plan){
+  const L0=plan.levels[0],hall=L0.rooms.find(r=>r.id==='hall'),D=plan.depth;
+  for(const y of [D*.45,D*.35,D*.55,D*.25,D*.65])for(const [x,side] of [[hall.x0+.56,1],[hall.x1-.56,-1],[(hall.x0+hall.x1)/2-.45,1]]){
+   const spec={x,y,axis:'y',dir:1,side};if(check(plan,spec).ok)return spec;
+  }
+  return {x:(hall.x0+hall.x1)/2-.45,y:D*.45,axis:'y',dir:1,side:1};
+ }
+ function colliders(H,plan){
+  const P=plan.toWorld;
+  for(const o of H.stairSegs||[]){const a=o.floor?world.upperSegs:world.segs,i=a?.indexOf(o);if(i>=0)a.splice(i,1);const j=H.segs.indexOf(o);if(j>=0)H.segs.splice(j,1);}
+  H.stairSegs=[];
+  for(const level of plan.levels){
+   const s=level.stair;if(!s||level.floor>=plan.levels.length-1)continue;
+   const ub=(RUN+.03)*s.dir,ut=-(RUN+.03)*s.dir;
+   const seg=(floor,a,b)=>{const p=P(...a),q=P(...b),o={x1:p[0],y1:p[1],x2:q[0],y2:q[1],house:H,floor,architecture:true,kind:'stairrail',h:(floor+1)*H.floorHeight,z:floor*H.floorHeight};
+    if(floor)(world.upperSegs||(world.upperSegs=[])).push(o);else{world.segs.push(o);H.segs.push(o);}H.stairSegs.push(o);};
+   // embaixo: laterais e o fundo (debaixo do lance); em cima: laterais e a borda do lado de baixo do vão
+   for(const [floor,end] of [[level.floor,ut],[level.floor+1,ub]]){seg(floor,pt(s,ub,-HALF),pt(s,ut,-HALF));seg(floor,pt(s,ub,HALF),pt(s,ut,HALF));seg(floor,pt(s,end,-HALF),pt(s,end,HALF));}
+  }
+ }
+ function apply(H,spec){
+  const plan=H.architecture,P=plan.toWorld,n=plan.levels.length;
+  for(const level of plan.levels){
+   const s=flightOf(spec,level.floor,n);
+   level.stair={...s,bottom:P(...pt(s,(RUN-.1)*s.dir,0)),top:P(...pt(s,-(RUN-.1)*s.dir,0)),center:P(s.x,s.y)};
+  }
+  plan.stairSpec=spec;plan.stairRev=(plan.stairRev||0)+1;colliders(H,plan);
+ }
+ function layout(H){const saved=load()[id(H)],plan=H.architecture;apply(H,saved&&check(plan,saved).ok?saved:auto(plan));}
+ function save(H,spec){const c=check(H.architecture,spec);if(!c.ok)return c;apply(H,spec);load()[id(H)]=spec;try{localStorage.setItem(KEY,JSON.stringify(saves));}catch(_){}return {ok:true,text:'Escada posicionada'};}
+ return {layout,check:(H,spec)=>check(H.architecture,spec),save,flightOf,box,pt,RUN,get spec(){return null;}};
+})();
+globalThis.CityStairs=CityStairs;
 if(typeof addEventListener==='function'&&new URLSearchParams(location.search).has('architectureTest')){
  globalThis.cityArchitectureErrors=[];
  addEventListener('error',e=>globalThis.cityArchitectureErrors.push(e.message+' at '+e.filename+':'+e.lineno));
@@ -82,23 +154,6 @@ function remodelProperty(H){
  const first=plan.levels[0];H.doorPt=P(...first.entry);H.doorN=[ey[0],ey[1]];H.front=[H.doorPt[0]+ey[0]*1.8,H.doorPt[1]+ey[1]*1.8];if(H.walk)H.walk[0]=H.doorPt;
  if(typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
  plan.openingSegments=plan.levels.flatMap(level=>level.segments.filter(s=>s.doorAnim||s.windowAnim));
- if(count>1){H.stair={house:H,z:height,architecture:true};
-  // cada lance sobe do andar f ao f+1; com 3+ andares, vai-e-volta: lances alternam de lado e de sentido (não se sobrepõem)
-  for(const level of plan.levels){const hall=level.rooms.find(r=>r.id==='hall'),cx=(hall.x0+hall.x1)/2,y=D*.45,zig=count>2,f=level.floor;
-   const x=zig?cx+(f%2?.52:-.52):cx-.45,dir=zig&&f%2?-1:1;
-   level.stair={x,y,dir,w:.92,bottom:P(x,y+1.25*dir),top:P(x,y-1.25*dir),center:P(x,y)};}
-  stairColliders(plan,P,H);
- }
+ if(count>1){H.stair={house:H,z:height,architecture:true};CityStairs.layout(H);}
  return H;
-}
-// laterais da escada (só se entra por baixo) e guarda-corpo do vão no andar de cima (só se entra pelo topo)
-function stairColliders(plan,P,H){
- for(const level of plan.levels){
-  const s=level.stair;if(!s||level.floor>=plan.levels.length-1)continue;
-  const x0=s.x-.5,x1=s.x+.5,yb=s.y+1.38*s.dir,yt=s.y-1.38*s.dir;
-  const seg=(floor,a,b)=>{const p=P(...a),q=P(...b),o={x1:p[0],y1:p[1],x2:q[0],y2:q[1],house:H,floor,architecture:true,kind:'stairrail',h:(floor+1)*H.floorHeight,z:floor*H.floorHeight};
-   if(floor)(world.upperSegs||(world.upperSegs=[])).push(o);else{world.segs.push(o);H.segs.push(o);}};
-  // embaixo: laterais e o fundo (debaixo do lance); em cima: laterais e a borda do lado de baixo do vão
-  for(const [floor,ends] of [[level.floor,[yt]],[level.floor+1,[yb]]]){seg(floor,[x0,yb],[x0,yt]);seg(floor,[x1,yb],[x1,yt]);for(const e of ends)seg(floor,[x0,e],[x1,e]);}
- }
 }
