@@ -447,7 +447,7 @@ function moveCar(dt){
   Object.assign(state,next,{speed:next.speed*.82});
   system.lastImpact=collision.impact.kind;
   registerCrash(damage,{kind:'object'},Math.abs(old.speed)*.3,lightingClock,collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact),activeModel.length/4.7);
-  window.CityAudio?.crash(state.x,state.y,.35);
+  window.CityAudio?.crash(state.x,state.y,.35);window.CameraMotion?.shake(Math.min(.5,Math.abs(old.speed)/20),.3);
   system.damage=damage;refreshDeformation();
   fuel.msg=collision.impact.kind==='lamp'?'Você derrubou um poste':collision.impact.kind==='trafficSignal'?'Você derrubou um semáforo':'Hidrante quebrado!';fuel.msgT=2.5;
  }else if(!collision.impact){
@@ -460,7 +460,7 @@ function moveCar(dt){
   system.lastImpact=collision.impact.kind;
   const panel=collisionPanel({...old,length:activeModel.length,width:system.bodyWidth},collision.impact);
   const crash=registerCrash(damage,collision.impact,old.speed,lightingClock,panel,activeModel.length/4.7);
-  if(Math.abs(old.speed)>1.5)window.CityAudio?.crash(state.x,state.y,Math.abs(old.speed)/14);
+  if(Math.abs(old.speed)>1.5){window.CityAudio?.crash(state.x,state.y,Math.abs(old.speed)/14);window.CameraMotion?.shake(Math.min(1,Math.abs(old.speed)/16),.25+Math.min(.35,Math.abs(old.speed)/40),Math.abs(old.speed)>6);}   // batida: tremor (e soco de zoom se forte)
   if(crash){
    system.damage=damage;
    refreshDeformation();

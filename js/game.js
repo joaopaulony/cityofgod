@@ -74,7 +74,7 @@ window.cityVehicleBridge={
 // ---------- vida do jogador: tiro da polícia fere; zerou → cai, apaga e acorda no hospital ----------
 function hurtPlayer(dmg,from){
   if(player.dead||player.busted||st.hp<=0)return;
-  st.hp=Math.max(0,st.hp-dmg/100);player.hurtT=0.55;st.shake=Math.max(st.shake,0.16);
+  st.hp=Math.max(0,st.hp-dmg/100);player.hurtT=0.55;st.shake=Math.max(st.shake,0.16);window.CameraMotion?.shake(Math.min(.6,.2+dmg/60),.35);
   window.cityCharacters?.bleed?.(player,from);
   if(st.hp<=0)playerDown(from);
 }
@@ -346,7 +346,7 @@ function fire(J) {
     tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
     impact(hit, hz); window.CityAudio?.bulletHit(hit.x, hit.y, hit.kind === 'tree' || hit.kind === 'none');
   }
-  player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12;
+  player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12; window.CameraMotion?.shake(.14, .13);
   window.CityAudio?.gun(W.cat || 'rifle', player.x, player.y, true);
   window.cityCharacters?.report?.('shot', player.x, player.y);   // tiros seguidos chamam a polícia
   // cápsula ejetada p/ a direita do fuzil
@@ -382,7 +382,7 @@ function updatePlayer(dt) {
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
   if ((mx || my) && !p.stairTravel) {
-    const w = screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);
+    const w = window.CameraMotion ? CameraMotion.moveDir(mx, my) : screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);   // ângulo travado enquanto anda (camera-motion.js)
     p.moveA = Math.atan2(w[1], w[0]);
     // andar 2,6 m/s e correr 5,55 m/s; atirando/recarregando dá p/ continuar correndo (um pouco mais devagar)
     const busy = !melee && (p.aimHold > 0 || p.reloadT >= 0);
@@ -1055,10 +1055,12 @@ function tick(dt) {
     cam.tx = player.x + lx-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly-Math.cos(cam.ang)*floorFocus;
     if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
+  window.CameraMotion?.pre(dt);   // acompanha a direção, zoom pela velocidade (camera-motion.js)
   cam.update(dt);
+  window.CameraMotion?.post(dt);   // tremor suave e zoom só neste quadro
   st.shake = Math.max(0, st.shake - dt);
   const sx = cam.x, sy = cam.y;
-  if (st.shake > 0) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }
+  if (st.shake > 0 && !window.CameraMotion) { cam.x += rnd(-1, 1) * st.shake * 0.5; cam.y += rnd(-1, 1) * st.shake * 0.5; }   // tremor antigo só sem camera-motion.js
   render();
   window.cityVehicles?.render();
   window.CityCamera?.afterRender?.(view,document.getElementById('vehicle3d'));
