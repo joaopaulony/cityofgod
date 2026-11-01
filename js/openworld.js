@@ -190,7 +190,9 @@ function owSnap() { return OW_TRACK().map(([, a]) => a.length); }
 function owCollect(S, snap) {
   for(const H of houses.slice(snap[0]))if(typeof remodelProperty==='function')remodelProperty(H);
   OW_TRACK().forEach(([name, a], i) => {
-    for (let k = snap[i]; k < a.length; k++) { const o = a[k]; if (o && o.kind === 'vehicle') continue; (S.own[name] || (S.own[name] = [])).push(o); }
+    // carro que o jogador deixou (fleetSaved) e as paredes dele não são do setor: senão a limpeza ou o descarregamento
+    // do setor gerado naquele instante apagava o carro (ele sumia ao descer, ou depois de andar um pouco)
+    for (let k = snap[i]; k < a.length; k++) { const o = a[k]; if (o && (o.kind === 'vehicle' || o.fleetSaved || o.sourceBox?.fleetSaved)) continue; (S.own[name] || (S.own[name] = [])).push(o); }
     snap[i] = a.length;
   });
 }
