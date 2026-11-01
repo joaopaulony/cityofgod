@@ -219,6 +219,7 @@ const CityUI = (() => {
         ${appBtn('business','🏪','Negócios')}
         ${appBtn('services','🛎️','Serviços')}
         ${appBtn('properties','🏠','Imóveis')}
+        ${appBtn('farm','🚜','Fazenda')}
         ${appBtn('cars','🚗','Carros')}
         ${appBtn('browser','🌍','CityWeb')}
         ${appBtn('calls','📞','Ligações')}

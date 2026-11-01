@@ -18,6 +18,7 @@
   <symbol id="business" viewBox="0 0 24 24"><path d="M4 21V4l8-2v19M12 7h8v14M2 21h20M7 6h2M7 10h2M7 14h2M7 18h2M15 10h2M15 14h2M15 18h2"/></symbol>
   <symbol id="services" viewBox="0 0 24 24"><path d="M3 18h18M5 18a7 7 0 0 1 14 0M12 11V8M9 8h6"/></symbol>
   <symbol id="properties" viewBox="0 0 24 24"><path d="m2 11 10-8 10 8M5 10v11h14V10M9 21v-7h6v7"/></symbol>
+  <symbol id="farm" viewBox="0 0 24 24"><path d="M3 21V10l6-5 6 5v11M3 21h18M15 21v-7h6v7M7 21v-5h4v5M9 9.5h.01M17 14V9a2 2 0 0 1 4 0v5"/></symbol>
   <symbol id="cars" viewBox="0 0 24 24"><path d="m4 11 2-6h12l2 6 2 2v6H2v-6l2-2ZM4 11h16M6 15h2M16 15h2M5 19v2M19 19v2"/></symbol>
   <symbol id="browser" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18M5 7h14M5 17h14"/></symbol>
   <symbol id="calls" viewBox="0 0 24 24"><path d="m6 3 4 4-2 3c1 3 3 5 6 6l3-2 4 4-2 3C11 22 2 13 3 5l3-2Z"/></symbol>

@@ -1003,7 +1003,7 @@ function tick(dt) {
   const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
   const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
     ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
-  const vehicleMessage=interactPressed?(window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
+  const vehicleMessage=interactPressed?(window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
@@ -1039,6 +1039,7 @@ function tick(dt) {
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   window.cityCharacters?.update(dt);
   window.CityJobs?.tick(dt);   // turno do emprego (jobs.mjs)
+  window.CityFarm?.tick();   // sítio do jogador (farm.mjs)
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);
   spawnAmbientLeaves(dt);
@@ -1076,7 +1077,7 @@ function tick(dt) {
   // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
-  const otherPrompt=window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const otherPrompt=window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){

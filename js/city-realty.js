@@ -25,12 +25,14 @@ const CityRealty=(()=>{
  }
  const isOwned=H=>residential(H)&&!!owned[id(H)];
  const canFurnish=H=>!residential(H)||isOwned(H);
+ // sítio (casa de campo): a casa + terreno de 52 × 46 m para lavoura, animais e construções (farm.mjs)
+ const isFarm=H=>!!H?.country;
  const price=H=>{
    const area=Math.max(28,(H.x1-H.x0)*(H.y1-H.y0));
    const tier=H.miaKind==='mansion'?620:H.miaKind==='poor'?160:H.tall?530:275;
-   return Math.round(area*tier/1000)*1000;
+   return Math.round(area*tier/1000)*1000+(isFarm(H)?85000:0);
  };
- const name=H=>H.miaKind==='mansion'?'Mansão':H.tall?'Apartamento':H.miaKind==='poor'?'Casa popular':'Residência';
+ const name=H=>isFarm(H)?'Sítio':H.miaKind==='mansion'?'Mansão':H.tall?'Apartamento':H.miaKind==='poor'?'Casa popular':'Residência';
  function nearby(p,max=2.7){
    if(!p||typeof houses==='undefined')return null;
    let found=null,dist=max;
@@ -53,7 +55,7 @@ const CityRealty=(()=>{
      '<button data-property-close class="city-property-close" aria-label="Fechar">✕</button>'+
      '<span class="city-property-eyebrow">CASACERTA · IMÓVEL</span>'+
      '<h2>🏠 '+name(H)+'</h2><p>Localização: '+Math.round(H.doorPt[0])+', '+Math.round(H.doorPt[1])+'</p>'+
-     '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+
+     '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+(isFarm(H)?'<p>🚜 Terreno de 52 × 46 m: lavoura, galinheiro, curral, silo, galpão e caixa da cooperativa. Use o app Fazenda.</p>':'')+
      '<div class="city-property-value">'+(mine?'Sua propriedade':CityLife.money(cost))+'</div>'+
      (mine?'<p>Este imóvel já pertence ao personagem e aparece no mapa. Entre na casa e use F7 para decorar e comprar móveis.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
        '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>')+

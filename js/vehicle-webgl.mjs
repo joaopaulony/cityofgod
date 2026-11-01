@@ -23,6 +23,7 @@ import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {installDealership} from './dealership.mjs';
 import {installJobs} from './jobs.mjs';
+import {installFarm} from './farm.mjs';
 import {createSkidFX} from './vehicle-skids.mjs';
 import {createDestructibles} from './destructibles.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
@@ -325,7 +326,8 @@ function initRenderer(){
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  makeOccluders();
  createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
- installJobs(THREE,scene,bridge);   // empregos de verdade (entregador, taxista, gari, mecânico, atendente)
+ installJobs(THREE,scene,bridge);
+ installFarm(THREE,scene,bridge);   // sítio do jogador: lavoura, animais, construções e cooperativa   // empregos de verdade (entregador, taxista, gari, mecânico, atendente)
  createPets(scene,bridge);
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){

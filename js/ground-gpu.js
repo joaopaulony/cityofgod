@@ -208,6 +208,8 @@ void main(){
     stats.frames++;
     return true;
   }
-  return { draw, get active() { return ready && !failed; }, stats };
+  // dados do mundo mudaram (ex.: terreno de sítio virou pasto): a janela é refeita nos próximos quadros
+  function invalidate() { slot.fill(null); }
+  return { draw, invalidate, get active() { return ready && !failed; }, stats };
 })();
 window.GroundGPU = GroundGPU;

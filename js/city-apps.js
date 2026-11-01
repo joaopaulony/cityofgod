@@ -1,9 +1,9 @@
 // CityApps — aplicativos locais do celular CityOS; ações sempre ligadas ao CitySim.
 'use strict';
 const CityApps = (() => {
- const names={ camera:'Câmera',social:'CitySocial',jobs:'Carreiras',taxi:'Viagens',business:'Meus negócios',
+ const names={ farm:'Fazenda',camera:'Câmera',social:'CitySocial',jobs:'Carreiras',taxi:'Viagens',business:'Meus negócios',
    services:'Serviços',properties:'Imóveis',cars:'Concessionária',browser:'CityWeb',settings:'Aparência',calls:'Ligações' };
- const icons={camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞'};
+ const icons={farm:'🚜',camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞'};
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let lastPhoto=null,lastPhotoUrl=null,selectedMode='world',lastCall='',frameTimestamp=0;
  const price=n=>CityLife.money(n);
@@ -17,6 +17,7 @@ const CityApps = (() => {
      ['cars','🚗','AutoShow'],['properties','🏠','CasaCerta'],['jobs','💼','VagasJá'],
      ['business','🏪','Negócios'],['services','🛎️','Serviços'],['taxi','🚕','CityTaxi']
     ].map(x=>'<button class="city-app" data-app="'+x[0]+'"><span class="city-app-icon">'+x[1]+'</span>'+x[2]+'</button>').join('')+'</div><p class="city-help">Este navegador contém portais fictícios integrados à economia do jogo, não sites externos.</p>';
+  if(app==='farm')return window.CityFarm?window.CityFarm.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Fazenda</strong><small>Carregando…</small>');
   if(app==='jobs')return banner('<strong>Carreiras</strong><small>Conquiste seu próprio dinheiro</small>')+
     (data.job&&CitySim.JOBS[data.job]?card('Seu emprego: '+CitySim.JOBS[data.job].title,
       (window.CityJobs?.shift?'Em turno agora: '+window.CityJobs.shift.task+' · '+window.CityJobs.shift.done+'/'+window.CityJobs.shift.total:'Local: '+CitySim.JOBS[data.job].place+'. Vá até lá e aperte F para bater o ponto.'),
@@ -176,6 +177,7 @@ const CityApps = (() => {
     if(result?.ok)lastCall=(window.cityCharacters.social.people.get(id)?.name||id)+': “'+result.text+'”';
   }
   else if(type==='police-report')result=window.cityCharacters?.fileCrimeReport?.();
+  else if(type==='farm')result=window.CityFarm?.action(id,arg,args[4])||{ok:false,text:'Fazenda indisponível'};
   else if(type==='apply')result=CitySim.applyJob(id);
   else if(type==='work')result=CitySim.work();
   else if(type==='job-route')result=window.CityJobs?.route()||{ok:false,text:'Indisponível'};

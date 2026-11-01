@@ -192,7 +192,7 @@ function owCollect(S, snap) {
   OW_TRACK().forEach(([name, a], i) => {
     // carro que o jogador deixou (fleetSaved) e as paredes dele não são do setor: senão a limpeza ou o descarregamento
     // do setor gerado naquele instante apagava o carro (ele sumia ao descer, ou depois de andar um pouco)
-    for (let k = snap[i]; k < a.length; k++) { const o = a[k]; if (o && (o.kind === 'vehicle' || o.fleetSaved || o.sourceBox?.fleetSaved)) continue; (S.own[name] || (S.own[name] = [])).push(o); }
+    for (let k = snap[i]; k < a.length; k++) { const o = a[k]; if (o && (o.kind === 'vehicle' || o.fleetSaved || o.sourceBox?.fleetSaved || o.farm || o.sourceBox?.farm)) continue; (S.own[name] || (S.own[name] = [])).push(o); }
     snap[i] = a.length;
   });
 }
@@ -574,8 +574,11 @@ function owCleanStreetSector(S) {
   const b0 = S.bounds, garages = typeof inGarageZone === 'function' ? (world.garages || []).filter(g => g.bb &&
     g.bb[2] + 20 > b0[0] && g.bb[0] - 20 < b0[2] && g.bb[3] + 20 > b0[1] && g.bb[1] - 20 < b0[3]) : [];
   const onDriveway = (o, pad) => garages.some(g => inGarageZone(g, o.x, o.y, pad));
+  const lots = world.farmLots || [];
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    // terreno de sítio do jogador (farm.mjs): a geração não replanta mata nem pedras lá dentro
+    if (lots.length && (kind === 'props' || kind === 'circles') && ['tree', 'bush', 'rock', 'tuft'].includes(o.type || o.kind) && lots.some(r => o.x > r[0] && o.x < r[2] && o.y > r[1] && o.y < r[3])) return true;
     if (garages.length && (kind === 'props' && ['tree', 'bush', 'rock', 'tuft'].includes(o.type) && onDriveway(o, o.type === 'tree' ? .8 : .4) ||
       kind === 'lamps' && onDriveway(o, .5) || kind === 'bins' && onDriveway(o, .5) ||
       kind === 'boxes' && !o.house && !['vehicle', 'parkedcar', 'garagedoor'].includes(o.kind) && !o.garage && onDriveway(o, Math.min(.7, Math.max(.2, Math.min(o.w || .4, o.d || .4) / 2))))) return true;
@@ -596,7 +599,7 @@ function owCleanStreetSector(S) {
     if (kind === 'bins') return !CityStreetLayout.verge(o.x,o.y,.35,roadDist,ROAD_W,SIDE);
     return false;
   };
-  for (const name of ['props','lamps','boxes','bins'])
+  for (const name of ['props','lamps','boxes','bins','circles'])
     for (const o of S.own[name]||[]) if (bad(name,o)) discarded.add(o);
   const removedTrees=new Set([...discarded].filter(o=>['tree','bush','rock'].includes(o.type)));
   for(const s of S.own.segs||[]) if(s.sourceBox&&discarded.has(s.sourceBox))discarded.add(s);

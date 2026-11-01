@@ -970,6 +970,7 @@ function houseDrawables(list, px, py) {
     if (b.exteriorFixture && b.house && b.house.inside) continue;
     if (b.floor===1)continue; // renders with the upper-floor layer only
     if (props3d(b)) continue;   // desenhado em 3D
+    if (b.farm) continue;       // fazenda do jogador: 3D próprio (farm.mjs)
     if (b.house && !b.exteriorFixture && (!b.house.inside || typeof CityRealty!=='undefined'&&!CityRealty.canFurnish(b.house))) continue;
     const bias = ['cabin', 'blanket', 'screen', 'mailbox'].includes(b.kind) ? 0.01 : 0;
     let d=depthOf(b.x,b.y)+bias;
