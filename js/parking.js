@@ -7,6 +7,7 @@
 'use strict';
 
 const PARK_BAY = 6.2;                       // comprimento da vaga paralela (m), igual às marcas em T do terreno
+const LOT_BAY = 3, LOT_V0 = 1.3, LOT_STALLS = 7;   // vagas a 90° do estacionamento de lote: largura, início e quantas por lado
 const GAS_BRANDS = [
   { name: 'SOL', a: '#e5342b', b: '#ffd23f', text: '#ffffff' },
   { name: 'PACIFIC FUEL', a: '#1e5aa8', b: '#f2f2f2', text: '#ffffff' },
@@ -37,7 +38,8 @@ function parkStreetCars(S, zoneAt) {
 
 // ---------- estacionamento de lote ----------
 function parkingLot(S, c, rects) {
-  const W = 18, D = 24, L = miaLot(S, c, rects, W, D, 0.7, 0.8, 0.3, false);
+  // 22 m: corredor de 7,2 m, vagas de 3 m de largura e 1 m de folga entre o bico do carro e a cerca viva
+  const W = 22, D = 24, L = miaLot(S, c, rects, W, D, 0.7, 0.8, 0.3, false);
   if (!L) return null;
   rects.push(L.box);
   const n = L.n, t = [-n[1], n[0]], cx = (L.x0 + L.x1) / 2, cy = (L.y0 + L.y1) / 2;
@@ -45,7 +47,7 @@ function parkingLot(S, c, rects) {
   const P = (u, v) => [ox + t[0] * u - n[0] * v, oy + t[1] * u - n[1] * v];
   const seed = owSeed(S, 'lot' + L.x0 + ',' + L.y0), r = mulberry(seed);
   const stalls = [];
-  for (const side of [-1, 1]) for (let k = 0; k < 8; k++) stalls.push({ side, k, pcd: side < 0 && k === 0 });
+  for (const side of [-1, 1]) for (let k = 0; k < LOT_STALLS; k++) stalls.push({ side, k, pcd: side < 0 && k === 0 });
   const d = { kind: 'parkinglot', ox, oy, tx: t[0], ty: t[1], nx: n[0], ny: n[1], w: W, d: D, stalls, seed, sidewalk: Math.max(SIDE, roadDist(ox, oy) - ROAD_W + 0.05), paint: paintParkingLot };
   const cs = [P(-W / 2, -d.sidewalk - 0.2), P(W / 2, -d.sidewalk - 0.2), P(W / 2, D), P(-W / 2, D)];
   d.bb = [Math.min(...cs.map(p => p[0])), Math.min(...cs.map(p => p[1])), Math.max(...cs.map(p => p[0])), Math.max(...cs.map(p => p[1]))];
@@ -56,12 +58,12 @@ function parkingLot(S, c, rects) {
   // carros nas vagas (de frente p/ o muro), poste no fundo e cerca viva nas laterais
   for (const st of stalls) {
     if (st.pcd ? r() > 0.25 : r() > 0.66) continue;
-    const [x, y] = P(st.side * 6.1, 2.6 + st.k * 2.6), rot = Math.atan2(t[1] * st.side, t[0] * st.side) + (r() - 0.5) * 0.05;
+    const [x, y] = P(st.side * 6.9, LOT_V0 + st.k * LOT_BAY + LOT_BAY / 2), rot = Math.atan2(t[1] * st.side, t[0] * st.side) + (r() - 0.5) * 0.05;
     miaCar(x + t[0] * st.side * (r() - 0.5) * 0.25, y + t[1] * st.side * (r() - 0.5) * 0.25, rot);
   }
   const lp = P(0, D - 0.6);
   if (!world.blocked(lp[0], lp[1], 0.3)) { world.lamps.push({ x: lp[0], y: lp[1], ax: n[0], ay: n[1] }); owAddCircle({ x: lp[0], y: lp[1], r: 0.12, kind: 'lamp', h: 4 }); }
-  const a = P(-W / 2 + 0.3, 1), b = P(-W / 2 + 0.3, D - 0.4), e = P(W / 2 - 0.3, 1), f = P(W / 2 - 0.3, D - 0.4);
+  const a = P(-W / 2 + 0.45, 1), b = P(-W / 2 + 0.45, D - 0.4), e = P(W / 2 - 0.45, 1), f = P(W / 2 - 0.45, D - 0.4);
   const free = (x, y) => world.blocked(x, y, 0.3); miaHedgeRun(a[0], a[1], b[0], b[1], free, 0.9); miaHedgeRun(e[0], e[1], f[0], f[1], free, 0.9);
   return d;
 }
@@ -74,22 +76,24 @@ function paintParkingLot(g, d) {
   // asfalto mais novo que o da rua, meio-fio de concreto em volta
   g.fillStyle = '#4f5054'; g.fillRect(-W / 2, 0, W, D);
   for (let k = 0; k < 260; k++) { g.fillStyle = r() < 0.5 ? 'rgba(30,30,32,0.18)' : 'rgba(120,120,120,0.12)'; g.fillRect(-W / 2 + r() * W, r() * D, 0.05 + r() * 0.2, 0.05 + r() * 0.2); }
-  g.fillStyle = '#c9c4b8'; g.fillRect(-W / 2, D - 0.3, W, 0.3); g.fillRect(-W / 2, 0, 0.3, D); g.fillRect(W / 2 - 0.3, 0, 0.3, D);
+  // canteiro da cerca viva nas laterais, com meio-fio de concreto
+  g.fillStyle = '#4d6b33'; g.fillRect(-W / 2, 0, 0.95, D); g.fillRect(W / 2 - 0.95, 0, 0.95, D);
+  g.fillStyle = '#c9c4b8'; g.fillRect(-W / 2, D - 0.3, W, 0.3); g.fillRect(-W / 2 + 0.9, 0, 0.18, D); g.fillRect(W / 2 - 1.08, 0, 0.18, D);
   for (const st of d.stalls) {
-    const u0 = st.side < 0 ? -W / 2 + 0.3 : 3.2, u1 = st.side < 0 ? -3.2 : W / 2 - 0.3, v0 = 1.3 + st.k * 2.6;
+    const u0 = st.side < 0 ? -W / 2 + 1.1 : 3.6, u1 = st.side < 0 ? -3.6 : W / 2 - 1.1, v0 = LOT_V0 + st.k * LOT_BAY;
     if (st.pcd) {
-      g.fillStyle = 'rgba(38,98,170,0.85)'; g.fillRect(u0, v0, u1 - u0, 2.6);
-      g.save(); g.translate((u0 + u1) / 2, v0 + 1.3); g.rotate(Math.PI / 2 * -st.side); g.fillStyle = 'rgba(245,245,245,0.92)';
+      g.fillStyle = 'rgba(38,98,170,0.85)'; g.fillRect(u0, v0, u1 - u0, LOT_BAY);
+      g.save(); g.translate((u0 + u1) / 2, v0 + LOT_BAY / 2); g.rotate(Math.PI / 2 * -st.side); g.fillStyle = 'rgba(245,245,245,0.92)';
       g.beginPath(); g.arc(0, -0.52, 0.13, 0, TAU); g.fill(); g.fillRect(-0.06, -0.36, 0.12, 0.48); g.fillRect(-0.06, 0.06, 0.42, 0.1);
       g.lineWidth = 0.1; g.strokeStyle = 'rgba(245,245,245,0.92)'; g.beginPath(); g.arc(-0.02, 0.3, 0.32, 0.4, TAU - 0.9); g.stroke(); g.restore();
     }
     // linhas brancas de separação e o batente de concreto no fundo da vaga
     g.fillStyle = 'rgba(246,244,236,0.97)';
-    g.fillRect(u0, v0 - 0.08, u1 - u0, 0.16); if (st.k === 7) g.fillRect(u0, v0 + 2.52, u1 - u0, 0.16);
-    const stop = st.side < 0 ? u0 + 0.55 : u1 - 0.75;
-    g.fillStyle = '#bdb8ad'; g.fillRect(stop, v0 + 0.55, 0.2, 1.5); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(stop + 0.2, v0 + 0.55, 0.05, 1.5);
+    g.fillRect(u0, v0 - 0.08, u1 - u0, 0.16); if (st.k === LOT_STALLS - 1) g.fillRect(u0, v0 + LOT_BAY - 0.08, u1 - u0, 0.16);
+    const stop = st.side < 0 ? u0 + 0.9 : u1 - 1.1;
+    g.fillStyle = '#bdb8ad'; g.fillRect(stop, v0 + 0.75, 0.2, 1.5); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(stop + 0.2, v0 + 0.75, 0.05, 1.5);
     // mancha de óleo onde o motor fica
-    const ou = st.side < 0 ? u0 + 1.5 : u1 - 1.5; g.fillStyle = `rgba(16,15,14,${0.12 + r() * 0.18})`; g.beginPath(); g.ellipse(ou, v0 + 1.3, 0.45 + r() * 0.3, 0.32 + r() * 0.2, r() * 3, 0, TAU); g.fill();
+    const ou = st.side < 0 ? u0 + 1.5 : u1 - 1.5; g.fillStyle = `rgba(16,15,14,${0.12 + r() * 0.18})`; g.beginPath(); g.ellipse(ou, v0 + LOT_BAY / 2, 0.45 + r() * 0.3, 0.32 + r() * 0.2, r() * 3, 0, TAU); g.fill();
   }
   // setas no corredor (entra e sai), faixa de pedestre até a calçada
   g.fillStyle = 'rgba(238,236,228,0.85)';
