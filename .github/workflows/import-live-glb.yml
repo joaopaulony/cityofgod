@@ -1,0 +1,70 @@
+name: Import real-time GLB and build WebGL vehicle client
+
+on:
+  push:
+    branches: [feat/live-webgl-glb-vehicles-20261022]
+    paths:
+      - .github/workflows/import-live-glb.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Import one original CC BY car model with integrity check
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/vehicles/live
+          file='assets/vehicles/live/nissan-silvia-s13.glb'
+          curl -fsSL --retry 3 --connect-timeout 20 --max-time 100 \
+            'https://raw.githubusercontent.com/pedrosoandre/carros/2d18dfd9db96bbf0d9cffa949deaf7f571388cbf/assets/nissan-silvia-s13.glb' \
+            -o "$file"
+          expected='42a622041cdeff142ff7447852f3a146ca36ece8'
+          actual="$(git hash-object "$file")"
+          test "$actual" = "$expected" || {
+            echo "ERROR: Unexpected model SHA $actual" >&2
+            exit 1
+          }
+          test "$(head -c 4 "$file")" = 'glTF'
+          test "$(wc -c < "$file")" -eq 1621824
+      - name: Bundle Three.js GLTFLoader and Meshopt decoder as local WebGL module
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock \
+            three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs \
+            --bundle --platform=browser --format=esm --target=es2020 \
+            --minify --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+          node --test tests/live-vehicle.test.mjs
+      - name: Commit original GLB and bundled WebGL renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/vehicles/live/nissan-silvia-s13.glb js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'assets: add verified Nissan Silvia GLB and live Three.js renderer'
+            git push origin HEAD:feat/live-webgl-glb-vehicles-20261022
+          fi
+
+# Rebuild renderer after physics test correction and browser QA integration.
+
+# Rebuild after parking spawn, body collision and live fence occlusion update.
+
+# Final refresh after parking distance and visual QA checks.
+
+# Refresh model runtime after safe parking selection and road clearance test.

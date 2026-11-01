@@ -1,0 +1,8 @@
+Quaternius — Ultimate Animated Animal Pack (July 2021)
+Author: Quaternius, https://quaternius.com/packs/ultimateanimatedanimals.html
+License: CC0 1.0 Universal Public Domain Dedication
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Original glTF skeletons, meshes and animations. This copy uses compact JSON
+with the original embedded binary buffer retained. No external textures.
+Credit is appreciated but not required by CC0.

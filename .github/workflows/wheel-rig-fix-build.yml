@@ -1,0 +1,43 @@
+name: Build corrected live 3D wheel rigs
+on:
+  push:
+    branches: [fix/silvia-wheel-axes-all-cars-20261022]
+    paths:
+      - .github/workflows/wheel-rig-fix-build.yml
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate complete fleet wheel definitions and original GLBs
+        run: node --test tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
+      - name: Bundle source without converting GLB to sprites
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs --bundle \
+            --platform=browser --format=esm --target=es2020 --minify \
+            --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+      - name: Commit corrected renderer to this branch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: bundle axis-correct 3D wheel renderer'
+            git push origin HEAD:fix/silvia-wheel-axes-all-cars-20261022
+          fi
+
+# Rebuild quaternion wheel fix after strict wheel regression updates.

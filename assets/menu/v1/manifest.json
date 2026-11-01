@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "name": "City of God",
+  "status": "implemented-front-end",
+  "generator": "Built-in image_gen",
+  "reference": "artifacts/menu-source/v1/conceito-aprovado.png",
+  "prompts": "artifacts/menu-source/v1/prompts.json",
+  "note": "Separate production artwork consumed by js/front-end.js and css/front-end.css. Multiplayer remains a coming-soon notice.",
+  "assets": [
+    {
+      "id": "logo",
+      "file": "logo.webp",
+      "role": "wordmark",
+      "alpha": true,
+      "width": 1475,
+      "height": 1066,
+      "bytes": 573866
+    },
+    {
+      "id": "bairro-entardecer",
+      "file": "bairro-entardecer.webp",
+      "role": "title-background",
+      "width": 1672,
+      "height": 941,
+      "bytes": 436066
+    },
+    {
+      "id": "avenida-noturna",
+      "file": "avenida-noturna.webp",
+      "role": "loading-background",
+      "width": 1672,
+      "height": 941,
+      "bytes": 565160
+    },
+    {
+      "id": "cotidiano-em-casa",
+      "file": "cotidiano-em-casa.webp",
+      "role": "loading-background",
+      "width": 1672,
+      "height": 941,
+      "bytes": 421440
+    }
+  ]
+}

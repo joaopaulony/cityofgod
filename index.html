@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City of God — Cidade Aberta</title>
+<link rel="stylesheet" href="css/city-ui.css">
+<link rel="stylesheet" href="css/city-expansion.css">
+<link rel="stylesheet" href="css/city-map.css">
+<link rel="stylesheet" href="css/city-home.css">
+<link rel="stylesheet" href="css/admin-panel.css">
+<link rel="stylesheet" href="css/pets.css">
+<link rel="icon" href="data:,">
+<link rel="preload" as="image" href="assets/menu/v1/bairro-entardecer.webp">
+<link rel="preload" as="image" href="assets/menu/v1/logo.webp">
+<style>
+  html, body { margin: 0; height: 100%; background: #14110f; overflow: hidden; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: #eee; user-select: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Gráfico apenas: tonalidade, saturação e contraste da referência
+     isométrica, sem alterar texturas, malhas GLB ou alpha. */
+  #view { image-rendering: auto; cursor: none;
+    filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+  /* cursor: desarmado, dirigindo, com menu aberto ou segurando Alt (game.js) */
+  body.cursor-free #view, body.cursor-alt #view, body.city-modal #view, body:has(dialog[open]) #view { cursor: default; }
+  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045) brightness(var(--city-brightness,1)); }
+  #hud { pointer-events: none; z-index: 2; }
+  #chat, #keys { z-index: 3; }
+  #chat { bottom: 228px !important; }
+  #keys { display: none; }
+  @media(max-width:670px) { #chat { display: none; } }
+  #view { z-index: 0; }
+  /* chão na GPU (ground-gpu.js): por baixo da tela 2D, com o mesmo tratamento de cor */
+  #ground-gpu { z-index: 0; pointer-events: none; filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+  #chat {
+    position: absolute; left: 12px; bottom: 12px; width: 270px;
+    background: rgba(18,16,15,.82); border: 1px solid #000; border-radius: 6px;
+    font-size: 12.5px; box-shadow: 0 2px 0 #000;
+  }
+  #chat .tabs { display: flex; border-bottom: 1px solid #2c2622; }
+  #chat .tabs span { padding: 5px 12px; color: #8d857d; }
+  #chat .tabs span.on { color: #fff; background: #2a2420; border-radius: 6px 6px 0 0; }
+  #chat .log { height: 84px; overflow: hidden; padding: 6px 9px; line-height: 1.45; color: #ddd; }
+  #chat .log b { color: #f2c46b; font-weight: 600; }
+  #chat input {
+    box-sizing: border-box; width: calc(100% - 12px); margin: 0 6px 6px; padding: 5px 8px;
+    background: #0d0b0a; border: 1px solid #3a322c; border-radius: 4px; color: #eee; font: inherit; outline: none;
+  }
+  #keys {
+    position: absolute; right: 12px; bottom: 12px; background: rgba(18,16,15,.82);
+    border: 1px solid #000; border-radius: 6px; padding: 6px 4px; font-size: 12.5px;
+  }
+  #keys div { display: flex; justify-content: space-between; gap: 22px; padding: 3px 10px; }
+  #keys kbd { color: #9a928a; font: inherit; }
+  body.map-open #chat, body.map-open #keys { display: none; }
+</style>
+<link rel="stylesheet" href="css/hud-refresh.css">
+<link rel="stylesheet" href="css/front-end.css">
+<link rel="stylesheet" href="css/cas-creator.css">
+<script src="js/city-audio.js" defer></script>
+<script src="js/front-state.js" defer></script>
+<script src="js/front-end.js" defer></script>
+</head>
+<body class="front-open">
+<section id="city-front" role="dialog" aria-modal="true" aria-label="City of God — menu inicial"><img class="front-logo" src="assets/menu/v1/logo.webp" alt="City of God"><noscript>Ative o JavaScript para abrir a cidade.</noscript></section>
+<canvas id="view" tabindex="-1" aria-label="Cidade — área de jogo"></canvas>
+<!-- Three.js renderiza modelos GLB verdadeiros em 3D, quadro a quadro -->
+<canvas id="vehicle3d" aria-label="Carros 3D em tempo real"></canvas>
+<canvas id="hud"></canvas>
+<div id="chat">
+  <div class="tabs"><span class="on">Geral</span><span>Local</span><span>Privado</span></div>
+  <div class="log" id="log"></div>
+  <input id="say" maxlength="60" placeholder="Enter para conversar…">
+</div>
+<div id="keys">
+  <div>Andar <kbd>WASD</kbd></div>
+  <div>Correr <kbd>Shift</kbd></div>
+  <div>Agachar / levantar <kbd>C</kbd></div>
+  <div>Saltar / transpor muro baixo <kbd>Espaço</kbd></div>
+  <div>Atirar <kbd>Clique</kbd></div>
+  <div>Mirar <kbd>Botão dir.</kbd></div>
+  <div>Recarregar <kbd>R</kbd></div>
+  <div>Girar câmera (segure) <kbd>Q / E</kbd></div>
+  <div>Zoom aproximado (simulador) <kbd>Roda</kbd></div>
+  <div>Interagir / entrar / sair do carro <kbd>F</kbd></div>
+  <div>Alternar porta / escada próximas <kbd>Shift + F</kbd></div>
+  <div>Dirigir <kbd>W / S / A / D</kbd></div>
+  <div>Freio de mão <kbd>Espaço</kbd></div>
+  <div>Motor / faróis / buzina <kbd>X / L / H</kbd></div>
+  <div>Entrar no carro próximo <kbd>F</kbd></div>
+  <div><a href="vehicle-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos modelos 3D</a></div>
+  <div><a href="character-credits.html" target="_blank" rel="noopener" style="color:#f6dfa8">Créditos dos personagens</a></div>
+  <div>Celular / mochila / armas <kbd>P / I / B ou Tab</kbd></div>
+  <div>Consumir itens <kbd>1–5</kbd></div>
+  <div>Mapa <kbd>M</kbd></div>
+  <div>Garagem do proprietário <kbd>F</kbd></div>
+  <div>Decorar minha residência <kbd>F7</kbd></div>
+  <div>Conversar com personagem <kbd>Clique no NPC</kbd></div>
+  <div>Diário de relações <kbd>Y</kbd></div>
+  <div>Dia / noite <kbd>N</kbd></div>
+  <div>Clima <kbd>K</kbd></div>
+  <div>Novo mapa <kbd>G</kbd></div>
+  <div>Ferramentas administrativas <kbd>F10</kbd></div>
+</div>
+<script>window.CITY_HIDE_HUMANS=true;window.VEG3D = !/veg2d/.test(location.search) && !!document.createElement('canvas').getContext('webgl2');</script>
+<template id="city-runtime">
+<script src="js/visual-palette.js"></script>
+<script src="js/core.js"></script>
+<script src="js/env.js"></script>
+<script src="js/street-layout.js"></script>
+<script src="js/worldgen/geo.js"></script>
+<script src="js/city-districts.js"></script>
+<script src="js/worldgen/roads.js"></script>
+<script src="js/worldgen/stream.js"></script>
+<script src="js/worldgen/atlas-paint.js"></script>
+<script src="js/world.js"></script>
+<script src="js/archi.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/architecture-plan.js"></script>
+<script src="js/houses.js"></script>
+<script src="js/rural-paths.js"></script>
+<script src="js/roofs.js"></script>
+<script src="js/multistorey.js"></script>
+<script src="js/farmhouses.js"></script>
+<script src="js/vision-light.js"></script>
+<script src="js/traffic-signals.js"></script>
+<script src="js/urban-life.js"></script>
+<script src="js/interiors.js"></script>
+<script src="js/architecture-world.js"></script>
+<script src="js/garages.js"></script>
+<script src="js/skeleton.js"></script>
+<script src="js/character.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/city-life.js"></script>
+<script src="js/city-sim.js"></script>
+<script src="js/city-realty.js"></script>
+<script src="js/city-home.js"></script>
+<script src="js/city-home-nav.js"></script>
+<script src="js/city-home-kitchen.js"></script>
+<script src="js/city-home-plus.js"></script>
+<script src="js/city-home-routine.js"></script>
+<script src="js/city-home-visitors.js"></script>
+<script src="js/city-home-plus-ui.js"></script>
+<script src="js/city-home-ui.js"></script>
+<script src="js/city-road-routing.js"></script>
+<script src="js/city-gps.js"></script>
+<script src="js/city-camera.js"></script>
+<script src="js/city-driving.js"></script>
+<script src="js/city-apps.js"></script>
+<script src="js/city-extras.js"></script>
+<script src="js/city-ui.js"></script>
+<script src="js/worldmap.js"></script>
+<script src="js/ecosystem.js"></script>
+<script src="js/miami.js"></script>
+<script src="js/miami-facades.js"></script>
+<script src="js/miami-city.js"></script>
+<script src="js/parking.js"></script>
+<script src="js/openworld.js"></script>
+<script src="js/ground-gpu.js"></script>
+<script src="js/camera-motion.js"></script>
+<script src="js/civic.js"></script>
+<script src="js/game.js"></script>
+<script src="js/admin-panel.js"></script>
+<script type="module" src="js/vehicle-webgl.bundle.js"></script>
+<script src="js/character-test.js"></script>
+<script src="js/character-editor.js"></script>
+<script src="js/architecture-test.js"></script>
+<script src="js/hud-dock.js"></script>
+</template>
+</body>
+</html>

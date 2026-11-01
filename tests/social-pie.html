@@ -1,0 +1,34 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>City of God · Leque social</title>
+<style>body{margin:0;overflow:hidden;background:#a7b9aa;font:14px system-ui}canvas{width:100vw;height:100vh;display:block}#preview-caption{position:fixed;bottom:18px;left:22px;color:white;text-shadow:0 2px 4px #15364c;pointer-events:none;font-size:12px;max-width:330px}#preview-caption strong{display:block;font-size:16px}#open-preview{position:fixed;left:22px;top:22px;z-index:5;background:white;color:#356786;border:0;border-radius:22px;padding:10px 17px;font:600 12px system-ui;cursor:pointer}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head><body><canvas id="stage" aria-label="Prévia 3D: clique em Aiko para conversar"></canvas><button id="open-preview">Carregando personagem…</button><div id="preview-caption"><strong>City of God · Interações sociais</strong>Prévia com personagem 3D real. Clique em Aiko para abrir o leque. Esc volta uma categoria; clicar fora fecha.</div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {loadRoster} from '../js/npc-roster.mjs';
+import {createSocialSim} from '../js/social-sim.mjs';
+import {installSocialPie} from '../js/social-pie.mjs';
+import {pickSocialActor} from '../js/social-picking.mjs';
+import {createSocialAutonomy,installSocialIncoming} from '../js/social-autonomy.mjs';
+const canvas=document.querySelector('canvas'),button=document.querySelector('#open-preview');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene();scene.background=new THREE.Color('#abbfb0');scene.fog=new THREE.Fog('#abbfb0',20,55);
+const camera=new THREE.OrthographicCamera(-5,5,3.5,-3.5,.1,100);camera.position.set(5,3.6,6);camera.lookAt(0,.9,0);
+scene.add(new THREE.HemisphereLight(0xffffff,0x708078,2.8));const light=new THREE.DirectionalLight(0xffedd5,2.8);light.position.set(-3,8,5);light.castShadow=true;scene.add(light);
+const plane=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#bdc5b4',roughness:1}));plane.rotation.x=-Math.PI/2;plane.receiveShadow=true;scene.add(plane);
+const road=new THREE.Mesh(new THREE.PlaneGeometry(80,5),new THREE.MeshStandardMaterial({color:'#657579'}));road.rotation.x=-Math.PI/2;road.position.set(0,.01,-4);scene.add(road);
+function box(w,h,d,x,z,color){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,roughness:.85}));mesh.position.set(x,h/2,z);mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);}
+for(let i=0;i<9;i++){box(2.6,3.4+(i%3),2.2,(i-4)*3.1,-10,['#bba88d','#d2c5a8','#91a8a6'][i%3]);box(.16,.03,5,(i-4)*4,-4,'#d9d9b9');}
+const roster=await loadRoster(new GLTFLoader(),{base:'/'}),item=await roster.load('aiko-sakura'),root=item.gltf.scene;scene.add(root);root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+const mixer=new THREE.AnimationMixer(root);mixer.clipAction(item.gltf.animations.find(a=>a.name==='idle')).play();
+const actor={lookId:'aiko-sakura',x:0,y:0,walk:1.2},entries=new Map([[actor,{root}]]),raycaster=new THREE.Raycaster();
+const sim=createSocialSim(roster.list(),{random:()=>0});Object.assign(sim.relation('player',actor.lookId),{friend:47,romance:22,trust:35,intimacy:25});
+const anchor=()=>{const p=new THREE.Vector3(0,1.15,0).project(camera),r=canvas.getBoundingClientRect();return{x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};};
+const previewContext={hasHome:false,hasBed:false,hasDining:false,hasMeal:false};
+const pie=installSocialPie({sim:()=>sim,nearby:()=>[actor],blocked:()=>false,context:()=>previewContext,release(){},available:()=>true,anchor,act:(id,action)=>sim.interact('player',id,action,previewContext)});
+const incoming=installSocialIncoming(),initiative=createSocialAutonomy({sim:()=>sim,actors:()=>[actor],player:()=>({x:2.5,y:0}),blocked:()=>pie.active,canTalk:()=>true,random:()=>0,speak(){},offer:data=>incoming.show(data),dismiss:()=>incoming.hide(),reply:(npc,action)=>{const result=sim.interact('player',npc.lookId,action);button.textContent=result.text;},choose:()=>pie.open(actor.lookId,anchor())});
+const initiativeButton=document.createElement('button');initiativeButton.textContent='Aiko puxa assunto';initiativeButton.style.cssText='position:fixed;left:22px;top:70px;border:0;border-radius:22px;padding:10px 17px;color:#356786;background:white;font:600 12px system-ui;cursor:pointer';initiativeButton.onclick=()=>{for(let i=0;i<12;i++)sim.tick(1);initiative.update(0);};document.body.append(initiativeButton);
+button.textContent='💬 Conversar com Aiko';button.onclick=()=>pie.open(actor.lookId,anchor());
+canvas.addEventListener('mousedown',e=>{if(e.button!==0)return;const selected=pickSocialActor(raycaster,[actor],entries,camera,canvas.getBoundingClientRect(),e.clientX,e.clientY);if(selected)pie.open(selected.lookId,anchor());});
+function resize(){renderer.setSize(innerWidth,innerHeight,false);const aspect=innerWidth/innerHeight;camera.left=-3.5*aspect;camera.right=3.5*aspect;camera.updateProjectionMatrix();}resize();addEventListener('resize',resize);
+let last=performance.now();function frame(now){const dt=Math.min(.06,(now-last)/1000);last=now;sim.tick(dt);pie.update();initiative.update(dt);mixer.update(dt);renderer.render(scene,camera);requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script></body></html>

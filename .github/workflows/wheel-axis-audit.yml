@@ -1,0 +1,15 @@
+name: Inspect Silvia and fleet wheel geometry
+on:
+  push:
+    branches: [fix/silvia-wheel-axes-all-cars-20261022]
+    paths:
+      - .github/workflows/wheel-axis-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print pivots and unmodified mesh bounding boxes
+        run: node tools/audit-wheel-bindings.cjs assets/vehicles/live/nissan-silvia-s13.glb assets/vehicles/live/compact.glb

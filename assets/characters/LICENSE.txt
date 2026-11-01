@@ -1,0 +1,3 @@
+Animações: Mixamo (Adobe) — esqueletos David e Megan sem malha, só as animações (rigs/mixamo).
+Personagens do jogo: modelos do autor em assets/npcs (gerados por tools/rig-npcs.mjs).
+City of God: clipes próprios de pulo baixo e andar agachado; texturas de no máximo 1024 px.

@@ -1,0 +1,42 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><base href="/"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NPC postura QA</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>body{margin:0;background:#5a5d63;color:#fff;font:13px system-ui;overflow:hidden}#hud{position:fixed;left:8px;top:6px}.lbl{position:fixed;top:26px;font-weight:600;opacity:.85}</style>
+</head><body><div id="hud"></div>
+<script type="module">
+// QA de postura: ?ids=a,b&clip=idle&t=0.5&bones=1 — cada personagem de frente e de perfil, clipe parado num instante.
+// &before=/pasta/ compara com outra cópia de assets/ (ex.: os GLBs anteriores): antes | depois, de frente e de perfil.
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {loadRoster} from '../js/npc-roster.mjs';
+const q=new URLSearchParams(location.search);
+const ids=(q.get('ids')||'character-principal-base,char-principal-base').split(','),clipName=q.get('clip')||'idle',T=+(q.get('t')??0.5),showBones=q.get('bones')!=='0';
+const sources=q.get('before')?[{base:q.get('before'),label:'antes'},{base:'/',label:'depois'}]:[{base:'/',label:''}];
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);
+renderer.setSize(innerWidth,innerHeight);renderer.setScissorTest(true);document.body.appendChild(renderer.domElement);
+const views=[];
+for(const src of sources){
+ const roster=await loadRoster(new GLTFLoader(),{base:src.base});
+ for(const id of ids){
+  const {gltf}=await roster.load(id),scene=new THREE.Scene();scene.background=new THREE.Color(0x5a5d63);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x444444,2.2));const d=new THREE.DirectionalLight(0xffffff,1.6);d.position.set(1,3,2);scene.add(d);
+  const root=gltf.scene;scene.add(root);
+  const clip=gltf.animations.find(c=>c.name===clipName);
+  if(clip){const mixer=new THREE.AnimationMixer(root);mixer.clipAction(clip).play();mixer.setTime(T*clip.duration);}
+  if(showBones){const h=new THREE.SkeletonHelper(root);h.material.depthTest=false;scene.add(h);}
+  root.updateMatrixWorld(true);(window.chars||=[]).push({id,src:src.label,root,gltf});
+  const box=new THREE.Box3().setFromObject(root),c=box.getCenter(new THREE.Vector3()),hgt=box.max.y-box.min.y;
+  for(const side of [0,1]){const cam=new THREE.PerspectiveCamera(22,1,0.1,50);const dist=hgt*3.4;
+   cam.position.set(c.x+(side?dist:0),c.y,c.z+(side?0:dist));cam.lookAt(c);views.push({scene,cam,label:(src.label?src.label+' · ':'')+(side?'perfil':'frente'),order:[ids.indexOf(id),side,sources.indexOf(src)]});}
+ }
+}
+views.sort((a,b)=>a.order[0]-b.order[0]||a.order[1]-b.order[1]||a.order[2]-b.order[2]);
+views.forEach(v=>{const el=document.createElement('div');el.className='lbl';el.textContent=v.label;document.body.appendChild(el);v.el=el;});
+(function draw(){
+ renderer.setSize(innerWidth,innerHeight);const w=innerWidth/views.length;
+ views.forEach((v,i)=>{v.el.style.left=(i*w+8)+'px';v.cam.aspect=w/innerHeight;v.cam.updateProjectionMatrix();renderer.setViewport(i*w,0,w,innerHeight);renderer.setScissor(i*w,0,w,innerHeight);renderer.render(v.scene,v.cam);});
+ requestAnimationFrame(draw);
+})();
+document.getElementById('hud').textContent=ids.join(' · ')+' — '+clipName+' @'+T;
+window.__ready=true;
+</script></body></html>

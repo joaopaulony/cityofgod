@@ -1,0 +1,41 @@
+name: Build illustrated palette WebGL assets
+on:
+  push:
+    branches: [feat/reference-illustrated-color-grade-20261023]
+    paths:
+      - .github/workflows/illustrated-color-build.yml
+permissions:
+  contents: write
+jobs:
+  color-grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard persistent palette and procedural assets
+        run: |
+          node --test tests/reference-palette.test.cjs
+          node --test tests/comrade-vehicle.test.mjs tests/live-vehicle.test.mjs
+      - name: Bundle color-corrected real-time 3D vehicle renderer
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --no-save --no-package-lock three@0.180.0 esbuild@0.25.12
+          ./node_modules/.bin/esbuild js/vehicle-webgl.mjs --bundle --format=esm --platform=browser --target=es2020 --minify --outfile=js/vehicle-webgl.bundle.js
+          node --check js/vehicle-webgl.bundle.js
+      - name: Save updated renderer on verified palette branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/vehicle-webgl.bundle.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: bundle warm illustrated daylight GLB lighting'
+            git fetch origin feat/reference-illustrated-color-grade-20261023
+            git rebase origin/feat/reference-illustrated-color-grade-20261023
+            git push origin HEAD:feat/reference-illustrated-color-grade-20261023
+          fi

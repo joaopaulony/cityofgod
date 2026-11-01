@@ -1,0 +1,87 @@
+{
+  "setup": {
+    "home": "123:92_86_8x10",
+    "position": [
+      98.45,
+      84.85
+    ]
+  },
+  "before": [
+    {
+      "id": "69d72b99-2d7b-4530-a662-b6bba756aaa7",
+      "name": "Bao",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 98.45,
+      "y": 85.95,
+      "floor": 0
+    },
+    {
+      "id": "e2c3634c-1bab-428f-8a67-76eb4ddb35ce",
+      "name": "Benny",
+      "mode": "home",
+      "action": "walk",
+      "status": "Em casa",
+      "x": 97.28367783288732,
+      "y": 85.49750405853472,
+      "floor": 0
+    },
+    {
+      "id": "ba4a1266-73dc-4686-a8a3-014da50c2205",
+      "name": "Hachi",
+      "mode": "home",
+      "action": "walk",
+      "status": "Em casa",
+      "x": 97.39901881646037,
+      "y": 85.69025145578829,
+      "floor": 0
+    },
+    {
+      "id": "214251ac-6848-491d-9af0-0ce23b7e6081",
+      "name": "Akira",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 97.9,
+      "y": 86.5,
+      "floor": 0
+    },
+    {
+      "id": "e3cc47d6-897c-4d3f-a7d9-bb384cabe470",
+      "name": "Rubi",
+      "mode": "home",
+      "action": "idle",
+      "status": "Em casa",
+      "x": 96.25,
+      "y": 84.85,
+      "floor": 0
+    },
+    {
+      "id": "58c71447-e66e-4354-8f5e-c96173614c0b",
+      "name": "Fang",
+      "mode": "home",
+      "action": "walk",
+      "status": "Em casa",
+      "x": 96.92000000000002,
+      "y": 86.5,
+      "floor": 0
+    }
+  ],
+  "walk": {
+    "distance": 1.2979752327361653,
+    "petInside": false,
+    "ownerInside": false,
+    "status": "Seguindo você"
+  },
+  "errors": [],
+  "checks": [
+    "fourteen real 3D catalog cards",
+    "adopt six through UI",
+    "render pets inside a real home",
+    "call all through UI",
+    "walk through real doors and follow outdoors",
+    "reload persistence",
+    "F8 and Escape"
+  ]
+}

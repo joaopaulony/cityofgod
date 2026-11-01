@@ -1,0 +1,12 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>City of God · Contatos e roleplay</title><link rel="stylesheet" href="/css/city-ui.css"><style>body{background:#a8b9b2;font:15px system-ui}#fixture-caption{position:absolute;left:30px;top:30px;color:#244d60;max-width:400px}#fixture-caption strong{display:block;font-size:22px}</style><div id="fixture-caption"><strong>Contatos e roleplay</strong>Prévia do celular real com dados de demonstração. Aiko e Jessica aceitaram trocar contato. Abra Contatos, Mensagens, Ligações ou CitySocial.</div>
+<script>
+const phoneMemory=new Map();Object.defineProperty(window,'localStorage',{value:{getItem:k=>phoneMemory.get(k)||null,setItem:(k,v)=>phoneMemory.set(k,v)}});
+window.CityLife={state:{clock:1060,player:{},needs:{}},funds:800,money:v=>'R$ '+v};
+window.CitySim={data:{themes:{wallpaper:'ocean',caseColor:'graphite'},posts:[]}};
+</script><script src="/js/city-apps.js"></script><script src="/js/city-ui.js"></script><script type="module">
+import {createSocialSim} from '/js/social-sim.mjs';
+const roster=(await (await fetch('/assets/npcs/roster.json')).json()).characters;
+const social=createSocialSim(roster,{random:()=>0});window.cityCharacters={social,inviteContact:async()=>({ok:false,text:'Esta prévia mostra os contatos. Os convites físicos funcionam na cidade.'})};
+for(const id of ['aiko-sakura','jessica-alves']){Object.assign(social.relation('player',id),{friend:55,trust:45,intimacy:35});social.interact('player',id,'exchangePhone');for(let i=0;i<5;i++)social.tick(1);social.interact('player',id,'exchangeSocial');for(let i=0;i<5;i++)social.tick(1);}
+CityUI.mount();CityUI.togglePhone(true);CityUI.goApp('contacts');let last=performance.now();function frame(now){social.tick((now-last)/1000);last=now;requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script></html>

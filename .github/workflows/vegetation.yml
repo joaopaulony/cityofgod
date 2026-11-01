@@ -1,0 +1,91 @@
+name: Canvas quality judge and regression tests
+on:
+  push:
+    branches:
+      - feat/organic-procedural-vegetation
+    paths:
+      - js/world.js
+      - js/traffic-signals.js
+      - js/game.js
+      - js/houses.js
+      - js/roofs.js
+      - js/archi.js
+      - js/multistorey.js
+      - js/farmhouses.js
+      - js/vision-light.js
+      - js/urban-life.js
+      - js/interiors.js
+      - js/terrain.js
+      - js/ecosystem.js
+      - js/core.js
+      - js/visual-palette.js
+      - index.html
+      - tests/reference-palette.test.cjs
+      - docs/ART-DIRECTION-COLOR-REFERENCE.md
+      - tests/vegetation*
+      - tests/live-vehicle.test.mjs
+      - tests/live-vehicle-browser.cjs
+      - tests/architecture.test.js
+      - tests/visual-quality-judge.cjs
+      - .github/workflows/vegetation.yml
+  pull_request:
+    paths:
+      - js/world.js
+      - js/traffic-signals.js
+      - js/game.js
+      - js/houses.js
+      - js/roofs.js
+      - js/archi.js
+      - js/multistorey.js
+      - js/farmhouses.js
+      - js/vision-light.js
+      - js/urban-life.js
+      - js/interiors.js
+      - js/terrain.js
+      - js/ecosystem.js
+      - js/core.js
+      - js/visual-palette.js
+      - index.html
+      - tests/reference-palette.test.cjs
+      - docs/ART-DIRECTION-COLOR-REFERENCE.md
+      - tests/vegetation*
+      - tests/live-vehicle.test.mjs
+      - tests/live-vehicle-browser.cjs
+      - tests/architecture.test.js
+      - tests/visual-quality-judge.cjs
+      - .github/workflows/vegetation.yml
+permissions:
+  contents: read
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Lock official color reference and Canvas+WebGL grade
+        run: node --test tests/reference-palette.test.cjs
+      - name: Check house geometry and stairs
+        run: node tests/architecture.test.js
+      - name: Check foliage generation
+        run: node tests/vegetation.test.js
+      - name: Validate live 3D vehicle physics and WebGL contracts
+        run: node --test tests/live-vehicle.test.mjs
+      - name: Install headless browser driver
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Run browser pixel coverage test
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/vegetation-server.log 2>&1 &
+          sleep 2
+          node tests/vegetation-browser.cjs
+      - name: Upload screenshot for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvas-visual-quality-snapshots
+          path: |
+            artifacts/*.png
+            artifacts/quality-judge.json
+          if-no-files-found: ignore

@@ -1,0 +1,171 @@
+{
+  "frames": {
+    "count": 240,
+    "mean": 29.11,
+    "p95": 50,
+    "max": 66.7
+  },
+  "stats": {
+    "vehiclePhysics": {
+      "count": 240,
+      "mean": 5.52,
+      "p95": 8.9,
+      "max": 36.1
+    },
+    "drawGround": {
+      "count": 240,
+      "mean": 5.41,
+      "p95": 7.7,
+      "max": 9
+    },
+    "render": {
+      "count": 240,
+      "mean": 7.02,
+      "p95": 9.8,
+      "max": 11.2
+    },
+    "webgl": {
+      "count": 240,
+      "mean": 5.91,
+      "p95": 12.5,
+      "max": 23.4
+    },
+    "drawHUD": {
+      "count": 240,
+      "mean": 2.56,
+      "p95": 4.2,
+      "max": 5.2
+    },
+    "tick": {
+      "count": 240,
+      "mean": 24.43,
+      "p95": 38,
+      "max": 54.7
+    },
+    "owStep": {
+      "count": 169,
+      "mean": 5.56,
+      "p95": 16.1,
+      "max": 37.1
+    },
+    "stream": {
+      "count": 240,
+      "mean": 4.02,
+      "p95": 13.9,
+      "max": 37.1
+    },
+    "owFinish": {
+      "count": 5,
+      "mean": 11.6,
+      "p95": 16,
+      "max": 16
+    }
+  },
+  "route": {
+    "start": {
+      "x": 2048,
+      "y": 1590
+    },
+    "end": {
+      "x": 2179.6000000000004,
+      "y": 1590
+    },
+    "points": 531
+  },
+  "world": {
+    "houses": 261,
+    "boxes": 4478,
+    "circles": 8387,
+    "segs": 29884,
+    "sectors": 9
+  },
+  "hot": [
+    {
+      "name": " geo.js:35",
+      "ms": 914
+    },
+    {
+      "name": "_b vehicle-webgl.bundle.js:4220",
+      "ms": 443
+    },
+    {
+      "name": "world.districtFn openworld.js:60",
+      "ms": 407
+    },
+    {
+      "name": "N0 vehicle-webgl.bundle.js:4220",
+      "ms": 344
+    },
+    {
+      "name": "segDist openworld.js:39",
+      "ms": 291
+    },
+    {
+      "name": "world.roadDistFn openworld.js:62",
+      "ms": 275
+    },
+    {
+      "name": " interiors.js:87",
+      "ms": 272
+    },
+    {
+      "name": "fbm world.js:37",
+      "ms": 164
+    },
+    {
+      "name": "landField geo.js:63",
+      "ms": 150
+    },
+    {
+      "name": "render game.js:361",
+      "ms": 145
+    },
+    {
+      "name": "houseDrawables houses.js:911",
+      "ms": 118
+    },
+    {
+      "name": "y vehicle-webgl.bundle.js:4169",
+      "ms": 115
+    },
+    {
+      "name": "remodelProperty architecture-world.js:7",
+      "ms": 109
+    },
+    {
+      "name": "pixel atlas-paint.js:15",
+      "ms": 84
+    },
+    {
+      "name": "H.contains architecture-world.js:33",
+      "ms": 70
+    },
+    {
+      "name": "updateMatrixWorld vehicle-webgl.bundle.js:1",
+      "ms": 66
+    },
+    {
+      "name": "tick game.js:738",
+      "ms": 62
+    },
+    {
+      "name": "updateHouseOpenings houses.js:569",
+      "ms": 61
+    },
+    {
+      "name": "b vehicle-webgl.bundle.js:4196",
+      "ms": 60
+    },
+    {
+      "name": "S vehicle-webgl.bundle.js:4239",
+      "ms": 55
+    }
+  ],
+  "errors": [],
+  "seed": 123456,
+  "baseline": "ab55c5e",
+  "generated": {
+    "sectors": 8,
+    "digest": "940ba016cdafe421bf6faebd8180bd9bc041785f2726f36c7b029554a506ef9d"
+  }
+}

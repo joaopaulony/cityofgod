@@ -1,0 +1,37 @@
+(function(root){
+ 'use strict';
+ const SETTINGS='cityofgod.front.settings.v1',SAVE='cityofgod.front.save.v1',BACKUP='cityofgod.front.backup.v1';
+ const defaults={quality:'balanced',brightness:1,music:.35,ambient:.7,effects:.8,voices:.8,interface:.8,master:.75,reducedMotion:false,cameraFollow:true,cameraShake:.6};
+ const cap=(v,a,b,f)=>Number.isFinite(Number(v))?Math.max(a,Math.min(b,Number(v))):f;
+ function settings(raw){return {...defaults,quality:['low','balanced','high'].includes(raw?.quality)?raw.quality:defaults.quality,
+  brightness:cap(raw?.brightness,.75,1.3,1),music:cap(raw?.music,0,1,.35),ambient:cap(raw?.ambient,0,1,.7),effects:cap(raw?.effects,0,1,.8),voices:cap(raw?.voices,0,1,.8),interface:cap(raw?.interface,0,1,.8),master:cap(raw?.master,0,1,.75),reducedMotion:typeof raw?.reducedMotion==='boolean'?raw.reducedMotion:false,
+  cameraFollow:typeof raw?.cameraFollow==='boolean'?raw.cameraFollow:true,cameraShake:cap(raw?.cameraShake,0,1,.6)};}
+ function checkpoint(raw){
+  if(raw?.version!==1||!['open','local'].includes(raw.mode)||![raw.x,raw.y,raw.seed,raw.clock].every(Number.isFinite)||raw.x<.5||raw.y<.5||raw.seed<0||raw.clock<0||!Number.isInteger(raw.floor)||raw.floor<0||raw.floor>19)return null;
+  const point={version:1,mode:raw.mode,seed:raw.seed,x:raw.x,y:raw.y,floor:raw.floor,clock:raw.clock,at:Number.isFinite(raw.at)?raw.at:0};
+  const car=raw.vehicle;
+  if(car&&typeof car.modelId==='string'&&typeof car.key==='string'&&Number.isFinite(car.angle)&&Number.isFinite(car.fuel)){
+   point.vehicle={modelId:car.modelId,key:car.key,angle:car.angle,fuel:cap(car.fuel,0,1,.5),engineOn:!!car.engineOn,headlights:!!car.headlights,col:typeof car.col==='string'?car.col:null};
+   if(car.damage&&Number.isFinite(car.damage.integrity)){
+    point.vehicle.damage={integrity:cap(car.damage.integrity,0,1,1),
+     impacts:Math.min(999,Math.max(0,Math.floor(Number(car.damage.impacts)||0)))};
+    for(const side of ['front','rear','left','right'])
+     point.vehicle.damage[side]=cap(car.damage[side],0,1,0);
+   }
+  }
+  return point;
+ }
+ function read(storage,key,fallback=null){try{return JSON.parse(storage.getItem(key))??fallback;}catch{return fallback;}}
+ function hasProgress(storage){const life=read(storage,'cityofgod.life.v1');return !!checkpoint(read(storage,SAVE))||!!(life?.v===1&&Number.isFinite(life.funds));}
+ function backupAndReset(storage){
+  const rows={};
+  for(let i=0;i<storage.length;i++){const key=storage.key(i);if(key?.startsWith('cityofgod.')&&key!==SETTINGS&&key!==BACKUP)rows[key]=storage.getItem(key);}
+  // Write and verify the backup before removing any existing progress.
+  const backup=JSON.stringify({version:1,at:Date.now(),rows});storage.setItem(BACKUP,backup);
+  if(storage.getItem(BACKUP)!==backup)throw Error('Não foi possível preservar uma cópia do progresso');
+  for(const key of Object.keys(rows))storage.removeItem(key);
+  return Object.keys(rows).length;
+ }
+ const api={SETTINGS,SAVE,BACKUP,defaults,settings,checkpoint,read,hasProgress,backupAndReset};
+ root.CityFrontState=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(typeof window!=='undefined'?window:globalThis);

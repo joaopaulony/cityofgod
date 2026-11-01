@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "title before world or 3D initialization",
+    "honest multiplayer coming-soon panel",
+    "real runtime and models loaded with graphics setting applied",
+    "pause freezes simulation",
+    "pause opens actual map; Escape returns to game",
+    "reload and continue restore safe position and preserve progress",
+    "explicit new-game confirmation backs up progress and preserves settings",
+    "responsive mobile menu",
+    "failed loading and retry preserve a legacy save",
+    "production open-world map boots through the same loading flow"
+  ],
+  "errors": []
+}

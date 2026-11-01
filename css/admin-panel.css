@@ -1,0 +1,68 @@
+/* City of God administrative command center. Independent of existing HUD/phone. */
+#city-admin[hidden]{display:none!important}
+#city-admin{position:fixed;z-index:90000;inset:0;background:rgba(6,10,17,.81);display:grid;place-items:center;padding:clamp(12px,3vw,30px);font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#e7edf8}
+#city-admin *,#city-admin *:before,#city-admin *:after{box-sizing:border-box}
+#city-admin .ca-shell{width:min(1120px,100%);height:min(780px,calc(100dvh - 36px));background:#101925;border:1px solid #40516a;border-radius:16px;box-shadow:0 30px 90px #000b;display:flex;flex-direction:column;overflow:hidden}
+#city-admin header{display:flex;justify-content:space-between;align-items:center;padding:17px 24px;background:linear-gradient(105deg,#172538,#111a27);border-bottom:1px solid #33465e;gap:12px}
+#city-admin header small{letter-spacing:1.5px;color:#92a8c5;font-size:10px}
+#city-admin h1{font-size:23px;letter-spacing:.3px;font-weight:800;margin:3px 0 0;color:#fff}
+#city-admin h1 span{font-size:11px;display:inline-block;vertical-align:middle;color:#d3edff;border:1px solid #4a88b8;padding:3px 6px;border-radius:4px}
+#city-admin h2,#city-admin h3{color:#fff;margin:0 0 10px}
+#city-admin h3{font-size:16px}
+#city-admin p{color:#a8b7cc;margin:8px 0 16px}
+#city-admin button{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #45698e;background:#24425f;color:#eaf4ff;font:inherit;font-weight:650;padding:9px 13px;border-radius:8px;margin:3px;transition:background .12s,border-color .12s}
+#city-admin button:hover{background:#315c83;border-color:#76a7d0}
+#city-admin button:focus-visible,#city-admin input:focus-visible,#city-admin select:focus-visible{outline:2px solid #60caff;outline-offset:2px}
+#city-admin button:disabled{opacity:.55;cursor:not-allowed}
+#city-admin .ca-head-actions{display:flex;gap:5px;flex-shrink:0}
+#city-admin .ca-head-actions button{background:transparent;border-color:#435169}
+#city-admin .ca-nav{display:flex;gap:4px;padding:10px 16px;border-bottom:1px solid #2b3e53;overflow-x:auto;flex-shrink:0;scrollbar-width:thin}
+#city-admin .ca-nav button{white-space:nowrap;margin:0;background:transparent;border:0;border-radius:7px;color:#a2b5cf;padding:9px 12px}
+#city-admin .ca-nav button[aria-current="true"]{background:#23466e;color:#fff}
+#city-admin .ca-main{overflow:auto;min-height:0;flex:1;padding:20px 24px}
+#city-admin .ca-panel{border:1px solid #2d4058;background:linear-gradient(130deg,#172637,#152130);border-radius:11px;padding:17px 19px;margin-bottom:15px;box-shadow:0 2px 8px #0002}
+#city-admin .ca-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+#city-admin .ca-tile{background:#1b3047;border:1px solid #38506b;border-radius:11px;padding:16px}
+#city-admin .ca-tile small{display:block;color:#9eb3ce;font-size:12px}
+#city-admin .ca-tile strong{font-size:22px;color:#f5f8ff;letter-spacing:.3px;display:block;margin-top:5px;word-break:break-word}
+#city-admin .ca-field{display:flex;flex-direction:column;gap:6px;min-width:min(100%,220px);color:#b1c2d8;font-size:12px;font-weight:700}
+#city-admin input,#city-admin select{padding:11px 12px;border:1px solid #45607b;background:#0b1624;color:#f2f6fb;border-radius:8px;font:inherit;min-width:0;width:100%}
+#city-admin input[type=search]{width:100%}
+#city-admin .ca-form{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+#city-admin .ca-hero{font-size:36px;font-weight:800;color:#a9e6bf;margin:10px 0}
+#city-admin .ca-listrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 7px;border-bottom:1px solid #273b50}
+#city-admin .ca-listrow:last-child{border-bottom:0}
+#city-admin .ca-listrow span{min-width:0;overflow-wrap:anywhere}
+#city-admin .ca-listrow strong,#city-admin .ca-listrow b{color:#fff}
+#city-admin .ca-listrow small,#city-admin .ca-house small{display:block;font-size:11px;color:#a3b7cd}
+#city-admin .ca-listrow button{flex-shrink:0}
+#city-admin .ca-search{margin:10px 0 14px}
+#city-admin .ca-scroll{max-height:420px;overflow:auto;scrollbar-width:thin}
+#city-admin .ca-house{display:flex;align-items:center;justify-content:space-between;gap:15px;border-top:1px solid #2a3b51;padding:12px 5px}
+#city-admin .ca-house>div:first-child{min-width:0}
+#city-admin .ca-row{display:flex;gap:5px;flex-wrap:wrap}
+#city-admin .ca-dept{border-top:1px solid #2e435a;padding:10px 6px}
+#city-admin .ca-dept summary{cursor:pointer;font-weight:700;color:#dae8fb}
+#city-admin .ca-statrows>div{display:flex;align-items:center;gap:14px;padding:8px 0}
+#city-admin .ca-statrows span{width:150px;color:#b6c8db}
+#city-admin .ca-statrows progress{width:220px;height:11px;accent-color:#48a7dd}
+#city-admin .ca-statrows b{width:42px;text-align:right}
+#city-admin .ca-login{width:min(450px,100%);margin:auto;text-align:center;padding:36px 12px}
+#city-admin .ca-icon{font-size:56px}
+#city-admin .ca-login .ca-field{text-align:left;margin:20px 0}
+#city-admin .ca-login button{width:100%;margin:0;background:#2874b1;padding:13px}
+#city-admin footer{background:#111c2a;border-top:1px solid #2b4058;color:#afc6dc;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+#city-admin footer small{color:#8499af;white-space:nowrap}
+body.city-admin-open #city-home-entry,body.city-admin-open #city-property-dialog{pointer-events:none}
+@media(max-width:680px){
+ #city-admin{padding:0}
+ #city-admin .ca-shell{border-radius:0;height:100dvh}
+ #city-admin header{padding:14px}
+ #city-admin h1{font-size:18px}
+ #city-admin .ca-main{padding:12px}
+ #city-admin .ca-tile strong{font-size:18px}
+ #city-admin .ca-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #city-admin .ca-house{display:block}
+ #city-admin .ca-head-actions button{padding:7px 8px}
+ #city-admin footer{padding:9px}
+}

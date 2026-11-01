@@ -1,0 +1,31 @@
+{
+  "name": "cityofgod",
+  "private": true,
+  "scripts": {
+    "test:social": "node --test tests/social-sim.test.mjs tests/social-pie.test.mjs tests/social-roleplay.test.mjs tests/social-progression.test.mjs",
+    "build": "esbuild js/vehicle-webgl.mjs --bundle --minify --format=esm --outfile=js/vehicle-webgl.bundle.js",
+    "build:site": "npm run test:cas && npm run test:rig && npm run build && node tools/build-site.mjs",
+    "audit:vehicles": "node tools/audit-vehicle-assets.mjs",
+    "import:civil": "node tools/install-civil-pack.mjs",
+    "import:police-suv": "node tools/install-police-suv.mjs",
+    "test:vehicle-performance": "node --test tests/vehicle-performance.test.mjs",
+    "start": "node tools/serve.mjs",
+    "test:characters": "node --test tests/character-actions.test.mjs",
+    "test:pets": "node --test tests/pets.test.mjs",
+    "test:front": "node --test tests/front-end.test.cjs",
+    "judge:home": "node tools/judge-city-home.cjs",
+    "test:cas": "node --test tests/cas-profile.test.mjs tests/cas-hair.test.mjs tests/cas-studio.test.mjs tests/cas-roster.test.mjs tests/cas-reborn-upperbody.test.mjs tests/cas-reborn-hands.test.mjs && node --check js/cas-studio.mjs && node --check js/cas-hair.mjs && node --check js/cas-creator.mjs && node --check js/character-webgl.mjs",
+    "test:rig": "node --test tests/npc-rig.test.mjs tests/npc-roster.test.mjs",
+    "test:bundle": "node --test tests/bundle-fresh.test.mjs",
+    "assets:optimize": "node tools/optimize-assets.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "esbuild": "0.25.12",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "^0.35.5",
+    "three": "0.186.1"
+  }
+}

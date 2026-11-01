@@ -1,0 +1,16 @@
+# Nunca commitar segredos ou SDKs locais
+.env
+.env.*
+!.env.example
+**/node_modules/
+.DS_Store
+npm-debug.log*
+# saida do gerador Gemini (tools/gemini): revisar e copiar as aprovadas p/ assets/textures/
+assets/generated/
+.mixamo-source/
+dist/
+.vercel/
+
+# FBX originais (Mixamo etc.) ficam fora do repositorio
+*.Fbx
+*.fbx

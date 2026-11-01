@@ -1,0 +1,49 @@
+/* hud-system.css — padrão único da HUD (carregado por último): uma fonte, um vidro escuro, um raio, um destaque.
+   Os botões de atalho ficam num dock no canto inferior direito, empilhados sem se cobrir (js/hud-dock.js posiciona);
+   o canto inferior esquerdo fica só p/ o minimapa e as barras (desenhados no canvas por hud.js com os mesmos tokens). */
+:root{
+  --hud-font:"Bahnschrift SemiCondensed","Arial Narrow","Segoe UI",system-ui,sans-serif;
+  --hud-text:#f2f5f2;--hud-dim:#b7c3bf;--hud-accent:#7fd6bd;--hud-warn:#f0c35a;--hud-danger:#e5574b;
+  --hud-bg:rgba(11,17,21,.78);--hud-bg-hover:rgba(28,44,50,.92);--hud-line:rgba(255,255,255,.15);
+  --hud-radius:12px;--hud-shadow:0 6px 22px rgba(0,0,0,.45);
+  --dock-w:184px;--dock-h:44px;--dock-gap:8px;--dock-edge:16px;
+}
+/* ---------- botões do dock ---------- */
+#city-controls{position:fixed!important;right:var(--dock-edge)!important;bottom:var(--dock-edge)!important;left:auto!important;top:auto!important;
+  display:flex!important;flex-direction:column-reverse!important;align-items:flex-end!important;gap:var(--dock-gap)!important;z-index:40!important}
+#city-controls button,#social-entry,#city-pets-entry,#city-cas-open,#city-home-entry{
+  position:relative;box-sizing:border-box!important;width:var(--dock-w)!important;height:var(--dock-h)!important;min-width:0!important;min-height:0!important;
+  margin:0!important;padding:0 10px 0 12px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;
+  font:600 15px/1 var(--hud-font)!important;letter-spacing:.02em!important;text-transform:none!important;color:var(--hud-text)!important;text-align:left!important;
+  background:var(--hud-bg)!important;border:1px solid var(--hud-line)!important;border-radius:var(--hud-radius)!important;box-shadow:var(--hud-shadow)!important;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transform:none!important;animation:none!important;outline:none!important;cursor:pointer;
+  transition:background .15s ease,border-color .15s ease!important}
+#city-controls button:hover,#social-entry:hover,#city-pets-entry:hover,#city-cas-open:hover,#city-home-entry:hover,
+#city-controls button:focus-visible,#social-entry:focus-visible,#city-pets-entry:focus-visible,#city-cas-open:focus-visible{
+  background:var(--hud-bg-hover)!important;border-color:var(--hud-accent)!important}
+#social-entry,#city-pets-entry,#city-cas-open{position:fixed!important;right:var(--dock-edge)!important;left:auto!important;top:auto!important;z-index:40!important}
+#city-home-entry{position:fixed!important;left:50%!important;transform:translateX(-50%)!important;bottom:var(--dock-edge)!important;width:auto!important;padding:0 16px!important}
+/* ícone à esquerda, rótulo no meio, tecla num chip à direita */
+#city-controls b{display:grid!important;place-items:center;width:22px;height:22px!important;margin:0!important;font-size:0!important}
+#city-controls .city-svg-icon{width:20px!important;height:20px!important;stroke-width:2.2;filter:none!important}
+.hud-dock-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-dock-icon{width:22px;text-align:center;font-size:16px;line-height:1}
+#city-controls kbd,#social-entry kbd,#city-pets-entry kbd,#city-cas-open kbd,.hud-key{
+  margin-left:auto;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;display:inline-grid;place-items:center;
+  font:700 12px/1 var(--hud-font);color:#0d1a1c;background:var(--hud-accent);border:0;border-radius:6px;box-shadow:none}
+/* ---------- avisos, chat e dicas ---------- */
+#city-toast{top:64px!important;right:auto!important;left:50%!important;transform:translateX(-50%) translateY(-6px);max-width:min(560px,80vw);
+  font:600 15px/1.3 var(--hud-font)!important;color:var(--hud-text)!important;background:var(--hud-bg)!important;border:1px solid var(--hud-line)!important;
+  border-radius:var(--hud-radius)!important;box-shadow:var(--hud-shadow)!important;padding:10px 16px!important;text-align:center}
+#city-toast.show{transform:translateX(-50%) translateY(0)}
+#chat{font-family:var(--hud-font)!important}
+#chat .log{font:500 14px/1.35 var(--hud-font)!important;color:var(--hud-text)!important;text-shadow:0 1px 3px #000c}
+#chat .log b{color:var(--hud-accent)!important}
+#chat input{font:500 14px var(--hud-font)!important;background:var(--hud-bg)!important;border:1px solid var(--hud-line)!important;border-radius:10px!important;color:var(--hud-text)!important}
+#keys{font-family:var(--hud-font)!important;background:var(--hud-bg)!important;border:1px solid var(--hud-line)!important;border-radius:var(--hud-radius)!important}
+#keys kbd{font:700 11px var(--hud-font);color:#0d1a1c;background:var(--hud-accent);border-radius:5px;padding:2px 5px;border:0}
+@media (max-width:740px){:root{--dock-w:46px;--dock-h:42px;--dock-gap:6px;--dock-edge:10px}
+  #city-controls button,#social-entry,#city-pets-entry,#city-cas-open{justify-content:center!important;padding:0!important}
+  .hud-dock-label,#city-controls kbd,#social-entry kbd,#city-pets-entry kbd,#city-cas-open kbd{display:none!important}}
+/* janela aberta (celular etc.): o dock some */
+body.hud-dock-hidden #city-controls,body.hud-dock-hidden #social-entry,body.hud-dock-hidden #city-pets-entry,body.hud-dock-hidden #city-cas-open{opacity:0!important;visibility:hidden!important;pointer-events:none!important}

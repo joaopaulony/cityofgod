@@ -1,0 +1,1058 @@
+// terrain.js — chão em alta resolução, pintado por blocos de 16 m sob demanda.
+// 1) "shader" por pixel mistura materiais (grama, mata, terra, lama, poças, trilha, areia seca/molhada,
+//    água, asfalto, sarjeta, meio-fio, calçada) a partir de campos de ruído e distâncias;
+// 2) detalhes vetoriais por cima (lâminas de grama, folhas, gravetos, pedrinhas, conchas, vitórias-régias,
+//    faixas gastas, remendos, juntas); 3) pisos das casas e sombras assadas.
+// Ruído de detalhe é ancorado no mundo, então os blocos se encaixam sem emenda.
+'use strict';
+
+const CH = 16, TP = 56, CPX = CH * TP, PAD = 2, CSZ = CPX + PAD * 2;
+const GSTEP = 0.25, GN = CH / GSTEP + 3;          // grade de campos com 1 nó de margem
+const MINI = 6;                                    // px/m do minimapa / fallback
+const terrain = { chunks: new Map(), maxChunks: 20, noise: null, frame: 0 };
+
+// ---------- ruído tileável 256² (ancorado no mundo) ----------
+function tileNoise(rnd, octaves) {
+  const N = 256, out = new Float32Array(N * N);
+  let total = 0;
+  for (const [cells, amp] of octaves) {
+    const lat = new Float32Array(cells * cells); for (let i = 0; i < lat.length; i++) lat[i] = rnd();
+    const step = N / cells;
+    for (let y = 0; y < N; y++) {
+      const gy = y / step, j0 = Math.floor(gy), fy = smooth(gy - j0), j1 = (j0 + 1) % cells;
+      for (let x = 0; x < N; x++) {
+        const gx = x / step, i0 = Math.floor(gx), fx = smooth(gx - i0), i1 = (i0 + 1) % cells;
+        const a = lerp(lat[j0 * cells + i0], lat[j0 * cells + i1], fx), b = lerp(lat[j1 * cells + i0], lat[j1 * cells + i1], fx);
+        out[y * N + x] += lerp(a, b, fy) * amp;
+      }
+    }
+    total += amp;
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= total;
+  return out;
+}
+
+// ---------- campos amostrados ----------
+function bil(grid, N, x, y) {   // grade de 0,5 m
+  const fx = clamp(x * 2, 0, N - 1.001), fy = clamp(y * 2, 0, N - 1.001), i = fx | 0, j = fy | 0, u = fx - i, v = fy - j;
+  const a = grid[j * N + i], b = grid[j * N + i + 1], c = grid[(j + 1) * N + i], d = grid[(j + 1) * N + i + 1];
+  return lerp(lerp(a, b, u), lerp(c, d, u), v);
+}
+// distância até a via: grade de 0,5 m no mapa local; função exata no mundo grande (openworld.js)
+function rdAt(x, y) { return world.roadDistFn ? world.roadDistFn(x, y) : bil(world.roadD, MAP * 2, x, y); }
+function fieldsAt(x, y, o = {}) {
+  const N = MAP * 2;
+  o.rd = rdAt(x, y); o.tr = terrain.trailD ? bil(terrain.trailD, N, x, y) : 99; o.pv = pondVal(x, y);
+  o.di = world.districtFn ? world.districtFn(x, y) : -1;
+  if (world.fieldFn) { const q = world.fieldFn(x, y); o.fa = q[0]; o.fc = q[1]; } else { o.fa = 0; o.fc = 0; }
+  o.bare = world.bareFn ? world.bareFn(x, y, o.di) : 0;   // pavimento/cais/pista: sem capim nem flores
+  o.gt = fbm(x * 0.09, y * 0.09, 4); o.dry = fbm(x * 0.045 + 11.3, y * 0.045 + 90.1, 3);
+  o.dirt = fbm(x * 0.13 + 50, y * 0.13 + 50, 3); o.wet = fbm(x * 0.11 + 200, y * 0.11 + 7, 3); o.fo = forest(x, y);
+  return o;
+}
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// pesos de material (mesma regra do shader por pixel, usada p/ espalhar detalhes)
+function weightsAt(f, d1 = 0.5) {
+  const w = {};
+  w.forest = sstep(0.55, 0.69, f.fo) * 0.85;
+  w.dirt = sstep(0.66, 0.72, f.dirt + (d1 - 0.5) * 0.08);
+  w.mud = Math.max(sstep(1.65, 1.15, f.pv) * sstep(0.45, 0.65, f.wet), w.dirt * sstep(0.62, 0.7, f.wet));
+  w.trail = 1 - sstep(0.55, 1.05, f.tr + (d1 - 0.5) * 0.35);
+  w.sand = 1 - sstep(1.12, 1.26, f.pv);
+  w.water = f.pv < 1 ? 1 : 0;
+  w.paved = f.rd < ROAD_W + SIDE + 0.05 ? 1 : 0;
+  if (f.di === 1) w.sand = 1;   // distrito de praia: areia em toda a faixa
+  w.grass = Math.max(0, 1 - Math.max(w.dirt, w.mud, w.trail, w.sand, w.water, w.paved)) * (1 - w.forest * 0.7);
+  if (f.bare) { w.grass = 0; w.forest = 0; }
+  return w;
+}
+
+// ---------- inicialização (chamada por paintGround) ----------
+function terrainInit() {
+  const rnd = mulberry(world.seed * 7 + 3);
+  terrain.n1 = tileNoise(rnd, [[64, 0.5], [32, 1], [16, 0.7]]);     // tufos/manchas ~0,1–0,3 m
+  terrain.openInit = world.open;
+  terrain.n2 = new Float32Array(65536); for (let i = 0; i < 65536; i++) terrain.n2[i] = rnd();   // grão
+  terrain.n3 = tileNoise(rnd, [[8, 1], [4, 0.6]]);                 // variação larga ~1–2 m
+  if (world.open) { terrain.trailD = null; return; }   // mundo grande: openworld.js monta minimapa e campos
+  // distância até as trilhas (grade de 0,5 m)
+  const N = MAP * 2, D = new Float32Array(N * N).fill(99);
+  for (const t of world.trails) for (const p of t) {
+    const ci = Math.round(p[0] * 2), cj = Math.round(p[1] * 2);
+    for (let j = cj - 8; j <= cj + 8; j++) for (let i = ci - 8; i <= ci + 8; i++) {
+      if (i < 0 || j < 0 || i >= N || j >= N) continue;
+      const d = Math.hypot(i / 2 - p[0], j / 2 - p[1]); if (d < D[j * N + i]) D[j * N + i] = d;
+    }
+  }
+  terrain.trailD = D;
+  // contorno do lago (p/ a animação da água)
+  if (world.pond) {
+    const p = world.pond, poly = [];
+    for (let k = 0; k < 72; k++) {
+      const a = k / 72 * TAU; let lo = 0, hi = 3;
+      for (let it = 0; it < 18; it++) { const m = (lo + hi) / 2; pondVal(p.x + Math.cos(a) * p.rx * m, p.y + Math.sin(a) * p.ry * m) < 1 ? lo = m : hi = m; }
+      poly.push([p.x + Math.cos(a) * p.rx * lo, p.y + Math.sin(a) * p.ry * lo]);
+    }
+    world.pondPoly = poly;
+  }
+  // minimapa / fallback: versão rápida vetorial, refinada quando cada bloco fica pronto
+  const mc = makeCanvas(MAP * MINI, MAP * MINI), mg = mc.getContext('2d');
+  mg.fillStyle = '#5d7a34'; mg.fillRect(0, 0, mc.width, mc.height);
+  for (let y = 0; y < MAP; y += 1) for (let x = 0; x < MAP; x += 1) {
+    const f = forest(x + 0.5, y + 0.5);
+    if (f > 0.58) { mg.fillStyle = 'rgba(40,52,24,0.55)'; mg.fillRect(x * MINI, y * MINI, MINI, MINI); }
+  }
+  mg.lineCap = 'round'; mg.lineJoin = 'round';
+  const st = (pts, w, col) => { mg.strokeStyle = col; mg.lineWidth = w * MINI; mg.beginPath(); pts.forEach((p, i) => i ? mg.lineTo(p.x * MINI, p.y * MINI) : mg.moveTo(p.x * MINI, p.y * MINI)); mg.stroke(); };
+  for (const r of world.roads) st(r.pts, (ROAD_W + SIDE) * 2, '#a6a196');
+  for (const r of world.roads) st(r.pts, ROAD_W * 2, '#3c3d41');
+  if (world.pondPoly) { mg.fillStyle = '#35585f'; mg.beginPath(); world.pondPoly.forEach(([x, y], i) => i ? mg.lineTo(x * MINI, y * MINI) : mg.moveTo(x * MINI, y * MINI)); mg.fill(); }
+  terrain.mini = mc; terrain.miniCtx = mg;
+}
+
+// ---------- itens de detalhe (determinísticos por bloco) ----------
+function chunkItems(ci, cj) {
+  while (!chunkItemsStep(ci, cj, 1e9));
+  return terrain.items.get(ci + ',' + cj);
+}
+// Gera os detalhes de um bloco em partes (maxIter candidatos por chamada), retomando de onde parou:
+// a sequência do sorteio é a mesma de uma geração única. Devolve true quando terminou.
+function chunkItemsStep(ci, cj, maxIter) {
+  const key = ci + ',' + cj;
+  terrain.items = terrain.items || new Map();
+  terrain.itemGen = terrain.itemGen || new Map();
+  if (terrain.items.has(key)) return true;
+  let G = terrain.itemGen.get(key);
+  if (!G) { G = { r: mulberry(world.seed * 131 + ci * 7919 + cj * 104729), items: [], f: {}, i: 0 }; terrain.itemGen.set(key, G); }
+  const r = G.r, items = G.items, f = G.f;
+  const x0 = ci * CH, y0 = cj * CH, n = CH * CH * 26;
+  const LUSH = ['#416a28', '#527b32', '#65923e', '#7fa14b', '#a1bc65'], DRY = ['#77703a', '#92874b', '#afa361', '#777044'];
+  const LITTER = ['#6b4a2a', '#8a5a2c', '#9a6e34', '#5e5a2c', '#7a6a3a', '#a2552a'];
+  const iEnd = Math.min(n, G.i + maxIter);
+  for (let i = G.i; i < iEnd; i++) {
+    const x = x0 + r() * CH, y = y0 + r() * CH;
+    fieldsAt(x, y, f); const w = weightsAt(f), pick = r();
+    if (w.paved) {
+      const sw = f.rd > ROAD_W + 0.2;
+      if (sw) { if (pick < 0.02) items.push({ t: 'gum', x, y, s: 0.015 + r() * 0.02 }); else if (pick < 0.035 && f.rd > ROAD_W + SIDE - 0.25) items.push({ t: 'blade', x, y, l: 0.05 + r() * 0.06, a: r() * 0.8 - 0.4, c: LUSH[(r() * 3) | 0] }); }
+      else if (f.rd > ROAD_W - 0.45 && pick < 0.05) items.push(r() < 0.6 ? { t: 'leaf', x, y, s: 0.05 + r() * 0.03, a: r() * TAU, c: LITTER[(r() * LITTER.length) | 0] } : { t: 'paper', x, y, a: r() * TAU, s: 0.04 + r() * 0.04 });
+      else if (f.rd < ROAD_W - 0.5 && pick < 0.004) items.push({ t: 'grit', x, y, s: 0.02 + r() * 0.03 });
+      continue;
+    }
+    if (w.water) {
+      if (f.pv > 0.72 && f.pv < 0.95 && pick < 0.03 && !(world.open && f.di !== 13)) items.push({ t: 'lily', x, y, s: 0.12 + r() * 0.14, a: r() * TAU, fl: r() < 0.12 });
+      else if (f.pv > 0.95 && pick < 0.25) items.push({ t: 'foam', x, y, s: 0.04 + r() * 0.08 });
+      continue;
+    }
+    if (pick < w.grass * 0.82) {
+      const dryk = sstep(0.45, 0.68, f.dry), pal = r() < dryk ? DRY : LUSH;
+      items.push({ t: 'blade', x, y, l: 0.06 + r() * 0.1 * (1 - w.trail), a: r() * 0.9 - 0.45, c: pal[(r() * pal.length) | 0] });
+      if (r() < 0.0132 * (1 - dryk)) items.push({ t: 'flower', x, y, c: ['#f2efe2', '#f4d34a', '#c9a2d8', '#f0a0b0', '#d3a66f', '#a7b6d8', '#f0dca4'][(r() * 7) | 0], k: 3 + ((r() * 4) | 0) });
+      else if (r() < 0.02) items.push({ t: 'clover', x, y, s: 0.03 + r() * 0.02 });
+    } else if (pick < w.grass * 0.82 + w.forest * 0.5) {
+      if (r() < 0.82) items.push({ t: 'leaf', x, y, s: 0.04 + r() * 0.04, a: r() * TAU, c: LITTER[(r() * LITTER.length) | 0] });
+      else if (r() < 0.6) items.push({ t: 'twig', x, y, s: 0.15 + r() * 0.3, a: r() * TAU });
+      else items.push({ t: 'blade', x, y, l: 0.05 + r() * 0.07, a: r() * 0.9 - 0.45, c: LUSH[(r() * 2) | 0] });
+    } else if (pick < 0.97 && (w.dirt > 0.4 || w.trail > 0.4) && w.mud < 0.5) {
+      if (r() < 0.16) items.push({ t: 'pebble', x, y, s: 0.02 + r() * 0.05, a: r() * TAU });
+      else if (r() < 0.012 && f.dry > 0.55) items.push({ t: 'crack', x, y, s: 0.25 + r() * 0.35, a: r() * TAU });
+    } else if (w.sand > 0.4 && f.pv > 1.05) {
+      if (r() < 0.06) items.push({ t: 'shell', x, y, s: 0.015 + r() * 0.02, a: r() * TAU });
+      else if (r() < 0.05 && f.pv > 1.12) items.push({ t: 'ripple', x, y, s: 0.15 + r() * 0.2, a: world.pond ? Math.atan2(y - world.pond.y, x - world.pond.x) + Math.PI / 2 : Math.atan2(pondVal(x, y + 1) - pondVal(x, y - 1), pondVal(x + 1, y) - pondVal(x - 1, y)) + Math.PI / 2 });
+    } else if (w.mud > 0.5 && r() < 0.05) items.push({ t: 'pebble', x, y, s: 0.02 + r() * 0.03, a: r() * TAU, wet: 1 });
+  }
+  G.i = iEnd;
+  if (G.i < n) return false;
+  // remendos, rachaduras e manchas no asfalto deste bloco
+  for (let i = 0; i < 56; i++) {
+    const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
+    if (rd > ROAD_W - 0.5) continue;
+    // direção da rua no ponto = perpendicular ao gradiente da distância
+    const gx = rdAt(x + 0.25, y) - rdAt(x - 0.25, y), gy = rdAt(x, y + 0.25) - rdAt(x, y - 0.25);
+    const along = Math.atan2(gy, gx) + Math.PI / 2, pick = r();
+    if (pick < 0.3) items.push({ t: 'acrack', x, y, s: 0.6 + r() * 1.6, a: along + (r() - 0.5) * 1.4, seed: (r() * 1e9) | 0, seal: r() < 0.22 });
+    else if (pick < 0.36) items.push({ t: 'alligator', x, y, s: 0.5 + r() * 0.9, a: along, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.55 && Math.abs(rd - 1.75) < 0.6) items.push({ t: 'oil', x, y, s: 0.2 + r() * 0.35, a: along, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.62) items.push({ t: 'patch', x, y, s: 0.7 + r() * 1.1, a: along, k: 0.4 + r() * 0.4, seed: (r() * 1e9) | 0 });
+    else if (pick < 0.635) items.push({ t: 'pothole', x, y, s: 0.18 + r() * 0.32, a: r() * TAU, seed: (r() * 1e9) | 0, wet: r() < 0.3 });
+  }
+  // sarjeta: folhas secas, bitucas, tampinhas e areia acumulada junto ao meio-fio
+  for (let i = 0; i < 90; i++) {
+    const x = x0 + r() * CH, y = y0 + r() * CH, rd = rdAt(x, y);
+    if (rd < ROAD_W - 0.36 || rd > ROAD_W - 0.04) continue;
+    items.push({ t: 'gjunk', x, y, k: r(), a: r() * TAU, seed: (r() * 1e9) | 0 });
+  }
+  // Manchas silvestres em pequenos grupos, com cores que seguem o mesmo bioma.
+  // Detalhe assado no bloco: nenhum custo de animacao adicional por quadro.
+  const blooms=['#eee6ce','#ead064','#ccacd1','#db9ca9',
+    '#9eaad0','#e6a274','#ca7778','#ede0a8'];
+  for(let i=0;i<17;i++){
+    const x=x0+r()*CH,y=y0+r()*CH;
+    fieldsAt(x,y,f);
+    const w=weightsAt(f);
+    if(w.paved||w.water||w.grass<.30||w.forest>.67||
+       w.mud>.32||w.sand>.38||f.rd<ROAD_W+SIDE+1.0||
+       f.pv<1.20)continue;
+    items.push({t:'wildflower',x,y,c:blooms[(r()*blooms.length)|0],
+      k:5+((r()*6)|0),radius:.16+r()*.19,phase:r()*TAU});
+  }
+  terrain.items.set(key, items); terrain.itemGen.delete(key);
+  return true;
+}
+
+// ---------- pintura de um bloco (em etapas p/ não travar o jogo) ----------
+function startChunk(ci, cj) {
+  const c = makeCanvas(CSZ, CSZ), g = c.getContext('2d');
+  const ch = { ci, cj, c, g, stage: 0, row: 0, done: false, used: terrain.frame };
+  terrain.chunks.set(ci + ',' + cj, ch);
+  return ch;
+}
+// campos em fatias de linhas (antes ~13 ms de uma vez, um tranco a cada bloco novo); true quando terminou
+function chunkFields(ch, budgetMs = Infinity) {
+  const t0 = performance.now(), x0 = ch.ci * CH - GSTEP, y0 = ch.cj * CH - GSTEP;
+  if (!ch.F) { ch.F = {}; ch.fj = 0; for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) ch.F[k] = new Float32Array(GN * GN); }
+  const F = ch.F, o = {};
+  while (ch.fj < GN) {
+    const j = ch.fj++;
+    for (let i = 0; i < GN; i++) { fieldsAt(x0 + i * GSTEP, y0 + j * GSTEP, o); const k = j * GN + i; for (const key in F) F[key][k] = o[key]; }
+    if (performance.now() - t0 > budgetMs) break;
+  }
+  if (ch.fj < GN) return false;
+  if (!TW.ok) ch.img = ch.g.createImageData(CSZ, CSZ);   // com workers a imagem chega pronta
+  const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
+  ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
+  return true;
+}
+const TC = h => hexToRgb(h);
+// Cada pixel do solo continua procedural; apenas as cores de mistura
+// refletem o padrão oficial sem trocar bitmaps, rachaduras ou formas.
+const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
+  .map(([name,hex])=>[name,TC(hex)]));
+// L: camada (o próprio bloco a 56 px/m, ou a versão rápida); também roda dentro dos workers
+function paintRows(ch, rows, L = ch) {
+  const F = L.F || ch.F, img = L.img, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
+  const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo, Fdi = F.di, Ffa = F.fa, Ffc = F.fc;
+  const open = world.open, CROP = terrain.crops;
+  const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
+  const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
+  const sk = L.k || 1, pd = L.pad === undefined ? PAD : L.pad, SZ = L.sz || CSZ, gx0 = ch.ci * CPX - pd * sk, gy0 = ch.cj * CPX - pd * sk, gs = L.gs || GSTEP, gn = L.gn || GN, inv = 1 / ((L.tp || TP) * gs);
+  const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
+  const end = Math.min(SZ, L.row + rows);
+  for (let py = L.row; py < end; py++) {
+    const Yp = gy0 + py * sk, gyf = (py - pd) * inv + 1, j = Math.min(gn - 2, gyf | 0), v = gyf - j, ny = (Yp & 255) << 8;
+    for (let px = 0; px < SZ; px++) {
+      const Xp = gx0 + px * sk, gxf = (px - pd) * inv + 1, i = Math.min(gn - 2, gxf | 0), u = gxf - i, k = j * gn + i, k2 = k + gn;
+      const w00 = (1 - u) * (1 - v), w10 = u * (1 - v), w01 = (1 - u) * v, w11 = u * v;
+      const rd = Frd[k] * w00 + Frd[k + 1] * w10 + Frd[k2] * w01 + Frd[k2 + 1] * w11;
+      const pv = Fpv[k] * w00 + Fpv[k + 1] * w10 + Fpv[k2] * w01 + Fpv[k2 + 1] * w11;
+      const tr = Ftr[k] * w00 + Ftr[k + 1] * w10 + Ftr[k2] * w01 + Ftr[k2 + 1] * w11;
+      const gt = Fgt[k] * w00 + Fgt[k + 1] * w10 + Fgt[k2] * w01 + Fgt[k2 + 1] * w11;
+      const dry = Fdry[k] * w00 + Fdry[k + 1] * w10 + Fdry[k2] * w01 + Fdry[k2 + 1] * w11;
+      const dirt = Fdirt[k] * w00 + Fdirt[k + 1] * w10 + Fdirt[k2] * w01 + Fdirt[k2 + 1] * w11;
+      const wet = Fwet[k] * w00 + Fwet[k + 1] * w10 + Fwet[k2] * w01 + Fwet[k2 + 1] * w11;
+      const fo = Ffo[k] * w00 + Ffo[k + 1] * w10 + Ffo[k2] * w01 + Ffo[k2 + 1] * w11;
+      const ni = ny | ((Xp) & 255), d1 = n1[ni], d2 = n2[ni], d3 = n3[ni];
+      let r, gg, b;
+      // --- grama: tom por ruído + tufos + grão com pontas claras/escuras
+      const dk = sstep(0.42, 0.72, dry), tone = 0.82 + (gt - 0.5) * 0.55 + (d1 - 0.5) * 0.3;
+      const grain = d2 > 0.86 ? 1.2 : d2 < 0.14 ? 0.78 : 0.95 + d2 * 0.1;
+      if (tex && texAt('lawn', Xp, Yp, tA) && texAt('weeds', Xp, Yp, tB)) {
+        // gramado -> mato ralo pelo campo de secura; o detalhe fino vem da textura, do campo só a variação grande
+        const tn = 0.93 + (gt - 0.5) * 0.3;
+        r = lerp(tA[0], tB[0], dk) * tn; gg = lerp(tA[1], tB[1], dk) * tn; b = lerp(tA[2], tB[2], dk) * tn;
+      } else { r = lerp(COL.lush[0], COL.dry[0], dk) * tone * grain; gg = lerp(COL.lush[1], COL.dry[1], dk) * tone * grain; b = lerp(COL.lush[2], COL.dry[2], dk) * tone * grain; }
+      // --- chão de mata: musgo + serrapilheira
+      const fw = sstep(0.55, 0.69, fo) * 0.85;
+      if (fw > 0) { const t = d3, m = 0.8 + d1 * 0.35; r = lerp(r, lerp(COL.moss[0], COL.litter[0], t) * m, fw); gg = lerp(gg, lerp(COL.moss[1], COL.litter[1], t) * m, fw); b = lerp(b, lerp(COL.moss[2], COL.litter[2], t) * m, fw); }
+      // --- terra batida
+      const dw = sstep(0.66, 0.72, dirt + (d1 - 0.5) * 0.08);
+      if (dw > 0) {
+        if (tex && texAt('dirt', Xp, Yp, tA)) { const m = 0.95 + d1 * 0.08; r = lerp(r, tA[0] * m, dw); gg = lerp(gg, tA[1] * m, dw); b = lerp(b, tA[2] * m, dw); }
+        else { const m = (0.84 + d1 * 0.26) * (d2 > 0.92 ? 1.18 : 1); r = lerp(r, COL.dirt[0] * m, dw); gg = lerp(gg, COL.dirt[1] * m, dw); b = lerp(b, COL.dirt[2] * m, dw); }
+      }
+      // --- lama (perto do lago e na terra úmida) com brilho molhado e poças
+      const mw = Math.max(sstep(1.65, 1.15, pv) * sstep(0.45, 0.65, wet), dw * sstep(0.62, 0.7, wet));
+      if (mw > 0) {
+        const gl = d2 > 0.95 ? 38 : 0, m = 0.78 + d1 * 0.32;
+        r = lerp(r, COL.mud[0] * m + gl, mw); gg = lerp(gg, COL.mud[1] * m + gl, mw); b = lerp(b, COL.mud[2] * m + gl, mw);
+        const pw = mw * sstep(0.69, 0.72, wet + (d1 - 0.5) * 0.12);
+        if (pw > 0) { const m2 = 0.85 + d3 * 0.3 + (d1 - 0.5) * 0.1; r = lerp(r, COL.puddle[0] * m2, pw); gg = lerp(gg, COL.puddle[1] * m2, pw); b = lerp(b, COL.puddle[2] * m2, pw); }
+      }
+      // --- trilha de terra pisada (centro mais claro e gasto)
+      const tw = 1 - sstep(0.55, 1.05, tr + (d1 - 0.5) * 0.35);
+      if (tw > 0) { const m = (0.88 + d1 * 0.2 + (1 - sstep(0, 0.45, tr)) * 0.08) * (d2 > 0.9 ? 1.15 : 1); r = lerp(r, COL.trail[0] * m, tw); gg = lerp(gg, COL.trail[1] * m, tw); b = lerp(b, COL.trail[2] * m, tw); }
+      // --- mundo grande: superfícies por distrito (peso suave pela fração dos 4 nós vizinhos)
+      let quay = 0;
+      if (open) {
+        const c0 = Fdi[k], c1 = Fdi[k + 1], c2 = Fdi[k2], c3 = Fdi[k2 + 1];
+        const wOf = D => (c0 === D ? w00 : 0) + (c1 === D ? w10 : 0) + (c2 === D ? w01 : 0) + (c3 === D ? w11 : 0);
+        const wx = (Xp) / TP, wy = (Yp) / TP;
+        // fazenda: fileiras de plantio na direção do talhão, sulcos de terra entre elas
+        const wf = wOf(8);
+        if (wf > 0) {
+          const kk = u < 0.5 ? (v < 0.5 ? k : k2) : (v < 0.5 ? k + 1 : k2 + 1), ang = Ffa[kk], crop = CROP[Ffc[kk] | 0];
+          const t = wx * Math.cos(ang) + wy * Math.sin(ang), row = 0.5 + 0.5 * Math.sin(t * 7.3 + (d1 - 0.5) * 0.9);
+          const plant = sstep(0.35, 0.7, row) * crop[3], m = 0.88 + d1 * 0.2 + (d2 > 0.9 ? 0.1 : 0);
+          const cr = lerp(COL.dirt[0] * 0.95, crop[0], plant) * m, cg = lerp(COL.dirt[1] * 0.95, crop[1], plant) * m, cb = lerp(COL.dirt[2] * 0.95, crop[2], plant) * m;
+          r = lerp(r, cr, wf * 0.92); gg = lerp(gg, cg, wf * 0.92); b = lerp(b, cb, wf * 0.92);
+        }
+        // centro, indústria, porto e pátio do aeroporto: placas de concreto com juntas e manchas
+        const wc = wOf(2), wi = wOf(6) + wOf(7);
+        if (wc + wi > 0) {
+          const slab = wc > wi ? 1.2 : 4, jx = Math.abs(((wx / slab) % 1 + 1) % 1 - 0.5), jy = Math.abs(((wy / slab) % 1 + 1) % 1 - 0.5);
+          const joint = (jx > 0.485 || jy > 0.485) ? 0.78 : 1, stain = d3 > 0.72 ? 0.86 : 1, m = (0.9 + d2 * 0.12) * joint * stain * (0.95 + d1 * 0.08);
+          const base = wc > wi ? COL.walk : COL.curbF;
+          const ww2 = Math.min(1, wc + wi) * 0.96;
+          if (tex && texAt(wc > wi ? 'walk' : 'concrete', Xp, Yp, tA)) { const mj = joint * (0.97 + d1 * 0.05); r = lerp(r, tA[0] * mj, ww2); gg = lerp(gg, tA[1] * mj, ww2); b = lerp(b, tA[2] * mj, ww2); }
+          else { r = lerp(r, base[0] * m * 1.02, ww2); gg = lerp(gg, base[1] * m, ww2); b = lerp(b, base[2] * m * 0.98, ww2); }
+          quay = Math.min(1, wOf(7) + wc * 0.6);
+        }
+        // favela: terra batida e pisada com manchas de cimento; conjunto: grama gasta e terra
+        const wv = wOf(4), wg = wOf(5);
+        if (wv + wg > 0) {
+          const cem = d3 > 0.86 && wv > 0 ? 0.55 : 0, m = (0.82 + d1 * 0.3) * (d2 > 0.93 ? 1.15 : 1);
+          const dt = tex && texAt('dirt', Xp, Yp, tA), dm = 0.95 + d1 * 0.08;
+          const dr = dt ? tA[0] * dm : COL.dirt[0] * m, dg = dt ? tA[1] * dm : COL.dirt[1] * m, db = dt ? tA[2] * dm : COL.dirt[2] * m;
+          const cr = lerp(dr, COL.curbF[0] * 1.1, cem), cg = lerp(dg, COL.curbF[1] * 1.1, cem), cb = lerp(db, COL.curbF[2] * 1.1, cem);
+          const ww3 = wv * 0.9 + wg * 0.45 * sstep(0.4, 0.7, d3);
+          r = lerp(r, cr, ww3); gg = lerp(gg, cg, ww3); b = lerp(b, cb, ww3);
+        }
+        // praia: areia seca em todo o distrito (a molhada perto da água vem do campo da costa)
+        const wb = wOf(1);
+        if (wb > 0) {
+          if (tex && texAt('sand', Xp, Yp, tA)) { const m = 0.97 + d1 * 0.05; r = lerp(r, tA[0] * m, wb); gg = lerp(gg, tA[1] * m, wb); b = lerp(b, tA[2] * m, wb); }
+          else { const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12); r = lerp(r, COL.sand[0] * m, wb); gg = lerp(gg, COL.sand[1] * m, wb); b = lerp(b, COL.sand[2] * m, wb); }
+        }
+        // aeroporto: grama aparada mais clara entre as pistas
+        const wa = wOf(11);
+        if (wa > 0) { const m = 1.06 + (Math.sin(wx * 0.5) > 0 ? 0.04 : -0.02); r = lerp(r, r * m, wa); gg = lerp(gg, gg * m, wa); b = lerp(b, b * m * 0.98, wa); }
+      }
+      // --- areia seca -> areia molhada na beira (no porto e no centro vira cais de concreto)
+      const sw = (1 - sstep(1.12, 1.26, pv + (d1 - 0.5) * 0.04)) * (1 - quay);
+      if (sw > 0) {
+        const ws = 1 - sstep(1.0, 1.075, pv + (d3 - 0.5) * 0.03);
+        if (tex && texAt('sand', Xp, Yp, tA)) {   // areia pintada; a molhada escurece a própria textura
+          const m = (0.97 + d1 * 0.05) * (1 - ws * 0.38);
+          r = lerp(r, lerp(tA[0], COL.wsand[0], ws * 0.55) * m, sw); gg = lerp(gg, lerp(tA[1], COL.wsand[1], ws * 0.55) * m, sw); b = lerp(b, lerp(tA[2], COL.wsand[2], ws * 0.55) * m, sw);
+        } else {
+          const m = (0.9 + d1 * 0.16) * (0.94 + d2 * 0.12);
+          r = lerp(r, lerp(COL.sand[0], COL.wsand[0], ws) * m, sw); gg = lerp(gg, lerp(COL.sand[1], COL.wsand[1], ws) * m, sw); b = lerp(b, lerp(COL.sand[2], COL.wsand[2], ws) * m, sw);
+        }
+      }
+      // --- água: rasa esverdeada -> funda, com ondulação e espuma na margem
+      if (pv < 1.02) {
+        const ww = sstep(1.02, 0.985, pv), dp = sstep(0, open ? 0.32 : 0.6, 1 - pv), rip = 1 + (d3 - 0.5) * 0.14 + (d1 - 0.5) * 0.08;
+        let wr = lerp(COL.shallow[0], COL.deep[0], dp) * rip, wg = lerp(COL.shallow[1], COL.deep[1], dp) * rip, wb = lerp(COL.shallow[2], COL.deep[2], dp) * rip;
+        const fe = 1 - sstep(0, 0.045, 1 - pv);
+        wr = lerp(wr, COL.foam[0], fe * 0.55 * (0.6 + d1 * 0.4)); wg = lerp(wg, COL.foam[1], fe * 0.55 * (0.6 + d1 * 0.4)); wb = lerp(wb, COL.foam[2], fe * 0.55 * (0.6 + d1 * 0.4));
+        // linhas de espuma: onda que morre na areia + arrebentação mais ao largo (só no mar aberto)
+        if (open && Fdi[k] !== 13) {
+          const f1 = 1 - sstep(0, 0.0032, Math.abs(pv - 0.9925 + (d2 - 0.5) * 0.007)), f2 = (1 - sstep(0, 0.005, Math.abs(pv - 0.968 + (d3 - 0.5) * 0.03))) * 0.55 * sstep(0.35, 0.55, d2);
+          const f3 = (1 - sstep(0, 0.004, Math.abs(pv - 0.935 + (d2 - 0.5) * 0.04))) * 0.3 * sstep(0.45, 0.6, d1), f4 = (1 - sstep(0, 0.004, Math.abs(pv - 0.89 + (d1 - 0.5) * 0.05))) * 0.2 * sstep(0.5, 0.65, d3);
+          const ff = Math.max(f1, f2, f3, f4) * (0.55 + d1 * 0.45);
+          if (ff > 0) { wr = lerp(wr, 250, ff); wg = lerp(wg, 252, ff); wb = lerp(wb, 248, ff); }
+        }
+        r = lerp(r, wr, ww); gg = lerp(gg, wg, ww); b = lerp(b, wb, ww);
+      }
+      // --- calçada / meio-fio / sarjeta / asfalto
+      if (rd < s1 + 0.06) {
+        const swk = 1 - sstep(s1 - 0.02, s1 + 0.04, rd);
+        const m = (0.92 + d3 * 0.13) * (0.93 + d2 * 0.12) * (d1 < 0.22 ? 0.9 : 1), edge = sstep(s1 - 0.25, s1, rd) * 0.35;
+        const wt = tex && texAt(walkKey, Xp, Yp, tA), wm = 0.97 + d3 * 0.05;
+        const wr = wt ? tA[0] * wm : COL.walk[0] * m, wg2 = wt ? tA[1] * wm : COL.walk[1] * m, wb2 = wt ? tA[2] * wm : COL.walk[2] * m;
+        const cr = lerp(wr, COL.dirt[0], edge), cg = lerp(wg2, COL.dirt[1], edge), cb = lerp(wb2, COL.dirt[2], edge);
+        r = lerp(r, cr, swk); gg = lerp(gg, cg, swk); b = lerp(b, cb, swk);
+        if (rd < s0 + 0.01) {   // meio-fio: face escura + topo claro chanfrado
+          const t = (rd - ROAD_W) / 0.2, top = t > 0.3, m2 = 0.92 + d2 * 0.12;
+          const kr = (top ? COL.curbT[0] * (1.06 - t * 0.12) : COL.curbF[0]) * m2, kg = (top ? COL.curbT[1] * (1.06 - t * 0.12) : COL.curbF[1]) * m2, kb = (top ? COL.curbT[2] * (1.06 - t * 0.12) : COL.curbF[2]) * m2;
+          r = kr; gg = kg; b = kb;
+        }
+        if (rd < ROAD_W + 0.015) {
+          // asfalto: agregado, trilhas de pneu polidas, faixa de óleo, remendos, sarjeta suja
+          const tracks = Math.exp(-((rd - 0.95) ** 2) / 0.09) + Math.exp(-((rd - 2.55) ** 2) / 0.09);
+          const oil = Math.exp(-((rd - 1.75) ** 2) / 0.05);
+          const agg = d2 > 0.93 ? 1.4 : 0.8 + d2 * 0.36;
+          let m3 = lerp(agg, 0.97, tracks * 0.5) * (1 - tracks * 0.07) * (1 - oil * 0.1) * (0.95 + d3 * 0.1);
+          let ar = COL.asph[0] * m3 + oil * 4, ag = COL.asph[1] * m3, ab = COL.asph[2] * m3 - oil * 2;
+          if (tex && texAt('asphalt', Xp, Yp, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
+          if (d3 > 0.8 && rd < ROAD_W - 0.6) { const q = 0.93 + d2 * 0.1; if (tex && GTEX.t.asphalt) { ar *= 0.84; ag *= 0.84; ab *= 0.84; } else { ar = COL.patch[0] * q; ag = COL.patch[1] * q; ab = COL.patch[2] * q; } }
+          // sarjeta: faixa de concreto (0,4 m) encardida, junta escura com o asfalto, sujeira escorrida perto do meio-fio
+          const gut = sstep(ROAD_W - 0.415, ROAD_W - 0.395, rd), gm = (0.86 + d1 * 0.22) * (0.94 + d3 * 0.1);
+          const gr0 = lerp(COL.walk[0], COL.gutter[0], 0.42) * gm, gg0 = lerp(COL.walk[1], COL.gutter[1], 0.42) * gm, gb0 = lerp(COL.walk[2], COL.gutter[2], 0.42) * gm;
+          ar = lerp(ar, gr0, gut); ag = lerp(ag, gg0, gut); ab = lerp(ab, gb0, gut);
+          const seam = Math.exp(-(((rd - (ROAD_W - 0.405)) / 0.012) ** 2)), grime = Math.exp(-(ROAD_W - rd) / 0.09) * (0.55 + d2 * 0.6), cs = rd > ROAD_W - 0.03 ? 0.5 : 1;
+          const kd = (1 - seam * 0.45) * (1 - grime * 0.32) * cs; ar *= kd; ag *= kd; ab *= kd * 0.97;
+          const aw = 1 - sstep(ROAD_W - 0.01, ROAD_W + 0.015, rd);
+          r = lerp(r, ar, aw); gg = lerp(gg, ag, aw); b = lerp(b, ab, aw);
+        }
+      }
+      const o = (py * SZ + px) * 4;
+      data[o] = r; data[o + 1] = gg; data[o + 2] = b; data[o + 3] = 255;
+    }
+  }
+  L.row = end;
+  if (L.row >= SZ && L.g) L.g.putImageData(img, 0, 0);
+}
+
+// marcas de rua (em metros, com transformação do bloco)
+function paintRoadVectors(ch, g) {
+  const r2 = mulberry(world.seed + ch.ci * 31 + ch.cj * 977), J = world.junction, nearJ = p => !!J && Math.hypot(p.x - J.x, p.y - J.y) < ROAD_W + 3;
+  // Linhas param ANTES dos cruzamentos: um trecho nunca risca sobre outra estrada.
+  const crossing = (rd,p) => !!world.open && CityStreetLayout.nearOtherRoad(p.x,p.y,rd.bigId,{map:OW.roadHash,cell:OW.RC},ROAD_W+5);
+  const bx0 = ch.ci * CH - 2, by0 = ch.cj * CH - 2, bx1 = bx0 + CH + 4, by1 = by0 + CH + 4, inB = p => p.x > bx0 - 4 && p.x < bx1 + 4 && p.y > by0 - 4 && p.y < by1 + 4;
+  // pistas (mundo grande): marcações das pistas de pouso cruzando este bloco
+  if (world.airports) paintRunways(ch, g, inB);
+  // demarcação horizontal (eixo, faixas, bordo e vagas): para antes da faixa de pedestre de cada cruzamento
+  const beforeX = (rd, p) => !!world.open && CityStreetLayout.nearOtherRoad(p.x, p.y, rd.bigId, { map: OW.roadHash, cell: OW.RC }, ROAD_W + SIDE + 4.2);
+  for (const rd of world.roads) if (world.open && rd.lanes) paintLaneMarks(rd, g, inB, beforeX);
+  else for (const o of [-0.12, 0.12]) for (let i = 0; i < rd.pts.length - 1; i++) {
+    // mundo pequeno antigo: faixa dupla amarela gasta
+    const p = rd.pts[i], q = rd.pts[i + 1]; if (!inB(p) || nearJ(p) || crossing(rd,p)) continue;
+    const wear = terrain.n3[((Math.floor(p.y * TP) & 255) << 8) | (Math.floor(p.x * TP) & 255)];
+    g.strokeStyle = `rgba(214,176,62,${0.45 + wear * 0.45})`; g.lineWidth = 0.1;
+    g.beginPath(); g.moveTo(p.x + p.nx * o, p.y + p.ny * o); g.lineTo(q.x + q.nx * o, q.y + q.ny * o); g.stroke();
+  }
+  // faixas de pedestre gastas
+  for (const rd of J ? world.roads : []) {
+    let ci = 0, cd = 1e9; rd.pts.forEach((p, i) => { const d = Math.hypot(p.x - J.x, p.y - J.y); if (d < cd) { cd = d; ci = i; } });
+    for (const dir of [-1, 1]) {
+      const p = rd.pts[ci + dir * Math.round((ROAD_W + 3.2) * 2)]; if (!p || !inB(p)) continue;
+      g.save(); g.translate(p.x, p.y); g.rotate(Math.atan2(p.ty, p.tx));
+      for (let k = -3; k < 3; k++) {
+        g.fillStyle = 'rgba(222,220,210,0.82)'; g.fillRect(-0.85, k * 1.12 + 0.28, 1.7, 0.6);
+        g.fillStyle = 'rgba(58,59,63,0.55)';
+        for (let s = 0; s < 70; s++) g.fillRect(-0.85 + r2() * 1.7, k * 1.12 + 0.28 + r2() * 0.6, 0.02 + r2() * 0.05, 0.02 + r2() * 0.04);
+      }
+      g.restore();
+    }
+  }
+  // bueiros junto ao meio-fio
+  for (const rd of world.roads) for (let i = 30; i < rd.pts.length; i += 55) {
+    const p = rd.pts[i], s = i % 2 ? 1 : -1; if (!inB(p) || nearJ(p) || crossing(rd,p)) continue;
+    const off = rd.off || 0; g.save(); g.translate(p.x + p.nx * s * (ROAD_W + off - 0.4), p.y + p.ny * s * (ROAD_W + off - 0.4)); g.rotate(Math.atan2(p.ty, p.tx));
+    g.fillStyle = '#7d7a72'; g.fillRect(-0.48, -0.3, 0.96, 0.6);
+    g.fillStyle = '#1c1d20'; g.fillRect(-0.4, -0.22, 0.8, 0.44);
+    g.fillStyle = '#5a5b5f'; for (let k = 0; k < 7; k++) g.fillRect(-0.37 + k * 0.11, -0.2, 0.05, 0.4);
+    g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(-0.48, -0.3, 0.96, 0.03);
+    g.restore();
+  }
+  // juntas das placas de calçada (perpendiculares) + junta longitudinal
+  g.strokeStyle = 'rgba(70,66,58,0.55)'; g.lineWidth = 0.022;
+  for (const rd of world.roads) for (let i = 0; i < rd.pts.length; i += 3) {
+    const p = rd.pts[i]; if (!inB(p)) continue;
+    for (const s of [1, -1]) {
+      const off = rd.off || 0, ax = p.x + p.nx * s * (ROAD_W + off + 0.2), ay = p.y + p.ny * s * (ROAD_W + off + 0.2);
+      if (rdAt(ax, ay) < ROAD_W + 0.1) continue;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(p.x + p.nx * s * (ROAD_W + off + SIDE), p.y + p.ny * s * (ROAD_W + off + SIDE)); g.stroke();
+    }
+  }
+  // brilho no canto do meio-fio
+  g.strokeStyle = 'rgba(235,230,220,0.35)'; g.lineWidth = 0.025;
+  for (const rd of world.roads) for (const s of [1, -1]) {
+    g.beginPath(); let on = false;
+    for (const p of rd.pts) {
+      const x = p.x + p.nx * s * (ROAD_W + (rd.off || 0) + 0.08), y = p.y + p.ny * s * (ROAD_W + (rd.off || 0) + 0.08);
+      if (!inB(p) || rdAt(x, y) < ROAD_W + 0.04) { on = false; continue; }
+      on ? g.lineTo(x, y) : g.moveTo(x, y); on = true;
+    }
+    g.stroke();
+  }
+}
+
+// Uma via do mundo aberto: rua local = eixo amarelo tracejado; avenida/rodovia = eixo duplo amarelo contínuo,
+// tracejado branco entre as 2 faixas de cada sentido e linha de bordo; rua comercial = linha da faixa de
+// estacionamento com as marcas (T) de cada vaga. Tinta com desgaste (ruído) e sem riscar dentro de cruzamentos.
+function paintLaneMarks(rd, g, inB, beforeX) {
+  const P = rd.pts, n = P.length, hw = ROAD_W + (rd.off || 0), park = rd.park || 0, big = rd.cls === 'avenue' || rd.cls === 'highway';
+  const ok = new Uint8Array(n); for (let i = 0; i < n; i++) ok[i] = inB(P[i]) && !beforeX(rd, P[i]) ? 1 : 0;
+  const wear = p => terrain.n3[((Math.floor(p.y * 9) & 255) << 8) | (Math.floor(p.x * 9) & 255)];
+  const phase = p => Math.abs(p.x * p.tx + p.y * p.ty);   // posição ao longo da via (contínua entre setores)
+  const stroke = (o, col, w, dash, gap) => {
+    g.lineWidth = w;
+    for (let i = 0; i < n - 1; i++) {
+      const p = P[i], q = P[i + 1]; if (!ok[i] || !ok[i + 1]) continue;
+      if (dash && (phase(p) % (dash + gap)) > dash) continue;
+      g.strokeStyle = col(0.72 + wear(p) * 0.26);
+      g.beginPath(); g.moveTo(p.x + p.nx * o, p.y + p.ny * o); g.lineTo(q.x + q.nx * o, q.y + q.ny * o); g.stroke();
+    }
+  };
+  const YEL = a => `rgba(226,182,52,${a})`, WHT = a => `rgba(238,236,228,${a})`;
+  if (big) { stroke(-0.15, YEL, 0.15, 0, 0); stroke(0.15, YEL, 0.15, 0, 0); }
+  else stroke(0, YEL, 0.12, 3, 5);
+  const lane = hw - park;
+  for (const s of [-1, 1]) {
+    if ((rd.lanes || 1) > 1) stroke(s * lane / 2, WHT, 0.14, 3, 6);
+    if (big) stroke(s * (lane - 0.25), WHT, 0.14, 0, 0);
+    if (park) {
+      stroke(s * lane, WHT, 0.15, 0, 0);
+      g.lineWidth = 0.15;
+      for (let i = 0; i < n; i++) {
+        const p = P[i]; if (!ok[i] || (phase(p) % 6.2) > 0.5 || (i && (phase(P[i - 1]) % 6.2) <= 0.5)) continue;
+        g.strokeStyle = WHT(0.5 + wear(p) * 0.4); g.beginPath();
+        g.moveTo(p.x + p.nx * s * lane, p.y + p.ny * s * lane); g.lineTo(p.x + p.nx * s * (lane + park * 0.85), p.y + p.ny * s * (lane + park * 0.85)); g.stroke();
+      }
+    }
+  }
+}
+
+// Braço de um cruzamento (decalque criado por miaCrosswalks): faixa de pedestre zebrada alinhada com a calçada,
+// linha de retenção na metade que chega e, na pista que chega, "PARE" (rua) ou setas de direção (avenida).
+function paintJunctionArm(g, d) {
+  const dx = d.dx, dy = d.dy, rx = dy, ry = -dx, hw = d.hw, e = d.e, r = mulberry(d.seed);
+  const at = (u, v) => [d.x + dx * u + rx * v, d.y + dy * u + ry * v];
+  const quad = (u0, u1, v0, v1, col) => { const a = at(u0, v0), b = at(u1, v0), c = at(u1, v1), q = at(u0, v1); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(q[0], q[1]); g.fill(); };
+  // zebra: barras no sentido do tráfego, com falhas de tinta (rua x rua: só onde há PARE)
+  if (d.zebra !== false) for (let v = -hw + 0.45; v < hw - 0.5; v += 1.0) {
+    const fade = 0.7 + r() * 0.25; quad(e + 0.35, e + 3.35, v, v + 0.55, `rgba(240,238,230,${fade})`);
+    for (let k = 0; k < 5; k++) { const u = e + 0.35 + r() * 3, w = v + r() * 0.55; quad(u, u + 0.025 + r() * 0.055, w, w + 0.02 + r() * 0.035, 'rgba(62,63,66,0.17)'); }
+  }
+  if (!d.stop) return;
+  // linha de retenção: só na metade de quem chega (mão direita)
+  const lane = hw - (d.park || 0);
+  quad(e + 4.0, e + 4.6, 0.15, lane, 'rgba(242,240,232,0.94)');
+  g.save(); g.transform(rx, ry, dx, dy, d.x, d.y);
+  if (d.cls === 'street') {
+    // "PARE" esticado no sentido do tráfego (lido por quem se aproxima)
+    g.translate(lane / 2, e + 7.2); g.scale(1, 2.4); g.fillStyle = 'rgba(240,238,230,0.86)';
+    g.font = 'bold 0.78px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('PARE', 0, 0);
+  } else {
+    // setas: pista da esquerda segue ou vira à esquerda, pista da direita segue ou vira à direita
+    const lw = lane / (d.lanes || 2);
+    for (let k = 0; k < (d.lanes || 2); k++) {
+      const cx = lw * (k + 0.5), y0 = e + 11.5, side = k === 0 ? -1 : k === (d.lanes || 2) - 1 ? 1 : 0;
+      g.fillStyle = 'rgba(240,238,230,0.86)';
+      g.fillRect(cx - 0.09, y0 - 3.4, 0.18, 4.4);
+      g.beginPath(); g.moveTo(cx, y0 - 4.6); g.lineTo(cx - 0.42, y0 - 3.3); g.lineTo(cx + 0.42, y0 - 3.3); g.fill();
+      if (side) { const sx = side; g.fillRect(Math.min(cx, cx + sx * 0.9), y0 - 1.3, 0.9, 0.18); g.beginPath(); g.moveTo(cx + sx * 1.35, y0 - 1.21); g.lineTo(cx + sx * 0.85, y0 - 1.65); g.lineTo(cx + sx * 0.85, y0 - 0.77); g.fill(); }
+    }
+  }
+  g.restore();
+}
+
+// pistas de pouso: asfalto, faixa central tracejada, cabeceiras (piano), números e luzes de borda
+function paintRunways(ch, g, inB) {
+  const x0 = ch.ci * CH - 2, y0 = ch.cj * CH - 2, x1 = x0 + CH + 4, y1 = y0 + CH + 4;
+  for (const ap of world.airports) {
+    const c = Math.cos(ap.ang), s = Math.sin(ap.ang), L = ap.len, Wd = ap.width;
+    // descarta rápido se o bloco está longe do retângulo do aeroporto
+    const cx = (x0 + x1) / 2 - ap.x, cy = (y0 + y1) / 2 - ap.y, lu = cx * c + cy * s, lv = -cx * s + cy * c;
+    if (Math.abs(lu) > L / 2 + 60 || lv < -Wd - 40 || lv > ap.apron + 40) continue;
+    g.save(); g.translate(ap.x, ap.y); g.rotate(ap.ang);
+    // pista de taxiamento e pátio
+    g.fillStyle = '#4b4d51'; g.fillRect(-L / 2 + 120, Wd / 2 + 30, L - 240, 18);
+    for (const t of [-0.3, 0, 0.3]) g.fillRect(t * L - 9, Wd / 2, 18, 40);
+    // pátio de concreto até a fachada do terminal, com juntas e as faixas guia amarelas dos portões
+    const apEnd = Wd / 2 + ap.apron - 22.5;
+    g.fillStyle = '#8e8c86'; g.fillRect(-L * 0.2, Wd / 2 + 48, L * 0.4, apEnd - Wd / 2 - 48);
+    g.strokeStyle = 'rgba(40,40,40,0.35)'; g.lineWidth = 0.05;
+    for (let x = -L * 0.2; x <= L * 0.2; x += 6) { g.beginPath(); g.moveTo(x, Wd / 2 + 48); g.lineTo(x, apEnd); g.stroke(); }
+    for (let y = Wd / 2 + 48; y < apEnd; y += 6) { g.beginPath(); g.moveTo(-L * 0.2, y); g.lineTo(L * 0.2, y); g.stroke(); }
+    const AL = world.airportLayout;
+    if (AL) for (const gt of AL.gates) { const gx = gt.x - ap.x; g.fillStyle = '#e2bb2e'; g.fillRect(gx - 0.12, apEnd - 48, 0.24, 48); g.fillRect(gx - 3, apEnd - 7.4, 6, 0.24); g.strokeStyle = 'rgba(226,187,46,0.9)'; g.lineWidth = 0.2; g.strokeRect(gx - 18, apEnd - 46, 36, 45); }
+    g.fillStyle = '#d8b13a'; g.fillRect(-L / 2 + 120, Wd / 2 + 38.6, L - 240, 0.25);
+    // pista
+    g.fillStyle = '#3c3e42'; g.fillRect(-L / 2, -Wd / 2, L, Wd);
+    g.fillStyle = 'rgba(30,30,32,0.5)'; for (let x = -L / 2 + 40; x < L / 2 - 40; x += 23) g.fillRect(x, -Wd * 0.12, 9, Wd * 0.24);   // marcas de pneu no toque
+    g.fillStyle = '#ecebe5';
+    for (let x = -L / 2 + 70; x < L / 2 - 70; x += 50) g.fillRect(x, -0.45, 30, 0.9);   // eixo tracejado
+    g.fillRect(-L / 2, -Wd / 2 + 0.6, L, 0.45); g.fillRect(-L / 2, Wd / 2 - 1.05, L, 0.45);   // bordas
+    for (const e of [-1, 1]) {
+      for (let k = -5; k <= 5; k++) if (k) g.fillRect(e * (L / 2 - 12) - 15, k * (Wd / 13) - 0.9, 30, 1.8);   // piano
+      g.fillRect(e * (L / 2 - 180) - 15, -Wd / 2 + 4, 30, 5); g.fillRect(e * (L / 2 - 180) - 15, Wd / 2 - 9, 30, 5);   // zona de toque
+    }
+    g.fillStyle = '#f2e7a8'; for (let x = -L / 2; x <= L / 2; x += 30) for (const v of [-Wd / 2 - 0.6, Wd / 2 + 0.6]) g.fillRect(x - 0.25, v - 0.25, 0.5, 0.5);   // luzes
+    g.restore();
+  }
+}
+
+// itens agrupados por cor (um path por cor = rápido)
+function paintItems(ch, g, from = 0, to = Infinity) {
+  if (!ch._keys) {
+    const x0 = ch.ci * CH - 0.4, y0 = ch.cj * CH - 0.4, x1 = x0 + CH + 0.8, y1 = y0 + CH + 0.8;
+    const all = [];
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ci = ch.ci + di, cj = ch.cj + dj; if (ci < 0 || cj < 0 || ci * CH >= MAP || cj * CH >= MAP) continue;
+      for (const it of chunkItems(ci, cj)) if (it.x > x0 && it.x < x1 && it.y > y0 && it.y < y1) all.push(it);
+    }
+    const bk = new Map(), bucket = (k, f) => { if (!bk.has(k)) bk.set(k, []); bk.get(k).push(f); };
+    for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
+    const order = ['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gjunk', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
+    ch._buckets = bk;
+    ch._keys = [...bk.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
+  }
+  const buckets = ch._buckets, keys = ch._keys.slice(from, to);
+  g.lineCap = 'round';
+  for (const key of keys) {
+    const its = buckets.get(key), t = key.split('|')[0], col = key.split('|')[1];
+    if (t === 'blade') {
+      // sombra da base + lâmina curva
+      g.strokeStyle = 'rgba(20,32,10,0.35)'; g.lineWidth = 0.022; g.beginPath();
+      for (const b of its) { g.moveTo(b.x + 0.012, b.y + 0.004); g.lineTo(b.x + b.a * b.l * 0.4 + 0.012, b.y - b.l * 0.3 + 0.004); }
+      g.stroke();
+      g.strokeStyle = col; g.lineWidth = 0.02; g.beginPath();
+      for (const b of its) { g.moveTo(b.x, b.y); g.quadraticCurveTo(b.x + b.a * b.l * 0.3, b.y - b.l * 0.6, b.x + b.a * b.l, b.y - b.l); }
+      g.stroke();
+    } else if (t === 'leaf') {
+      g.fillStyle = 'rgba(20,16,8,0.25)'; g.beginPath();
+      for (const l of its) { g.moveTo(l.x + l.s + 0.012, l.y + 0.012); g.ellipse(l.x + 0.012, l.y + 0.012, l.s, l.s * 0.5, l.a, 0, TAU); }
+      g.fill();
+      g.fillStyle = col; g.beginPath();
+      for (const l of its) { g.moveTo(l.x + l.s, l.y); g.ellipse(l.x, l.y, l.s, l.s * 0.5, l.a, 0, TAU); }
+      g.fill();
+      g.strokeStyle = 'rgba(40,24,10,0.45)'; g.lineWidth = 0.008; g.beginPath();
+      for (const l of its) { g.moveTo(l.x - Math.cos(l.a) * l.s, l.y - Math.sin(l.a) * l.s); g.lineTo(l.x + Math.cos(l.a) * l.s, l.y + Math.sin(l.a) * l.s); }
+      g.stroke();
+    } else if (t === 'twig') {
+      g.strokeStyle = '#4a3a26'; g.lineWidth = 0.018; g.beginPath();
+      for (const w of its) { const ex = w.x + Math.cos(w.a) * w.s, ey = w.y + Math.sin(w.a) * w.s; g.moveTo(w.x, w.y); g.lineTo(ex, ey); g.moveTo(lerp(w.x, ex, 0.55), lerp(w.y, ey, 0.55)); g.lineTo(lerp(w.x, ex, 0.55) + Math.cos(w.a + 0.6) * w.s * 0.3, lerp(w.y, ey, 0.55) + Math.sin(w.a + 0.6) * w.s * 0.3); }
+      g.stroke();
+    } else if (t === 'pebble') {
+      for (const p of its) {
+        const base = p.wet ? '#5a5248' : ['#8a8276', '#9c9384', '#7a7166', '#a89f8d'][(p.x * 97 + p.y * 31 | 0) & 3];
+        g.fillStyle = 'rgba(25,18,10,0.35)'; g.beginPath(); g.ellipse(p.x + p.s * 0.35, p.y + p.s * 0.3, p.s, p.s * 0.7, p.a, 0, TAU); g.fill();
+        g.fillStyle = base; g.beginPath(); g.ellipse(p.x, p.y, p.s, p.s * 0.7, p.a, 0, TAU); g.fill();
+        g.fillStyle = p.wet ? 'rgba(255,255,255,0.35)' : 'rgba(255,250,235,0.3)'; g.beginPath(); g.ellipse(p.x - p.s * 0.3, p.y - p.s * 0.25, p.s * 0.4, p.s * 0.25, p.a, 0, TAU); g.fill();
+      }
+    } else if (t === 'flower') {
+      for (const f of its) for (let k = 0; k < f.k; k++) {
+        const a = k * 2.4 + f.x * 13, d = 0.03 + (k % 3) * 0.02;
+        g.fillStyle = col; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.018, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(60,40,10,0.6)'; g.beginPath(); g.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.006, 0, TAU); g.fill();
+      }
+    } else if (t === 'wildflower') {
+      if (globalThis.VEG3D) continue;   // flores silvestres em 3D (vegetation-3d.mjs)
+      // Cada miolo tem 5 petalas com leve variacao; folhas e caule por baixo.
+      // Todos os pontos estao em coordenadas do mundo, sem imagem importada.
+      for(const f of its){
+        for(let k=0;k<f.k;k++){
+          const a=f.phase+k*2.39996,
+            d=f.radius*Math.sqrt((k+.55)/f.k),
+            x=f.x+Math.cos(a)*d,y=f.y+Math.sin(a)*d;
+          g.strokeStyle='#52783b';g.lineWidth=.014;g.beginPath();
+          g.moveTo(x+.016,y+.035);g.lineTo(x,y);g.stroke();
+          g.fillStyle=col;
+          for(let j=0;j<5;j++){
+            const pet=j*TAU/5+a,r=.027+(k%3)*.002;
+            g.beginPath();g.ellipse(x+Math.cos(pet)*.028,
+              y+Math.sin(pet)*.028,r,.017,pet,0,TAU);g.fill();
+          }
+          g.fillStyle='#a68a44';g.beginPath();g.arc(x,y,.012,0,TAU);g.fill();
+        }
+      }
+    } else if (t === 'clover') {
+      g.fillStyle = '#3d6a28'; g.beginPath();
+      for (const c of its) for (let k = 0; k < 3; k++) { const a = k * 2.09; g.moveTo(c.x + Math.cos(a) * c.s * 0.6 + c.s * 0.5, c.y + Math.sin(a) * c.s * 0.6); g.arc(c.x + Math.cos(a) * c.s * 0.6, c.y + Math.sin(a) * c.s * 0.6, c.s * 0.5, 0, TAU); }
+      g.fill();
+    } else if (t === 'crack') {
+      g.strokeStyle = 'rgba(55,40,24,0.55)'; g.lineWidth = 0.012; g.beginPath();
+      for (const c of its) { let x = c.x, y = c.y, a = c.a; g.moveTo(x, y); for (let k = 0; k < 5; k++) { a += Math.sin(k * 7 + c.x) * 0.7; x += Math.cos(a) * c.s / 5; y += Math.sin(a) * c.s / 5; g.lineTo(x, y); } }
+      g.stroke();
+    } else if (t === 'shell') {
+      g.fillStyle = '#e8e2d2'; g.beginPath(); for (const s of its) { g.moveTo(s.x + s.s, s.y); g.ellipse(s.x, s.y, s.s, s.s * 0.6, s.a, 0, TAU); } g.fill();
+    } else if (t === 'ripple') {
+      g.strokeStyle = 'rgba(220,205,165,0.45)'; g.lineWidth = 0.014; g.beginPath();
+      for (const r of its) { g.moveTo(r.x - Math.cos(r.a) * r.s, r.y - Math.sin(r.a) * r.s); g.quadraticCurveTo(r.x + Math.sin(r.a) * 0.03, r.y - Math.cos(r.a) * 0.03, r.x + Math.cos(r.a) * r.s, r.y + Math.sin(r.a) * r.s); }
+      g.stroke();
+    } else if (t === 'foam') {
+      g.fillStyle = 'rgba(225,230,215,0.28)'; g.beginPath(); for (const f of its) { g.moveTo(f.x + f.s, f.y); g.ellipse(f.x, f.y, f.s, f.s * 0.5, 0, 0, TAU); } g.fill();
+    } else if (t === 'lily') {
+      for (const l of its) {
+        g.fillStyle = 'rgba(15,30,30,0.35)'; g.beginPath(); g.arc(l.x + 0.02, l.y + 0.02, l.s, 0, TAU); g.fill();
+        g.fillStyle = '#4f7a36'; g.beginPath(); g.moveTo(l.x, l.y); g.arc(l.x, l.y, l.s, l.a + 0.35, l.a + TAU - 0.05); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(160,200,110,0.35)'; g.beginPath(); g.moveTo(l.x, l.y); g.arc(l.x, l.y, l.s * 0.8, l.a + 2.2, l.a + 3.6); g.closePath(); g.fill();
+        g.strokeStyle = 'rgba(30,55,20,0.6)'; g.lineWidth = 0.01; g.stroke();
+        if (l.fl) { g.fillStyle = '#f2d6e2'; for (let k = 0; k < 6; k++) { const a = k * 1.05; g.beginPath(); g.ellipse(l.x + Math.cos(a) * 0.04, l.y + Math.sin(a) * 0.04, 0.045, 0.02, a, 0, TAU); g.fill(); } g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(l.x, l.y, 0.02, 0, TAU); g.fill(); }
+      }
+    } else if (t === 'gum') {
+      g.fillStyle = 'rgba(40,38,36,0.45)'; g.beginPath(); for (const c of its) { g.moveTo(c.x + c.s, c.y); g.arc(c.x, c.y, c.s, 0, TAU); } g.fill();
+    } else if (t === 'paper') {
+      for (const p of its) { g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = '#d8d4c8'; g.fillRect(-p.s, -p.s * 0.6, p.s * 2, p.s * 1.2); g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(-p.s, p.s * 0.4, p.s * 2, p.s * 0.2); g.restore(); }
+    } else if (t === 'grit') {
+      g.fillStyle = 'rgba(150,145,135,0.6)'; g.beginPath(); for (const c of its) { g.moveTo(c.x + c.s, c.y); g.arc(c.x, c.y, c.s, 0, TAU); } g.fill();
+    } else if (t === 'oil') {
+      // mancha de óleo: várias gotas sobrepostas de borda suave, anel iridescente fraco e respingos
+      for (const o of its) {
+        const r3 = mulberry(o.seed || 7), ca = Math.cos(o.a), sa = Math.sin(o.a);
+        for (let k = 0; k < 6; k++) {
+          const u = (r3() - 0.5) * o.s * 1.6, v = (r3() - 0.5) * o.s * 0.7, cx = o.x + u * ca - v * sa, cy = o.y + u * sa + v * ca, rr = o.s * (0.35 + r3() * 0.6);
+          const gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, 'rgba(14,13,16,' + (0.16 + r3() * 0.12) + ')'); gr.addColorStop(0.7, 'rgba(18,16,20,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, rr, rr * (0.6 + r3() * 0.3), o.a + r3(), 0, TAU); g.fill();
+        }
+        g.lineWidth = 0.02; g.strokeStyle = 'rgba(150,100,180,0.05)'; g.beginPath(); g.ellipse(o.x, o.y, o.s * 0.75, o.s * 0.42, o.a, 0, TAU); g.stroke();
+        g.strokeStyle = 'rgba(90,170,150,0.045)'; g.beginPath(); g.ellipse(o.x, o.y, o.s * 0.62, o.s * 0.34, o.a, 0, TAU); g.stroke();
+        g.fillStyle = 'rgba(16,15,18,0.3)'; for (let k = 0; k < 8; k++) { g.beginPath(); g.arc(o.x + (r3() - 0.5) * o.s * 2.4, o.y + (r3() - 0.5) * o.s * 1.4, 0.008 + r3() * 0.015, 0, TAU); g.fill(); }
+      }
+    } else if (t === 'patch') {
+      // remendo: asfalto mais novo e escuro, borda irregular selada com piche, agregado aparente
+      for (const p of its) {
+        const r3 = mulberry(p.seed || 11), w = p.s / 2, h = p.s * p.k / 2, pts = [];
+        for (const [u, v] of [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]]) pts.push([u * w + (r3() - 0.5) * 0.08, v * h + (r3() - 0.5) * 0.08]);
+        g.save(); g.translate(p.x, p.y); g.rotate(p.a);
+        g.beginPath(); pts.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+        g.fillStyle = 'rgba(30,30,33,0.5)'; g.fill(); g.globalAlpha = 0.4; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        g.strokeStyle = 'rgba(10,10,12,0.45)'; g.lineWidth = 0.03; g.stroke();
+        g.strokeStyle = 'rgba(160,155,146,0.1)'; g.lineWidth = 0.012; g.stroke();
+        g.restore();
+        if (r3() < 0.5) crackLine(g, p.x + Math.cos(p.a) * w, p.y + Math.sin(p.a) * w, p.a + (r3() - 0.5), 0.3 + r3() * 0.5, r3, 0.012, 1);
+      }
+    } else if (t === 'alligator') {
+      // couro de jacaré: rede de trincas em placas, mais forte no miolo e sumindo na borda, leve afundamento
+      for (const p of its) {
+        const r3 = mulberry(p.seed); g.save(); g.translate(p.x, p.y); g.rotate(p.a);
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, p.s); gr.addColorStop(0, 'rgba(18,18,20,0.2)'); gr.addColorStop(1, 'rgba(18,18,20,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, p.s, p.s * 0.62, 0, 0, TAU); g.fill();
+        const cs = 0.19, n = Math.ceil(p.s / cs) + 1, P = [];
+        for (let i = -n; i <= n; i++) { P[i + n] = []; for (let j = -n; j <= n; j++) P[i + n][j + n] = [i * cs + (r3() - 0.5) * cs * 0.75, j * cs * 0.8 + (r3() - 0.5) * cs * 0.6]; }
+        const edge = (A, B) => { const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, q = Math.hypot(mx / p.s, my / (p.s * 0.62)); if (q > 1) return; const a = (1 - q) * 0.85; g.strokeStyle = 'rgba(115,111,104,' + a * 0.25 + ')'; g.lineWidth = 0.03; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.strokeStyle = 'rgba(14,14,16,' + a + ')'; g.lineWidth = 0.008 + (1 - q) * 0.01; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(mx + (r3() - 0.5) * 0.02, my + (r3() - 0.5) * 0.02); g.lineTo(B[0], B[1]); g.stroke(); };
+        for (let i = 0; i < 2 * n; i++) for (let j = 0; j < 2 * n; j++) { edge(P[i][j], P[i + 1][j]); edge(P[i][j], P[i][j + 1]); }
+        g.restore();
+      }
+    } else if (t === 'pothole') {
+      // buraco: contorno irregular suave, asfalto esfarelado em volta, parede do lado do sol na sombra e a do lado oposto
+      // iluminada, fundo de brita solta (às vezes com água refletindo o céu) e trincas saindo da borda
+      const hl = Math.hypot(SUN[0], SUN[1]) || 1;
+      for (const p of its) {
+        const r3 = mulberry(p.seed), N = 32, pts = [], f1 = r3() * TAU, f2 = r3() * TAU, f3 = r3() * TAU, ca = Math.cos(p.a), sa = Math.sin(p.a);
+        for (let k = 0; k < N; k++) { const a = k / N * TAU, d = p.s * (0.8 + 0.12 * Math.sin(2 * a + f1) + 0.08 * Math.sin(5 * a + f2) + 0.05 * Math.sin(9 * a + f3) + (r3() - 0.5) * 0.06), lx = Math.cos(a) * d, ly = Math.sin(a) * d * 0.78; pts.push([p.x + lx * ca - ly * sa, p.y + lx * sa + ly * ca]); }
+        const add = (sc, ox = 0, oy = 0) => { const P = k => { const A = pts[k % N]; return [p.x + (A[0] - p.x) * sc + ox, p.y + (A[1] - p.y) * sc + oy]; }; let a = P(0), b = P(1); g.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); for (let k = 1; k <= N; k++) { a = P(k); b = P(k + 1); g.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); } g.closePath(); };
+        const path = (sc, ox, oy) => { g.beginPath(); add(sc, ox, oy); };
+        path(1.32); g.fillStyle = 'rgba(96,93,88,0.3)'; g.fill(); g.globalAlpha = 0.55; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        for (let k = 0; k < 16; k++) { const a = r3() * TAU, d = p.s * (1.0 + r3() * 0.45), x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8; g.fillStyle = r3() < 0.5 ? 'rgba(120,116,108,0.6)' : 'rgba(40,38,38,0.6)'; g.beginPath(); g.ellipse(x, y, 0.012 + r3() * 0.02, 0.01 + r3() * 0.012, r3() * 3, 0, TAU); g.fill(); }
+        path(1); const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.s); gr.addColorStop(0, '#2f2c29'); gr.addColorStop(1, '#211f1d'); g.fillStyle = gr; g.fill();
+        g.globalAlpha = 0.3; g.fillStyle = aggPattern(g); g.fill(); g.globalAlpha = 1;
+        const w = 0.05 + p.s * 0.14, vx = SUN[0] / hl * w, vy = SUN[1] / hl * w;
+        g.save(); path(1); g.clip();
+        g.beginPath(); add(1); add(1, vx * 0.5, vy * 0.5); g.fillStyle = 'rgba(150,145,136,0.38)'; g.fill('evenodd');   // parede de frente p/ o sol
+        g.beginPath(); add(1); add(1, -vx, -vy); g.fillStyle = 'rgba(4,4,6,0.72)'; g.fill('evenodd');                  // sombra da borda do lado do sol
+        for (let k = 0; k < 20 + p.s * 70; k++) { const a = r3() * TAU, d = Math.sqrt(r3()) * p.s * 0.8, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.78, rr = 0.01 + r3() * 0.022; g.fillStyle = ['#4f4b46', '#5f5a53', '#37342f', '#6a655c'][(r3() * 4) | 0]; g.beginPath(); g.ellipse(x, y, rr, rr * 0.8, r3() * 3, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,250,240,0.18)'; g.beginPath(); g.arc(x - rr * 0.3, y - rr * 0.3, rr * 0.35, 0, TAU); g.fill(); }
+        if (p.wet) { path(0.66, -vx * 0.3, -vy * 0.3); const wg = g.createLinearGradient(p.x, p.y - p.s, p.x, p.y + p.s); wg.addColorStop(0, 'rgba(150,175,190,0.85)'); wg.addColorStop(1, 'rgba(60,76,88,0.9)'); g.fillStyle = wg; g.fill(); g.strokeStyle = 'rgba(20,24,28,0.5)'; g.lineWidth = 0.012; g.stroke(); g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.ellipse(p.x - p.s * 0.15, p.y - p.s * 0.12, p.s * 0.22, p.s * 0.05, 0.5, 0, TAU); g.fill(); }
+        g.restore();
+        path(1); g.strokeStyle = 'rgba(22,21,22,0.6)'; g.lineWidth = 0.014; g.stroke();
+        for (let k = 0; k < 3 + ((r3() * 3) | 0); k++) { const A = pts[(r3() * N) | 0], a = Math.atan2(A[1] - p.y, A[0] - p.x) + (r3() - 0.5) * 0.8; crackLine(g, A[0], A[1], a, p.s * (0.5 + r3()), r3, 0.014, 1); }
+      }
+    } else if (t === 'acrack') {
+      // trinca: borda gasta clara, miolo escuro afinando, galhos; algumas seladas com piche (faixa preta brilhante)
+      for (const c of its) {
+        const r3 = mulberry(c.seed);
+        if (c.seal) {
+          const pts = [[c.x, c.y]]; let x = c.x, y = c.y, a = c.a; for (let k = 0; k < 12; k++) { a += (r3() - 0.5) * 0.8; x += Math.cos(a) * c.s / 12; y += Math.sin(a) * c.s / 12; pts.push([x, y]); }
+          const line = (w, st) => { g.strokeStyle = st; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([X, Y], k) => k ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.stroke(); };
+          const w = 0.02 + r3() * 0.022; line(w * 1.5, 'rgba(10,10,12,0.18)'); line(w, 'rgba(12,12,14,0.72)'); line(w * 0.25, 'rgba(255,255,255,0.07)'); g.lineCap = 'butt';
+        } else crackLine(g, c.x, c.y, c.a, c.s, r3, 0.016, 0);
+      }
+    } else if (t === 'gjunk') {
+      // sarjeta: folhas secas, bitucas, tampinhas e areia
+      for (const j of its) {
+        const r3 = mulberry(j.seed);
+        if (j.k < 0.55) { for (let k = 0; k < 3; k++) { const x = j.x + (r3() - 0.5) * 0.25, y = j.y + (r3() - 0.5) * 0.25, a = r3() * TAU, l = 0.03 + r3() * 0.035; g.fillStyle = ['#6b5636', '#8a6a3a', '#5a5a2e', '#7a4a2a', '#9a7a48'][(r3() * 5) | 0]; g.beginPath(); g.ellipse(x, y, l, l * 0.45, a, 0, TAU); g.fill(); g.strokeStyle = 'rgba(40,28,15,0.5)'; g.lineWidth = 0.004; g.beginPath(); g.moveTo(x - Math.cos(a) * l, y - Math.sin(a) * l); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); } }
+        else if (j.k < 0.75) { g.save(); g.translate(j.x, j.y); g.rotate(j.a); g.fillStyle = '#e8e2d4'; g.fillRect(-0.02, -0.004, 0.028, 0.008); g.fillStyle = '#c88a4a'; g.fillRect(0.008, -0.004, 0.012, 0.008); g.restore(); }
+        else if (j.k < 0.85) { g.fillStyle = r3() < 0.5 ? '#b8bcc0' : '#c8302a'; g.beginPath(); g.arc(j.x, j.y, 0.014, 0, TAU); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.003; g.stroke(); }
+        else { const gr = g.createRadialGradient(j.x, j.y, 0, j.x, j.y, 0.3); gr.addColorStop(0, 'rgba(170,150,115,0.28)'); gr.addColorStop(1, 'rgba(170,150,115,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(j.x, j.y, 0.3, 0.12, j.a, 0, TAU); g.fill(); }
+      }
+    }
+  }
+}
+
+// agregado do asfalto: pontilhado de pedrinhas, 1 px da textura = 1 px do bloco
+let _aggCanvas = null;
+function aggPattern(g) {
+  if (!_aggCanvas) { _aggCanvas = makeCanvas(96, 96); const q = _aggCanvas.getContext('2d'), r = mulberry(77); for (let i = 0; i < 900; i++) { const v = (r() * 120 + 60) | 0; q.fillStyle = 'rgba(' + v + ',' + (v - 3) + ',' + (v - 8) + ',' + (0.25 + r() * 0.5) + ')'; q.fillRect(r() * 96, r() * 96, 1 + r() * 2.2, 1 + r() * 2); } }
+  const p = g.createPattern(_aggCanvas, 'repeat'); if (p.setTransform) p.setTransform(new DOMMatrix().scale(1 / TP)); return p;
+}
+// trinca do asfalto: polilinha que serpenteia, borda clara gasta, miolo escuro afinando e galhos
+function crackLine(g, x, y, a, len, r3, w, depth) {
+  const n = Math.max(4, (len / 0.07) | 0), pts = [[x, y]];
+  for (let k = 0; k < n; k++) { a += (r3() - 0.5) * 0.7; x += Math.cos(a) * len / n; y += Math.sin(a) * len / n; pts.push([x, y]); }
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(122,118,110,0.2)'; g.lineWidth = w * 2.8; g.beginPath(); pts.forEach(([X, Y], k) => k ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.stroke();
+  for (let k = 0; k < n; k++) { g.strokeStyle = 'rgba(14,14,16,0.8)'; g.lineWidth = w * (1 - k / n * 0.75) * (0.7 + r3() * 0.6); g.beginPath(); g.moveTo(pts[k][0], pts[k][1]); g.lineTo(pts[k + 1][0], pts[k + 1][1]); g.stroke(); }
+  if (depth < 2) for (let k = 1; k < n; k++) if (r3() < 0.18) crackLine(g, pts[k][0], pts[k][1], a + (r3() < 0.5 ? 1 : -1) * (0.6 + r3() * 0.8), len * (0.25 + r3() * 0.3), r3, w * 0.6, depth + 1);
+  g.lineCap = 'butt'; g.lineJoin = 'miter';
+}
+
+// Etapa final em passos curtos (antes era um bloco único de 50–80 ms que travava o jogo):
+// vias -> itens (2 grupos por passo) -> pisos das casas -> sombras e minimapa.
+function finishChunk(ch) {
+  const g = ch.g, ox = ch.ci * CH * TP - PAD, oy = ch.cj * CH * TP - PAD, stp = ch.fin || 0;
+  if (stp === 0) { g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintRoadVectors(ch, g); g.restore(); ch.fin = 1; return; }
+  if (stp === 1) {
+    if (!ch._keys && (ch.nb || 0) < 9) {   // detalhes dos 8 vizinhos + o próprio: um bloco por passo
+      const k = ch.nb || 0, ci = ch.ci + (k % 3) - 1, cj = ch.cj + ((k / 3) | 0) - 1;
+      if (ci >= 0 && cj >= 0 && ci * CH < MAP && cj * CH < MAP && !chunkItemsStep(ci, cj, 1500)) return;
+      ch.nb = k + 1; return;
+    }
+    if (!ch._keys) { paintItems(ch, g, 0, 0); return; }   // só agrupa (passo de cálculo)
+    const from = ch.itemPos || 0;
+    g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintItems(ch, g, from, from + 1); g.restore();
+    ch.itemPos = from + 1; if (ch.itemPos >= ch._keys.length) ch.fin = 2;
+    return;
+  }
+  if (stp === 2) {   // pisos e caminhos das casas (houses.js), em pixels do bloco — uma casa por passo
+    // mesma ordem do desenho único: todos os caminhos, depois pisos/sombras, por fim as cercas
+    if (!ch.floorList) {
+      // Somente casas perto deste bloco: não enfileirar todos os edifícios do mapa.
+      const x0=ch.ci*CH,y0=ch.cj*CH,x1=x0+CH,y1=y0+CH;
+      const near=houses.filter(H=>H.x1+18>=x0&&H.x0-18<=x1&&H.y1+18>=y0&&H.y0-18<=y1);
+      ch.floorList=[['decals',null],...near.map(H=>['walk',H]),...near.map(H=>['floor',H]),['fences',null]];
+    }
+    const [mode, H] = ch.floorList.shift(), last = !ch.floorList.length;
+    if (mode === 'decals') {
+      const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
+      g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy);
+      for (const d of world.decals || []) if (!(d.bb[0] > bx1 || d.bb[2] < bx0 || d.bb[1] > by1 || d.bb[3] < by0)) d.paint(g, d);
+      g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
+    }
+    g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
+    const M = v => v * TP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
+    world.floorClip = [ch.ci * CH - 1, ch.cj * CH - 1, ch.ci * CH + CH + 1, ch.cj * CH + CH + 1];
+    world.floorSet = new Set(H ? [H] : []); world.floorNoFences = mode !== 'fences'; world.floorMode = mode === 'fences' ? 'walk' : mode;
+    try { world.paintFloors && world.paintFloors(g, M, rect); } finally { world.floorClip = null; world.floorSet = null; world.floorNoFences = false; world.floorMode = undefined; }
+    g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
+  }
+  // sombras assadas (árvores, arbustos, pedras) — camada suave em baixa resolução
+  g.save(); g.imageSmoothingEnabled = true;
+  if (world.shadowLayers) {   // mundo grande: uma camada de sombra por setor (origem e escala próprias)
+    const bx0 = ox / TP, by0 = oy / TP, bs = CSZ / TP;
+    for (const L of world.shadowLayers.values()) {
+      if (L.x0 > bx0 + bs || L.x1 < bx0 || L.y0 > by0 + bs || L.y1 < by0) continue;
+      g.setTransform(TP / L.ppm, 0, 0, TP / L.ppm, (L.x0 - bx0) * TP, (L.y0 - by0) * TP);
+      g.drawImage(L.canvas, 0, 0);
+    }
+  } else {
+    const sc = world.groundCtx.canvas, k = PPM / TP, sx = ox * k, sy = oy * k;
+    g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, CSZ, CSZ);
+  }
+  g.restore();
+  // refina o minimapa com a versão detalhada
+  terrain.miniCtx.imageSmoothingEnabled = true;
+  const mp = terrain.miniPPM || MINI;
+  terrain.miniCtx.drawImage(ch.c, PAD, PAD, CPX, CPX, ch.ci * CH * mp, ch.cj * CH * mp, CH * mp, CH * mp);
+  ch.done = true; ch.F = null; ch.img = null; ch._buckets = null; ch._keys = null;
+}
+
+// ---------- versão rápida (baixa resolução) e pintura por pixel em paralelo ----------
+// Cada bloco ganha primeiro uma versão de 14 px/m (16× menos pixels) com faixas, calçadas, decalques e pisos, que
+// já aparece na tela; a nítida (56 px/m) entra por cima quando fica pronta. O "shader" por pixel (paintRows) roda em
+// workers, fora da thread do jogo e vários blocos ao mesmo tempo; a thread principal só calcula os campos e faz o
+// acabamento (faixas, detalhes, pisos e sombras). Sem Worker (testes em Node), tudo segue na thread principal.
+const QP = 14, QPAD = 1, QSZ = CH * QP + QPAD * 2;
+const TW = { pool: [], queue: [], ok: false, tried: false, tex: false };
+function twInit() {
+  if (TW.tried) return TW.ok; TW.tried = true;
+  if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return false;
+  try {
+    const src = ['"use strict";', `const CH=${CH},TP=${TP},CPX=${CPX},PAD=${PAD},CSZ=${CSZ},GSTEP=${GSTEP},GN=${GN},ROAD_W=${ROAD_W},SIDE=${SIDE};`,
+      'let COL=null,GTEX={ready:false,t:{}};const terrain={},world={open:false};',
+      'const clamp=' + clamp, 'const lerp=' + lerp, 'const sstep=' + sstep, 'const texAt=' + texAt, paintRows.toString(),
+      'onmessage=e=>{const m=e.data;if(m.init){Object.assign(terrain,m.init);COL=m.COL;return;}if(m.tex){GTEX={ready:true,t:m.tex};return;}' +
+      'world.open=m.open;terrain.crops=m.crops;const sz=m.sz,img={data:new Uint8ClampedArray(sz*sz*4)};' +
+      'paintRows({ci:m.ci,cj:m.cj,F:m.F,zone:m.zone},sz,{img,row:0,tp:m.tp,pad:m.pad,sz,k:m.k,gs:m.gs,gn:m.gn});' +
+      'postMessage({buf:img.data.buffer},[img.data.buffer]);};'].join('\n');
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const n = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 2));
+    for (let i = 0; i < n; i++) {
+      const w = new Worker(url); w.job = null;
+      w.onmessage = e => twDone(w, e.data);
+      w.onerror = e => { console.warn('Pintura do chão em paralelo falhou; volta à thread principal', e.message); TW.ok = false; const j = w.job; w.job = null; if (j) twFallback(j); };
+      w.postMessage({ init: { n1: terrain.n1, n2: terrain.n2, n3: terrain.n3 }, COL });
+      TW.pool.push(w);
+    }
+    TW.ok = true;
+  } catch (e) { console.warn('Workers do chão indisponíveis', e); TW.ok = false; }
+  return TW.ok;
+}
+function twFallback(j) { if (j.kind === 'f') { j.ch.stage = 1; j.ch.row = 0; } else j.ch.q = null; }
+function twTex() {   // texturas pintadas do chão (textures.js), uma vez quando ficam prontas
+  if (TW.tex || typeof GTEX === 'undefined' || !GTEX.ready) return;
+  TW.tex = true; const t = {};
+  for (const [k, v] of Object.entries(GTEX.t)) if (v && v.data) t[k] = { n: v.n, data: v.data };
+  for (const w of TW.pool) w.postMessage({ tex: t });
+}
+// campos numa grade de 1 m (~1 ms, contra ~13 ms da grade fina): bastam p/ a versão rápida
+const QGS = 1, QGN = CH / QGS + 3;
+function coarseFields(ch) {
+  const x0 = ch.ci * CH - QGS, y0 = ch.cj * CH - QGS, F = {}, o = {};
+  for (const k of ['rd', 'tr', 'pv', 'gt', 'dry', 'dirt', 'wet', 'fo', 'di', 'fa', 'fc']) F[k] = new Float32Array(QGN * QGN);
+  for (let j = 0; j < QGN; j++) for (let i = 0; i < QGN; i++) { fieldsAt(x0 + i * QGS, y0 + j * QGS, o); const k = j * QGN + i; for (const key in F) F[key][k] = o[key]; }
+  const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
+  ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
+  return F;
+}
+const twBase = (ch, F) => ({ ci: ch.ci, cj: ch.cj, F, zone: ch.zone, open: !!world.open, crops: terrain.crops || null });
+function twQuick(ch) {
+  twTex();
+  const c = makeCanvas(QSZ, QSZ); ch.q = { c, g: c.getContext('2d'), rows: false, done: false };
+  TW.queue.push({ ch, kind: 'q', msg: Object.assign({ sz: QSZ, tp: QP, pad: QPAD, k: TP / QP, gs: QGS, gn: QGN }, twBase(ch, coarseFields(ch))) });
+  twPump();
+}
+function twFull(ch) {
+  twTex();
+  TW.queue.push({ ch, kind: 'f', msg: Object.assign({ sz: CSZ, tp: TP, pad: PAD, k: 1, gs: GSTEP, gn: GN }, twBase(ch, ch.F)) });
+  twPump();
+}
+// worker livre pega a versão rápida mais perto da câmera; só depois as nítidas
+function twPump() {
+  if (!TW.ok) { for (const j of TW.queue.splice(0)) twFallback(j); return; }
+  for (const w of TW.pool) {
+    if (w.job) continue;
+    let bi = -1, bs = Infinity;
+    for (let i = 0; i < TW.queue.length; i++) {
+      const j = TW.queue[i];
+      if (terrain.chunks.get(j.ch.ci + ',' + j.ch.cj) !== j.ch) { TW.queue.splice(i--, 1); continue; }   // bloco já descartado
+      const sc = (j.kind === 'q' ? 0 : 1e5) + Math.hypot(j.ch.ci * CH + 8 - cam.x, j.ch.cj * CH + 8 - cam.y);
+      if (sc < bs) { bs = sc; bi = i; }
+    }
+    if (bi < 0) return;
+    const j = TW.queue.splice(bi, 1)[0]; w.job = j; w.postMessage(j.msg);
+  }
+}
+function twDone(w, data) {
+  const j = w.job; w.job = null;
+  if (j) {
+    const ch = j.ch;
+    if (j.kind === 'q') { if (ch.q && !ch.done) { ch.q.g.putImageData(new ImageData(new Uint8ClampedArray(data.buf), QSZ, QSZ), 0, 0); ch.q.rows = true; } }
+    else { ch.img = new ImageData(new Uint8ClampedArray(data.buf), CSZ, CSZ); ch.g.putImageData(ch.img, 0, 0); ch.row = CSZ; ch.stage = 2; }
+  }
+  twPump();
+}
+// acabamento da versão rápida: marcas da rua, decalques e pisos/caminhos das casas, a 14 px/m
+function quickFinish(ch) {
+  const q = ch.q, g = q.g, ox = ch.ci * CH * QP - QPAD, oy = ch.cj * CH * QP - QPAD;
+  q.done = true;
+  try {
+    g.save(); g.setTransform(QP, 0, 0, QP, -ox, -oy); paintRoadVectors(ch, g);
+    const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
+    for (const d of world.decals || []) if (!(d.bb[0] > bx1 || d.bb[2] < bx0 || d.bb[1] > by1 || d.bb[3] < by0)) d.paint(g, d);
+    g.restore();
+    if (world.paintFloors) {
+      const x0 = ch.ci * CH, y0 = ch.cj * CH, near = houses.filter(H => H.x1 + 18 >= x0 && H.x0 - 18 <= x0 + CH && H.y1 + 18 >= y0 && H.y0 - 18 <= y0 + CH);
+      if (near.length) {
+        g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
+        const M = v => v * QP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
+        world.floorClip = [x0 - 1, y0 - 1, x0 + CH + 1, y0 + CH + 1];
+        try { for (const mode of ['walk', 'floor']) { world.floorSet = new Set(near); world.floorNoFences = true; world.floorMode = mode; world.paintFloors(g, M, rect); } }
+        finally { world.floorClip = null; world.floorSet = null; world.floorNoFences = false; world.floorMode = undefined; g.restore(); }
+      }
+    }
+  } catch (e) { console.warn('versão rápida do chão', e); }
+}
+
+// avança a pintura de um bloco dentro do orçamento de tempo
+function workChunk(ch, budgetMs) {
+  const t0 = performance.now();
+  try { workChunkLoop(ch, budgetMs, t0); } finally { terrain.workMs = (terrain.workMs || 0) + performance.now() - t0; }
+}
+function workChunkLoop(ch, budgetMs, t0) {
+  while (!ch.done && performance.now() - t0 < budgetMs) {
+    if (ch.stage === 0) {
+      const useW = !world.terrainSync && twInit();
+      if (useW && !ch.q) twQuick(ch);
+      if (!chunkFields(ch, budgetMs - (performance.now() - t0))) return;
+      if (useW) { ch.stage = 'w'; twFull(ch); } else ch.stage = 1;
+    }
+    else if (ch.stage === 'w') return;   // pixels sendo pintados num worker
+    else if (ch.stage === 1) { if (!ch.img) ch.img = ch.g.createImageData(CSZ, CSZ); paintRows(ch, 16); if (ch.row >= CSZ) ch.stage = 2; }   // ~1,5 ms por fatia
+    else { finishChunk(ch); }
+  }
+}
+
+// ---------- desenho por quadro ----------
+function drawGround(g, W, H) {
+  terrain.frame++;
+  const s = cam.zoom, c = cam.cos, sn = cam.sin;
+  const affine = (ppm, x0, y0) => g.setTransform(s * c / ppm, s * TILT * sn / ppm, -s * sn / ppm, s * TILT * c / ppm,
+    W / 2 + s * (c * (x0 - cam.x) - sn * (y0 - cam.y)), H / 2 + s * TILT * (sn * (x0 - cam.x) + c * (y0 - cam.y)));
+  // fundo: minimapa ampliado (só aparece enquanto um bloco ainda está sendo pintado)
+  // com o chão na GPU (ground-gpu.js) por baixo, nada de minimapa esticado nem base borrada
+  if (!terrain.gpu) { affine(terrain.miniPPM || MINI, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(terrain.mini, 0, 0);
+    if (world.groundBase) world.groundBase(affine, g); }   // mundo grande: base de 2 px/m dos setores carregados
+  // blocos visíveis
+  const cs = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => unproj(x, y, 0));
+  const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
+  const ci0 = clamp(Math.floor((Math.min(...xs) - 1) / CH), 0, MAP / CH - 1), ci1 = clamp(Math.floor((Math.max(...xs) + 1) / CH), 0, MAP / CH - 1);
+  const cj0 = clamp(Math.floor((Math.min(...ys) - 1) / CH), 0, MAP / CH - 1), cj1 = clamp(Math.floor((Math.max(...ys) + 1) / CH), 0, MAP / CH - 1);
+  const need = (ci1 - ci0 + 3) * (cj1 - cj0 + 3), vis = [], ahead = [];
+  const want = (ci, cj, list) => {
+    if (world.chunkReady && !world.chunkReady(ci, cj)) {   // setores vizinhos ainda carregando (ou descarregados no meio da pintura)
+      const old = terrain.chunks.get(ci + ',' + cj); if (!old) return;
+      if (!old.done) { terrain.chunks.delete(ci + ',' + cj); return; }   // recomeça quando o setor voltar: sem faixas/decalques faltando
+    }
+    const ch = terrain.chunks.get(ci + ',' + cj) || startChunk(ci, cj);
+    ch.used = terrain.frame;
+    if (!ch.done) list.push(ch);
+  };
+  for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) want(ci, cj, vis);
+  // velocidade da câmera (suavizada; teleportes ignorados) p/ pintar antes o que vai entrar na tela
+  const now = performance.now(), lc = terrain.lastCam, vel = terrain.vel || (terrain.vel = [0, 0]);
+  if (lc) { const dt = Math.max(1, now - lc.t) / 1000, vx = (cam.x - lc.x) / dt, vy = (cam.y - lc.y) / dt; if (Math.hypot(vx, vy) < 90) { vel[0] += (vx - vel[0]) * 0.12; vel[1] += (vy - vel[1]) * 0.12; } }
+  terrain.lastCam = { x: cam.x, y: cam.y, t: now };
+  if (Math.hypot(vel[0], vel[1]) > 3) {
+    const dx = vel[0] * 1.3, dy = vel[1] * 1.3, C = v => clamp(v, 0, MAP / CH - 1);
+    const ai0 = C(Math.floor((Math.min(...xs) + dx - 1) / CH)), ai1 = C(Math.floor((Math.max(...xs) + dx + 1) / CH));
+    const aj0 = C(Math.floor((Math.min(...ys) + dy - 1) / CH)), aj1 = C(Math.floor((Math.max(...ys) + dy + 1) / CH));
+    for (let cj = aj0; cj <= aj1; cj++) for (let ci = ai0; ci <= ai1; ci++) if (ci < ci0 || ci > ci1 || cj < cj0 || cj > cj1) want(ci, cj, ahead);
+  }
+  terrain.maxChunks = Math.max(24, need * 2 + 2);
+  if (world.terrainSync) for (const ch of vis) workChunk(ch, 1e9);
+  else {
+    const t0 = performance.now(), dist = ch => Math.hypot(ch.ci * CH + 8 - cam.x, ch.cj * CH + 8 - cam.y);
+    // enquanto algum pedaço da tela não tem nem a versão rápida, o chão ganha mais tempo do quadro
+    const blank = !terrain.gpu && vis.some(ch => !(ch.q && ch.q.done));   // com o chão na GPU nunca falta chão: sem pressa
+    const B = terrain.driving?Math.min(4,terrain.budget||2):(blank ? Math.max(terrain.budget || 7, 9) : Math.max(terrain.budget || 7, 4)), left = () => B - (performance.now() - t0);
+    vis.sort((a, b) => dist(a) - dist(b)); ahead.sort((a, b) => dist(a) - dist(b));
+    if (!terrain.gpu && twInit()) for (const ch of [...vis, ...ahead]) { if (left() <= 0) break; if (!ch.q && ch.stage !== 2) twQuick(ch); }   // versão rápida: só sem a GPU
+    for (const ch of vis) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
+    for (const ch of ahead) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
+    for (const ch of vis) { if (left() <= 0) break; workChunk(ch, left()); }
+    for (const ch of ahead) { if (left() <= 0) break; workChunk(ch, left()); }
+  }
+  // anel ao redor da vista: TODO ele conta como em uso (senão o cache o descarta e repinta sem fim);
+  // quando nada visível está pendente, pré-pinta o primeiro bloco do anel que faltar
+  let ringTarget = null;
+  for (let cj = cj0 - 1; cj <= cj1 + 1; cj++) for (let ci = ci0 - 1; ci <= ci1 + 1; ci++) {
+    if (ci < 0 || cj < 0 || ci >= MAP / CH || cj >= MAP / CH) continue;
+    const ch = terrain.chunks.get(ci + ',' + cj);
+    if (ch) ch.used = terrain.frame;
+    if (!ringTarget && (!ch || !ch.done) && (ch || !world.chunkReady || world.chunkReady(ci, cj))) ringTarget = ch || [ci, cj];
+  }
+  if (!world.terrainSync && !vis.length && !ahead.length && ringTarget)
+    workChunk(Array.isArray(ringTarget) ? startChunk(...ringTarget) : ringTarget, Math.min(4, terrain.budget || 4));
+  for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
+    const ch = terrain.chunks.get(ci + ',' + cj);
+    if (!ch) continue;
+    if (!ch.done) { if (ch.q && ch.q.done) { affine(QP, ci * CH - QPAD / QP, cj * CH - QPAD / QP); g.drawImage(ch.q.c, 0, 0); } continue; }
+    if (ch.q) ch.q = null;
+    // bloco recém-pintado entra com fade sobre o chão da GPU (sem "estalo" de qualidade)
+    const fade = terrain.gpu ? Math.min(1, (performance.now() - (ch.shown || (ch.shown = performance.now()))) / 260) : 1;
+    affine(TP, ci * CH - PAD / TP, cj * CH - PAD / TP);
+    if (fade < 1) g.globalAlpha = fade;
+    g.drawImage(ch.c, PAD - 1, PAD - 1, CPX + 2, CPX + 2, PAD - 1, PAD - 1, CPX + 2, CPX + 2);
+    if (fade < 1) g.globalAlpha = 1;
+  }
+  g.imageSmoothingEnabled = false;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  drawWaterLife(g);
+  // libera blocos antigos fora de vista
+  if (terrain.chunks.size > terrain.maxChunks) {
+    const old = [...terrain.chunks.values()].filter(ch => ch.done && terrain.frame - ch.used > 30).sort((a, b) => a.used - b.used);
+    for (const ch of old.slice(0, terrain.chunks.size - terrain.maxChunks)) terrain.chunks.delete(ch.ci + ',' + ch.cj);
+  }
+}
+
+// brilhos e ondulações que se movem na superfície do lago (único elemento animado do chão)
+function drawWaterLife(g) {
+  const P = world.pondPoly; if (!P) return;
+  const t = performance.now() / 1000, p = world.pond;
+  const sp = P.map(([x, y]) => proj(x, y, 0));
+  g.save(); g.beginPath(); sp.forEach((q, i) => i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y)); g.closePath(); g.clip();
+  const r = mulberry(world.seed + 77);
+  for (let i = 0; i < 55; i++) {
+    const bx = p.x + (r() - 0.5) * p.rx * 2, by = p.y + (r() - 0.5) * p.ry * 2, ph = r() * TAU, sp2 = 0.3 + r() * 0.5;
+    const x = bx + Math.sin(t * 0.25 * sp2 + ph) * 0.6, y = by + Math.cos(t * 0.2 * sp2 + ph) * 0.3;
+    const a = Math.max(0, Math.sin(t * 1.3 * sp2 + ph)) * 0.32;
+    if (a < 0.02) continue;
+    const q = proj(x, y, 0), L = (0.15 + r() * 0.3) * cam.zoom;
+    g.strokeStyle = `rgba(220,235,235,${a})`; g.lineWidth = Math.max(1, cam.zoom * 0.015);
+    g.beginPath(); g.moveTo(q.x - L, q.y); g.quadraticCurveTo(q.x, q.y - L * 0.08, q.x + L, q.y); g.stroke();
+  }
+  g.restore();
+}

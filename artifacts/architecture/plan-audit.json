@@ -1,0 +1,14 @@
+{
+  "cases": 2100,
+  "floors": 6450,
+  "rooms": 32850,
+  "invalid": [],
+  "families": {
+    "garden-wing": 616,
+    "cross-gable": 420,
+    "courtyard": 602,
+    "offset-wing": 462
+  },
+  "scope": "Semantic plan audit, not an aesthetic score. Spatial navigation is separately tested by property-plans.test.cjs.",
+  "passed": true
+}
