@@ -7,9 +7,13 @@
 // do menu (bossa/lo-fi generativa com piano elétrico FM, baixo, bateria escovada e chiado de vinil).
 'use strict';
 const CityAudio = (() => {
-  let ctx = null, out, master, sfx, amb, mus, ui, rev, revIn, white, pink, brown, hidden = false;
+  let ctx = null, out, master, sfx, amb, mus, ui, vox, rev, revIn, white, pink, brown, hidden = false;
+  // eco por canal: o envio p/ a reverberação acompanha o volume do canal (efeitos em 0% não deixa o eco sobrando)
+  const sends = new Map();
+  const sendOf = bus => { let s = sends.get(bus); if (!s) { s = G(revIn, 1); sends.set(bus, s); } return s; };
   const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[(Math.random() * a.length) | 0];
-  const settings = () => window.CityFront?.settings || { master: .75, music: .35, effects: .8 };
+  const DEFAULTS = { master: .75, music: .35, ambient: .7, effects: .8, voices: .8, interface: .8 };
+  const settings = () => ({ ...DEFAULTS, ...(window.CityFront?.settings || {}) });
 
   // ---------- infraestrutura ----------
   function noiseBuffer(sec, color) {
@@ -35,18 +39,20 @@ const CityAudio = (() => {
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
     try { ctx = new C({ latencyHint: 'interactive' }); } catch (_) { return null; }
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 5; comp.attack.value = .004; comp.release.value = .22; comp.connect(ctx.destination);
-    out = G(comp); master = G(out); sfx = G(master); amb = G(master); mus = G(master); ui = G(master);
+    out = G(comp); master = G(out); sfx = G(master); amb = G(master); mus = G(master); ui = G(master); vox = G(master);
     rev = ctx.createConvolver(); rev.buffer = impulse(2.4, 3.2); revIn = G(rev, 1); rev.connect(G(master, .55));
     white = noiseBuffer(2, 'white'); pink = noiseBuffer(4, 'pink'); brown = noiseBuffer(4, 'brown');
     applyVolumes(); setInterval(applyVolumes, 500);
     document.addEventListener('visibilitychange', () => { hidden = document.hidden; applyVolumes(); });
+    addEventListener('city-front-settings', applyVolumes);   // mexeu no controle: aplica na hora
     return ctx;
   }
   function applyVolumes() {
     if (!ctx) return;
     const s = settings(), t = ctx.currentTime, k = hidden ? 0 : 1;
-    master.gain.setTargetAtTime(s.master * k, t, .05); sfx.gain.setTargetAtTime(s.effects, t, .05); amb.gain.setTargetAtTime(s.effects * .85, t, .1);
-    ui.gain.setTargetAtTime(s.effects, t, .05); mus.gain.setTargetAtTime(s.music * (menuOn ? 1 : 0), t, menuOn ? .4 : 1.2);
+    const lv = [[master, s.master * k], [sfx, s.effects], [amb, s.ambient], [mus, s.music], [ui, s.interface], [vox, s.voices]];
+    for (const [bus, v] of lv) { bus.gain.setTargetAtTime(v, t, .03); if (bus !== master) sendOf(bus).gain.setTargetAtTime(v, t, .03); }
+    if (menuBus) menuBus.gain.setTargetAtTime(menuOn ? 1 : 0, t, menuOn ? .4 : 1.2);
   }
   const unlock = () => { if (!init()) return; if (ctx.state === 'suspended') ctx.resume().catch(() => {}); };
   for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, unlock, { passive: true, capture: true });
@@ -73,7 +79,7 @@ const CityAudio = (() => {
       pan = Math.max(-.85, Math.min(.85, sx / (d + 6)));
     }
     const lp = filt('lowpass', Math.max(700, 19000 / (1 + d / 22))), g = G(null, 1 / (1 + (d / ref) ** 2)), p = ctx.createStereoPanner(); p.pan.value = pan;
-    lp.connect(g); g.connect(p); p.connect(bus); p.connect(G(revIn, Math.min(.8, echo + d / 90)));
+    lp.connect(g); g.connect(p); p.connect(bus); p.connect(G(sendOf(bus), Math.min(.8, echo + d / 90)));
     return { input: lp, d, gain: g, pan: p };
   }
 
@@ -136,8 +142,8 @@ const CityAudio = (() => {
     stopAt([o, n], t + .9);
   }
   // buzina elétrica de carro: dois tons (terça) distorcidos num corneta (passa-banda)
-  function horn(x, y, dur = .5, big = false) {
-    if (!ready()) return null; const S = place(x, y, { ref: 18, max: 260, echo: .2 }); if (!S) return null; const t = now();
+  function horn(x, y, dur = .5, big = false, bus = sfx) {
+    if (!ready()) return null; const S = place(x, y, { ref: 18, max: 260, echo: .2, bus }); if (!S) return null; const t = now();
     const f = big ? 330 : rnd(400, 440), sh = shaper(8), bp = filt('bandpass', big ? 700 : 1000, 1.3), g = G(S.input); sh.connect(bp); bp.connect(g);
     const os = [f, f * 1.25].map(fr => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(sh); return o; });
     g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.32, t + .015);
@@ -146,8 +152,8 @@ const CityAudio = (() => {
     if (dur) stop(t + dur); return { stop };
   }
   // latido: pulsos com o tom subindo e caindo filtrados por formantes de cachorro
-  function bark(x, y, big = Math.random() < .5, n = 1 + (Math.random() * 3 | 0)) {
-    if (!ready()) return; const S = place(x, y, { ref: 12, max: 220, echo: .3 }); if (!S) return;
+  function bark(x, y, big = Math.random() < .5, n = 1 + (Math.random() * 3 | 0), bus = sfx) {
+    if (!ready()) return; const S = place(x, y, { ref: 12, max: 220, echo: .3, bus }); if (!S) return;
     for (let i = 0; i < n; i++) {
       const t = now() + i * rnd(.22, .34), f0 = big ? rnd(180, 230) : rnd(330, 420), o = ctx.createOscillator(); o.type = 'sawtooth';
       o.frequency.setValueAtTime(f0 * .8, t); o.frequency.linearRampToValueAtTime(f0 * 1.35, t + .03); o.frequency.exponentialRampToValueAtTime(f0 * .7, t + .14);
@@ -168,11 +174,11 @@ const CityAudio = (() => {
     stopAt([o, lfo, n], t + dur + .1);
   }
   function scream(x, y, female = Math.random() < .5) {
-    if (!ready()) return; const S = place(x, y, { ref: 12, max: 140, echo: .3 }); if (!S) return;
+    if (!ready()) return; const S = place(x, y, { ref: 12, max: 140, echo: .3, bus: vox }); if (!S) return;
     voice(S.input, now(), female ? rnd(560, 700) : rnd(330, 420), pick(['a', 'a', 'e', 'o']), rnd(.7, 1.2), .5, { vib: 7, rise: .18, breath: .3 });
   }
   function babble(x, y, female = Math.random() < .5) {
-    if (!ready()) return; const S = place(x, y, { ref: 6, max: 30, echo: .08 }); if (!S) return;
+    if (!ready()) return; const S = place(x, y, { ref: 6, max: 30, echo: .08, bus: vox }); if (!S) return;
     let t = now(); const base = female ? rnd(200, 240) : rnd(115, 140), n = 3 + (Math.random() * 6 | 0);
     for (let i = 0; i < n; i++) { const d = rnd(.07, .14); tick(S.input, t, rnd(2500, 5000), .05, .02); voice(S.input, t + .01, base * rnd(.9, 1.2), pick(Object.keys(VOWEL)), d, .16, { vib: 0, breath: .2 }); t += d + rnd(.02, .08); }
   }
@@ -206,9 +212,9 @@ const CityAudio = (() => {
   }
 
   // ---------- sirenes (unidades da IA) ----------
-  function siren(kind) {
+  function siren(kind, bus = sfx) {
     if (!init()) return null; const t = now(), sh = shaper(5), bp = filt('bandpass', 1300, .9), p = ctx.createStereoPanner(), g = G(null, 0), lp = filt('lowpass', 8000);
-    sh.connect(bp); bp.connect(lp); lp.connect(g); g.connect(p); p.connect(sfx); p.connect(G(revIn, .3));
+    sh.connect(bp); bp.connect(lp); lp.connect(g); g.connect(p); p.connect(bus); p.connect(G(sendOf(bus), .3));
     const o = ctx.createOscillator(), o2 = ctx.createOscillator(); o.type = 'triangle'; o2.type = 'square'; const g2 = G(sh, .25); o.connect(sh); o2.connect(g2);
     let lfo = null;
     if (kind === 'police') { lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = .22; const dep = G(null, 380); lfo.connect(dep); dep.connect(o.frequency); dep.connect(o2.frequency); o.frequency.value = 1000; o2.frequency.value = 1000; lfo.start(t); }
@@ -244,7 +250,7 @@ const CityAudio = (() => {
     S.pan.pan.setValueAtTime(-S.pan.pan.value || -.6, t); S.pan.pan.linearRampToValueAtTime(S.pan.pan.value || .6, t + dur); stopAt([n, o], t + dur + .1); }
   // baile funk ao longe (tamborzão abafado pelas paredes): só o grave e a caixa passam
   function funkStart() {
-    if (funk) return; const g = G(amb, 0), lp = filt('lowpass', 260, .8); lp.connect(g); funk = { g, lp, next: now() + .1, step: 0 };
+    if (funk) return; const g = G(mus, 0), lp = filt('lowpass', 260, .8); lp.connect(g); funk = { g, lp, next: now() + .1, step: 0 };
   }
   function funkTick(on) {
     if (!funk) { if (on) funkStart(); else return; }
@@ -272,9 +278,9 @@ const CityAudio = (() => {
     for (const k in nextEvent) nextEvent[k] -= dt;
     if (nextEvent.bird <= 0) { nextEvent.bird = rnd(2, 7) / (reg === 'rural' ? 2 : 1); if (day > .5 && snow < .5) chirp(...around(10, 50)); }
     if (nextEvent.car <= 0) { nextEvent.car = rnd(3, 9) / (dens + .2); if (reg !== 'rural' || Math.random() < .3) carPass(...around(25, 70)); }
-    if (nextEvent.dog <= 0) { nextEvent.dog = rnd(10, 28) / (reg === 'favela' || reg === 'rural' ? 2 : 1); bark(...around(40, 120), Math.random() < .5, 1 + (Math.random() * 4 | 0)); }
-    if (nextEvent.horn <= 0) { nextEvent.horn = rnd(10, 30) / dens; if (reg !== 'rural') horn(...around(40, 110), rnd(.12, .35)); }
-    if (nextEvent.siren <= 0) { nextEvent.siren = rnd(50, 120); if (dens > .6 && Math.random() < .4) { const s = siren(Math.random() < .6 ? 'police' : 'amb'), [x, y] = around(140, 200); if (s) { let k = 0; const iv = setInterval(() => { s.update(x, y, true); if (++k > 40) { clearInterval(iv); s.stop(); } }, 200); } } }
+    if (nextEvent.dog <= 0) { nextEvent.dog = rnd(10, 28) / (reg === 'favela' || reg === 'rural' ? 2 : 1); bark(...around(40, 120), Math.random() < .5, 1 + (Math.random() * 4 | 0), amb); }
+    if (nextEvent.horn <= 0) { nextEvent.horn = rnd(10, 30) / dens; if (reg !== 'rural') horn(...around(40, 110), rnd(.12, .35), false, amb); }
+    if (nextEvent.siren <= 0) { nextEvent.siren = rnd(50, 120); if (dens > .6 && Math.random() < .4) { const s = siren(Math.random() < .6 ? 'police' : 'amb', amb), [x, y] = around(140, 200); if (s) { let k = 0; const iv = setInterval(() => { s.update(x, y, true); if (++k > 40) { clearInterval(iv); s.stop(); } }, 200); } } }
     // pets por perto latem de vez em quando
     if ((nextEvent.pet = (nextEvent.pet ?? 6) - dt) <= 0) { nextEvent.pet = rnd(14, 35); const pet = (window.CityPets?.actors || []).find(a => Math.hypot(a.x - L.x, a.y - L.y) < 25); if (pet) bark(pet.x, pet.y, (pet.size || pet.scale || 1) > .8, 1 + (Math.random() * 2 | 0)); }
     // murmúrio de quem está por perto
@@ -282,7 +288,7 @@ const CityAudio = (() => {
   }
 
   // ======================= trilha do menu =======================
-  let menuOn = false, seq = null;
+  let menuOn = false, seq = null, menuBus = null;
   const midi = m => 440 * Math.pow(2, (m - 69) / 12);
   // piano elétrico (FM): portadora seno + moduladora 1:1 com índice que cai (o "tine")
   function rhodes(t, m, dur, lvl, dest) {
@@ -300,8 +306,8 @@ const CityAudio = (() => {
   function menuMusic(on) {
     menuOn = !!on; if (!init()) return; applyVolumes();
     if (!on || seq) return;
-    const bus = G(mus), wow = ctx.createOscillator(); wow.frequency.value = .35; wow.start();   // fita levemente instável
-    const lp = filt('lowpass', 5200, .5); lp.connect(bus); const send = G(revIn, .35); lp.connect(send);
+    const bus = menuBus || (menuBus = G(mus, 0)), wow = ctx.createOscillator(); applyVolumes(); wow.frequency.value = .35; wow.start();   // fita levemente instável
+    const lp = filt('lowpass', 5200, .5); lp.connect(bus); const send = G(sendOf(mus), .35); lp.connect(send);
     // chiado de vinil
     const vn = noise(white), vh = filt('highpass', 3500), vg = G(bus, .012); vn.connect(vh); vh.connect(vg); vn.start();
     seq = { next: now() + .15, step: 0, lp, bpm: 92 };
@@ -336,6 +342,16 @@ const CityAudio = (() => {
     if (kind === 'alert') { [0, .12].forEach(d => { const o = ctx.createOscillator(), g = G(ui); o.type = 'square'; o.frequency.value = 880; const l = filt('lowpass', 2000); o.connect(l); l.connect(g); env(g, t + d, .004, .05, .09); stopAt([o], t + d + .15); }); return; }
     if (kind === 'wasted') { const o = ctx.createOscillator(), g = G(ui), l = filt('lowpass', 900); o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(55, t + 2.2); o.connect(l); l.connect(g); env(g, t, .05, .22, 2.4); const n = noise(brown), g2 = G(ui); n.connect(g2); env(g2, t, .01, .5, 1.6); stopAt([o, n], t + 2.6); }
   }
+  // amostra curta de cada canal, sem posição (no ouvido do jogador)
+  function preview(kind) {
+    unlock(); if (!ready()) { setTimeout(() => ready() && preview(kind), 120); return; }
+    const t = now();
+    if (kind === 'music') { const d = G(mus, 1); [[50, [53, 57, 60, 64, 69]], [43, [53, 57, 59, 64, 71]]].forEach(([r, ch], i) => { ch.forEach((m, j) => rhodes(t + i * .9 + j * .012, m, .85, .08, d)); bassNote(t + i * .9, r - 12, .8, d); }); setTimeout(() => d.disconnect(), 2600); return; }
+    if (kind === 'ambient') { chirp(null, null); carPass(null, null); return; }
+    if (kind === 'effects') { const h = horn(null, null, .35); thump(null, null, 'punch'); return h; }
+    if (kind === 'voices') { babble(null, null); return; }
+    uiSound('confirm');
+  }
   // passar o mouse/clicar em botões do menu e da HUD
   let lastHover = null;
   addEventListener('pointerover', e => { const b = e.target.closest?.('#city-front button, #city-front [role=tab], #city-controls button, #social-entry, #city-pets-entry, #city-cas-open, .city-app-icon'); if (b && b !== lastHover && !b.disabled) { lastHover = b; uiSound('hover'); } else if (!b) lastHover = null; }, { passive: true });
@@ -353,6 +369,8 @@ const CityAudio = (() => {
     requestAnimationFrame(tickAll);
   }
   requestAnimationFrame(tickAll);
-  return { init, unlock, gun, dryFire, reload, bulletHit, thump, whoosh, step, crash, horn, bark, scream, babble, siren, menuMusic, ui: uiSound, get context() { return ctx; } };
+  // volume efetivo de cada canal agora (depuração no console)
+  const levels = () => ctx && Object.fromEntries([['master', master], ['effects', sfx], ['ambient', amb], ['music', mus], ['interface', ui], ['voices', vox]].map(([k, b]) => [k, +b.gain.value.toFixed(3)]));
+  return { init, unlock, preview, applyVolumes, levels, gun, dryFire, reload, bulletHit, thump, whoosh, step, crash, horn, bark, scream, babble, siren, menuMusic, ui: uiSound, get context() { return ctx; } };
 })();
 window.CityAudio = CityAudio;

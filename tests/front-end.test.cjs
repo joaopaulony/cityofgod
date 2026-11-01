@@ -4,6 +4,7 @@ function store(values={}){const map=new Map(Object.entries(values));return {get 
 test('front settings validate actual ranges and corrupted saves cannot enable continue',()=>{
  const settings=S.settings({quality:'ultra!',brightness:100,music:-10,master:'invalid',effects:.4,reducedMotion:true});
  assert.equal(settings.quality,'balanced');assert.equal(settings.brightness,1.3);assert.equal(settings.music,0);assert.equal(settings.master,.75);assert.equal(settings.effects,.4);
+ const audio=S.settings({ambient:2,voices:-1,interface:'x'});assert.equal(audio.ambient,1);assert.equal(audio.voices,0);assert.equal(audio.interface,.8);assert.equal(S.settings({}).ambient,.7);
  assert.equal(S.hasProgress(store({[S.SAVE]:'broken','cityofgod.life.v1':'null'})),false);
  assert.equal(S.hasProgress(store({'cityofgod.life.v1':JSON.stringify({v:1,funds:0})})),true);
  assert.equal(S.checkpoint({version:1,mode:'local',seed:123,x:10,y:5,floor:0,clock:1050}).x,10);

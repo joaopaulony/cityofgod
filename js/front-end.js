@@ -63,7 +63,8 @@
  function setting(key,label,help,type='range'){
   if(type==='select')return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><select id="front-${key}" data-front-setting="${key}">${[['low','Desempenho'],['balanced','Equilibrada'],['high','Alta']].map(([value,text])=>`<option value="${value}" ${settings[key]===value?'selected':''}>${text}</option>`).join('')}</select></div>`;
   if(type==='checkbox')return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><input id="front-${key}" data-front-setting="${key}" type="checkbox" ${settings[key]?'checked':''}></div>`;
-  return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><div><input id="front-${key}" data-front-setting="${key}" type="range" min="${key==='brightness'?75:0}" max="${key==='brightness'?130:100}" value="${Math.round(settings[key]*100)}"><output class="front-value" for="front-${key}" data-setting-output="${key}">${Math.round(settings[key]*100)}%</output></div></div>`;
+  const listen=type==='audio'?`<button type="button" class="front-listen" data-front-preview="${key}" aria-label="Ouvir ${label}">▶ Ouvir</button>`:'';
+  return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><div class="front-range">${listen}<input id="front-${key}" data-front-setting="${key}" type="range" min="${key==='brightness'?75:0}" max="${key==='brightness'?130:100}" value="${Math.round(settings[key]*100)}"><output class="front-value" for="front-${key}" data-setting-output="${key}">${Math.round(settings[key]*100)}%</output></div></div>`;
  }
  function render(){
   let content='';
@@ -74,7 +75,8 @@
   else if(phase==='settings'){
    const tabs=[['video','Vídeo'],['audio','Áudio'],['controls','Controles'],['interface','Interface']];
    let fields=tab==='video'?setting('quality','Qualidade 3D','Ajusta a resolução de renderização e as sombras.','select')+setting('brightness','Brilho','Ajusta a imagem da cidade sem alterar a arte do menu.'):
-    tab==='audio'?setting('master','Volume geral','Controla a música e os efeitos conectados ao jogo.')+setting('music','Música do menu','Trilha instrumental original sintetizada para esta abertura.')+setting('effects','Efeitos','Sons da interface e buzina dos veículos.'):
+    tab==='audio'?setting('master','Volume geral','Todos os sons do jogo de uma vez.','audio')+setting('music','Música','Trilha do menu e o baile funk que toca ao longe na favela.','audio')+setting('ambient','Ambiente','Trânsito, vento, pássaros, grilos, cães e sirenes ao redor.','audio')+setting('effects','Efeitos','Tiros, batidas, motor e buzina do carro, passos e golpes.','audio')+setting('voices','Vozes','Conversas e gritos das pessoas na rua.','audio')+setting('interface','Interface','Cliques do menu, do celular e avisos.','audio')+
+     `<div class="front-actions"><button type="button" class="front-action" data-front-audio="mute">${settings.master>0?'Silenciar tudo':'Reativar o som'}</button><button type="button" class="front-action" data-front-audio="reset">Restaurar padrão</button></div>`:
     tab==='interface'?setting('reducedMotion','Reduzir movimento','Desativa o movimento de fundo e transições do menu.','checkbox'):
     `<div class="front-controls">${[['Andar','W A S D'],['Correr','Shift'],['Interagir / veículo','F'],['Mapa','M'],['Celular','P'],['Mochila','I'],['Câmera','Q / E'],['Zoom','Roda do mouse'],['Agachar','C'],['Saltar','Espaço'],['Decorar casa','F7'],['Pets','F8'],['Pausar / continuar','Esc']].map(([label,key])=>`<div><span>${label}</span><kbd>${key}</kbd></div>`).join('')}</div><p>Os atalhos exibidos correspondem aos controles atuais do jogo.</p>`;
    content=panel('Configurações',`<div class="front-tabs" role="tablist" aria-label="Categoria de configurações">${tabs.map(([id,label])=>`<button id="front-tab-${id}" role="tab" aria-selected="${tab===id}" aria-controls="front-setting-panel" data-front-tab="${id}">${label}</button>`).join('')}</div><div id="front-setting-panel" role="tabpanel" aria-labelledby="front-tab-${tab}">${fields}</div><p id="front-settings-message" role="status">As alterações são aplicadas agora e salvas neste navegador.</p>`);
@@ -176,6 +178,14 @@
   else if(action==='retry'){if(sessionIntent(startKind==='new'?'retry-new':'continue'))location.reload();}
   else if(action==='map'){enter();game?.openMap?.();}else if(action==='sound'){settings.music=settings.music===0?.35:0;persistSettings();render();}
   else open(action);
+ });
+ // áudio: ouvir cada canal, silenciar tudo e restaurar o padrão
+ root.addEventListener('click',e=>{
+  const pv=e.target.closest('[data-front-preview]');if(pv){window.CityAudio?.preview?.(pv.dataset.frontPreview);return;}
+  const a=e.target.closest('[data-front-audio]');if(!a)return;
+  if(a.dataset.frontAudio==='mute'){if(settings.master>0){root.dataset.lastMaster=settings.master;settings.master=0;}else settings.master=Number(root.dataset.lastMaster)||S.defaults.master;}
+  else for(const k of ['master','music','ambient','effects','voices','interface'])settings[k]=S.defaults[k];
+  persistSettings();render();root.querySelector(`[data-front-audio="${a.dataset.frontAudio}"]`)?.focus();clickSound();
  });
  root.addEventListener('click',e=>{const item=e.target.closest('[data-front-tab]');if(item){clickSound();tab=item.dataset.frontTab;render();root.querySelector('#front-tab-'+tab)?.focus();}});
  function persistSettings(){settings=S.settings(settings);try{storage.setItem(S.SETTINGS,JSON.stringify(settings));}catch{const el=root.querySelector('#front-settings-message');if(el)el.textContent='As alterações foram aplicadas, mas o navegador não permitiu salvá-las.';}applySettings();}
