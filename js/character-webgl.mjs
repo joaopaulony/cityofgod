@@ -127,9 +127,13 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  const clear=(x,y,ignore,r=.28)=>{
   if(x<.5||y<.5||x>bridge.mapSize-.5||y>bridge.mapSize-.5)return false;
   if(bridge.pondVal(x,y)<=1.02&&!bridge.onRoad(x,y))return false;
-  for(const s of bridge.world.segs)
+  // só a célula da grade de colisão (world.js collNear): antes varria as ~11 mil paredes do mundo, 7 vezes por NPC por quadro
+  const near=bridge.collNear?bridge.collNear(x,y):{segs:bridge.world.segs,circles:bridge.world.circles,dyn:[]};
+  for(const s of near.segs)
    if(s!==ignore&&!(s.door&&s.doorAnim?.open>=.72)&&pointSegmentDistance(x,y,s)<r+.08)return false;
-  for(const c of bridge.world.circles)
+  for(const c of near.circles)
+   if(Math.hypot(x-c.x,y-c.y)<r+(c.r||0))return false;
+  for(const c of near.dyn)
    if(Math.hypot(x-c.x,y-c.y)<r+(c.r||0))return false;
   const q=bridge.collide(x,y,r,0);
   return (ignore&&pointSegmentDistance(x,y,ignore)<r+.09)||Math.hypot(q[0]-x,q[1]-y)<.025;
@@ -402,6 +406,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
 
  system.update=dt=>{
   const p=bridge.player,now=performance.now();
+  // tempo de cada parte neste quadro (ms): system.updateMs, lido pelo medidor de desempenho
+  const um=system.updateMs||(system.updateMs={});let ut=now;const lap=k=>{const t=performance.now();um[k]=t-ut;ut=t;};
   if(social){
    social.tick(dt);socialUI.update(dt);socialPie.update();initiative.update(dt);if(system.socialInputBlocked){bridge.releaseControls?.();p.wantShot=false;p.aiming=false;}
    if(socialPie.active){const n=npcs.find(n=>n.lookId===socialPie.target);if(n){n.socialUntil=social.time+.5;n.speed=0;}}
@@ -417,15 +423,15 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    // gatos pingados: completa até STREET_MAX, tira quem ficou longe
    spawnT-=dt;
    const street=npcs.filter(n=>n.kind==='street'&&!n.dead);
-   runOver(dt);
+   lap('social+spawn');runOver(dt);lap('runOver');
    for(const n of street)if(!activities.has(n)&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);
    if(spawnT<=0&&street.length<(GANG_TURF.has(districtAt(p.x,p.y))?12:STREET_MAX)){spawnT=1.2+Math.random()*2.2;void spawnStreet();}
-   streetLife.tick(dt);
+   streetLife.tick(dt);lap('streetLife');
    for(const o of [...occurrences])if(now>o.until){
     occurrences.splice(occurrences.indexOf(o),1);
     for(const n of o.units){if(n.dead)continue;n.leaving=true;n.run=false;n.chase=false;n.aid=null;n.aiding=false;n.aiming=false;n.aimHold=0;const a=Math.random()*Math.PI*2;n.target={x:o.x+Math.cos(a)*70,y:o.y+Math.sin(a)*70};}
    }
-   ai.tick(dt);
+   lap('occurrences');ai.tick(dt);lap('ai');
    for(const n of [...npcs]){if(entries.has(n)){
     if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
@@ -433,7 +439,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     // ferido sangrando deixa rastro de pingos
     if(n.hp<100&&n.speed>.1){n.dripD=(n.dripD||0)+n.speed*dt;if(n.dripD>(n.hp<50?.35:.8)){n.dripD=0;blood.drip(n.x+(Math.random()-.5)*.2,n.y+(Math.random()-.5)*.2,.04+Math.random()*.05,n.floorZ||0);}}
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
-   system.populationCount=npcs.length;
+   system.populationCount=npcs.length;lap('npcs');
   }
   for(const [a,e] of entries){
    if(e.bubble&&social.time>e.bubbleUntil){e.root.remove(e.bubble);e.bubble.material.map.dispose();e.bubble.material.dispose();e.bubble=null;}
@@ -502,7 +508,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    }
    a.characterClip=a.homeAction?'home_'+a.homeAction.kind:clip;
   }
-  blood.update(dt);
+  lap('animation');blood.update(dt);lap('blood');
   system.frames++;
  };
  // ---------- animação: o que cada personagem toca (base = corpo todo ou pernas; upper = braços por cima) ----------

@@ -625,6 +625,8 @@ system.render=()=>{
  // Não executar uma cena 3D pesada enquanto o GLB inicial é decodificado.
  // Além de aliviar a GPU, isso libera o carregamento no navegador.
  if(!renderer||!system.ready)return;
+ // tempo de cada camada neste quadro (ms): system.layerMs, lido pelo medidor de desempenho
+ const lm=system.layerMs||(system.layerMs={});let lt=performance.now();const lap=k=>{const n=performance.now();lm[k]=n-lt;lt=n;};
  const c=bridge.cam;
  setCamera();
  if(body){body.visible=!!activeKey;body.position.set(state.x,0,state.y);
@@ -644,15 +646,16 @@ system.render=()=>{
   const target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:indoorRadius};
   vegetation.update(performance.now()/1000,viewCamera,renderer,target);shadowGround.visible=false;
  }
- props3d?.update(performance.now()/1000,bridge.gameTime||0);
- window.CityPets?.render();
- architecture3d?.update();
- house3d?.update(performance.now()/1000);
+ lap('vegetation');
+ props3d?.update(performance.now()/1000,bridge.gameTime||0);lap('props');
+ window.CityPets?.render();lap('pets');
+ architecture3d?.update();lap('architecture');
+ house3d?.update(performance.now()/1000);lap('houses');
  birds?.update();
  landmarks?.update();
  airport3d?.update();
  gas3d?.update();
- parked3d?.update();
+ parked3d?.update();lap('misc');
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.
  shadowGround.position.x=state.x;shadowGround.position.z=state.y;
@@ -665,7 +668,8 @@ system.render=()=>{
   mesh.visible=(system.driver||!H.inside)&&H!==reveal;
  occlusionScene?.updateActors(system.driver,bridge.player);
  
- renderer.render(scene,viewCamera);
+ lap('occlusion');
+ renderer.render(scene,viewCamera);lap('draw');
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={
   // GLB em tempo real usa exatamente a mesma projecao ortografica.

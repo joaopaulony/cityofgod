@@ -52,7 +52,7 @@ window.cityVehicleBridge={
   down:k=>!window.CityAdmin?.active&&input.down(k),hit:k=>!window.CityAdmin?.active&&input.hit(k),
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
-  collide, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  collide, collNear, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   movePet:moveTo,petStairs:updateHouseStairs,
   releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
   driving:()=>!!window.cityVehicles?.driver,

@@ -1262,6 +1262,12 @@ function pushOutSeg(s, x, y, r) {
   const px = s.x1 + ex * u, py = s.y1 + ey * u, dx = x - px, dy = y - py, d = Math.hypot(dx, dy), m = r + 0.08;
   return d < m && d > 1e-6 ? [px + dx / d * m, py + dy / d * m] : null;
 }
+// colisores do chão na célula de (x,y): paredes e círculos a até 0,8 m do ponto (folga do índice) + veículos;
+// p/ testes de "ponto livre" sem varrer todas as paredes do mundo (NPCs, saída do carro)
+function collNear(x, y) {
+  const G = collIndex(), n = G.n, cell = clamp(Math.floor(y / COLL_CELL), 0, n - 1) * n + clamp(Math.floor(x / COLL_CELL), 0, n - 1);
+  return { segs: G.segs.get(cell) || NO_CELL, circles: G.circ.get(cell) || NO_CELL, dyn: G.dyn };
+}
 function collide(x, y, r, floor=0) {
   const G = collIndex(), n = G.n;
   for (let it = 0; it < 3; it++) {
