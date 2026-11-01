@@ -30,6 +30,8 @@
   #keys { display: none; }
   @media(max-width:670px) { #chat { display: none; } }
   #view { z-index: 0; }
+  /* chão na GPU (ground-gpu.js): por baixo da tela 2D, com o mesmo tratamento de cor */
+  #ground-gpu { z-index: 0; pointer-events: none; filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
   #chat {
     position: absolute; left: 12px; bottom: 12px; width: 270px;
     background: rgba(18,16,15,.82); border: 1px solid #000; border-radius: 6px;
@@ -156,6 +158,7 @@
 <script src="js/miami-city.js"></script>
 <script src="js/parking.js"></script>
 <script src="js/openworld.js"></script>
+<script src="js/ground-gpu.js"></script>
 <script src="js/civic.js"></script>
 <script src="js/game.js"></script>
 <script src="js/admin-panel.js"></script>

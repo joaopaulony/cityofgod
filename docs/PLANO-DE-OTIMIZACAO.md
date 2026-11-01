@@ -241,7 +241,28 @@ Pendentes desta fase:
 - **Lixo temporário**: a memória do JS chega a ~2 GB no carregamento e cai p/ ~615 MB na coleta — as pausas de
   coleta são parte das travadas "fora do JavaScript" → Fase 4.6.
 
-## 9. Feito durante a análise
+## 9. Resultados da Fase 3a (chão na GPU)
+
+`js/ground-gpu.js`: uma tela WebGL2 por baixo da tela 2D pinta o chão da vista inteira a cada quadro (0,1 ms):
+água, areia, gramado/mato, terra, roça com fileiras por talhão, calçadão com juntas, concreto, asfalto, sarjeta,
+meio-fio e calçada, com as texturas do jogo e a mesma paleta da CPU (`owBaseColor`, agora compartilhada).
+Os dados vêm de uma janela de 256 m em volta da câmera, preenchida pela CPU por blocos de 16 m (~0,35 ms cada):
+roadDist/bairro/talhão a 1 m e cor base/água a 2 m. O detalhe da CPU (terrain.js) continua por cima e entra com
+fade de 260 ms. Sem WebGL2, tudo volta a ser como antes.
+
+| Item | Antes | Depois |
+|---|---|---|
+| Área ainda não gerada | marrom chapado/cinza (minimapa esticado) | chão completo com ruas e texturas em 0,2 s |
+| Área gerada antes do detalhe | base borrada de 2 px/m | chão da GPU nítido; detalhe entra com fade |
+| Versão rápida dos blocos (Worker) | calculada sempre | desligada com a GPU (menos CPU) |
+| Centro dirigindo (aquecido) | 54,4 qps · pior 150 ms · 7 travadas > 50 ms | 56,4 qps · pior 67 ms · 2 travadas > 50 ms |
+
+Próximos passos da Fase 3:
+- **3b**: sinalização (faixas, setas, vagas), pisos e sombras assadas na GPU (decalques instanciados) → aí a
+  pintura por pixel da CPU pode sair, e com ela os ~300 MB de imagens do chão e boa parte do lixo de memória.
+- **3c**: uma tela só (noite, céu, luzes dos postes e itens rasteiros no WebGL), sem o filtro CSS de tela cheia.
+
+## 10. Feito durante a análise
 
 - NPCs consultam só a vizinhança na grade de colisão (`collNear`): centro a pé de 38 → 59 qps.
 - Medidores leves por camada/sistema: `cityVehicles.layerMs` (camadas 3D e desenho) e

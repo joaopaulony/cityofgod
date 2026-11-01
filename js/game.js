@@ -561,7 +561,10 @@ function drawPart(q) {
 function render() {
   const W = view.width, H = view.height;
   g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false;
-  g.fillStyle = '#26301c'; g.fillRect(0, 0, W, H);
+  // chão: a placa de vídeo pinta a vista inteira na tela de baixo (ground-gpu.js) e esta tela 2D fica transparente
+  // onde o detalhe ainda não foi pintado; sem WebGL2, o fundo sólido de antes
+  terrain.gpu = typeof GroundGPU !== 'undefined' && GroundGPU.draw(W, H);
+  if (terrain.gpu) g.clearRect(0, 0, W, H); else { g.fillStyle = '#26301c'; g.fillRect(0, 0, W, H); }
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
   drawGround(g,W,H);

@@ -404,24 +404,28 @@ function* owGenSector(S) {
 }
 // ---------- base intermediária do setor (2 px/m): aparece enquanto os blocos detalhados pintam ----------
 const OW_BPPM = 2, OW_BS = 2;   // px/m da base e passo de amostragem (m)
+// cor base do chão no ponto (água, areia, gramado verde/seco, bairro, plantação, mata) — também usada pelo chão na GPU
+// (ground-gpu.js), p/ as duas camadas terem a mesma paleta. pv: pondVal(x, y) já calculado (opcional)
+function owBaseColor(x, y, pv = pondVal(x, y)) {
+  const C2 = COL;
+  if (pv < 1) { const t = clamp((1 - pv) / 0.6, 0, 1); return [lerp(C2.shallow[0], C2.deep[0], t), lerp(C2.shallow[1], C2.deep[1], t), lerp(C2.shallow[2], C2.deep[2], t)]; }
+  if (pv < 1.26) return pv < 1.075 ? C2.wsand : C2.sand;
+  const di = world.districtFn(x, y), gt = fbm(x * 0.09, y * 0.09, 3), tone = 0.82 + (gt - 0.5) * 0.55, dk = sstep(0.42, 0.72, fbm(x * 0.045 + 11.3, y * 0.045 + 90.1, 2));
+  let c = [lerp(C2.lush[0], C2.dry[0], dk) * tone, lerp(C2.lush[1], C2.dry[1], dk) * tone, lerp(C2.lush[2], C2.dry[2], dk) * tone];
+  if (di === D_.BEACH) c = C2.sand;
+  else if (di === D_.FARM) { const f = world.fieldFn(x, y), cr = terrain.crops[f[1]], k = cr[3] * 0.6; c = [lerp(C2.dirt[0], cr[0], k), lerp(C2.dirt[1], cr[1], k), lerp(C2.dirt[2], cr[2], k)]; }
+  else if (di === D_.DOWNTOWN) c = C2.walk; else if (di === D_.INDUSTRIAL || di === D_.PORT) c = C2.curbF;
+  else if (di === D_.FAVELA) c = C2.dirt; else if (di === D_.GHETTO) c = [lerp(c[0], C2.dirt[0], 0.4), lerp(c[1], C2.dirt[1], 0.4), lerp(c[2], C2.dirt[2], 0.4)];
+  else { const fw = sstep(0.55, 0.69, forest(x, y)) * 0.85; if (fw > 0) c = [lerp(c[0], C2.moss[0], fw), lerp(c[1], C2.moss[1], fw), lerp(c[2], C2.moss[2], fw)]; }
+  return c;
+}
 function* owPaintBase(S) {
   const [x0, y0] = S.bounds, n = S.SP / OW_BS, img = new ImageData(n, n), d = img.data, C2 = COL;
   // Two rows per step keep expensive biome/noise sampling below a frame slice.
   for (let row = 0; row < n; row+=2) {
     for (let j = row; j < Math.min(n,row+2); j++) for (let i = 0; i < n; i++) {
-      const x = x0 + (i + 0.5) * OW_BS, y = y0 + (j + 0.5) * OW_BS, pv = pondVal(x, y), o = (j * n + i) * 4;
-      let c;
-      if (pv < 1) { const t = clamp((1 - pv) / 0.6, 0, 1); c = [lerp(C2.shallow[0], C2.deep[0], t), lerp(C2.shallow[1], C2.deep[1], t), lerp(C2.shallow[2], C2.deep[2], t)]; }
-      else if (pv < 1.26) c = pv < 1.075 ? C2.wsand : C2.sand;
-      else {
-        const di = world.districtFn(x, y), gt = fbm(x * 0.09, y * 0.09, 3), tone = 0.82 + (gt - 0.5) * 0.55, dk = sstep(0.42, 0.72, fbm(x * 0.045 + 11.3, y * 0.045 + 90.1, 2));
-        c = [lerp(C2.lush[0], C2.dry[0], dk) * tone, lerp(C2.lush[1], C2.dry[1], dk) * tone, lerp(C2.lush[2], C2.dry[2], dk) * tone];
-        if (di === D_.BEACH) c = C2.sand;
-        else if (di === D_.FARM) { const f = world.fieldFn(x, y), cr = terrain.crops[f[1]], k = cr[3] * 0.6; c = [lerp(C2.dirt[0], cr[0], k), lerp(C2.dirt[1], cr[1], k), lerp(C2.dirt[2], cr[2], k)]; }
-        else if (di === D_.DOWNTOWN) c = C2.walk; else if (di === D_.INDUSTRIAL || di === D_.PORT) c = C2.curbF;
-        else if (di === D_.FAVELA) c = C2.dirt; else if (di === D_.GHETTO) c = [lerp(c[0], C2.dirt[0], 0.4), lerp(c[1], C2.dirt[1], 0.4), lerp(c[2], C2.dirt[2], 0.4)];
-        else { const fw = sstep(0.55, 0.69, forest(x, y)) * 0.85; if (fw > 0) c = [lerp(c[0], C2.moss[0], fw), lerp(c[1], C2.moss[1], fw), lerp(c[2], C2.moss[2], fw)]; }
-      }
+      const x = x0 + (i + 0.5) * OW_BS, y = y0 + (j + 0.5) * OW_BS, o = (j * n + i) * 4;
+      const c = owBaseColor(x, y);
       d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
     yield;

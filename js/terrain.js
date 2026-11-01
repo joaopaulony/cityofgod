@@ -962,8 +962,9 @@ function drawGround(g, W, H) {
   const affine = (ppm, x0, y0) => g.setTransform(s * c / ppm, s * TILT * sn / ppm, -s * sn / ppm, s * TILT * c / ppm,
     W / 2 + s * (c * (x0 - cam.x) - sn * (y0 - cam.y)), H / 2 + s * TILT * (sn * (x0 - cam.x) + c * (y0 - cam.y)));
   // fundo: minimapa ampliado (só aparece enquanto um bloco ainda está sendo pintado)
-  affine(terrain.miniPPM || MINI, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(terrain.mini, 0, 0);
-  if (world.groundBase) world.groundBase(affine, g);   // mundo grande: base de 2 px/m dos setores carregados
+  // com o chão na GPU (ground-gpu.js) por baixo, nada de minimapa esticado nem base borrada
+  if (!terrain.gpu) { affine(terrain.miniPPM || MINI, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(terrain.mini, 0, 0);
+    if (world.groundBase) world.groundBase(affine, g); }   // mundo grande: base de 2 px/m dos setores carregados
   // blocos visíveis
   const cs = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => unproj(x, y, 0));
   const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
@@ -995,10 +996,10 @@ function drawGround(g, W, H) {
   else {
     const t0 = performance.now(), dist = ch => Math.hypot(ch.ci * CH + 8 - cam.x, ch.cj * CH + 8 - cam.y);
     // enquanto algum pedaço da tela não tem nem a versão rápida, o chão ganha mais tempo do quadro
-    const blank = vis.some(ch => !(ch.q && ch.q.done));
+    const blank = !terrain.gpu && vis.some(ch => !(ch.q && ch.q.done));   // com o chão na GPU nunca falta chão: sem pressa
     const B = terrain.driving?Math.min(4,terrain.budget||2):(blank ? Math.max(terrain.budget || 7, 9) : Math.max(terrain.budget || 7, 4)), left = () => B - (performance.now() - t0);
     vis.sort((a, b) => dist(a) - dist(b)); ahead.sort((a, b) => dist(a) - dist(b));
-    if (twInit()) for (const ch of [...vis, ...ahead]) { if (left() <= 0) break; if (!ch.q && ch.stage !== 2) twQuick(ch); }
+    if (!terrain.gpu && twInit()) for (const ch of [...vis, ...ahead]) { if (left() <= 0) break; if (!ch.q && ch.stage !== 2) twQuick(ch); }   // versão rápida: só sem a GPU
     for (const ch of vis) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
     for (const ch of ahead) { if (left() <= 0) break; if (ch.q && ch.q.rows && !ch.q.done) quickFinish(ch); else if (ch.stage === 0) workChunk(ch, left()); }
     for (const ch of vis) { if (left() <= 0) break; workChunk(ch, left()); }
@@ -1020,8 +1021,12 @@ function drawGround(g, W, H) {
     if (!ch) continue;
     if (!ch.done) { if (ch.q && ch.q.done) { affine(QP, ci * CH - QPAD / QP, cj * CH - QPAD / QP); g.drawImage(ch.q.c, 0, 0); } continue; }
     if (ch.q) ch.q = null;
+    // bloco recém-pintado entra com fade sobre o chão da GPU (sem "estalo" de qualidade)
+    const fade = terrain.gpu ? Math.min(1, (performance.now() - (ch.shown || (ch.shown = performance.now()))) / 260) : 1;
     affine(TP, ci * CH - PAD / TP, cj * CH - PAD / TP);
+    if (fade < 1) g.globalAlpha = fade;
     g.drawImage(ch.c, PAD - 1, PAD - 1, CPX + 2, CPX + 2, PAD - 1, PAD - 1, CPX + 2, CPX + 2);
+    if (fade < 1) g.globalAlpha = 1;
   }
   g.imageSmoothingEnabled = false;
   g.setTransform(1, 0, 0, 1, 0, 0);
