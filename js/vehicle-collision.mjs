@@ -47,6 +47,7 @@ function polyHit(A,B){
  }
  return true;
 }
+const nearOf=(query,x0,y0,x1,y1,r)=>query(x0-r,y0-r,x1+r,y1+r);
 export function carCollision(world,car,options={}){
  const margin=options.margin??EPS;
  const radius=Math.hypot(car.length/2,car.width/2)+margin;
@@ -73,7 +74,9 @@ export function carCollision(world,car,options={}){
   if(polyHit(verts,H.corners||[[H.x0,H.y0],[H.x1,H.y0],
     [H.x1,H.y1],[H.x0,H.y1]]))return record('house',H);
  }
- for(const s of world.segs||[]){
+ // só o que está perto (options.near, montado uma vez por varredura); sem near, o mundo todo
+ const near=options.near||(options.query&&nearOf(options.query,car.x,car.y,car.x,car.y,radius));
+ for(const s of near?near.segs:world.segs||[]){
   if(s.house)continue; // casas ja cobertas por retangulo, ignore linhas de moveis duplicadas
   // Caixas já são testadas por OBB abaixo; seus quatro segmentos nunca são cercas.
   if(s.kind!=='fence'&&s.kind!=='garage'&&s.kind!=='ironfence')continue;   // paredes e portão das garagens também
@@ -84,7 +87,7 @@ export function carCollision(world,car,options={}){
    return record('fence',s);
  }
  // Bancadas, lixeiras e outras caixas fisicas, com orientacao propria.
- for(const b of options.boxes||[]){
+ for(const b of near?near.boxes:options.boxes||[]){
   if(b.solid===false||b.floor===1||b.z>1.5||
      (b.house&&!b.exteriorFixture))continue;
   // Reject distant objects before querying procedural road geometry. Sweeps
@@ -96,7 +99,7 @@ export function carCollision(world,car,options={}){
   const obstacle=carFootprint(b.x,b.y,b.rot||0,b.w,b.d,0);
   if(polyHit(verts,obstacle))return record('object',b);
  }
- for(const c of world.circles||[]){
+ for(const c of near?near.circles:world.circles||[]){
   if(c===options.ignoreCircle||c.kind==='vehicle'||c.soft||c.broken||c.kind==='bush'||c.kind==='rock')continue;
   if(Math.abs(c.x-car.x)>radius+c.r||
      Math.abs(c.y-car.y)>radius+c.r)continue;
@@ -122,6 +125,11 @@ export function sweepCar(world,from,to,options={}){
                             Math.cos(to.angle-from.angle));
  const steps=Math.max(1,Math.ceil(Math.max(dist/.22,Math.abs(angleDiff)/.1)));
  let accepted={...from},impact=null;
+ // vizinhança da varredura inteira numa consulta só à grade (antes: todas as paredes, caixas e círculos do mundo a cada subpasso)
+ if(options.query&&!options.near){
+  const r=Math.hypot((from.length||4.6)/2,(from.width||2)/2)+(options.margin??EPS)+.5;
+  options={...options,near:nearOf(options.query,Math.min(from.x,to.x),Math.min(from.y,to.y),Math.max(from.x,to.x),Math.max(from.y,to.y),r)};
+ }
  for(let i=1;i<=steps;i++){
   const t=i/steps,at={
    ...to,

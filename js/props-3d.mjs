@@ -10,6 +10,9 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mjs';
 import {policeModels,POLICE_FABRIC,POLICE_STEEL} from './police-props.mjs';
 import {dealerModels,DEALER_STEEL} from './dealer-props.mjs';
+// a lista mudou de um jeito que importa aqui? encolheu (algo saiu) ou entrou item novo perto da câmera; itens
+// novos longe (setor distante sendo gerado) não pedem reconstrução
+const changedNear = (list, from, cx, cy, R) => { if (list.length < from) return true; for (let i = from; i < list.length; i++) { const o = list[i]; if (!o) continue; const x = o.x ?? (o.x0 + o.x1) / 2, y = o.y ?? (o.y0 + o.y1) / 2; if (!(Math.abs(x - cx) > R + 20 || Math.abs(y - cy) > R + 20)) return true; } return false; };
 
 const TAU = Math.PI * 2;
 const hash2 = (x, y, k = 0) => { let h = Math.imul((x * 73856093) ^ (y * 19349663) ^ (k * 83492791), 0x45d9f3b); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
@@ -611,6 +614,7 @@ export function createProps(THREE, scene, bridge) {
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;
       const bv = w.breakVersion || 0;   // algo foi derrubado/restaurado (destructibles.mjs)
+      if (n !== sync.n && !changedNear(bridge.boxes || [], sync.n || 0, sync.x ?? c.x, sync.y ?? c.y, R)) sync.n = n;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || inside !== sync.inside || bv !== sync.bv) { Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, inside, bv }); rebuild(c.x, c.y, R); }
       else if (shownLamps.some(l => l.fallen && l.fallen.t < 2)) placeLamps();   // poste caindo: anima
       const action=bridge.player.homeAction;

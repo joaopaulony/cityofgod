@@ -144,7 +144,7 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     u.root.position.set(u.x, 0, u.y); u.root.rotation.y = -u.a;
     u.box.x = u.x; u.box.y = u.y; u.box.a = u.a;
   }
-  const collisionOpts = u => ({ houses: bridge.houses, boxes: bridge.boxes, mapSize: bridge.mapSize, isWater: (x, y) => bridge.pondVal(x, y) < 1.03, ignoreAI: u.box });
+  const collisionOpts = u => ({ houses: bridge.houses, boxes: bridge.boxes, query: bridge.collQuery, mapSize: bridge.mapSize, isWater: (x, y) => bridge.pondVal(x, y) < 1.03, ignoreAI: u.box });
   function free(u, x, y, a) {
     if (carCollision(world, { x, y, angle: a, length: u.length, width: u.width }, collisionOpts(u))) return false;
     const V = window.cityVehicles, c = V?.driver ? V.car : null;   // carro do jogador em movimento (parado vira caixa)

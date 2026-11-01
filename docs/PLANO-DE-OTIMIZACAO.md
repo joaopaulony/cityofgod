@@ -128,12 +128,12 @@ Legenda — Impacto: ★★★ alto · Esforço: P (horas–1 dia), M (dias), G 
 | # | Ação | Impacto | Esforço |
 |---|---|---|---|
 | 1.1 | ✅ NPCs usam a grade de colisão (feito nesta análise). | ★★★ | — |
-| 1.2 | **Colisão do carro e das viaturas pela grade** (casas, cercas, caixas, círculos só da vizinhança). | ★★★ | P |
-| 1.3 | **Pré-compilar shaders e enviar texturas na tela de carregamento** (`renderer.compileAsync`, `initTexture`) para carros, NPCs, armas e camadas — acaba com as travadas de "primeira aparição". | ★★★ | P |
+| 1.2 | ✅ **Colisão do carro e das viaturas pela grade** (`collQuery`): uma consulta por quadro; teste prova resultado idêntico. | ★★★ | — |
+| 1.3 | ✅ **Aquecimento da GPU**: carros e NPCs carregados entram em `__gpuWarm`; com folga no quadro, `compileAsync` + 1 textura por quadro. Falta: armas, pets e camadas procedurais. | ★★★ | — |
 | 1.4 | **Unificar materiais** (mesmo shader com parâmetros diferentes; atlas de cores) → menos programas e menos chamadas. | ★★ | M |
-| 1.5 | **Sombras por nível**: 1024 (baixa), 2048 (média), 4096 só na alta; área de sombra que acompanha a câmera bem justa. | ★★ | P |
-| 1.6 | **Resolução dinâmica**: se o quadro passar de 16,7 ms (ou 33 ms no modo 30 qps), reduz a resolução 3D em passos de 10% e volta quando sobrar folga. Mantém a interface nítida. | ★★★ | P |
-| 1.7 | **Não reconstruir camadas 3D por "número de caixas mudou"**: inserir/remover só o objeto alterado. | ★★ | P |
+| 1.5 | ✅ **Qualidade única** (menu): Desempenho 75% sem sombra · Equilibrada 100% sombra 2048 · Alta 150% sombra 4096. O sistema antigo de `city-driving.js` agora delega. | ★★ | — |
+| 1.6 | ✅ **Resolução dinâmica**: só quando o gargalo é a GPU; passos de 10%, volta com folga de 3 s; piso 50% / 70% / 100% (alta nunca abaixo da tela). | ★★★ | — |
+| 1.7 | ✅ **Camadas 3D**: só reconstroem se o item novo estiver perto da câmera; arquitetura sem contagem de malhas por quadro e com 40 m de folga antes de desmontar. | ★★ | — |
 
 ### Fase 2 — Assets leves sem perder qualidade
 
@@ -199,7 +199,21 @@ objeto pequeno ≤ 200 KB.
 4. **3.1–3.3** (chão na GPU) — acaba com o mapa cinza e libera os efeitos 2D.
 5. **4.3–4.6** conforme novos sistemas forem entrando.
 
-## 7. Feito durante a análise
+## 7. Resultados da Fase 1 (mesma rota, centro, RTX 2060, Equilibrada)
+
+| Cenário | Antes | Depois |
+|---|---|---|
+| A pé no centro (7–8 NPCs) | 38 qps | 59,8 qps, 0 travadas |
+| Dirigindo 79 km/h no centro | 39,7 qps · 99% < 83 ms · pior 333 ms · 19 travadas > 50 ms | 52 qps · 99% < 50 ms · pior 183 ms · 7 travadas > 50 ms |
+
+O que sobrou nas travadas (próximas fases):
+- **Fora do JavaScript** (167–433 ms com o jogo gastando 13–52 ms): envio das imagens grandes do chão à placa e coleta de lixo → Fase 3 (chão na GPU) e 4.6 (memória).
+- **Reindexação global da colisão** (13–21 ms) e das camadas ao descarregar setor → Fase 4.1.
+- **NPC novo** refaz o retarget de todas as animações ao carregar (CPU) → guardar o retarget por esqueleto.
+- **Programas de shader** subindo (168 → 239) e **chamadas de desenho** (até 327): cada prédio clona materiais → 1.4 (unificar materiais), ainda pendente.
+- **Memória do JavaScript** continua crescendo (805 MB) → 4.6.
+
+## 8. Feito durante a análise
 
 - NPCs consultam só a vizinhança na grade de colisão (`collNear`): centro a pé de 38 → 59 qps.
 - Medidores leves por camada/sistema: `cityVehicles.layerMs` (camadas 3D e desenho) e

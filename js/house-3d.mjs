@@ -8,6 +8,9 @@
 import {makeKit} from './kit-3d.mjs';
 import {architecturalTexture} from './architecture-materials.mjs';
 import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
+// a lista mudou de um jeito que importa aqui? encolheu (algo saiu) ou entrou item novo perto da câmera; itens
+// novos longe (setor distante sendo gerado) não pedem reconstrução
+const changedNear = (list, from, cx, cy, R) => { if (list.length < from) return true; for (let i = from; i < list.length; i++) { const o = list[i]; if (!o) continue; const x = o.x ?? (o.x0 + o.x1) / 2, y = o.y ?? (o.y0 + o.y1) / 2; if (!(Math.abs(x - cx) > R + 20 || Math.abs(y - cy) > R + 20)) return true; } return false; };
 
 const TAU = Math.PI * 2;
 const hash = (a, b = 0, c = 0) => { let h = Math.imul((a * 73856093) ^ (b * 19349663) ^ (c * 83492791), 0x45d9f3b); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
@@ -433,6 +436,8 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(140, Math.hypot(halfW, halfH) + 24);
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => H.seed | 0).join(',');
       const n = (bridge.boxes || []).length, nh = (bridge.houses || []).length;
+      if (n !== sync.n && !changedNear(bridge.boxes || [], sync.n || 0, sync.x ?? c.x, sync.y ?? c.y, R)) sync.n = n;
+      if (nh !== sync.nh && !changedNear(bridge.houses || [], sync.nh || 0, sync.x ?? c.x, sync.y ?? c.y, R)) sync.nh = nh;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 16 || n !== sync.n || nh !== sync.nh || w.version !== sync.v || inside !== sync.inside || night !== sync.night) {
         Object.assign(sync, { x: c.x, y: c.y, n, nh, v: w.version, inside, night }); rebuild(c.x, c.y, R, night);
       }

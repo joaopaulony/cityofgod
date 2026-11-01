@@ -116,7 +116,7 @@ function hitbox(x=state.x,y=state.y,angle=state.angle){
   width:system.bodyWidth||1.85};
 }
 function collisionOptions(){
- return {houses:bridge.houses,boxes:bridge.boxes,
+ return {houses:bridge.houses,boxes:bridge.boxes,query:bridge.collQuery,
   mapSize:bridge.mapSize,ignoreCircle:system.collider,
   isWater:(x,y)=>bridge.pondVal(x,y)<1.03};
 }
@@ -304,7 +304,7 @@ function initRenderer(){
  sun.position.set(-11,18,15);
  sun.castShadow=true;
  // a sombra cobre a vista inteira (árvores 3D), não só o carro
- const sm=renderer.capabilities.maxTextureSize>=8192?4096:2048;   // sombras nítidas na vista inteira, bordas suaves (PCF com raio)
+ const sm=2048;   // ajustado pela qualidade em system.applyQuality (baixa sem sombra, alta 4096)
  sun.shadow.mapSize.set(sm,sm);sun.shadow.normalBias=.04;sun.shadow.radius=2.5;sun.shadow.blurSamples=12;
  sun.shadow.camera.left=-12;sun.shadow.camera.right=12;
  sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;
@@ -359,11 +359,42 @@ function initRenderer(){
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
  window.CityFront?.applySettings();
 }
+// Qualidade (menu Vídeo): resolução base, sombras e o piso da resolução dinâmica.
+//  baixa: 75% da tela, sem sombras · equilibrada: tela nativa, sombra 2048 · alta: 150% (supersampling), sombra 4096
+const QUALITY={low:{ratio:.75,shadow:0,min:.5},balanced:{ratio:1,shadow:2048,min:.7},high:{ratio:1.5,shadow:4096,min:1}};
+const dyn={scale:1,ema:16.7,slow:0,fast:0,last:0};
+function applyRatio(){const q=QUALITY[system.quality]||QUALITY.balanced;renderer.setPixelRatio(Math.min(devicePixelRatio||1,1)*q.ratio*dyn.scale);system.pixelRatio=renderer.getPixelRatio();system.dynamicScale=dyn.scale;}
 system.applyQuality=value=>{
  if(!renderer)return;
- renderer.setPixelRatio(value==='high'?1.5:Math.min(devicePixelRatio||1,value==='low'?.65:1));
- renderer.shadowMap.enabled=value!=='low';system.quality=value;system.pixelRatio=renderer.getPixelRatio();
+ if(value==='economy')value='low';if(!QUALITY[value])value='balanced';
+ const q=QUALITY[value];system.quality=value;dyn.scale=1;applyRatio();
+ renderer.shadowMap.enabled=q.shadow>0;
+ const sun=scene?.userData?.sun,sz=Math.min(q.shadow||1024,renderer.capabilities.maxTextureSize>=8192?4096:2048);
+ if(sun&&sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);sun.shadow.map?.dispose();sun.shadow.map=null;}
 };
+// Resolução dinâmica: se a placa de vídeo não dá conta (quadro lento com a CPU folgada), baixa a resolução 3D em
+// passos de 10% até o piso da qualidade; com folga por 3 s, sobe de volta. Se o gargalo é a CPU, não mexe (não ajudaria).
+// Aquecimento da placa de vídeo: modelos recém-carregados (carros, personagens) entram em globalThis.__gpuWarm;
+// com o quadro folgado, compila os shaders deles com as luzes da cena e envia 1 textura por quadro. Assim a
+// primeira aparição na tela não trava compilando/enviando tudo de uma vez.
+const warmedTex=new WeakSet(),warmedObj=new WeakSet();let warmTex=[];
+function warmGPU(){
+ const q=globalThis.__gpuWarm;if(!q?.length&&!warmTex.length)return;
+ if((bridge.frameCost||0)>10)return;
+ if(warmTex.length){const t=warmTex.shift();try{renderer.initTexture(t);}catch(_){}return;}
+ const o=q.shift();if(!o||warmedObj.has(o))return;warmedObj.add(o);
+ o.traverse(m=>{for(const mat of m.material?(Array.isArray(m.material)?m.material:[m.material]):[])for(const k in mat){const t=mat[k];if(t?.isTexture&&!warmedTex.has(t)){warmedTex.add(t);warmTex.push(t);}}});
+ renderer.compileAsync(o,viewCamera,scene).catch(()=>{});
+}
+function dynamicResolution(now){
+ const d=now-dyn.last;dyn.last=now;
+ if(window.CityFront?.blocked){dyn.slow=dyn.fast=0;dyn.ema=16.7;return;}   // carregando/menu: quadros lentos não contam
+ if(!(d>0&&d<250))return;
+ dyn.ema+=(d-dyn.ema)*.1;const cpu=bridge.frameCost||0,q=QUALITY[system.quality]||QUALITY.balanced;
+ dyn.slow=dyn.ema>20&&cpu<dyn.ema*.6?dyn.slow+d:0;dyn.fast=dyn.ema<17.6?dyn.fast+d:0;
+ if(dyn.slow>700&&dyn.scale>q.min+.001){dyn.scale=Math.max(q.min,+(dyn.scale-.1).toFixed(2));dyn.slow=0;applyRatio();}
+ else if(dyn.fast>3000&&dyn.scale<1){dyn.scale=Math.min(1,+(dyn.scale+.05).toFixed(2));dyn.fast=0;applyRatio();}
+}
 let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
@@ -669,6 +700,8 @@ system.render=()=>{
  occlusionScene?.updateActors(system.driver,bridge.player);
  
  lap('occlusion');
+ warmGPU();
+ dynamicResolution(performance.now());
  renderer.render(scene,viewCamera);lap('draw');
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={

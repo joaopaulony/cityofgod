@@ -52,7 +52,7 @@ window.cityVehicleBridge={
   down:k=>!window.CityAdmin?.active&&input.down(k),hit:k=>!window.CityAdmin?.active&&input.hit(k),
   pondVal,roadDist,
   gasPumpNear:(x,y,r)=>typeof gasPumpNear==='function'?gasPumpNear(x,y,r):null,
-  collide, collNear, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
+  collide, collNear, collQuery, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   movePet:moveTo,petStairs:updateHouseStairs,
   releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
   driving:()=>!!window.cityVehicles?.driver,
@@ -926,6 +926,7 @@ function frame(now) {
     tick(dt);
     // custo do quadro sem a pintura do chão define quanto tempo o chão pode usar no próximo
     const cost = performance.now() - t0 - terrain.workMs;
+    window.cityVehicleBridge.frameCost = performance.now() - t0;   // CPU do quadro (resolução dinâmica em vehicle-webgl.mjs)
     const driving=!!window.cityVehicles?.driver;
     terrain.driving=driving;
     terrain.budget = clamp(14 - cost, driving?1:1.5, driving?4:7);

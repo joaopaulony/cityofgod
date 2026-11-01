@@ -5,6 +5,9 @@
 // A copa balança com o vento (shader), faz sombra real no chão e fica vazada (pontilhado) quando o jogador está atrás,
 // como no Project Zomboid. Coordenadas: x do mundo = x do Three, y do mundo = z do Three, altura = y do Three.
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+// a lista mudou de um jeito que importa aqui? encolheu (algo saiu) ou entrou item novo perto da câmera; itens
+// novos longe (setor distante sendo gerado) não pedem reconstrução
+const changedNear = (list, from, cx, cy, R) => { if (list.length < from) return true; for (let i = from; i < list.length; i++) { const o = list[i]; if (!o) continue; const x = o.x ?? (o.x0 + o.x1) / 2, y = o.y ?? (o.y0 + o.y1) / 2; if (!(Math.abs(x - cx) > R + 20 || Math.abs(y - cy) > R + 20)) return true; } return false; };
 
 const TAU = Math.PI * 2;
 const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -445,6 +448,7 @@ export function createVegetation(THREE, scene, bridge) {
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5);
       const R = Math.min(150, Math.hypot(halfW, halfH) + 36);
       const n = (w.props || []).length;
+      if (n !== sync.n && !changedNear(w.props || [], sync.n || 0, sync.x ?? c.x, sync.y ?? c.y, R)) sync.n = n;
       if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
         Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, zoom: c.zoom }); rebuild(c.x, c.y, R);
       }

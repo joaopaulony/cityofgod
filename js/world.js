@@ -1268,6 +1268,19 @@ function collNear(x, y) {
   const G = collIndex(), n = G.n, cell = clamp(Math.floor(y / COLL_CELL), 0, n - 1) * n + clamp(Math.floor(x / COLL_CELL), 0, n - 1);
   return { segs: G.segs.get(cell) || NO_CELL, circles: G.circ.get(cell) || NO_CELL, dyn: G.dyn };
 }
+// colisores do chão cuja caixa toca o retângulo (x0,y0)-(x1,y1): paredes, círculos e as caixas sólidas donas das paredes.
+// Usado pela colisão dos veículos (uma consulta por quadro em vez de varrer o mundo a cada subpasso).
+function collQuery(x0, y0, x1, y1) {
+  const G = collIndex(), n = G.n, segs = new Set(), circles = new Set(), boxes = new Set();
+  const i0 = clamp(Math.floor(x0 / COLL_CELL), 0, n - 1), i1 = clamp(Math.floor(x1 / COLL_CELL), 0, n - 1);
+  const j0 = clamp(Math.floor(y0 / COLL_CELL), 0, n - 1), j1 = clamp(Math.floor(y1 / COLL_CELL), 0, n - 1);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const k = j * n + i;
+    for (const s of G.segs.get(k) || NO_CELL) { segs.add(s); if (s.sourceBox) boxes.add(s.sourceBox); }
+    for (const c of G.circ.get(k) || NO_CELL) circles.add(c);
+  }
+  return { segs: [...segs], circles: [...circles, ...G.dyn], boxes: [...boxes] };
+}
 function collide(x, y, r, floor=0) {
   const G = collIndex(), n = G.n;
   for (let it = 0; it < 3; it++) {

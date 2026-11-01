@@ -302,12 +302,13 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   if(level.stair&&floor<A.levels.length-1)flight(level);if(floor>0&&A.levels[floor-1]?.stair){flight(A.levels[floor-1]);guard(A.levels[floor-1]);}
   groups(kit,e.interior,{...innerMats,glass:e.glass});for(const d of e.innerDoors)e.interior.add(d.object);e.innerSashes=installSashes(e.innerWindows,e.interior,e.glass,innerMats.trim);
  }
+ let statsDirty=true;
  function update(){
   const t0=performance.now(),c=bridge.cam,seen=new Set(),R=Math.min(135,Math.max(65,Math.hypot(c.W/(2*c.zoom),c.H/(2*c.zoom*(c.tilt||.5)))+22));let built=0,pending=0;
   const nearby=bridge.houses.filter(H=>H.architecture&&Math.hypot((H.x0+H.x1)/2-c.x,(H.y0+H.y1)/2-c.y)<R).sort((a,b)=>Math.hypot(a.x0-c.x,a.y0-c.y)-Math.hypot(b.x0-c.x,b.y0-c.y));
   for(const H of nearby){seen.add(H);let e=entries.get(H);if(!e){if(built||performance.now()-t0>8){pending++;continue;}try{
    let job=builds.get(H);if(!job){job=build(H);builds.set(H,job);}const progress=job.next();built++;
-   if(!progress.done){pending++;continue;}e=progress.value;entries.set(H,e);builds.delete(H);
+   if(!progress.done){pending++;continue;}e=progress.value;entries.set(H,e);builds.delete(H);statsDirty=true;
   }catch(error){builds.delete(H);state.errors.push(String(error));console.error('Architecture 3D',error);continue;}}
    const A=H.architecture,isInside=H.inside,floor=Math.min(A.levels.length-1,bridge.player.stairTravel?.to??bridge.player.floor??0);
    e.exterior.visible=e.roof.visible=!isInside;
@@ -318,8 +319,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    e.glass.emissive.set(bridge.world.night&&H.lightOn?'#dfba79':'#000000');e.glass.emissiveIntensity=.55;
    e.glass.envMapIntensity=bridge.world.night?.10:.75;
   }
-  for(const [H,e] of entries)if(!seen.has(H)){disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
-  for(const [H,job] of builds)if(!seen.has(H)){job.return();builds.delete(H);}
+  const far=H=>Math.hypot((H.x0+H.x1)/2-c.x,(H.y0+H.y1)/2-c.y)>R+40;
+  for(const [H,e] of entries)if(!seen.has(H)&&(far(H)||!bridge.houses.includes(H))){statsDirty=true;disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
+  for(const [H,job] of builds)if(!seen.has(H)&&far(H)){job.return();builds.delete(H);}
   // Instantiate lamps only for a visibly occupied, permitted property.
   // Never add decorative PointLights to empty streets or unloaded sectors.
   const playerHome=bridge.houses.find(H=>H.inside&&window.CityHome?.owned(H)&&H.architecture);
@@ -338,8 +340,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   });
   const occupied=bridge.houses.find(H=>H.civic&&H.inside&&H.lightOn),lit=occupied?.architecture.levels[bridge.player.floor||0];
   civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit&&lit.rooms[i]){if(!light.parent)scene.add(light);const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}else scene.remove(light);});
-  let meshes=0,triangles=0;for(const e of entries.values())e.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});
-  Object.assign(state,{properties:entries.size,meshes,triangles,pending,buildMs:+(performance.now()-t0).toFixed(2)});
+  if(statsDirty){statsDirty=false;let meshes=0,triangles=0;for(const e of entries.values())e.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});Object.assign(state,{meshes,triangles});}
+  Object.assign(state,{properties:entries.size,pending,buildMs:+(performance.now()-t0).toFixed(2)});
  }
  return{state,update};
 }

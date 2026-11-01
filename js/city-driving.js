@@ -5,17 +5,8 @@ const CityDriving=(()=>{
  function setQuality(q){
    if(!['high','balanced','economy'].includes(q))return false;
    lastQuality=q;try{localStorage.setItem(qualityKey,q);}catch(_){}
-   const v=window.cityVehicles;
-   if(!v?.renderer)return true;
-   const ratio=q==='economy'?1:q==='balanced'?1.25:1.5;
-   v.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,ratio));
-   if(v.scene?.userData?.lights){
-     const sun=v.scene.userData.lights[1]?.[0];
-     if(sun?.shadow?.mapSize){
-       const sz=q==='economy'?1024:q==='balanced'?2048:4096;
-       if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);sun.shadow.map?.dispose?.();sun.shadow.map=null;sun.shadow.needsUpdate=true;}
-     }
-   }
+   // uma qualidade só: a do menu (vehicle-webgl.mjs applyQuality); 'economy' = baixa
+   window.cityVehicles?.applyQuality?.(q==='economy'?'low':q);
    return true;
  }
  // a parede (ou cerca/muro) cruza o caminho do carro até o ponto? (sair da garagem não pode atravessar p/ dentro de casa)
@@ -121,7 +112,6 @@ const CityDriving=(()=>{
    };
    v.drawHUD=(g,w,h)=>draw(g,w,h,v);
    try{lastQuality=localStorage.getItem(qualityKey)||'balanced';}catch(_){lastQuality='balanced';}
-   if(lastQuality!=='high')setQuality(lastQuality);
    return true;
  }
  return {install,setQuality,get quality(){return lastQuality||'high'}};

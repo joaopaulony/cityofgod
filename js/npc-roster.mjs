@@ -211,6 +211,7 @@ export async function loadRoster(loader,{base='',style=true}={}){   // style:fal
    const gltf=await loader.loadAsync(base+NPC_DIR+meta.file),lib=libraries[meta.sex];
    let bones=0,meshes=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;if(o.isSkinnedMesh){meshes++;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
    if(!meshes||!gltf.scene.getObjectByName('mixamorigHips'))throw Error(id+': GLB sem malha riggada no esqueleto Mixamo');
+   (globalThis.__gpuWarm||(globalThis.__gpuWarm=[])).push(gltf.scene);   // shaders/texturas antes de aparecer (vehicle-webgl.mjs)
    const armOut=style?meta.armOut||null:null;
    const opts={style:style?STYLE[meta.sex]:null,armOut},own=new Set(kimodo?kimodo.animations.map(c=>c.name):[]);
    const animations=lib.animations.filter(c=>!own.has(c.name)).map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,opts));

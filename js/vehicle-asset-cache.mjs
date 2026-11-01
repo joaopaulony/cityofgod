@@ -22,6 +22,7 @@ export function loadVehicleGLB(config){
  if(requests.has(config.id))return requests.get(config.id);
  const request=readyLoader()
   .then(loader=>{counters.downloads++;return loader.loadAsync('assets/vehicles/live/'+config.file);})
+  .then(gltf=>{(globalThis.__gpuWarm||(globalThis.__gpuWarm=[])).push(gltf.scene);return gltf;})   // shaders/texturas antes de aparecer (vehicle-webgl.mjs)
   .catch(err=>{counters.failures++;requests.delete(config.id);throw err;});
  requests.set(config.id,request);
  return request;
