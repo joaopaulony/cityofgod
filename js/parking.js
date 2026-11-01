@@ -161,9 +161,7 @@ function buildGasStation(S, J, ox, oy, qx, qy, W, D, hwH, hwV) {
   const eh = P(31, -(SIDE + 0.4)), ev = P(-(SIDE + 0.4), 18);
   st.entries = [{ x: eh[0], y: eh[1], along: [qx, 0] }, { x: ev[0], y: ev[1], along: [0, qy] }];
   (world.curbCuts || (world.curbCuts = [])).push({ x: eh[0], y: eh[1], r: 3.8 }, { x: ev[0], y: ev[1], r: 3.8 });
-  // carros abastecendo e um na vaga da loja
-  for (const is of st.islands) for (const side of [-1, 1]) if (r() < 0.45) { const p = P(is.u + side * 1.75, 9.25); miaCar(p[0], p[1], Math.atan2(qy, 0) + (r() < 0.5 ? Math.PI : 0)); }
-  for (let k = 1; k < 6; k++) if (r() < 0.4) { const p = P(10.85 + k * 2.7, 17.9); miaCar(p[0], p[1], Math.atan2(qy, 0)); }
+  // sem carros parados no posto: as bombas e as vagas ficam livres p/ o jogador
   const d = { kind: 'gaspad', st, seed, paint: paintGasPad };
   const cs = [P(-SIDE - 1, -SIDE - 1), P(W, D)]; d.bb = [Math.min(cs[0][0], cs[1][0]), Math.min(cs[0][1], cs[1][1]), Math.max(cs[0][0], cs[1][0]), Math.max(cs[0][1], cs[1][1])];
   world.decals.push(d);

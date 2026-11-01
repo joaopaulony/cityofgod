@@ -1,10 +1,8 @@
 // camera-motion.js — câmera dinâmica sem enjoo.
-//  · acompanha a direção: dirigindo, gira devagar até ficar atrás do carro (só andando p/ a frente, ganha força com a
-//    velocidade); a pé, depois de meio segundo andando numa direção (menos voltando p/ a câmera), gira até ela ficar
-//    p/ o alto da tela. Os controles a pé ficam TRAVADOS no ângulo de quando a tecla foi apertada (moveDir): senão,
-//    segurando D, "direita" giraria junto com a câmera e o personagem andaria em círculo. Soltou e apertou de novo,
-//    valem pela câmera nova. Nada de giro mirando, dentro de casa, em ré ou com menus.
-//    Girar na mão (Q/E, botão do meio) pausa o acompanhamento por 4 s (e os controles seguem a câmera).
+//  · a pé, como no Project Zomboid: a câmera NÃO gira sozinha; segue o personagem com um leve atraso (cam.update) e,
+//    mirando, avança na direção do mouse (game.js). WASD sempre relativo à tela.
+//  · dirigindo: gira devagar até ficar atrás do carro (só andando p/ a frente, ganha força com a velocidade).
+//    Nada de giro dentro de casa, em ré ou com menus. Girar na mão (Q/E, botão do meio) pausa por 4 s.
 //  · zoom pela velocidade: o carro rápido afasta um pouco a câmera (até 14%), e volta suave.
 //  · tremor: oscilação suave e amortecida (soma de senos de baixa frequência), só deslocamento — nunca gira a imagem.
 //    Batidas (proporcional à velocidade, com um leve "soco" de zoom), tiros e dano. "Reduzir movimento" corta a 30%.
@@ -39,7 +37,7 @@ const CameraMotion = (() => {
     hold = Math.max(0, hold - dt);
     // trava dos controles a pé: nova ao apertar a tecla de andar; sem tecla, girando na mão ou sem o acompanhamento, segue a câmera
     const keys = typeof input !== 'undefined' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].some(k => input.down(k));
-    if (!keys || !held || hold > 0 || !o.follow || V?.driver) ctrl = cam.ang;
+    ctrl = cam.ang;   // a pé: controles sempre relativos à tela (Zomboid)
     held = keys;
     let target = null, weight = 0, tau = 1, maxRate = 1;
     const indoors = typeof houses !== 'undefined' && houses.some(H => H.inside);
@@ -47,13 +45,6 @@ const CameraMotion = (() => {
       if (V?.driver && V.car) {
         const sp = V.car.speed || 0;
         if (sp > 2.5) { target = angFor(V.car.angle); weight = Math.min(1, (sp - 2.5) / 7.5); tau = 1.1; maxRate = 1.3; }
-      } else if (lastPX !== null && !(p.aimV > 0.15) && !p.homeAction && !p.stairTravel) {
-        const dx = p.x - lastPX, dy = p.y - lastPY, v = Math.hypot(dx, dy) / dt;
-        moveT = held && v > 1.2 && v < 12 ? moveT + dt : 0;
-        if (moveT > 0.5) {
-          const h = Math.atan2(dy, dx), diff = Math.abs(angDiff(cam.tang, angFor(h)));
-          if (diff < 1.75) { target = angFor(h); weight = Math.min(1, (v - 1.2) / 2.5) * Math.min(1, (moveT - 0.5) / 0.6); tau = 1.6; maxRate = 0.8; }
-        }
       }
     }
     if (target !== null) {

@@ -65,12 +65,25 @@ export function createVehicleDamageEffects(THREE,scene){
   clocks.set(key,elapsed);
   for(let i=0;i<count;i++)spawn(x,z,height,strength);
  }
- function crash(x,z,speed=8){
-  const count=Math.min(10,Math.max(2,Math.round(speed*.36)));
-  for(let i=0;i<count;i++)spawn(x,z,.45,1,i%3===0);
+ // faíscas: pontos incandescentes que voam em arco (gravidade), amarelo → laranja → vermelho, somando luz
+ const sparkTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),gr=g.createRadialGradient(16,16,0,16,16,16);gr.addColorStop(0,'rgba(255,255,240,1)');gr.addColorStop(.3,'rgba(255,220,120,.9)');gr.addColorStop(1,'rgba(255,120,20,0)');g.fillStyle=gr;g.fillRect(0,0,32,32);return new THREE.CanvasTexture(c);})();
+ const sparks=Array.from({length:140},()=>{const m=new THREE.SpriteMaterial({map:sparkTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,color:0xffd27a,opacity:0});const s=new THREE.Sprite(m);s.visible=false;s.frustumCulled=false;s.renderOrder=4;scene.add(s);return {s,t:0,d:0,vx:0,vy:0,vz:0};});
+ let sparkIdx=0;
+ function sparkBurst(x,z,speed,angle){
+  const n=Math.min(48,Math.max(8,Math.round(speed*2.4)));
+  for(let i=0;i<n;i++){const p=sparks[sparkIdx++%sparks.length],a=(Number.isFinite(angle)?angle+Math.PI:Math.random()*6.28)+(Math.random()-.5)*2.6,v=2.5+Math.random()*(3+speed*.35);
+   p.t=0;p.d=.35+Math.random()*.55;p.vx=Math.cos(a)*v;p.vz=Math.sin(a)*v;p.vy=1.2+Math.random()*3.2;p.s.position.set(x+(Math.random()-.5)*.4,.35+Math.random()*.5,z+(Math.random()-.5)*.4);p.s.scale.setScalar(.09+Math.random()*.07);p.s.visible=true;}
+ }
+ function crash(x,z,speed=8,angle){
+  const count=Math.min(12,Math.max(3,Math.round(speed*.45)));
+  for(let i=0;i<count;i++)spawn(x,z,.45,1,false);
+  sparkBurst(x,z,speed,angle);
  }
  function update(dt){
   dt=Math.min(.1,Math.max(0,Number(dt)||0));
+  for(const p of sparks){if(!p.s.visible)continue;p.t+=dt;if(p.t>=p.d||p.s.position.y<0){p.s.visible=false;continue;}
+   p.vy-=9.8*dt;p.s.position.x+=p.vx*dt;p.s.position.y+=p.vy*dt;p.s.position.z+=p.vz*dt;const k=p.t/p.d;
+   p.s.material.color.setRGB(1,.85-.5*k,.45-.4*k);p.s.material.opacity=1-k*k;}
   for(const p of pool){
    if(!p.sprite.visible)continue;
    p.t+=dt;
@@ -90,6 +103,7 @@ export function createVehicleDamageEffects(THREE,scene){
  }
  function dispose(){
   for(const p of pool){scene.remove(p.sprite);p.sprite.material.dispose();}
+  for(const p of sparks){scene.remove(p.s);p.s.material.dispose();}sparkTex.dispose();
   texture.dispose();clocks.clear();
  }
  return {smoke,crash,update,stats,dispose};

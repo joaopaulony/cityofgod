@@ -15,10 +15,10 @@ const VISUAL_REFERENCE=Object.freeze({
     roofShadow:'#523d3b',outline:'#201b1b',sunlight:'#ffe3b2'
   }),
   terrain:Object.freeze({
-    lush:'#527a30',dry:'#91894e',moss:'#456538',litter:'#654a35',
+    lush:'#4f8a2c',dry:'#9c9649',moss:'#3f6e36',litter:'#654a35',
     dirt:'#87684e',mud:'#4b352d',puddle:'#536264',
     trail:'#94765b',sand:'#c4ae84',wsand:'#957d5e',
-    shallow:'#769481',deep:'#24464d',foam:'#d4d1bd',
+    shallow:'#5f9e93',deep:'#1d4f5f',foam:'#d4d1bd',
     asph:'#3a3739',patch:'#302e31',gutter:'#484039',
     curbF:'#71685e',curbT:'#c7b8a5',walk:'#bdafa0'
   }),

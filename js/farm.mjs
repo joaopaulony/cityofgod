@@ -173,14 +173,18 @@ export function installFarm(THREE, scene, bridge) {
     galpao() { const m = mats(), g = new THREE.Group(), W = 9, D = 7, H = 3.4;
       g.add(box(W, H, D, m.red, 0, H / 2, 0));
       for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) g.add(box(.18, H + .05, .18, m.white, x, H / 2, z));
-      // telhado em "gambrel" (dois caimentos de cada lado)
-      const r1 = gable(W, D, 1.0, m.roofRed, H, .4); g.add(r1); const top = gable(W, D * .55, .9, m.roofRed, H + .62, .2); g.add(top);
-      for (const s of [-1, 1]) { const tri = new THREE.Shape([new THREE.Vector2(-D / 2, 0), new THREE.Vector2(D / 2, 0), new THREE.Vector2(D * .27, 1.0), new THREE.Vector2(0, 1.85), new THREE.Vector2(-D * .27, 1.0)]);
-        const gm = new THREE.Mesh(new THREE.ShapeGeometry(tri), m.red); gm.rotation.y = Math.PI / 2; gm.position.set(s * W / 2, H, 0); g.add(gm); const gb = gm.clone(); gb.rotation.y = -Math.PI / 2; gb.position.x = s * W / 2 + (s * -0.001); g.add(gb); }
+      // telhado holandês (gambrel): de cada lado uma água íngreme até o "joelho" e uma suave até a cumeeira, emendadas
+      // (antes eram dois telhados sobrepostos brigando pela mesma superfície)
+      const KZ = D * .28, KY = 1.05, RY = 1.75, plane = (z0, y0, z1, y1, s) => { const L = Math.hypot(z0 - z1, y1 - y0) + .06, p = box(W + .7, .1, L, m.roofRed, 0, H + (y0 + y1) / 2, s * (z0 + z1) / 2); p.rotation.x = s * Math.atan2(y1 - y0, z0 - z1); return p; };
+      for (const s of [-1, 1]) { g.add(plane(D / 2 + .35, -.2, KZ, KY, s)); g.add(plane(KZ, KY, 0, RY, s)); }
+      g.add(box(W + .72, .12, .16, m.white, 0, H + RY + .03, 0));   // cumeeira
+      const gableMat = m.red.clone(); gableMat.side = THREE.DoubleSide;
+      for (const s of [-1, 1]) { const tri = new THREE.Shape([new THREE.Vector2(-D / 2, 0), new THREE.Vector2(D / 2, 0), new THREE.Vector2(KZ, KY), new THREE.Vector2(0, RY), new THREE.Vector2(-KZ, KY)]);
+        const gm = new THREE.Mesh(new THREE.ShapeGeometry(tri), gableMat); gm.rotation.y = Math.PI / 2; gm.position.set(s * (W / 2 + .004), H, 0); gm.castShadow = true; g.add(gm); }
       // portão de correr com o "X" branco, janelinha do feno
       g.add(box(.08, 2.6, 3.0, m.red, W / 2 + .05, 1.3, 0)); for (const r of [.84, -.84]) { const b = box(.06, .14, 3.7, m.white, W / 2 + .1, 1.3, 0); b.rotation.x = r; g.add(b); }
       g.add(box(.06, .14, 3.1, m.white, W / 2 + .1, 2.6, 0)); g.add(box(.06, .14, 3.1, m.white, W / 2 + .1, .05, 0));
-      g.add(box(.06, .9, 1.0, m.dark, W / 2 + .06, H + .7, 0)); g.add(box(.08, 1.05, 1.15, m.white, W / 2 + .04, H + .7, 0));
+      g.add(box(.05, 1.05, 1.15, m.white, W / 2 + .035, H + .65, 0)); g.add(box(.04, .9, 1.0, m.dark, W / 2 + .075, H + .65, 0));   // janela do feno: moldura e vão, cada um num plano
       return { g, footprint: [W, D], use: [W / 2 + 1.2, 0] };
     },
     silo() { const m = mats(), g = new THREE.Group(), R = 1.7, H = 7.5;

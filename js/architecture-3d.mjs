@@ -33,9 +33,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    box(cursor,u,0,h,.18,color,'wall');box(u,v,0,Math.min(sill,h),.18,color,'wall');box(u,v,top,h,.18,color,'wall');
    const trim='#f2ece0',zt=Math.min(top,h);
    if(sill<h){box(u-.045,u+.045,sill,zt,.24,trim,'trim');box(v-.045,v+.045,sill,zt,.24,trim,'trim');}
-   if(top<h+.01)box(u-.08,v+.08,top,top+.07,.26,trim,'trim');
+   if(top<h+.01)box(u-.08,v+.08,top-.012,top+.07,.26,trim,'trim');
    if(o.kind==='window'&&top<=h+.01){
-    box(u,v,sill,sill+.04,.29,trim,'trim');
+    box(u-.012,v+.012,sill-.006,sill+.04,.29,trim,'trim');
     box(u+.05,v-.05,sill+o.height*.5,top-.05,.035,'#b6ccd2','glass');
     box(u,v,sill+o.height*.5-.025,sill+o.height*.5+.025,.09,trim,'trim');
     windows.push({opening:o,point:point(u),baseY:z+sill,angle:-Math.atan2(dy,dx)});
@@ -47,7 +47,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
     if(w.ext&&!cut&&style.shutters){for(const [a,b] of [[u-.23,u-.07],[v+.07,v+.23]]){box(a,b,sill,top,.10,style.shutters,'wood');for(let y=sill+.08;y<top;y+=.13)box(a,b,y,y+.025,.13,'#566b60','trim');}}
     if(w.ext&&!cut&&style.bars){for(let x=u+.12;x<v-.04;x+=.17)box(x,x+.018,sill,top,.14,'#48504c','metal');box(u,v,sill+.45,sill+.47,.14,'#48504c','metal');}
     const sillFront=point(o.at);const nx=w.normal[0],ny=w.normal[1];
-    span(k,[point(u)[0]+nx*.08,point(u)[1]+ny*.08],[point(v)[0]+nx*.08,point(v)[1]+ny*.08],z+sill-.07,z+sill,.3,'#c7c1b4','trim');
+    span(k,[point(u)[0]+nx*.08,point(u)[1]+ny*.08],[point(v)[0]+nx*.08,point(v)[1]+ny*.08],z+sill-.07,z+sill-.008,.3,'#c7c1b4','trim');
    }
    if(o.kind==='door'&&doors){const p=point(u),leaf=new THREE.Group();leaf.position.set(p[0],z,p[1]);leaf.rotation.y=-Math.atan2(dy,dx);
     const dk=Kit(),dh=Math.min(o.height,h);if(o.style==='glazed'){dk.box(0,0,-.03,.09,dh,.03,'#e8e1d2',0,'trim');dk.box(o.width-.09,0,-.03,o.width,dh,.03,'#e8e1d2',0,'trim');for(const yy of [0,dh-.1])dk.box(0,yy,-.03,o.width,yy+.1,.03,'#e8e1d2',0,'trim');dk.box(.09,.1,-.014,o.width-.09,dh-.1,.014,'#bdd4d8',0,'glass');}
@@ -63,7 +63,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   // rodapé contínuo, mas aberto no vão do portão da garagem
   {let start=0;for(const o of w.openings.filter(o=>o.kind==='garage')){box(start,o.at-o.width/2,0,.11,.205,cut?'#b9ac96':'#b7ab94','trim');start=o.at+o.width/2;}box(start,L,0,.11,.205,cut?'#b9ac96':'#b7ab94','trim');}
   if(style.stone){let start=0;for(const o of w.openings.filter(o=>o.kind==='door'||o.kind==='garage')){box(start,o.at-o.width/2,0,Math.min(h,.55),.215,'#e8e1d3','stone');start=o.at+o.width/2;}box(start,L,0,Math.min(h,.55),.215,'#e8e1d3','stone');}
-  if(!cut){box(0,L,h-.10,h,.24,'#f0e9da','trim');}
+  if(!cut){box(0,L,h-.10,h+.012,.24,'#f0e9da','trim');}   // acabamento do topo 1,2 cm acima da parede: as duas faces de cima não ficam no mesmo plano
   if(!cut&&style.rural)for(let y=.25;y<h-.15;y+=.26)box(0,L,y,y+.018,.192,'#b9a68b','trim');
  }
  const sashMatrix=new THREE.Object3D();

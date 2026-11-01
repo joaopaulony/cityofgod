@@ -17,7 +17,10 @@ export function propertyMaterials(THREE,wrap=m=>m){
  const map=(name,kind)=>architecturalTexture(THREE,name,kind);
  const make=(name,roughness)=>wrap(new THREE.MeshStandardMaterial({vertexColors:true,map:map(name,'color'),normalMap:map(name,'normal'),normalScale:new THREE.Vector2(.65,.65),roughnessMap:map(name,'roughness'),roughness,side:THREE.DoubleSide}));
  const standard=opts=>wrap(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8,...opts}));
- return {wall:make('plaster',1),stone:make('stone',1),concrete:make('concrete',1),roof:make('roof',1),wood:make('wood',1),tile:make('tile',1),trim:standard(),metal:standard({roughness:.4,metalness:.55}),glass:standard({color:0xb8d3d9,roughness:.18,metalness:.55,envMap:skyReflection(THREE),envMapIntensity:.75,side:THREE.DoubleSide})};
+ // acabamentos (molduras, peitoris, rodapés, metal, madeira, pedra, piso) encostam na parede ou na laje no mesmo plano:
+ // um pequeno deslocamento de profundidade faz eles sempre ganharem da superfície de trás (sem "briga" de textura)
+ const front=m=>Object.assign(m,{polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2});
+ return {wall:make('plaster',1),stone:front(make('stone',1)),concrete:make('concrete',1),roof:make('roof',1),wood:front(make('wood',1)),tile:front(make('tile',1)),trim:front(standard()),metal:front(standard({roughness:.4,metalness:.55})),glass:standard({color:0xb8d3d9,roughness:.18,metalness:.55,envMap:skyReflection(THREE),envMapIntensity:.75,side:THREE.DoubleSide})};
 }
 export function metricUVs(THREE,g){
  const p=g.attributes.position,n=g.attributes.normal,uv=new Float32Array(p.count*2);

@@ -12,13 +12,18 @@ test('street vehicles keep their model across loading order and a claimed car ne
  assert.equal(f.nearest([],100,120),saved);assert.equal(saved.fuel,.2);
  f.claim(saved);assert.equal(f.saved.size,0);assert.equal(f.hideOriginal(regenerated),true);
 });
-test('handbrake induces controlled slip, releasing it restores grip, and no drift occurs while stationary',()=>{
+test('handbrake locks the wheels and stops the car without drifting',()=>{
+ let car={x:0,y:0,speed:19,angle:0,steer:0},a0=0;
+ for(let i=0;i<90;i++)car=stepCar(car,{engineOn:true,right:true,handbrake:true},1/60);
+ assert.equal(car.drifting,false);assert.ok(car.speed<4,'parou quase todo: '+car.speed);assert.ok(Math.abs(car.angle-a0)<.35,'travado quase não esterça: '+car.angle);
+});
+test('shift + steering induces controlled slip, releasing it restores grip, and no drift occurs while stationary',()=>{
  let car={x:0,y:0,speed:19,angle:0,steer:0};
- for(let i=0;i<30;i++)car=stepCar(car,{engineOn:true,right:true,handbrake:true},1/60);
+ for(let i=0;i<30;i++)car=stepCar(car,{engineOn:true,right:true,drift:true},1/60);
  assert.ok(car.drifting&&Math.abs(car.slip)>.12);assert.ok(car.speed>6);assert.ok(Number.isFinite(car.x));
  for(let i=0;i<120;i++)car=stepCar(car,{engineOn:true,forward:true},1/60);
  assert.equal(car.slip,0);assert.equal(car.drifting,false);
- const still=stepCar({x:0,y:0,speed:0,angle:0,steer:0},{handbrake:true,right:true},.05);assert.equal(still.drifting,false);
+ const still=stepCar({x:0,y:0,speed:0,angle:0,steer:0},{drift:true,right:true},.05);assert.equal(still.drifting,false);
 });
 test('all public buildings have connected sanitary facilities and their own functional room program',()=>{
  const programs={hospital:['clinic','ward'],police:['holding','office'],military:['armory','barracks'],cityhall:['council','office'],school:['classroom','library']};

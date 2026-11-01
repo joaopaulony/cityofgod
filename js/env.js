@@ -108,7 +108,10 @@ function drawSnowGround(g, W, H) {
   g.save();
   g.setTransform(s * c / ppm, s * TILT * sn / ppm, -s * sn / ppm, s * TILT * c / ppm, W / 2 + s * (c * (x0 - cam.x) - sn * (y0 - cam.y)), H / 2 + s * TILT * (sn * (x0 - cam.x) + c * (y0 - cam.y)));
   g.globalAlpha = Math.min(0.92, k * 0.95); g.fillStyle = g.createPattern(envSnowPattern(), 'repeat');
-  g.fillRect(0, 0, (x1 - x0) * ppm, (y1 - y0) * ppm);
+  // nada de neve no chão de dentro das construções: recorta a área de cada uma (par-ímpar)
+  g.beginPath(); g.rect(0, 0, (x1 - x0) * ppm, (y1 - y0) * ppm);
+  if (typeof houses !== 'undefined') for (const H of houses) { const b = H.drawBounds || [H.x0, H.y0, H.x1, H.y1]; if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue; g.rect((b[0] - x0) * ppm, (b[1] - y0) * ppm, (b[2] - b[0]) * ppm, (b[3] - b[1]) * ppm); }
+  g.fill('evenodd');
   g.restore();
 }
 // cor do céu sobre a cena: dourado no fim da tarde, lilás no crepúsculo, cinza com nuvens

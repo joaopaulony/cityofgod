@@ -187,7 +187,8 @@ function syncOccluders(force){
    props:(w.props||[]).filter(o=>o.type!=='tuft'&&!plant(o)&&near(o.x,o.y)),
    segs:(w.segs||[]).filter(s=>s.kind==='fence'&&(!in3d||s.chain)&&near(s.x1,s.y1))},
   // carro estacionado com modelo GLB (parked-3d.mjs) já tem profundidade própria: sem caixa de oclusão por cima
-  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)&&!(in3d&&b.kind==='parkedcar')),
+  // fazenda do jogador (farm.mjs) também tem 3D próprio: a caixa invisível de oclusão escondia as construções
+  boxes:(bridge.boxes||[]).filter(b=>near(b.x,b.y)&&!bridge.props3d?.(b)&&!b.farm&&!(in3d&&b.kind==='parkedcar')),
   urbanBins:in3d?[]:(bridge.urbanBins||[]).filter(b=>near(b.x,b.y))};
  occlusionScene=createWorldOccluders(scene,THREE,view,occlusionMaterial);
  system.occlusionStats=occlusionScene.state;
@@ -430,7 +431,7 @@ function moveCar(dt){
   forward:system.engineOn&&fuel.level>0&&c.down('w'),
   reverse:system.engineOn&&fuel.level>0&&c.down('s'),
   left:c.down('a'),right:c.down('d'),
-  handbrake:c.down(' '),engineOn:system.engineOn
+  handbrake:c.down(' '),drift:c.down('shift'),engineOn:system.engineOn
  };
  // Ônibus, veículos pesados e carros civis têm eixos e aceleração próprios.
  const efficiency=engineEfficiency(damage);
@@ -466,7 +467,7 @@ function moveCar(dt){
   if(crash){
    system.damage=damage;
    refreshDeformation();
-   damageFX?.crash(collision.position.x,collision.position.y,Math.abs(old.speed));
+   damageFX?.crash(collision.position.x,collision.position.y,Math.abs(old.speed),old.angle);
    fuel.msg='Impacto '+Math.round(Math.abs(old.speed)*3.6)+' km/h · Integridade '+Math.round(damage.integrity*100)+'%';
    fuel.msgT=3;
    const obstacle=collision.impact.object;

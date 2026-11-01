@@ -20,10 +20,10 @@
   /* Gráfico apenas: tonalidade, saturação e contraste da referência
      isométrica, sem alterar texturas, malhas GLB ou alpha. */
   #view { image-rendering: auto; cursor: none;
-    filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+    filter: saturate(1.5) contrast(1.12) brightness(1.04) brightness(var(--city-brightness,1)); }
   /* cursor: desarmado, dirigindo, com menu aberto ou segurando Alt (game.js) */
   body.cursor-free #view, body.cursor-alt #view, body.city-modal #view, body:has(dialog[open]) #view { cursor: default; }
-  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.085) contrast(1.045) brightness(var(--city-brightness,1)); }
+  #vehicle3d { pointer-events: none; z-index: 1; filter: saturate(1.45) contrast(1.1) brightness(1.02) brightness(var(--city-brightness,1)); }
   #hud { pointer-events: none; z-index: 2; }
   #chat, #keys { z-index: 3; }
   #chat { bottom: 228px !important; }
@@ -31,7 +31,7 @@
   @media(max-width:670px) { #chat { display: none; } }
   #view { z-index: 0; }
   /* chão na GPU (ground-gpu.js): por baixo da tela 2D, com o mesmo tratamento de cor */
-  #ground-gpu { z-index: 0; pointer-events: none; filter: saturate(1.12) contrast(1.075) brightness(1.015) brightness(var(--city-brightness,1)); }
+  #ground-gpu { z-index: 0; pointer-events: none; filter: saturate(1.5) contrast(1.12) brightness(1.04) brightness(var(--city-brightness,1)); }
   #chat {
     position: absolute; left: 12px; bottom: 12px; width: 270px;
     background: rgba(18,16,15,.82); border: 1px solid #000; border-radius: 6px;

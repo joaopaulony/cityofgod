@@ -6,8 +6,9 @@
 export function createAmbience(THREE, scene, bridge, L) {
   const col = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
   const hex = h => new THREE.Color().setStyle(h, THREE.SRGBColorSpace);
-  const SKY = { day: hex('#f8ead9'), gold: hex('#ffc694'), dusk: hex('#b48cc8'), night: hex('#8592bc') };
-  const GND = { day: hex('#343c32'), night: hex('#161a26') };
+  // céu levemente azul (sombra fria) contra o sol quente: o contraste de cor que deixa a imagem viva e realista
+  const SKY = { day: hex('#d9e6fb'), gold: hex('#ffc28a'), dusk: hex('#b088cc'), night: hex('#8592bc') };
+  const GND = { day: hex('#3f5034'), night: hex('#161a26') };
   const tmp = new THREE.Color(), state = { leaves: 0, dust: 0, snow: 0, patched: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const R = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(1234);
@@ -33,7 +34,25 @@ export function createAmbience(THREE, scene, bridge, L) {
   let snowInit = false;
 
   // ---------- neve pousada: o alto dos objetos 3D clareia conforme ENV.snowCover ----------
-  const snowU = { snowCover: { value: 0 }, snowUp: { value: new THREE.Vector3(0, 1, 0) } };
+  // construções perto da câmera (área no chão + altura do telhado): por dentro delas, abaixo do telhado, nada de neve
+  // (nem nos móveis, nem no piso, nem flocos caindo) — os telhados continuam recebendo
+  const SNOW_N = 48, snowRects = Array.from({ length: SNOW_N }, () => new THREE.Vector4(0, 0, 0, 0)), snowTops = new Array(SNOW_N).fill(0);
+  const snowU = { snowCover: { value: 0 }, snowUp: { value: new THREE.Vector3(0, 1, 0) }, snowCam: { value: new THREE.Matrix4() }, snowRects: { value: snowRects }, snowTops: { value: snowTops }, snowN: { value: 0 } };
+  const SNOW_DECL = 'uniform mat4 snowCam; uniform vec4 snowRects[' + SNOW_N + ']; uniform float snowTops[' + SNOW_N + ']; uniform int snowN;\n';
+  const SNOW_INSIDE = 'bool snowInside( vec3 p ) { for ( int i = 0; i < ' + SNOW_N + '; i ++ ) { if ( i >= snowN ) break; vec4 r = snowRects[ i ]; if ( p.x > r.x && p.x < r.z && p.z > r.y && p.z < r.w && p.y < snowTops[ i ] - 0.2 ) return true; } return false; }\n';
+  function updateSnowRects(camera) {
+    snowU.snowCam.value.copy(camera.matrixWorld);
+    const c = bridge.cam, list = [];
+    for (const H of bridge.houses || []) { const b = H.drawBounds || [H.x0, H.y0, H.x1, H.y1], d = Math.hypot((b[0] + b[2]) / 2 - c.x, (b[1] + b[3]) / 2 - c.y); if (d < 110) list.push([d, b, H.h || 3]); }
+    list.sort((a, b) => a[0] - b[0]); const n = Math.min(SNOW_N, list.length);
+    for (let i = 0; i < n; i++) { const b = list[i][1]; snowRects[i].set(b[0] - 0.15, b[1] - 0.15, b[2] + 0.15, b[3] + 0.15); snowTops[i] = list[i][2]; }
+    snowU.snowN.value = n;
+  }
+  // flocos: os que estão dentro de uma construção (abaixo do telhado) saem da tela
+  snowMat.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, snowU);
+    shader.vertexShader = SNOW_DECL + SNOW_INSIDE + shader.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\n  if ( snowInside( ( modelMatrix * vec4( position, 1.0 ) ).xyz ) ) gl_Position = vec4( 2.0, 2.0, 2.0, 1.0 );');
+  };
   function patch(m) {
     if (m.userData.snowP || m.isShadowMaterial || m.isMeshBasicMaterial || m.isPointsMaterial || m.colorWrite === false || m.transparent || !(m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial)) return;
     m.userData.snowP = true;
@@ -43,10 +62,10 @@ export function createAmbience(THREE, scene, bridge, L) {
       prev && prev.call(m, shader, r);
       Object.assign(shader.uniforms, snowU);
       const inc = ['#include <lights_lambert_fragment>', '#include <lights_phong_fragment>', '#include <lights_physical_fragment>'].find(x => shader.fragmentShader.includes(x)); if (!inc) return;
-      shader.fragmentShader = 'uniform float snowCover; uniform vec3 snowUp;\n' + shader.fragmentShader.replace(inc,
-        '{ float snUp = dot( normalize( normal ), snowUp ); diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.93, 0.95, 0.98 ), snowCover * ' + kf + ' * smoothstep( 0.2, 0.7, snUp ) ); }\n' + inc);
+      shader.fragmentShader = 'uniform float snowCover; uniform vec3 snowUp;\n' + SNOW_DECL + SNOW_INSIDE + shader.fragmentShader.replace(inc,
+        '{ float snUp = dot( normalize( normal ), snowUp ); float snOut = snowInside( ( snowCam * vec4( - vViewPosition, 1.0 ) ).xyz ) ? 0.0 : 1.0; diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.93, 0.95, 0.98 ), snowCover * ' + kf + ' * smoothstep( 0.2, 0.7, snUp ) * snOut ); }\n' + inc);
     };
-    m.customProgramCacheKey = () => (prevKey ? prevKey.call(m) : '') + '|snow' + kf;
+    m.customProgramCacheKey = () => (prevKey ? prevKey.call(m) : '') + '|snow2' + kf;
     m.needsUpdate = true; state.patched++;
   }
   // pessoas (jogador, NPCs, pets) e o que elas carregam (arma, taco, balão) nunca ficam cobertas de neve
@@ -124,6 +143,7 @@ export function createAmbience(THREE, scene, bridge, L) {
       // neve pousada nos objetos 3D (só começa a mexer nos materiais quando neva)
       snowU.snowCover.value = E.snowCover;
       if (E.snowCover > 0.005 || E.snow > 0.05) {
+        updateSnowRects(camera);
         if ((patchT -= dt) <= 0) { patchT = 1.5; scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material) && !o.isSkinnedMesh && !o.userData.noSnow && !noSnowUnder(o)) patch(o.material); }); }
         snowU.snowUp.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse);
       }

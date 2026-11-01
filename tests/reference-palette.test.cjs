@@ -53,8 +53,8 @@ test('saturation and contrast only, alpha WebGL compositing unaffected',()=>{
  const glb=read('js/vehicle-webgl.mjs');
  assert.match(html,/src="js\/visual-palette\.js"/);
  assert.ok(html.indexOf('visual-palette.js')<html.indexOf('js/core.js'));
- assert.match(html,/#view[\s\S]{0,130}filter: saturate\(1\.12\) contrast\(1\.075\)/);
- assert.match(html,/#vehicle3d[^\n]*filter: saturate\(1\.085\) contrast\(1\.045\)/);
+ assert.match(html,/#view[\s\S]{0,130}filter: saturate\(1\.5\) contrast\(1\.12\)/);
+ assert.match(html,/#vehicle3d[^\n]*filter: saturate\(1\.45\) contrast\(1\.1\)/);
  assert.match(glb,/WebGLRenderer\(\{canvas,alpha:true/);
  assert.match(glb,/new THREE\.DirectionalLight\(0xffe0b7,2\.7\)/);
  assert.doesNotMatch(glb,/toDataURL|toBlob/);
