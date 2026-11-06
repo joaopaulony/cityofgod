@@ -30,6 +30,8 @@ const CityHome=(()=>{
  ['lampdesk','Abajur','Decoração',370,.32,.32,.58,'#ffdb9e','#c3ab8f'],
  ['lamp','Luminária de chão','Decoração',640,.4,.4,1.68,'#ffdfae','#897c6c'],
  ['sectional','Sofá modular','Sala',2100,2.45,.9,.87,'#788f9c','#526777'],
+ // móveis do Ultimate Home Interior Pack (Quaternius, CC0): js/furniture-quaternius.js (tools/import-furniture.mjs)
+ ...(globalThis.QUATERNIUS_FURNITURE||[]),
  ];
  const defs=Object.fromEntries(catalog.map(([kind,name,category,price,w,d,h,top,side])=>[kind,{kind,name,category,price,w,d,h,top,side}]));
  const KEY='cityofgod.home-furniture.v1',MAX=220;
@@ -38,7 +40,7 @@ const CityHome=(()=>{
  const WALL_GAP=.025,CONTACT_GAP=.012,SNAP_RANGE=.34;
  const customColors=new Set(['sofa','couch','chair','table','tv','screen','rug','shelf','cabinet','fridge',
    'stove','sink','counter','bed','mattress','wardrobe','desk','studentdesk','mirror','toilet','shower',
-   'plant','bookstack','microwave','lampdesk','lamp','sectional']);
+   'plant','bookstack','microwave','lampdesk','lamp','sectional',...(globalThis.QUATERNIUS_FURNITURE||[]).map(r=>r[0])]);
  const colorValid=c=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c);
  const copy=o=>JSON.parse(JSON.stringify(o));
  const safeId=()=>String(Date.now())+'-'+Math.random().toString(36).slice(2,10);

@@ -5,7 +5,7 @@
 <script type="module">
 import {createSocialSim} from '../js/social-sim.mjs';
 import {installSocialUI} from '../js/social-ui.mjs';
-const roster=(await (await fetch('../assets/npcs/roster.json')).json()).characters;
+const roster=(await (await fetch('../assets/characters/modular/roster.json')).json()).characters;
 const sim=createSocialSim(roster,{random:()=>0});
 const npcs=['aiko-sakura','christopher-brown','ana-paula-novli','clara-migos'].map(lookId=>({lookId}));
 Object.assign(sim.relation('player','aiko-sakura'),{friend:64,romance:32,trust:47});

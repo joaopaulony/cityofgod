@@ -10,6 +10,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mjs';
 import {policeModels,POLICE_FABRIC,POLICE_STEEL} from './police-props.mjs';
 import {dealerModels,DEALER_STEEL} from './dealer-props.mjs';
+import {loadQuaterniusFurniture} from './furniture-3d.mjs';
 // a lista mudou de um jeito que importa aqui? encolheu (algo saiu) ou entrou item novo perto da câmera; itens
 // novos longe (setor distante sendo gerado) não pedem reconstrução
 const changedNear = (list, from, cx, cy, R) => { if (list.length < from) return true; for (let i = from; i < list.length; i++) { const o = list[i]; if (!o) continue; const x = o.x ?? (o.x0 + o.x1) / 2, y = o.y ?? (o.y0 + o.y1) / 2; if (!(Math.abs(x - cx) > R + 20 || Math.abs(y - cy) > R + 20)) return true; } return false; };
@@ -541,8 +542,10 @@ export function createProps(THREE, scene, bridge) {
           const size=k.bounds.getSize(new THREE.Vector3()),center=k.bounds.getCenter(new THREE.Vector3()),odd=Math.abs(Math.round((rot+(b.rot||0))/(Math.PI/2)))%2;
           sx=(odd?b.d:b.w)/size.x;sz=(odd?b.w:b.d)/size.z;
           const ox=Math.cos(rot)*center.x*sx+Math.sin(rot)*center.z*sz,oy=-Math.sin(rot)*center.x*sx+Math.cos(rot)*center.z*sz;
-          place(k,i,b.x-ox,b.y-oy,b.z||0,rot,sx,Math.min(1.5,Math.max(.6,(b.h||Hn)/Hn)),sz);return;
+          place(k,i,b.x-ox,b.y-oy,b.z||0,rot,sx,k.def.uniform?(sx+sz)/2:Math.min(1.5,Math.max(.6,(b.h||Hn)/Hn)),sz);return;
         }
+        // modelos do pack de interiores no lugar dos procedurais: proporção do modelo (altura acompanha a planta)
+        if (k.def.uniform) { place(k, i, b.x, b.y, b.z || 0, rot, sx, (sx + sz) / 2, sz); return; }
         place(k, i, b.x, b.y, b.z || 0, rot, sx, Math.min(1.5, Math.max(0.6, (b.h || Hn) / Hn)), sz);
       });
       for (const m of k.meshes) { m.count = k.list.length; m.instanceMatrix.needsUpdate = true; }
@@ -606,6 +609,13 @@ export function createProps(THREE, scene, bridge) {
   const pot=new THREE.Mesh(new THREE.CylinderGeometry(.14,.12,.14,20),new THREE.MeshStandardMaterial({color:0x454b54,metalness:.65,roughness:.35}));
   const spoon=new THREE.Mesh(new THREE.CylinderGeometry(.009,.012,.23,8),new THREE.MeshStandardMaterial({color:0x9a704a,roughness:.8}));
   cup.visible=pot.visible=spoon.visible=false;scene.add(cup,pot,spoon);
+  // móveis do Ultimate Home Interior Pack (Quaternius, CC0): registra os 83 modelos (tipos qf_*, loja) e troca os
+  // procedurais das casas pelos do pack; ao terminar, os tipos trocados são refeitos e a cena é remontada
+  loadQuaterniusFurniture(THREE,M,{fabric:fabricSet,metal:metallicSet}).then(changed=>{
+    for(const [key,k] of [...kinds])if(changed.has(key.split('|')[0])){for(const m of k.meshes){scene.remove(m);m.dispose();}kinds.delete(key);}
+    photoCache.clear();   // fotos da loja tiradas antes (modelos procedurais) saem do cache
+    sync.v=-1;state.furniturePack=changed.size;window.dispatchEvent(new Event('city-home-change'));
+  }).catch(error=>{state.furniturePackError=String(error.message||error);console.warn('Móveis Quaternius',error);});
   return {
     state,thumbnail,
     update(now, T) {

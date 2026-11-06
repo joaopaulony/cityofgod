@@ -2,14 +2,17 @@
 export const CAS_KEY='cityofgod.cas.skeleton.v2';
 export const CAS_DEFAULT=Object.freeze({
  version:1,name:'Alex',age:24,sex:'male',height:1,build:1,background:'bairro',style:'casual',
- skin:'#c98d68',hair:'#30231e',hairStyle:'none',top:'#49647a',bottom:'#29394f',shoes:'#e9e6e0',
+ // peças modulares (js/modular-characters.mjs): '' = peça padrão do sexo; cores '' = cor original da peça
+ head:'',body:'',legs:'',feet:'',acc:'',
+ skin:'#b98059',hair:'',hairStyle:'none',top:'',bottom:'',shoes:'',
  outfit:'casual',accessory:'none',accessoryColor:'#25282a',faceWidth:0,jaw:0,nose:0,eyes:0,cheeks:0,look:''
 });
 export const CAS_COLORS=Object.freeze({
- skin:['#edc6a4','#c98d68','#aa7050','#80533e','#4a3027'],
- hair:['#241916','#573a28','#a57642','#d1b178','#171b22'],
- top:['#49647a','#874942','#58705b','#d5bf95','#282e38'],
- bottom:['#29394f','#262629','#686254','#a6a4a0','#3c4c62']
+ skin:['#f3d5bd','#e6bc98','#d2a47c','#b98059','#94603f','#6e4430','#4a2d20'],
+ hair:['#1c1716','#3a2619','#5c3b22','#8a5a32','#b8874f','#dcc28c','#8f8f8f','#e9e4dc','#8e2b22','#5b2d6e'],
+ top:['#1f2329','#e8e4dc','#2e4a6b','#6b2c2c','#a23b2f','#2f5d3a','#c2a36b','#8a5a8a','#d98a2b'],
+ bottom:['#1f2329','#3a3f47','#2e4a6b','#4a6a8a','#6b6b3a','#c2a36b'],
+ shoes:['#1f2329','#e8e4dc','#a23b2f','#2e4a6b','#6b4a2c']
 });
 const COLOR=/^#[0-9a-f]{6}$/i;
 const clamp=(x,min,max,fallback)=>Number.isFinite(Number(x))?Math.max(min,Math.min(max,Number(x))):fallback;
@@ -26,10 +29,13 @@ export function normalizeCAS(input={}){
  result.outfit=['casual','street','sport','social'].includes(input.outfit)?input.outfit:'casual';
  result.accessory=['none','glasses','cap','beanie'].includes(input.accessory)?input.accessory:'none';
  for(const key of ['faceWidth','jaw','nose','eyes','cheeks'])result[key]=clamp(input[key],-1,1,0);
- // visual escolhido: id de um personagem de assets/npcs/roster.json (validado contra o roster no jogo)
+ // visual pronto escolhido no CAS: id de um personagem de assets/characters/modular/roster.json
  result.look=/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(input.look||''))?String(input.look):'';
  result.hairStyle=/^hair-(?:0[1-9]|1[0-9]|2[01])$/.test(String(input.hairStyle||''))?input.hairStyle:'none';
  for(const key of ['skin','hair','top','bottom','shoes','accessoryColor'])if(COLOR.test(input[key]||''))result[key]=input[key].toLowerCase();
+  else if(key!=='skin'&&key!=='accessoryColor'&&input[key]==='')result[key]='';   // '' = cor original da peça
+ // peças (ids de assets/characters/modular/manifest.json; validados contra o manifesto no jogo)
+ for(const key of ['head','body','legs','feet','acc'])result[key]=/^[a-z0-9_]{1,40}$/.test(String(input[key]||''))?String(input[key]):'';
  return result;
 }
 export function readCAS(storage){

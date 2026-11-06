@@ -1,20 +1,21 @@
-// npc-roster.mjs — os personagens do autor (assets/npcs, gerados por tools/rig-npcs.mjs) com as animações Mixamo de
-// sempre (David p/ homens, Megan p/ mulheres): parado, andar, correr, rifle (mirar, atirar, recarregar, andar mirando),
-// agachar, pular e escalar. Cada GLB já está no esqueleto Mixamo com as mesmas rotações de repouso das bibliotecas,
-// então os clipes só precisam do ajuste de altura do quadril (retargetMixamo, abaixo).
+// npc-roster.mjs — elenco de personagens do jogo: peças modulares da Quaternius (Ultimate Modular Men/Women, CC0)
+// montadas por visual (js/modular-characters.mjs). Os GLBs de cada sexo (tools/import-quaternius.mjs) já trazem TODAS
+// as animações no esqueleto final, com nomes de ossos Mixamo: Universal Animation Library 1 e 2, os clipes do próprio
+// pack e os de rifle/transpor muro do Mixamo — retargetados offline (retargetMixamo, abaixo). No jogo nada é retargetado.
 import * as THREE from 'three';
+import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {MODULAR_DIR,buildLookScene,normalizeLook,lookKey} from './modular-characters.mjs';
 
-export const NPC_DIR='assets/npcs/';
+export const NPC_DIR=MODULAR_DIR;
+// bibliotecas Mixamo: só o importador usa (rifle e transpor muro)
 export const MIXAMO_LIBRARY=Object.freeze({male:'assets/characters/rigs/mixamo/david.rig.glb',female:'assets/characters/rigs/mixamo/megan.rig.glb'});
-// animações do Kimodo (tools/import-kimodo.mjs), no esqueleto do David; valem p/ os dois sexos e substituem o clipe
-// Mixamo de mesmo nome. Opcional: sem o arquivo, ficam só as do Mixamo.
-export const KIMODO_LIBRARY='assets/characters/rigs/kimodo.rig.glb';
 // papel no jogo: 'player' (bases principais), 'civil' e 'gang' andam pela rua; 'service' e 'worker' só em ocorrências
 export const STREET_ROLES=Object.freeze(['civil','gang']);
 export const DEFAULT_LOOK=Object.freeze({male:'miguel',female:'char-principal-base'});
 const ONE_SHOT=new Set(['jump_start','jump_land','vault_low','rifle_fire','rifle_reload','rifle_crouch_fire','rifle_crouch_reload']);
 const SPEED={walk:1.5,run:4.2,rifle_walk:1.4,rifle_run:3.9,rifle_walk_back:1.2,rifle_strafe_left:1.3,rifle_strafe_right:1.3,crouch_walk:.9,rifle_crouch_walk:.9};
-const GROUP_LABEL={base:'Personagem principal','last-kings':'Last Kings','novelis-crew':"Noveli's Crew",urbano:'Morador',policia:'Polícia',bombeiros:'Bombeiros',socorristas:'Socorristas',operarios:'Operário',motoboy:'Motoboy'};
+const GROUP_LABEL={base:'Personagem principal','last-kings':'Last Kings','novelis-crew':"Noveli's Crew",urbano:'Morador',policia:'Polícia',bombeiros:'Bombeiros',socorristas:'Socorristas',operarios:'Operário',motoboy:'Motoboy',jogador:'Você'};
 export const groupLabel=g=>GROUP_LABEL[g]||g;
 
 // Repouso de cada osso: rotação/posição locais e rotação de mundo (relativa à Armature). No personagem vem do bind da
@@ -80,7 +81,8 @@ const worldRot=(axis,deg)=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vec
 // abre só os graus necessários (até 16° parado, 12° andando) p/ não entrar no corpo. Clipes de rifle não mudam (a mira continua igual).
 // clipe → qual medida usar (parado ou caminhada)
 export const RELAXED_CLIPS=Object.freeze({idle:'idle',crouch:'idle',walk:'walk',run:'walk',crouch_walk:'walk'});
-export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=null,armOut=null}={}){
+// extraDamp: amortecimento extra por osso (sem o prefixo mixamorig), p/ bibliotecas cuja anatomia difere mais (UAL)
+export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=null,armOut=null,damp:extraDamp=null}={}){
  const src=sourceRoot.userData.restPose||=restPose(sourceRoot,{fromBind:false}),dst=targetRoot.userData.restPose||=restPose(targetRoot);
  if(!src||!dst)return clip;
  const tracks={},hipsPos=clip.tracks.find(t=>t.name==='mixamorigHips.position');
@@ -88,7 +90,7 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  const times=[...new Set(clip.tracks.filter(t=>/\.quaternion$/.test(t.name)).flatMap(t=>[...t.times]))].sort((a,b)=>a-b);if(!times.length)times.push(0);
  const names=[...dst.keys()].filter(n=>src.has(n)),out=Object.fromEntries(names.map(n=>[n,new Float32Array(times.length*4)]));
  const ws=new Map(),wt=new Map(),dl=new Map(),de=new Map(),inv0=new Map(names.map(n=>[n,src.get(n).world.clone().invert()]));
- const damp=Object.assign({},DAMP.all,DAMP[clip.name]),I=new THREE.Quaternion();
+ const damp=Object.assign({},DAMP.all,DAMP[clip.name],extraDamp),I=new THREE.Quaternion();
  // estilo: rotações extras de mundo por osso e ampliação do quadril
  // extra: rotação de mundo só do osso (clavícula: o braço mantém a direção do clipe); tree: rotação rígida do osso e
  // de tudo abaixo dele (abrir o braço/fechar a perna inteiros — sem isso o cotovelo/joelho dobrava)
@@ -185,43 +187,47 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
  return result;
 }
 
-export function clipSemantics(clips){
- return Object.fromEntries(clips.map(c=>[c.name,{name:c.name,duration:c.duration,loop:!ONE_SHOT.has(c.name),speed:SPEED[c.name]||0}]));
+// semântica dos clipes (laço, velocidade p/ sincronizar o passo) a partir do manifesto do importador
+export function clipSemantics(clips,meta={}){
+ return Object.fromEntries(clips.map(c=>{const m=meta[c.name]||{};return [c.name,{name:c.name,duration:c.duration,loop:m.loop??!ONE_SHOT.has(c.name),speed:m.speed||SPEED[c.name]||0}];}));
 }
 
-export async function loadRoster(loader,{base='',style=true}={}){   // style:false = clipes sem o estilo por sexo nem a folga dos braços (comparação)
- const response=await fetch(base+NPC_DIR+'roster.json');
- if(!response.ok)throw Error('Roster dos personagens: '+response.status);
- const doc=await response.json();
+// loader: GLTFLoader do chamador (ganha o decodificador meshopt aqui)
+export async function loadRoster(loader,{base=''}={}){
+ loader.setMeshoptDecoder?.(MeshoptDecoder);
+ const json=async f=>{const r=await fetch(base+MODULAR_DIR+f);if(!r.ok)throw Error('Personagens ('+f+'): '+r.status);return r.json();};
+ const [manifest,doc]=await Promise.all([json('manifest.json'),json('roster.json')]);
  if(!Array.isArray(doc.characters)||!doc.characters.length)throw Error('Roster vazio');
- const libraries={};
- for(const sex of ['male','female']){
-  const gltf=await loader.loadAsync(base+MIXAMO_LIBRARY[sex]);
-  if(gltf.animations.length<10)throw Error('Biblioteca Mixamo '+sex+' incompleta');
-  libraries[sex]=gltf;
- }
- let kimodo=null;
- try{kimodo=await loader.loadAsync(base+KIMODO_LIBRARY);}catch{}
- const characters=new Map(doc.characters.map(c=>[c.id,c]));
+ const characters=new Map(doc.characters.map(c=>[c.id,{...c,look:normalizeLook(c.look,manifest)}]));
+ // GLB de cada sexo: um só, carregado sob demanda e compartilhado por todos os visuais
+ const sexes=new Map();
+ const library=sex=>{
+  if(!sexes.has(sex))sexes.set(sex,(async()=>{
+   await MeshoptDecoder.ready;
+   const gltf=await loader.loadAsync(base+MODULAR_DIR+manifest[sex].file);
+   let bones=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;});
+   if(!gltf.scene.getObjectByName('mixamorigHips'))throw Error(sex+'.glb sem esqueleto');
+   (globalThis.__gpuWarm||(globalThis.__gpuWarm=[])).push(gltf.scene);   // shaders antes de aparecer (vehicle-webgl.mjs)
+   return {gltf,bones,clips:clipSemantics(gltf.animations,manifest[sex].clips)};
+  })().catch(error=>{sexes.delete(sex);throw error;}));
+  return sexes.get(sex);
+ };
  const cache=new Map();
- // carrega um personagem sob demanda (os 52 não ficam na memória ao mesmo tempo). hd: texturas originais (npcs/hd)
- // p/ o jogador e o editor de personagem; na rua, a versão leve (texturas 1024 WebP, tools/optimize-assets.mjs)
- async function load(id,{hd=false}={}){
-  const meta=characters.get(id);if(!meta)throw Error('Personagem desconhecido: '+id);
-  const key=hd?id+':hd':id;
+ // load(id | visual): cena do visual (peças + cores) com as animações do sexo. Visuais iguais dividem a cena-base
+ // (o personagem clona com SkeletonUtils ao montar); um visual avulso (o do jogador, pelo CAS) também serve.
+ async function load(what){
+  const meta=typeof what==='string'?characters.get(what):null;
+  if(typeof what==='string'&&!meta)throw Error('Personagem desconhecido: '+what);
+  const look=normalizeLook(meta?meta.look:what,manifest),key=lookKey(look);
   if(!cache.has(key))cache.set(key,(async()=>{
-   const gltf=await loader.loadAsync(base+NPC_DIR+(hd?'hd/':'')+meta.file),lib=libraries[meta.sex];
-   let bones=0,meshes=0;gltf.scene.traverse(o=>{if(o.isBone)bones++;if(o.isSkinnedMesh){meshes++;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-   if(!meshes||!gltf.scene.getObjectByName('mixamorigHips'))throw Error(id+': GLB sem malha riggada no esqueleto Mixamo');
-   (globalThis.__gpuWarm||(globalThis.__gpuWarm=[])).push(gltf.scene);   // shaders/texturas antes de aparecer (vehicle-webgl.mjs)
-   const armOut=style?meta.armOut||null:null;
-   const opts={style:style?STYLE[meta.sex]:null,armOut},own=new Set(kimodo?kimodo.animations.map(c=>c.name):[]);
-   const animations=lib.animations.filter(c=>!own.has(c.name)).map(c=>retargetMixamo(c,lib.scene,gltf.scene,c.name,opts));
-   if(kimodo)for(const c of kimodo.animations)animations.push(retargetMixamo(c,kimodo.scene,gltf.scene,c.name,opts));
-   return {gltf:{...gltf,animations},spec:{...meta,label:meta.name,bones,meshes,clips:clipSemantics(animations),rig:'mixamo'}};
-  })());
-  try{return await cache.get(key);}catch(error){cache.delete(key);throw error;}
+   const lib=await library(look.sex),scene=buildLookScene(THREE,cloneSkeleton,lib.gltf.scene,look,manifest);
+   return {scene,triangles:scene.userData.triangles,bones:lib.bones,clips:lib.clips,animations:lib.gltf.animations};
+  })().catch(error=>{cache.delete(key);throw error;}));
+  const item=await cache.get(key);
+  const spec={...(meta||{id:'custom',name:what.name||'Personagem',group:'jogador',role:'player',sex:look.sex}),height:manifest[look.sex].height,look,
+   label:meta?.name||what.name||'Personagem',bones:item.bones,meshes:5,triangles:item.triangles,clips:{...item.clips},rig:'quaternius-modular'};
+  return {gltf:{scene:item.scene,animations:item.animations},spec,key};
  }
  const list=role=>[...characters.values()].filter(c=>!role||c.role===role);
- return {characters,load,list,libraries,kimodo};
+ return {characters,load,list,manifest,library};
 }

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Personagens modulares — inspeção</title>
+<style>body{margin:0;background:#1b1f22;color:#ddd;font:13px system-ui}#ui{position:fixed;left:8px;top:8px;background:#000a;padding:8px;border-radius:6px;max-width:330px}select{width:100%;margin:2px 0}#info{white-space:pre;font:11px monospace}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body><div id="ui">
+<select id="sex"><option value="male">male</option><option value="female">female</option></select>
+<select id="head"></select><select id="body"></select><select id="legs"></select><select id="feet"></select><select id="acc"></select>
+<select id="clip" size="14"></select><label><input type="checkbox" id="bones"> ossos</label> <label><input type="checkbox" id="grid" checked> 3 lado a lado</label><div id="info"></div></div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {clone} from 'three/addons/utils/SkeletonUtils.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(innerWidth,innerHeight);r.outputColorSpace=THREE.SRGBColorSpace;document.body.append(r.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#2a3036');
+scene.add(new THREE.HemisphereLight('#fff','#556',1.6));const d=new THREE.DirectionalLight('#fff',2.2);d.position.set(2,4,3);scene.add(d);
+scene.add(new THREE.GridHelper(10,10,0x666666,0x444444));
+const cam=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,.05,50);cam.position.set(0,1.3,4.2);
+const ctl=new OrbitControls(cam,r.domElement);ctl.target.set(0,.95,0);ctl.update();
+const man=await (await fetch('/assets/characters/modular/manifest.json')).json();
+const gl={},loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+let figures=[],helper=null;const $=id=>document.getElementById(id);
+async function lib(sex){return gl[sex]||(gl[sex]=await loader.loadAsync('/assets/characters/modular/'+sex+'.glb'));}
+function fill(){const m=man[$('sex').value];
+ for(const s of ['head','body','legs','feet','acc']){const sel=$(s),prev=sel.value;sel.innerHTML=(s==='acc'?'<option value="">(nenhum)</option>':'')+m.parts.filter(p=>p.slot===s).map(p=>`<option>${p.id}</option>`).join('');if([...sel.options].some(o=>o.value===prev))sel.value=prev;}
+ const prev=$('clip').value;$('clip').innerHTML=Object.entries(m.clips).map(([n,c])=>`<option value="${n}">${n} ${c.duration}s ${c.loop?'↻':''} ${c.source}</option>`).join('');$('clip').value=prev||'idle';if(!$('clip').value)$('clip').value='idle';}
+async function build(){
+ const g=await lib($('sex').value);for(const f of figures){scene.remove(f.root);}figures=[];if(helper){scene.remove(helper);helper=null;}
+ const n=$('grid').checked?3:1;
+ for(let i=0;i<n;i++){
+  const root=clone(g.scene),want=new Set(['head','body','legs','feet','acc'].map(s=>s+'-'+$(s).value));
+  const kill=[];root.traverse(o=>{if(o.userData.slot&&!want.has(o.name))kill.push(o);});kill.forEach(o=>o.parent.remove(o));
+  root.position.x=(i-(n-1)/2)*1.1;root.rotation.y=n>1?[0.6,0,-2.4][i]:0;scene.add(root);
+  const mixer=new THREE.AnimationMixer(root),clip=g.animations.find(c=>c.name===$('clip').value);
+  if(clip){const a=mixer.clipAction(clip);a.play();}
+  figures.push({root,mixer});
+ }
+ if($('bones').checked){helper=new THREE.SkeletonHelper(figures[0].root);scene.add(helper);}
+ const c=man[$('sex').value].clips[$('clip').value];$('info').textContent=JSON.stringify(c,null,1);
+}
+for(const id of ['head','body','legs','feet','acc','clip','bones','grid'])$(id).onchange=build;
+$('sex').onchange=()=>{fill();build();};
+fill();
+for(const s of ['head','body','legs','feet'])$(s).value=$(s).options[3]?.value||$(s).value;
+await build();
+const clock=new THREE.Clock();
+r.setAnimationLoop(()=>{const dt=clock.getDelta();for(const f of figures)f.mixer.update(dt);r.render(scene,cam);});
+// inspeção sem rAF (painel oculto): pose no instante t (fração do clipe) e desenha um quadro
+async function shot(opts={}){
+ for(const [k,v] of Object.entries(opts)){const el=$(k);if(!el)continue;if(el.type==='checkbox')el.checked=v;else el.value=v;}
+ if(opts.sex)fill(),Object.entries(opts).forEach(([k,v])=>{if(k!=='sex'&&$(k)&&$(k).type!=='checkbox')$(k).value=v;});
+ await build();
+ for(const f of figures){const a=f.mixer._actions[0];if(a){a.time=(opts.frac??.3)*a.getClip().duration;}f.mixer.update(0);}
+ const v=opts.view||'front';cam.position.set(v==='side'?4.2:0,1.3,v==='side'?0:4.2);ctl.update();
+ r.render(scene,cam);
+ const c=document.createElement('canvas');c.width=opts.w||560;c.height=Math.round(c.width*r.domElement.height/r.domElement.width);c.getContext('2d').drawImage(r.domElement,0,0,c.width,c.height);
+ await fetch('/__shot?name='+(opts.name||''),{method:'POST',body:c.toDataURL('image/jpeg',.8)}).catch(()=>{});return c.toDataURL('image/jpeg',.8).length;
+}
+window.__viewer={build,$,shot};
+</script></body></html>

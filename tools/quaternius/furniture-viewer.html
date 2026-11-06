@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Móveis — inspeção</title>
+<style>body{margin:0;background:#1b1f22}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// grade com todos os móveis vistos de frente (câmera em +z): a frente de cada móvel deve estar virada p/ a câmera
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(1600,1000);r.outputColorSpace=THREE.SRGBColorSpace;document.body.append(r.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#2a3036');
+scene.add(new THREE.HemisphereLight('#fff','#556',1.8));const d=new THREE.DirectionalLight('#fff',2.2);d.position.set(3,6,8);scene.add(d);
+const g=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/assets/furniture/quaternius/furniture.glb');
+const items=[...g.scene.children],cols=12;
+items.forEach((o,i)=>{o.position.set((i%cols)*3-(cols-1)*1.5,0,-Math.floor(i/cols)*3.2);scene.add(o);});
+const rows=Math.ceil(items.length/cols);
+const cam=new THREE.PerspectiveCamera(30,1.6,.1,200);
+async function shot(name,view='front'){
+ if(view==='front'){cam.position.set(0,14,30);cam.lookAt(0,0,-rows*1.5);}else{cam.position.set(0,40,-rows*1.6+.01);cam.lookAt(0,0,-rows*1.6);}
+ r.render(scene,cam);
+ await fetch('/__shot?name='+name,{method:'POST',body:r.domElement.toDataURL('image/jpeg',.85)});return items.map(o=>o.name).join(',');
+}
+window.__fv={shot};
+</script></body></html>

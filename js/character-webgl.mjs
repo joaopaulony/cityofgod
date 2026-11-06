@@ -1,5 +1,5 @@
-// City of God — personagens 3D do autor (assets/npcs) com as animações Mixamo (andar, correr, rifle, agachar,
-// pular, escalar). O jogador escolhe o visual no CAS (bases principais e todos os looks dos NPCs); na rua aparecem
+// City of God — personagens 3D modulares (Quaternius, CC0: cabeça/tronco/pernas/pés trocáveis e cores) com ~120
+// animações (Universal Animation Library 1 e 2, pack modular e rifle Mixamo). O jogador monta o visual no CAS; na rua aparecem
 // só alguns moradores e integrantes de gangue (estilo The Sims: poucos por vez), cada um com nome e sobrenome.
 // Polícia, bombeiros, socorristas, operários e motoboy não passeiam: só surgem em ocorrências (system.occurrence).
 import * as THREE from 'three';
@@ -8,7 +8,9 @@ import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {chooseCharacterClip,planLowVault,stepTraversal,pointSegmentDistance} from './character-actions.mjs';
 import {CAS_DEFAULT,normalizeCAS,readCAS} from './cas-profile.mjs';
 import {installCASCreator} from './cas-creator.mjs';
-import {createCASEmoteClips,CAS_EMOTES} from './cas-studio.mjs';
+import {CAS_EMOTES,emoteClipSpecs,emoteDuration} from './cas-studio.mjs';
+import {normalizeLook,lookKey} from './modular-characters.mjs';
+import {installEmoteMenu} from './emote-menu.mjs';
 import {loadRoster,DEFAULT_LOOK,STREET_ROLES,groupLabel} from './npc-roster.mjs';
 import {createSocialSim,SOCIAL_ACTIONS} from './social-sim.mjs';
 import {installSocialUI} from './social-ui.mjs';
@@ -25,6 +27,25 @@ const STREET_MAX=8;                 // moradores/gangue andando ao mesmo tempo p
 const SPAWN_MIN=26,SPAWN_MAX=58,DESPAWN=95;
 const OCCURRENCE={police:{group:'policia',count:2,label:'Polícia a caminho'},investigation:{group:'policia',count:2,label:'Investigação em andamento'},fire:{group:'bombeiros',count:3,label:'Bombeiros a caminho'},
  medical:{group:'socorristas',count:2,label:'Socorristas a caminho'},works:{group:'operarios',count:2,label:'Obra na via'},delivery:{group:'motoboy',count:1,label:'Entrega'}};
+
+// ---------- ações sob demanda ----------
+// ~120 clipes por sexo (+ metades @upper/@lower p/ atirar andando): cada personagem só cria as ações que toca de fato.
+// Apelidos: o socorrista ajoelhado e quem carrega caixa usam clipes reais da biblioteca no lugar dos procedurais.
+const CLIP_ALIAS=Object.freeze({kneel_aid:'fixing_kneeling','carry@upper':'walk_carry@upper'});
+// ações domésticas (city-home*.js → player.homeAction.kind) → clipe da biblioteca
+const HOME_CLIP=Object.freeze({cook:'interact',stove:'interact',wash:'interact',use:'interact',fridge:'chest_open',eat:'consume',drink:'consume',dinner:'sitting_talking',watch:'sitting_idle',toilet:'sitting_idle',chair:'sitting_idle'});
+const COMBAT=new WeakMap(),HALVES=new WeakMap();
+function halves(clip){if(!HALVES.has(clip))HALVES.set(clip,splitClip(clip));return HALVES.get(clip);}
+function lazyActions(mixer,clips,extra){
+ const byName=new Map(clips.map(c=>[c.name,c]));for(const c of extra)if(!byName.has(c.name))byName.set(c.name,c);
+ const made=new Map();
+ const resolve=n=>{
+  n=CLIP_ALIAS[n]||n;if(byName.has(n))return byName.get(n);
+  const m=n.match(/^(.+)@(upper|lower)$/),base=m&&byName.get(m[1]);
+  return base?halves(base)[m[2]==='upper'?0:1]:null;
+ };
+ return {has:n=>!!resolve(n),get(n){if(!made.has(n)){const c=resolve(n);if(!c)return undefined;made.set(n,mixer.clipAction(c));}return made.get(n);}};
+}
 
 export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={}){
  const entries=new Map(),loader=new GLTFLoader(),tmp=new THREE.Vector3(),npcs=[],occurrences=[];
@@ -195,23 +216,22 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));s.scale.set(1.5,.375,1);s.renderOrder=10;s.visible=false;return s;
  }
 
- async function mount(a,id,{tag=false}={}){
-  const item=await roster.load(id,{hd:a===bridge.player});
+ async function mount(a,what,{tag=false}={}){
+  const item=await roster.load(what);
   const root=cloneSkeleton(item.gltf.scene),mixer=new THREE.AnimationMixer(root);
   root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-  const spec={...item.spec,clips:{...item.spec.clips}},actions=new Map();
-  for(const clip of [...item.gltf.animations,...createCASEmoteClips(root)]){
-   actions.set(clip.name,mixer.clipAction(clip));
-   if(clip.name.startsWith('cas_')){const meta=CAS_EMOTES[clip.name.slice(4)];if(meta)spec.clips[clip.name]={name:clip.name,duration:clip.duration,loop:meta.loop,speed:0};}
-  }
-  // metades de cima/de baixo dos clipes Mixamo (atirar/recarregar andando, correndo, agachado) e os clipes de combate
-  // procedurais (mortes, soco, taco, pistola em uma mão) — montados uma vez por visual
-  if(!item.combat)item.combat=[...item.gltf.animations.flatMap(splitClip),...makeCombatClips(root,spec.height)];
-  for(const clip of item.combat)actions.set(clip.name,mixer.clipAction(clip));
+  const spec={...item.spec,clips:{...item.spec.clips}};
+  Object.assign(spec.clips,emoteClipSpecs(spec.clips));
+  // ações de casa com clipe próprio (em laço enquanto durar): home_<tipo>
+  for(const [kind,clip] of Object.entries(HOME_CLIP))if(spec.clips[clip])spec.clips['home_'+kind]={...spec.clips[clip],loop:true,speed:0};
+  // golpes/mortes/pistola em uma mão procedurais (procedural-anim.mjs): um conjunto por sexo (mesmo esqueleto)
+  const anims=item.gltf.animations;
+  if(!COMBAT.has(anims))COMBAT.set(anims,makeCombatClips(root,spec.height).filter(c=>!CLIP_ALIAS[c.name]));
+  const actions=lazyActions(mixer,anims,COMBAT.get(anims));
   const gun=new THREE.Group(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.7);gun.add(muzzle);gun.visible=false;
   root.userData.noSnow=gun.userData.noSnow=true;   // neve pousada (ambience-3d.mjs) não cobre gente nem o que ela carrega
   scene.add(root);scene.add(gun);
-  const entry={root,mixer,actions,spec,id,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),
+  const entry={root,mixer,actions,spec,id:item.key,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),
    right:root.getObjectByName('mixamorigRightHand'),left:root.getObjectByName('mixamorigLeftHand'),fore:root.getObjectByName('mixamorigRightForeArm'),palm:root.getObjectByName('mixamorigRightHandMiddle1'),tag:tag?nameTag(spec.name,groupLabel(spec.group)):null};
   if(entry.tag){entry.tag.position.set(0,spec.height+.35,0);root.add(entry.tag);}
   const previous=entries.get(a);if(previous)dispose(previous);
@@ -523,6 +543,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(a.carry&&!a.traversal)return {base:chooseCharacterClip({...a,armed:false,reloadT:-1,recoilT:9}),upper:'carry@upper'};   // pacote/saco/bandeja nos braços
   if(a.aiding)return {base:'kneel_aid'};   // socorrista reanimando
   if(a.homeAction&&a.homeAction.kind==='sit')return {base:'cas_sit'};
+  if(a.homeAction&&e.spec.clips['home_'+a.homeAction.kind])return {base:'home_'+a.homeAction.kind};
   if(e.emote)return {base:'cas_'+e.emote.id};
   const cat=a.weaponId?window.CityWeapons?.list[a.weaponId]?.cat:null,busy=a.traversal||a.jump;
   const melee=a.meleeT>=0&&!busy?(a.meleeKind==='bat'?'bat_swing@upper':'punch@upper'):null;
@@ -692,25 +713,30 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  system.telemetry=()=>[...entries].map(([a,e])=>({name:a===bridge.player?(system.casProfile.name+' ('+e.spec.name+')'):e.spec.name,look:e.id,role:e.spec.role,clip:e.clip,upper:e.upName||null,x:a.x,y:a.y,visible:e.root.visible,triangles:e.spec.triangles,bones:e.spec.bones}));
  system.appearances=()=>null;
  system.getAppearance=a=>a===bridge.player?{...system.casProfile}:null;
- const lookFor=(id,sex)=>roster?.characters.get(id)?.sex===sex?id:DEFAULT_LOOK[sex];
+ // visual do jogador = perfil do CAS (peças + cores); "visuais prontos" = os dos personagens do elenco
+ const lookOfProfile=p=>normalizeLook(p,roster?.manifest);
+ system.lookOf=id=>{const c=roster?.characters.get(id);return c?{...c.look}:null;};
  system.applyCAS=async values=>{
   const next=normalizeCAS({...system.casProfile,...values});
-  next.look=lookFor(next.look,next.sex);
-  if(roster&&entries.get(bridge.player)?.id!==next.look)await mount(bridge.player,next.look);
-  system.casProfile=next;system.streetModelId=next.look;
+  if(values?.look&&roster?.characters.has(values.look)){const l=roster.characters.get(values.look).look;if(l.sex===next.sex)Object.assign(next,{head:l.head,body:l.body,legs:l.legs,feet:l.feet,acc:l.acc,skin:l.skin,hair:l.hair,top:l.top,bottom:l.bottom,shoes:l.shoes});}
+  const look={...lookOfProfile(next),name:next.name};
+  if(roster&&entries.get(bridge.player)?.id!==lookKey(look))await mount(bridge.player,look);
+  system.casProfile=next;system.streetModelId=next.look;system.playerLook=look;
   bridge.player.name=next.name;
   system.update(0);return next;
  };
  system.setBody=async(a,sex)=>a===bridge.player?system.applyCAS({sex}):null;
  system.setStreetModel=id=>{const c=roster?.characters.get(id);if(!c||c.sex!==system.casProfile.sex)return false;void system.applyCAS({look:id});return true;};
- system.loadLook=id=>roster.load(id);
+ system.loadLook=what=>roster.load(typeof what==='string'?what:{...lookOfProfile(what),name:what.name});
  system.setAppearance=async(a,changes)=>a===bridge.player?system.applyCAS(changes):null;
+ system.emotes=CAS_EMOTES;
  system.playEmote=id=>{
   const entry=entries.get(bridge.player),a=bridge.player;
-  if(!entry||!CAS_EMOTES[id]||a.armed||a.speed>.12||bridge.driving()||a.homeAction)return false;
-  entry.emote={id,end:performance.now()+CAS_EMOTES[id].duration*1000};
-  entry.clip=null;return true;
+  if(!entry||!CAS_EMOTES[id]||!entry.spec.clips['cas_'+id]||a.armed||a.speed>.12||bridge.driving()||a.homeAction)return false;
+  entry.emote={id,end:performance.now()+emoteDuration(id,entry.spec.clips)*1000};
+  entry.clip=null;entry.baseName=null;return true;
  };
+ system.stopEmote=()=>{const e=entries.get(bridge.player);if(e)e.emote=null;};
  async function init(){
   try{
    try{system.casProfile=normalizeCAS(readCAS(localStorage)||CAS_DEFAULT);}catch{}
@@ -726,7 +752,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   }catch(error){
    system.status='failed';system.errors.push('Personagens: '+String(error.message||error));console.error('Personagens 3D',error);
   }
-  try{installCASCreator(system,bridge,null,{styles:[],warnings:[],set:async()=>{},release:()=>{}});}
+  try{installCASCreator(system,bridge,null,{styles:[],warnings:[],set:async()=>{},release:()=>{}});installEmoteMenu(system,bridge);}
   catch(error){system.errors.push('CAS: '+String(error.message||error));}
  }
  void init();

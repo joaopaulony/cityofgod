@@ -113,7 +113,7 @@ const PROPS3D_KINDS = new Set(['hospitalbed','studentdesk',
   'turntable','infokiosk','spotbar','brandwall','salesdesk','bannerstand','tirestand','rimwall','carlift','toolchest','workbench','compressor','tirestack','oildrum','keybox','pallet','forklift','chair','hydrant', 'trashcan', 'mailbox', 'newsbox', 'dumpster', 'cart', 'couch', 'fridge', 'stove', 'sink', 'counter', 'cabinet', 'wardrobe', 'shelf', 'desk', 'table', 'sofa', 'tv', 'bed', 'toilet', 'shower', 'mirror', 'rug', 'screen', 'blanket',
   'trashbag', 'tire', 'mattress', 'hoop', 'cooler', 'bin', 'porchroof', 'portico', 'deck', 'column', 'gatepost', 'hedge', 'planebody', 'forsale',
   'gasstore', 'gasisland', 'gascol', 'gaspump', 'gassign', 'gasair', 'gasice', 'gaspropane', 'container']);   // + house-3d.mjs
-function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || (b.kind === 'post' && (!b.house || b.exteriorFixture)) || (b.kind === 'canopy' && !b.draw) || (b.kind === 'step' && !b.house)); }
+function props3d(b) { return !!globalThis.VEG3D && (PROPS3D_KINDS.has(b.kind) || b.kind.startsWith('qf_') || (b.kind === 'post' && (!b.house || b.exteriorFixture)) || (b.kind === 'canopy' && !b.draw) || (b.kind === 'step' && !b.house)); }
 // janelas e portas 3D (house-3d.mjs): casas comuns, com o jogador do lado de fora
 function opening3d(H) { return !!globalThis.VEG3D && !H.inside && !H.facadeFn && !(H.style && H.style.boarded); }
 function addBox(b) {
