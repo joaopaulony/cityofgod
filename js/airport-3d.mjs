@@ -130,6 +130,7 @@ export function createAirport3D(THREE, scene, bridge) {
     for (let x = gx0; x <= gx0 + gw + 0.01; x += 2.2) if(Math.abs(x-entryX)>gap+.1) k.box(x - 0.06, 0, front + 0.2, x + 0.06, th - 0.05, front + 0.48, '#d9dde0');
     for (const y of [3.3, th - 0.15]) k.box(gx0, y - 0.08, front + 0.2, gx0 + gw, y + 0.08, front + 0.5, '#d9dde0');
     k.box(x0 + 2, 0, front + 0.6, x0 + w - 2, 0.12, front + 6.2, '#c4c0b6');   // calçada coberta (meio-fio de embarque)
+    (bridge.walkSurfaces || (bridge.walkSurfaces = [])).push({ x0: x0 + 2, y0: front + 0.6, x1: x0 + w - 2, y1: front + 6.2, h: 0.12 });   // quem anda nela pisa 12 cm acima (character-webgl.mjs)
     {
       const c = document.createElement('canvas'); c.width = 1024; c.height = 64; const g = c.getContext('2d');
       g.fillStyle = '#2a4a66'; g.fillRect(0, 0, 1024, 64); g.fillStyle = '#ffffff'; g.font = '700 40px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CITY OF GOD INTERNATIONAL  ·  CGI', 512, 34);

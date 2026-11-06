@@ -61,3 +61,15 @@ test('materiais: pele, cabelo e cor principal da roupa',()=>{
  const suit=manifest.male.parts.find(p=>p.slot==='body'&&p.id==='suit');
  assert.equal(primaryCloth(suit,'male'),'Suit');
 });
+test('cores por parte da roupa: só materiais pintáveis da peça escolhida',async()=>{
+ const {paintable}=await import('../js/modular-characters.mjs');
+ assert.deepEqual(paintable(manifest,'male','body','suit').map(m=>m.name),['Suit','White','Tie']);
+ const l=normalizeLook({sex:'male',body:'suit',tints:{body:{Tie:'#FF0000',Skin:'#000000',Nada:'#00ff00'},legs:{X:'#123456'}}},manifest);
+ assert.deepEqual(l.tints,{body:{Tie:'#ff0000'}},'pele e materiais de outra peça ficam de fora');
+ assert.notEqual(lookKey(l),lookKey({...l,tints:{}}),'a cor entra na chave do visual');
+});
+test('móveis do pack: medidas do manifesto e base no chão (lidos como o jogo lê)',async()=>{
+ const {execFileSync}=await import('node:child_process');
+ const out=execFileSync(process.execPath,['tools/quaternius/furniture-check.mjs'],{cwd:new URL('..',import.meta.url),encoding:'utf8'});
+ assert.match(out,/, 0 fora da medida/);
+});

@@ -57,10 +57,30 @@ export function normalizeLook(input={},manifest=null){
  look.acc=ID.test(String(input.acc||''))&&has('acc',input.acc)?input.acc:'';
  look.skin=COLOR.test(input.skin||'')?input.skin.toLowerCase():SKIN_TONES[2];
  for(const k of ['hair','top','bottom','shoes'])look[k]=COLOR.test(input[k]||'')?input[k].toLowerCase():'';
+ // cor de cada parte da roupa: tints[encaixe][material] = '#rrggbb' (só materiais tingíveis da peça escolhida)
+ const tints={};
+ for(const slot of SLOTS){
+  const src=input.tints?.[slot];if(!src||typeof src!=='object'||!look[slot])continue;
+  const allowed=parts?new Set(paintable(manifest,sex,slot,look[slot]).map(m=>m.name)):null;
+  for(const [name,color] of Object.entries(src).slice(0,12))
+   if(MAT.test(name)&&COLOR.test(color||'')&&(!allowed||allowed.has(name)))(tints[slot]||(tints[slot]={}))[name]=color.toLowerCase();
+ }
+ look.tints=tints;
  return look;
 }
+const MAT=/^[A-Za-z0-9_ .-]{1,40}$/;
+// materiais que o jogador pode pintar numa peça (roupa, chapéu, metal), do que mais aparece p/ o que menos aparece.
+// Pele e olhos não; o cabelo tem cor própria (look.hair).
+export function paintable(manifest,sex,slot,id){
+ const part=manifest?.[sex]?.parts?.find(p=>p.slot===slot&&p.id===id);if(!part)return [];
+ const seen=new Map();
+ for(const m of part.materials){const role=materialRole(slot,id,m.name,sex);if(!['cloth','hat','metal'].includes(role))continue;
+  const e=seen.get(m.name)||{name:m.name,color:m.color,role,triangles:0};e.triangles+=m.triangles;seen.set(m.name,e);}
+ return [...seen.values()].sort((a,b)=>b.triangles-a.triangles);
+}
 export const DEFAULT_PARTS=Object.freeze({male:{head:'casual_hoodie',body:'casual_hoodie',legs:'casual_hoodie',feet:'casual_hoodie'},female:{head:'casual',body:'casual',legs:'casual',feet:'casual'}});
-export const lookKey=l=>[l.sex,l.head,l.body,l.legs,l.feet,l.acc||'-',l.skin,l.hair||'-',l.top||'-',l.bottom||'-',l.shoes||'-'].join('|');
+export const lookKey=l=>[l.sex,l.head,l.body,l.legs,l.feet,l.acc||'-',l.skin,l.hair||'-',l.top||'-',l.bottom||'-',l.shoes||'-',
+ Object.entries(l.tints||{}).sort().map(([s,t])=>s+':'+Object.entries(t).sort().map(e=>e.join('=')).join(',')).join(';')||'-'].join('|');
 
 // visual aleatório (determinístico pela semente) p/ moradores: mistura peças de personagens diferentes
 export function randomLook(sex,seed,manifest,{street=true,pool=null}={}){
@@ -81,26 +101,32 @@ export function buildLookScene(THREE,cloneSkeleton,base,look,manifest){
  const root=cloneSkeleton(base),want=new Set(SLOTS.map(s=>s+'-'+(look[s]||'')));
  const drop=[];root.traverse(o=>{if(o.userData?.slot&&!want.has(o.name))drop.push(o);});
  for(const o of drop)o.parent.remove(o);
- const meta=manifest?.[look.sex]?.parts||[],partOf=(slot,id)=>meta.find(p=>p.slot===slot&&p.id===id);
- const tint={skin:look.skin,hair:look.hair},cloth={body:look.top,legs:look.bottom,feet:look.shoes};
  let triangles=0;
+ root.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
+  triangles+=(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3;});
+ paintLook(root,look,manifest);
+ root.userData.look=look;root.userData.triangles=triangles|0;
+ return root;
+}
+// pinta (ou repinta) as cores do visual numa cena já montada: pele, cabelo, cor principal (top/bottom/shoes) e as
+// cores por parte (tints). Na primeira vez cada material vira cópia própria da cena, guardando a cor original.
+export function paintLook(root,look,manifest){
+ const meta=manifest?.[look.sex]?.parts||[],cloth={body:look.top,legs:look.bottom,feet:look.shoes};
  root.traverse(o=>{
   if(!o.isMesh)return;
-  o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
   const holder=o.userData?.slot?o:o.parent,slot=holder?.userData?.slot,part=holder?.userData?.part;if(!slot)return;
-  triangles+=(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3;
-  const primary=cloth[slot]?primaryCloth(partOf(slot,part),look.sex):null;
-  const mats=Array.isArray(o.material)?o.material:[o.material];
-  o.material=mats.map(m=>{
+  const primary=cloth[slot]?primaryCloth(meta.find(p=>p.slot===slot&&p.id===part),look.sex):null;
+  const mats=(Array.isArray(o.material)?o.material:[o.material]).map(m=>{
+   if(!m.userData.casOwn){const base=m.color.getHex();m=m.clone();m.userData={casOwn:true,base};}
    const role=materialRole(slot,part,m.name,look.sex);let color=null;
-   if(role==='skin')color=tint.skin;
-   else if(role==='hair')color=tint.hair;
+   if(role==='skin')color=look.skin;
+   else if(role==='hair')color=look.hair;
    else if(role==='cloth'&&primary&&m.name===primary)color=cloth[slot];
-   if(!color)return m;
-   const c=m.clone();c.color.set(color);if(/darker/i.test(m.name))c.color.multiplyScalar(.86);c.userData.casRole=role;return c;
+   if(role!=='skin'&&role!=='eyes'&&look.tints?.[slot]?.[m.name])color=look.tints[slot][m.name];   // cor escolhida p/ esta parte
+   if(color){m.color.set(color);if(/darker/i.test(m.name))m.color.multiplyScalar(.86);}else m.color.setHex(m.userData.base);
+   m.userData.casRole=role;return m;
   });
-  if(o.material.length===1)o.material=o.material[0];
+  o.material=mats.length===1?mats[0]:mats;
  });
- root.userData.look=look;root.userData.triangles=triangles|0;
  return root;
 }

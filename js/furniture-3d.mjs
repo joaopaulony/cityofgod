@@ -30,7 +30,19 @@ export async function loadQuaterniusFurniture(THREE,M,{fabric,metal}={}){
  for(const node of gltf.scene.children){
   const list=[];
   node.updateMatrixWorld(true);
-  node.traverse(o=>{if(!o.isMesh)return;const g=o.geometry.clone();g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion())));list.push([g,o.material.color.clone(),o.material.name]);});
+  // matriz inteira do nó: a compactação (meshopt/quantização) guarda as posições normalizadas e põe a escala e o
+  // deslocamento no nó — só a rotação deixava o móvel no tamanho errado e enterrado no chão
+  node.updateMatrixWorld(true);   // a posição do nó É o deslocamento da quantização (os itens ficam na origem)
+  node.traverse(o=>{
+   if(!o.isMesh)return;
+   // atributos quantizados (Int16/Int8 normalizados) viram Float32 antes de aplicar a matriz
+   const g=new THREE.BufferGeometry(),float=a=>{const out=new Float32Array(a.count*3);for(let i=0;i<a.count;i++){out[i*3]=a.getX(i);out[i*3+1]=a.getY(i);out[i*3+2]=a.getZ(i);}return new THREE.BufferAttribute(out,3);};
+   g.setAttribute('position',float(o.geometry.attributes.position));
+   if(o.geometry.attributes.normal)g.setAttribute('normal',float(o.geometry.attributes.normal));
+   if(o.geometry.index)g.setIndex(o.geometry.index.clone());
+   g.applyMatrix4(o.matrixWorld);if(g.attributes.normal)g.normalizeNormals();
+   list.push([g,o.material.color.clone(),o.material.name]);
+  });
   pieces.set(node.name,list);
  }
  const build=(item,list,tint,{scale=1,turn=0}={})=>k=>{

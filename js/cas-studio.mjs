@@ -39,7 +39,6 @@ export const CAS_EMOTES=Object.freeze({
  // diversão
  zombie:{label:'Zumbi',clip:'zombie_idle',group:'fun',loop:true,duration:8},
  scratch:{label:'Arranhão de zumbi',clip:'zombie_scratch',group:'fun'},
- spell:{label:'Lançar feitiço',clip:'spell_simple_shoot',group:'fun'},
 });
 export const EMOTE_GROUPS=Object.freeze({social:'Conversa',daily:'Dia a dia',work:'Trabalho',action:'Movimento e luta',fun:'Diversão'});
 

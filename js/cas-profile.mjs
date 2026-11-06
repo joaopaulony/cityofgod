@@ -3,7 +3,7 @@ export const CAS_KEY='cityofgod.cas.skeleton.v2';
 export const CAS_DEFAULT=Object.freeze({
  version:1,name:'Alex',age:24,sex:'male',height:1,build:1,background:'bairro',style:'casual',
  // peças modulares (js/modular-characters.mjs): '' = peça padrão do sexo; cores '' = cor original da peça
- head:'',body:'',legs:'',feet:'',acc:'',
+ head:'',body:'',legs:'',feet:'',acc:'',tints:Object.freeze({}),
  skin:'#b98059',hair:'',hairStyle:'none',top:'',bottom:'',shoes:'',
  outfit:'casual',accessory:'none',accessoryColor:'#25282a',faceWidth:0,jaw:0,nose:0,eyes:0,cheeks:0,look:''
 });
@@ -36,6 +36,12 @@ export function normalizeCAS(input={}){
   else if(key!=='skin'&&key!=='accessoryColor'&&input[key]==='')result[key]='';   // '' = cor original da peça
  // peças (ids de assets/characters/modular/manifest.json; validados contra o manifesto no jogo)
  for(const key of ['head','body','legs','feet','acc'])result[key]=/^[a-z0-9_]{1,40}$/.test(String(input[key]||''))?String(input[key]):'';
+ // cores por parte da roupa: {encaixe:{material:'#rrggbb'}} (validado contra a peça no jogo)
+ result.tints={};
+ if(input.tints&&typeof input.tints==='object'&&!Array.isArray(input.tints))for(const slot of ['head','body','legs','feet','acc']){
+  const t=input.tints[slot];if(!t||typeof t!=='object'||Array.isArray(t))continue;
+  for(const [name,color] of Object.entries(t).slice(0,12))if(/^[A-Za-z0-9_ .-]{1,40}$/.test(name)&&COLOR.test(color||''))(result.tints[slot]||(result.tints[slot]={}))[name]=String(color).toLowerCase();
+ }
  return result;
 }
 export function readCAS(storage){

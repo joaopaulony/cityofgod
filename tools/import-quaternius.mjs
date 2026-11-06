@@ -225,6 +225,31 @@ async function importSex(sex){
    add(out,{loop:!ONE_SHOT_MIXAMO.has(c.name),source:'mixamo',...(SPEED[c.name]?{speed:SPEED[c.name]}:{})});
   }
  }
+ // 2d) dedos: nos clipes retargetados (UAL, Mixamo) a mão das bibliotecas tem outra anatomia e os dedos saíam tortos.
+ // Eles passam a usar poses autorais do próprio pack: mão relaxada (idle nativo) ou empunhando (idle com pistola),
+ // conforme o clipe segura algo. Os clipes do pack (q_*, idle/walk/run) ficam com os dedos que já têm.
+ {
+  const FINGER=/^mixamorig(Left|Right)Hand(Thumb|Index|Middle|Ring|Pinky)\d$/;
+  const pose=(clipName,t,side)=>{
+   const c=clips.find(x=>x.name===clipName),out=new Map();
+   for(const tr of c.tracks){const m=tr.name.match(/^(.+)\.quaternion$/);if(!m||!FINGER.test(m[1]))continue;
+    out.set(m[1],Array.from(tr.createInterpolant().evaluate(Math.min(t,tr.times[tr.times.length-1]))));}
+   return out;
+  };
+  const relaxed=pose('idle',0),gun=pose('q_idle_gun',0);
+  // mão que empunha: a direita do idle com pistola (dedos fechados, indicador no gatilho); a esquerda é o espelho
+  // (o rig é simétrico: espelhar no plano x troca o sinal de y e z do quatérnio local)
+  const grip=new Map();
+  for(const [n,q] of gun)if(n.startsWith('mixamorigRight')){grip.set(n,q);grip.set(n.replace('Right','Left'),[q[0],-q[1],-q[2],q[3]]);}
+  const HOLDS=/^(rifle_|pistol_|punch|melee|push|walk_carry|tree_chopping|idle_torch|idle_lantern|idle_rail|climb|driving|farm_|chest_open|pick_up|sword|shield|overhand|consume|idle_talking_phone|fixing)/;
+  for(const clip of clips){
+   if(meta[clip.name].source==='quaternius-modular')continue;
+   const use=HOLDS.test(clip.name)?grip:relaxed;
+   clip.tracks=clip.tracks.filter(t=>!FINGER.test(t.name.replace('.quaternion','')));
+   for(const [n,q] of use)clip.tracks.push(new THREE.QuaternionKeyframeTrack(n+'.quaternion',new Float32Array([0]),new Float32Array(q)));
+   meta[clip.name].hands=use===grip?'grip':'relaxed';
+  }
+ }
  // velocidade (m/s) de cada clipe de locomoção pela passada: o pé apoiado no chão desliza p/ trás na velocidade do corpo
  for(const clip of clips){
   if(!/walk|run|jog|sprint/.test(clip.name)||!meta[clip.name].loop||meta[clip.name].speed)continue;   // UAL: root motion; Mixamo: valores de sempre

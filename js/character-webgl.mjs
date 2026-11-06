@@ -497,7 +497,9 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     const speed=info?.speed||0;
     if(speed>.1)e.action.setEffectiveTimeScale(THREE.MathUtils.clamp((a.speed||0)/speed,.5,3.5));
     e.mixer.update(Math.min(.06,Math.max(0,dt)));
-    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0),a.y);
+    // piso sob os pés: decks, degraus de entrada e plataformas 3D ficam acima do chão (antes os pés afundavam neles)
+    const gy=groundAt(a);e.groundY=e.groundY==null?gy:e.groundY+(gy-e.groundY)*Math.min(1,dt*14);
+    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+e.groundY,a.y);
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.rotation.x=0;
     if(a.homeAction?.kind==='rest'&&a.homeAction.item){const bed=a.homeAction.item,angle=(bed.rot||0)+(bed.d>bed.w?Math.PI/2:0),half=e.spec.height*.45;e.root.rotation.set(-Math.PI/2,Math.PI/2-angle,0,'YXZ');e.root.position.set(bed.x+Math.cos(angle)*half,(a.floorZ||0)+(bed.h||.7)+.16,bed.y+Math.sin(angle)*half);}
@@ -531,6 +533,23 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   lap('animation');blood.update(dt);lap('blood');
   system.frames++;
  };
+ // ---------- piso pisável acima do chão ----------
+ // bridge.walkSurfaces: retângulos alinhados {x0,y0,x1,y1,h} (calçada de embarque do aeroporto); caixas 'deck' e
+ // 'step' (com giro) no térreo. A lista de caixas é refeita só quando o mundo muda (streaming de setores).
+ const WALK=new Set(['deck','step']);let walkBoxes=[],walkN=-1;
+ function groundAt(a){
+  if((a.floor||0)!==0||a.floorZ||a.stairTravel)return 0;
+  const boxes=bridge.boxes||[];
+  if(boxes.length!==walkN){walkN=boxes.length;walkBoxes=boxes.filter(b=>WALK.has(b.kind)&&!(b.z>0)&&b.h>0&&b.h<=.25&&!(b.house&&b.house.stair&&!b.exteriorFixture));}
+  let h=0;
+  for(const s of bridge.walkSurfaces||[])if(a.x>=s.x0&&a.x<=s.x1&&a.y>=s.y0&&a.y<=s.y1&&s.h>h)h=s.h;
+  for(const b of walkBoxes){
+   const dx=a.x-b.x,dy=a.y-b.y;if(dx*dx+dy*dy>9||b.h<=h)continue;
+   const c=Math.cos(b.rot||0),s=Math.sin(b.rot||0),lx=dx*c+dy*s,ly=-dx*s+dy*c;
+   if(Math.abs(lx)<=b.w/2+.05&&Math.abs(ly)<=b.d/2+.05)h=b.h;
+  }
+  return h;
+ }
  // ---------- animação: o que cada personagem toca (base = corpo todo ou pernas; upper = braços por cima) ----------
  const ONE_HAND=new Set(['pistol','revolver']);
  function actionName(e,key,half){
@@ -718,7 +737,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  system.lookOf=id=>{const c=roster?.characters.get(id);return c?{...c.look}:null;};
  system.applyCAS=async values=>{
   const next=normalizeCAS({...system.casProfile,...values});
-  if(values?.look&&roster?.characters.has(values.look)){const l=roster.characters.get(values.look).look;if(l.sex===next.sex)Object.assign(next,{head:l.head,body:l.body,legs:l.legs,feet:l.feet,acc:l.acc,skin:l.skin,hair:l.hair,top:l.top,bottom:l.bottom,shoes:l.shoes});}
+  if(values?.look&&roster?.characters.has(values.look)){const l=roster.characters.get(values.look).look;if(l.sex===next.sex)Object.assign(next,{head:l.head,body:l.body,legs:l.legs,feet:l.feet,acc:l.acc,skin:l.skin,hair:l.hair,top:l.top,bottom:l.bottom,shoes:l.shoes,tints:l.tints||{}});}
   const look={...lookOfProfile(next),name:next.name};
   if(roster&&entries.get(bridge.player)?.id!==lookKey(look))await mount(bridge.player,look);
   system.casProfile=next;system.streetModelId=next.look;system.playerLook=look;

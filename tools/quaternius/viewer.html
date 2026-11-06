@@ -12,11 +12,11 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
-const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(innerWidth,innerHeight);r.outputColorSpace=THREE.SRGBColorSpace;document.body.append(r.domElement);
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(innerWidth||900,innerHeight||700);r.outputColorSpace=THREE.SRGBColorSpace;document.body.append(r.domElement);
 const scene=new THREE.Scene();scene.background=new THREE.Color('#2a3036');
 scene.add(new THREE.HemisphereLight('#fff','#556',1.6));const d=new THREE.DirectionalLight('#fff',2.2);d.position.set(2,4,3);scene.add(d);
 scene.add(new THREE.GridHelper(10,10,0x666666,0x444444));
-const cam=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,.05,50);cam.position.set(0,1.3,4.2);
+const cam=new THREE.PerspectiveCamera(35,(innerWidth||900)/(innerHeight||700),.05,50);cam.position.set(0,1.3,4.2);
 const ctl=new OrbitControls(cam,r.domElement);ctl.target.set(0,.95,0);ctl.update();
 const man=await (await fetch('/assets/characters/modular/manifest.json')).json();
 const gl={},loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
@@ -52,7 +52,8 @@ async function shot(opts={}){
  if(opts.sex)fill(),Object.entries(opts).forEach(([k,v])=>{if(k!=='sex'&&$(k)&&$(k).type!=='checkbox')$(k).value=v;});
  await build();
  for(const f of figures){const a=f.mixer._actions[0];if(a){a.time=(opts.frac??.3)*a.getClip().duration;}f.mixer.update(0);}
- const v=opts.view||'front';cam.position.set(v==='side'?4.2:0,1.3,v==='side'?0:4.2);ctl.update();
+ const v=opts.view||'front';cam.position.set(v==='side'?4.2:0,1.3,v==='side'?0:4.2);ctl.target.set(0,.95,0);
+ if(opts.cam){cam.position.fromArray(opts.cam);ctl.target.fromArray(opts.target||[0,1,0]);}ctl.update();
  r.render(scene,cam);
  const c=document.createElement('canvas');c.width=opts.w||560;c.height=Math.round(c.width*r.domElement.height/r.domElement.width);c.getContext('2d').drawImage(r.domElement,0,0,c.width,c.height);
  await fetch('/__shot?name='+(opts.name||''),{method:'POST',body:c.toDataURL('image/jpeg',.8)}).catch(()=>{});return c.toDataURL('image/jpeg',.8).length;

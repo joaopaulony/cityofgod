@@ -125,6 +125,16 @@ export function retargetMixamo(clip,sourceRoot,targetRoot,name=clip.name,{style=
   const c=m?'mixamorig'+m[1]+LIMB_CHILD[m[2]]:'mixamorig'+fm[1]+fm[2]+(+fm[3]+1);if(!src.has(c)||!dst.has(c))continue;
   const ds=src.get(c).pos.clone().sub(src.get(n).pos).normalize(),dt=dst.get(c).pos.clone().sub(dst.get(n).pos).normalize();
   align.set(n,new THREE.Quaternion().setFromUnitVectors(dt,ds));}
+ // mão: alinhada por uma base inteira (dedos p/ frente + linha indicador→mindinho), não só pela direção. Com a menor
+ // rotação a torção do punho ficava indefinida e, em esqueletos de convenção diferente (UAL), a palma virava p/ cima.
+ for(const sd of ['Left','Right']){
+  const h='mixamorig'+sd+'Hand',mi='mixamorig'+sd+'HandMiddle1',ix='mixamorig'+sd+'HandIndex1',pk='mixamorig'+sd+'HandPinky1';
+  if(![h,mi,ix,pk].every(n=>src.has(n)&&dst.has(n)))continue;
+  const basis=R=>{const f=R.get(mi).pos.clone().sub(R.get(h).pos).normalize(),a=R.get(ix).pos.clone().sub(R.get(pk).pos);
+   a.addScaledVector(f,-a.dot(f)).normalize();const u=new THREE.Vector3().crossVectors(f,a);
+   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f,a,u));};
+  align.set(h,basis(src).multiply(basis(dst).invert()));
+ }
  times.forEach((t,i)=>{
   for(const n of names){
    const S=src.get(n),D=dst.get(n),l=tracks[n]?new THREE.Quaternion().fromArray(tracks[n].evaluate(t)):S.q;

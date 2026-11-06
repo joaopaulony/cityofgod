@@ -3,7 +3,7 @@
 import {CAS_EMOTES,EMOTE_GROUPS} from './cas-studio.mjs';
 
 const ICON={wave:'👋',yes:'👍',no:'🙅',cheer:'🙌',talk:'💬',phone:'📱',fold:'🙎',call:'📣',dance:'💃',sit:'🪑',sit_talk:'🗨️',eat:'🥤',pickup:'📦',interact:'🖐️',open:'🧰',lean:'🧍',push:'🫸',torch:'🔦',lantern:'🏮',
- kneel:'🔧',plant:'🌱',harvest:'🧺',water:'💧',chop:'🪓',punch:'👊',cross:'🥊',hook:'🤜',kick:'🦵',roll:'🤸',throw:'🤾',zombie:'🧟',scratch:'🧟‍♂️',spell:'✨'};
+ kneel:'🔧',plant:'🌱',harvest:'🧺',water:'💧',chop:'🪓',punch:'👊',cross:'🥊',hook:'🤜',kick:'🦵',roll:'🤸',throw:'🤾',zombie:'🧟',scratch:'🧟‍♂️'};
 
 export function installEmoteMenu(system,bridge){
  if(document.getElementById('city-emotes'))return;
