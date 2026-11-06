@@ -374,15 +374,19 @@ function updatePlayer(dt) {
   }
   let mx = 0, my = 0;
   if (input.down('w')) my--; if (input.down('s')) my++; if (input.down('a')) mx--; if (input.down('d')) mx++;
-  p.aiming = input.rmb;
+  // piloto automático (autopilot.js): anda sozinho pela calçada; qualquer tecla de andar devolve o controle
+  let pilot = null;
+  if (mx || my) { if (window.CityAutopilot?.active) CityAutopilot.cancel(); }
+  else if (window.CityAutopilot?.active) pilot = CityAutopilot.steer(p, dt);
+  p.aiming = input.rmb && !pilot;
   // sem fôlego: só volta a correr com 30% (antes ligava/desligava a cada quadro e a animação piscava)
   if (st.needs.stamina < .025) p.exhausted = true; else if (st.needs.stamina > .3) p.exhausted = false;
-  p.running = input.down('shift') && !p.aiming && !p.crouching && !p.exhausted;
+  p.running = input.down('shift') && !pilot && !p.aiming && !p.crouching && !p.exhausted;
   const melee = !p.armed || !!p.weapon?.melee;
   const aimPt = unproj(input.mx / RS, input.my / RS, 1.4);
   let spd = 0;
-  if ((mx || my) && !p.stairTravel) {
-    const w = window.CameraMotion ? CameraMotion.moveDir(mx, my) : screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]);   // ângulo travado enquanto anda (camera-motion.js)
+  if ((mx || my || (pilot && !pilot.hold)) && !p.stairTravel) {
+    const w = pilot ? pilot.w : window.CameraMotion ? CameraMotion.moveDir(mx, my) : screenDirToWorld(mx, my), l = Math.hypot(w[0], w[1]) || 1;   // ângulo travado enquanto anda (camera-motion.js)
     p.moveA = Math.atan2(w[1], w[0]);
     // andar 2,6 m/s e correr 5,55 m/s; atirando/recarregando dá p/ continuar correndo (um pouco mais devagar)
     const busy = !melee && (p.aimHold > 0 || p.reloadT >= 0);
@@ -401,7 +405,7 @@ function updatePlayer(dt) {
   if (Math.floor(p.phase * 2) !== stepBefore && p.speed > .4 && !(p.floorZ > 0 && p.stairTravel)) window.CityAudio?.step(p.x, p.y, p.running);   // passos
   // virar: p/ o mouse quando mira/atira/recarrega; senão p/ onde anda
   const lookMouse = p.aiming || p.aimHold > 0 || p.reloadT >= 0 || p.meleeT >= 0 || input.lmb || p.wantShot;
-  const want = lookMouse ? Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x) : (mx || my) ? p.moveA : p.face;
+  const want = lookMouse && !pilot ? Math.atan2(aimPt[1] - p.y, aimPt[0] - p.x) : (mx || my || (pilot && !pilot.hold)) ? p.moveA : p.face;
   p.face += angDiff(p.face, want) * (1 - Math.exp(-dt * (lookMouse ? 16 : 10)));
 
   fireCD -= dt;
@@ -981,7 +985,7 @@ function tick(dt) {
   }
   T += dt;
   document.body.classList.toggle('cursor-free', !player.armed || !!window.cityVehicles?.driver);
-  st.clock += dt * envClockRate(st.clock); hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
+  st.clock += dt * envClockRate(st.clock) * (window.CityTimeScale || 1);   // aula acelerada (careers.mjs) hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
   // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
   envTick(dt, st.clock);
   if (st.night !== ENV.night) st.night = world.night = ENV.night;
@@ -1003,7 +1007,7 @@ function tick(dt) {
   const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
   const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
     ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
-  const vehicleMessage=interactPressed?(window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
+  const vehicleMessage=interactPressed?(window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
@@ -1039,6 +1043,7 @@ function tick(dt) {
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   window.cityCharacters?.update(dt);
   window.CityJobs?.tick(dt);   // turno do emprego (jobs.mjs)
+  window.CityCareers?.tick(dt);   // aulas e negócio próprio (careers.mjs)
   window.CityFarm?.tick();   // sítio do jogador (farm.mjs)
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);
@@ -1080,7 +1085,7 @@ function tick(dt) {
   // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
-  const otherPrompt=window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const otherPrompt=window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){
@@ -1114,7 +1119,7 @@ function warmIdle() {
 }
 for (const H of houses) if (!H.architecture&&Math.hypot((H.x0 + H.x1) / 2 - player.x, (H.y0 + H.y1) / 2 - player.y) < 45) { houseTex(H); warmRoof(H); }
 requestAnimationFrame(frame);
-window.__game = { player, cam, st, world, houses };
+window.__game = { player, cam, st, world, houses, input };
 CityUI.mount();
 window.CityHomeUI?.mount();
 window.CityFront?.attachGame({

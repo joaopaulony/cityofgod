@@ -14,7 +14,14 @@
   {kind:'dealer',id:'civic-dealer-bairro',name:'City Motors · Zona Norte',floors:1,floorHeight:4.4,color:'#eef1f3',reserved:'TEST DRIVE',spaces:0,target:A=>({x:A.urban.x-420,y:A.urban.y-260})},
   {kind:'dealer',id:'civic-dealer-cidade',name:'City Motors · Litoral',floors:1,floorHeight:4.4,color:'#eef1f3',reserved:'TEST DRIVE',spaces:0,target:A=>A.towns?.[0]?{x:A.towns[0].x+60,y:A.towns[0].y+40}:{x:A.urban.x+520,y:A.urban.y+300}},
   // campus universitário (por último: não muda o lugar dos que já existiam nos saves)
-  {kind:'university',id:'civic-university',name:'Universidade City of God',floors:3,color:'#efe7d8',reserved:'',spaces:0,campus:{w:104,d:92},target:A=>({x:A.urban.x-260,y:A.urban.y+180})}
+  {kind:'university',id:'civic-university',name:'Universidade City of God',floors:3,color:'#efe7d8',reserved:'',spaces:0,campus:{w:104,d:92},target:A=>({x:A.urban.x-260,y:A.urban.y+180})},
+  // estabelecimentos das profissões (careers.mjs): à venda até um formado comprar; um pavimento, mobiliados
+  {kind:'vetclinic',id:'biz-vetclinic',name:'Clínica Veterinária',profession:'vet',floors:1,color:'#e8f1ec',business:{w:32,d:34},target:A=>({x:A.urban.x+140,y:A.urban.y+80})},
+  {kind:'medclinic',id:'biz-medclinic',name:'Consultório Médico',profession:'medic',floors:1,color:'#eef3f5',business:{w:32,d:34},target:A=>({x:A.urban.x-90,y:A.urban.y+130})},
+  {kind:'lawoffice',id:'biz-lawoffice',name:'Escritório de Advocacia',profession:'lawyer',floors:1,color:'#e7e1d6',business:{w:32,d:34},target:A=>({x:A.downtown.x+60,y:A.downtown.y+80})},
+  {kind:'autoshop',id:'biz-autoshop',name:'Oficina Mecânica',profession:'mechanic',floors:1,color:'#d9dde0',business:{w:32,d:34},target:A=>({x:A.urban.x+320,y:A.urban.y-120})},
+  {kind:'restaurant',id:'biz-restaurant',name:'Restaurante',profession:'chef',floors:1,color:'#f1e2cf',business:{w:32,d:34},target:A=>({x:A.downtown.x-160,y:A.downtown.y+40})},
+  {kind:'barbershop',id:'biz-barbershop',name:'Barbearia',profession:'barber',floors:1,color:'#ece6dc',business:{w:32,d:34},target:A=>({x:A.urban.x-60,y:A.urban.y-160})}
  ];
  C.planCivicSites=function(cw,roadDist,water,reserved=[]){
   const sites=[],A=cw.geo.anchors;
@@ -23,7 +30,7 @@
    const choices=[];
    for(const rd of cw.roads){if(['highway','rail'].includes(rd.cls))continue;
     for(let i=1;i<rd.pts.length;i+=3){const a=rd.pts[i-1],b=rd.pts[i];if(Math.abs(a[1]-b[1])>.05)continue;
-     const x=a[0],y=a[1]-rd.w/2-3,c=type.campus,bb=c?[x-c.w/2,y-c.d,x+c.w/2,y]:[x-27,y-64,x+27,y];choices.push({x,y,bb,score:Math.hypot(x-target.x,y-target.y)});
+     const x=a[0],y=a[1]-rd.w/2-3,c=type.campus||type.business,bb=c?[x-c.w/2,y-c.d,x+c.w/2,y]:[x-27,y-64,x+27,y];choices.push({x,y,bb,score:Math.hypot(x-target.x,y-target.y)});
     }
    }
    choices.sort((a,b)=>a.score-b.score);
@@ -42,8 +49,9 @@
 
 function civicPlaceSector(S){
  for(const site of world.civicSites||[]){
-  const x=site.x,y=site.y-44;if(x<S.bounds[0]||x>=S.bounds[2]||y<S.bounds[1]||y>=S.bounds[3])continue;
+  const x=site.x,y=site.y-(site.business?17:44);if(x<S.bounds[0]||x>=S.bounds[2]||y<S.bounds[1]||y>=S.bounds[3])continue;
   if(site.campus){civicCampus(S,site);owIndexOwnedLive(S);continue;}
+  if(site.business){civicBusiness(S,site);owIndexOwnedLive(S);continue;}
   const fh=site.floorHeight||3.3;
   const H=addHouse({x0:x-23,y0:y-18,x1:x+23,y1:y+18,h:site.floors*fh,nFloors:site.floors,floorHeight:fh,seed:owSeed(S,site.id),roofKind:'flat',frontSide:'S',open:{S:{door:[19]}},civic:true,miaKind:site.kind,bName:site.name});
   H.style={...H.style,plaster:site.color};remodelProperty(H);H.walk=[H.doorPt,[H.doorPt[0],site.y+3]];
@@ -168,4 +176,24 @@ function campusCourt(S,cx,cy,along,sport){
  if(sport==='volleyball')addBox({x:cx,y:cy,w:along==='x'?.08:Wd,d:along==='x'?Wd:.08,h:2.4,kind:'sport-net',solid:false,along,draw:drawSportNet});
  if(sport==='soccer')for(const q of [-1,1])addBox({x:along==='x'?cx+q*(L/2-1.2):cx,y:along==='x'?cy:cy+q*(L/2-1.2),w:.2,d:.2,h:2.45,kind:'sport-goal',solid:false,along,draw:drawSportGoal});
  (S.sports||(S.sports=[])).push({x:cx,y:cy,x0,y0,x1,y1,sport,along});
+}
+
+// ---------- estabelecimento de profissão: prédio de um pavimento, calçada, duas vagas, letreiro e jardim ----------
+function civicBusiness(S,site){
+ const X=site.x,Y=site.y,fh=3.4;
+ world.yards.push(site.bb);
+ const H=addHouse({x0:X-12,y0:Y-28,x1:X+12,y1:Y-10,h:fh,nFloors:1,floorHeight:fh,seed:owSeed(S,site.id),roofKind:'flat',frontSide:'S',open:{S:{door:[11]}},civic:true,miaKind:site.kind,bName:site.name});
+ H.style={...H.style,plaster:site.color};remodelProperty(H);H.walk=[H.doorPt,[H.doorPt[0],Y-1]];H.business=site.profession;site.house=H;
+ const q=(ax,ay,bx,by)=>[[X+ax,Y+ay],[X+bx,Y+ay],[X+bx,Y+by],[X+ax,Y+by]];
+ miaDecal(q(-16,-34,16,0),'lawn',null);
+ miaDecal(q(-3,-10,3,0),'pavers',null);world.paved.push([X-3,Y-10,X+3,Y]);
+ const lot=[X+4,Y-9,X+15,Y-1];world.paved.push(lot);
+ world.decals.push({kind:'biz-lot',bb:lot,paint(g){g.fillStyle='#55595b';g.fillRect(lot[0],lot[1],lot[2]-lot[0],lot[3]-lot[1]);g.strokeStyle='#ece8da';g.lineWidth=.1;for(let i=0;i<2;i++)g.strokeRect(lot[0]+.6+i*5.2,lot[1]+.6,4.6,6.6);}});
+ if(site.kind==='autoshop'){const apron=[X-12,Y-10,X-2,Y];world.paved.push(apron);miaDecal(q(-12,-10,-2,0),'drive',null);}   // rampa do portão da oficina
+ // marquise com o nome sobre a porta, colunas e canteiros
+ for(const dx of [-2.6,2.6])addBox({x:H.doorPt[0]+dx,y:H.y1+2,w:.4,d:.4,h:3,kind:'civic-column',top:site.color,side:site.color,house:H,exteriorFixture:true});
+ addBox({x:H.doorPt[0],y:H.y1+1.2,w:6.4,d:2.6,h:.28,z:3,kind:'civic-canopy',top:'#2c3e50',side:site.color,solid:false,house:H,exteriorFixture:true});
+ for(const dx of [-10,-6,7,10])miaBush(X+dx,Y-8.5,['hibiscus','croton','bougainvillea','seagrape'][(dx+20)&3]);
+ for(const dx of [-14,14])miaPalm(X+dx,Y-2,'royal');
+ world.lamps.push({x:X-6,y:Y-1,ax:0,ay:-1},{x:X+6,y:Y-1,ax:0,ay:-1});
 }

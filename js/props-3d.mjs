@@ -329,6 +329,28 @@ export function createProps(THREE, scene, bridge) {
     k.box(0.405, 0.08, 0.405, 0.43, 1.95, 0.43, CHROME); k.box(-0.43, 1.93, 0.405, 0.43, 1.96, 0.43, CHROME);
   } };
   M.mirror = { dims: [0.85, 1.6, 0.1], face: 'short', tinted:true, make(k,c) { k.box(-0.38, 0.85, -0.05, 0.38, 1.55, 0.0, c||'#f0ece2', 0.02); k.box(-0.34, 0.89, 0.0, 0.34, 1.51, 0.01, '#b8ccd6'); } };
+  // barbearia: cadeira hidráulica (base cromada, assento estofado, encosto com apoio de cabeça, braços e descanso de pés)
+  M.barberchair = { dims: [0.7, 1.25, 0.78], tinted: true, make(k, c) {
+    const up = c || '#7a2e2e';
+    k.cyl(0, 0, 0, .3, .05, CHROME, 22); k.cyl(0, .05, 0, .065, .4, CHROME, 14); k.cyl(0, .36, 0, .16, .42, DARK, 16);
+    k.box(-.27, .42, -.24, .27, .57, .26, up, .06);                      // assento
+    k.box(-.25, .55, -.34, .25, 1.04, -.2, up, .06);                     // encosto
+    k.cyl(0, 1.0, -.27, .018, 1.12, CHROME, 8); k.box(-.13, 1.1, -.31, .13, 1.24, -.2, up, .05);   // apoio de cabeça
+    for (const sx of [-1, 1]) { k.box(sx * .34 - .045, .68, -.2, sx * .34 + .045, .75, .24, up, .03); k.box(sx * .34 - .02, .55, .16, sx * .34 + .02, .69, .2, CHROME); }
+    k.box(-.035, .14, .2, .035, .44, .28, CHROME); k.box(-.21, .12, .3, .21, .16, .46, CHROME, .02);   // descanso de pés
+  } };
+  // bancada do barbeiro: gaveteiro, tampo escuro, espelho com moldura e luzes, e as ferramentas em cima
+  M.barberstation = { dims: [1.2, 2.05, 0.45], face: 'short', tinted: true, make(k, c) {
+    k.box(-.6, 0, -.22, .6, .86, .2, c || '#efebe3', .02);
+    for (const x of [-.3, .3]) for (const y of [.18, .45, .7]) { k.box(x - .26, y - .1, .2, x + .26, y + .1, .215, '#e2ddd3', .01); k.box(x - .07, y + .02, .215, x + .07, y + .04, .23, CHROME); }
+    k.box(-.62, .86, -.23, .62, .9, .23, '#2f3134', .01);
+    k.box(-.52, .9, -.23, .52, 2.02, -.2, c || '#efebe3', .02);   // painel de fundo (lado que a câmera vê é claro como a parede)
+    k.box(-.5, 1.0, -.2, .5, 1.96, -.19, '#2f3134', .015); k.box(-.46, 1.04, -.19, .46, 1.92, -.18, '#bcd2dc');
+    for (let i = 0; i < 5; i++) k.sph(-.4 + i * .2, 1.99, -.19, .035, '#fff4d2');
+    k.cyl(-.38, .9, .04, .05, 1.1, '#3fb0c2', 12); for (const dx of [-.4, -.37, -.35]) k.box(dx - .004, 1.0, .03, dx + .004, 1.16, .05, DARK);   // jarra de pentes
+    k.box(-.18, .9, .0, -.05, .945, .12, DARK, .01); k.box(-.02, .9, .02, .1, .94, .1, '#b8bcc0', .01);   // máquina e navalha
+    k.cyl(.3, .9, .05, .035, 1.08, '#2d6f9c', 10); k.cyl(.4, .9, .02, .03, 1.06, '#d24a3a', 10); k.cyl(.48, .9, .08, .028, 1.02, '#f0f0ea', 10);
+  } };
   M.rug = { dims: [1.5, 0.02, 1.05], face: 'any', tinted: true, make(k, c) {
     const base = c || '#8c7665', dk = new THREE.Color(col(base)).multiplyScalar(0.65), lt = new THREE.Color(col(base)).lerp(new THREE.Color(1, 0.95, 0.85), 0.4);
     k.box(-0.75, 0, -0.525, 0.75, 0.012, 0.525, dk); k.box(-0.66, 0.012, -0.44, 0.66, 0.016, 0.44, base);
