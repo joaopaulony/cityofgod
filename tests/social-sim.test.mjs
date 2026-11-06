@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createSocialSim,factionAffinity} from '../js/social-sim.mjs';
 import {NPC_STORIES} from '../js/npc-stories.mjs';
-const roster=JSON.parse(readFileSync(new URL('../assets/npcs/roster.json',import.meta.url))).characters;
+const roster=JSON.parse(readFileSync(new URL('../assets/characters/modular/roster.json',import.meta.url))).characters;
 const make=opts=>createSocialSim(roster,{random:()=>0,...opts});
 test('todos os personagens têm história própria',()=>{assert.equal(roster.length,52);for(const c of roster)assert.ok(NPC_STORIES[c.id]?.length>90,c.id);assert.equal(new Set(Object.values(NPC_STORIES)).size,52);});
 test('rivalidade é recíproca e não afeta jogador por seu visual',()=>{assert.equal(factionAffinity('last-kings','novelis-crew'),-48);assert.equal(factionAffinity('policia','last-kings'),-38);const s=make();assert.equal(s.relation('player','christopher-brown').friend,0);assert.equal(s.relation('christopher-brown','ana-paula-novli'),s.relation('ana-paula-novli','christopher-brown'));});

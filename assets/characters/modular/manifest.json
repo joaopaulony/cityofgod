@@ -1,0 +1,3580 @@
+{
+ "schema": 1,
+ "source": "Quaternius — Ultimate Modular Men/Women, Universal Animation Library 1 e 2 (CC0); clipes rifle/vault: Mixamo",
+ "generated": "2026-11-06",
+ "male": {
+  "file": "male.glb",
+  "bytes": 4345948,
+  "height": 1.8,
+  "scale": 0.9699,
+  "bones": 58,
+  "parts": [
+   {
+    "slot": "body",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 3528,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2086
+     },
+     {
+      "name": "Green",
+      "color": "#47422a",
+      "triangles": 980
+     },
+     {
+      "name": "LightGreen",
+      "color": "#595339",
+      "triangles": 462
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 480,
+    "materials": [
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 328
+     },
+     {
+      "name": "Black",
+      "color": "#292929",
+      "triangles": 152
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 3620,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 448
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 24
+     },
+     {
+      "name": "Hair",
+      "color": "#4b321e",
+      "triangles": 3124
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 822,
+    "materials": [
+     {
+      "name": "Brown",
+      "color": "#756442",
+      "triangles": 718
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 104
+     }
+    ]
+   },
+   {
+    "slot": "acc",
+    "id": "backpack",
+    "source": "Adventurer.gltf",
+    "triangles": 1752,
+    "materials": [
+     {
+      "name": "Brown",
+      "color": "#756442",
+      "triangles": 320
+     },
+     {
+      "name": "LightGreen",
+      "color": "#595339",
+      "triangles": 966
+     },
+     {
+      "name": "Gold",
+      "color": "#8f733b",
+      "triangles": 400
+     },
+     {
+      "name": "Green",
+      "color": "#47422a",
+      "triangles": 66
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "beach",
+    "source": "Beach.gltf",
+    "triangles": 2778,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2456
+     },
+     {
+      "name": "LightBrown",
+      "color": "#958f82",
+      "triangles": 322
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "beach",
+    "source": "Beach.gltf",
+    "triangles": 682,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 376
+     },
+     {
+      "name": "Red_Dark",
+      "color": "#7c2b37",
+      "triangles": 306
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "beach",
+    "source": "Beach.gltf",
+    "triangles": 2288,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 448
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 24
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Hair",
+      "color": "#4b321e",
+      "triangles": 1632
+     },
+     {
+      "name": "Earrings",
+      "color": "#ae864a",
+      "triangles": 160
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "beach",
+    "source": "Beach.gltf",
+    "triangles": 830,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 276
+     },
+     {
+      "name": "Red_Dark",
+      "color": "#7c2b37",
+      "triangles": 390
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 164
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "casual_2",
+    "source": "Casual_2.gltf",
+    "triangles": 2806,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2064
+     },
+     {
+      "name": "LightBrown",
+      "color": "#958f82",
+      "triangles": 742
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "casual_2",
+    "source": "Casual_2.gltf",
+    "triangles": 552,
+    "materials": [
+     {
+      "name": "Red_Dark",
+      "color": "#7c2b37",
+      "triangles": 320
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 232
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "casual_2",
+    "source": "Casual_2.gltf",
+    "triangles": 1684,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 404
+     },
+     {
+      "name": "Skin_Darker",
+      "color": "#b89a78",
+      "triangles": 44
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 24
+     },
+     {
+      "name": "Hair",
+      "color": "#4b321e",
+      "triangles": 1188
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "casual_2",
+    "source": "Casual_2.gltf",
+    "triangles": 734,
+    "materials": [
+     {
+      "name": "LightBlue",
+      "color": "#364149",
+      "triangles": 734
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "casual_hoodie",
+    "source": "Casual_Hoodie.gltf",
+    "triangles": 3048,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1790
+     },
+     {
+      "name": "Purple",
+      "color": "#493a5b",
+      "triangles": 1258
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "casual_hoodie",
+    "source": "Casual_Hoodie.gltf",
+    "triangles": 512,
+    "materials": [
+     {
+      "name": "Purple",
+      "color": "#493a5b",
+      "triangles": 256
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 256
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "casual_hoodie",
+    "source": "Casual_Hoodie.gltf",
+    "triangles": 1888,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 420
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 40
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Hair",
+      "color": "#4b321e",
+      "triangles": 1404
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "casual_hoodie",
+    "source": "Casual_Hoodie.gltf",
+    "triangles": 758,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 276
+     },
+     {
+      "name": "LightBlue",
+      "color": "#364149",
+      "triangles": 482
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "farmer",
+    "source": "Farmer.gltf",
+    "triangles": 3358,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 288
+     },
+     {
+      "name": "LightBlue",
+      "color": "#364149",
+      "triangles": 528
+     },
+     {
+      "name": "Brown",
+      "color": "#756442",
+      "triangles": 2414
+     },
+     {
+      "name": "Beige",
+      "color": "#9b967b",
+      "triangles": 128
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "farmer",
+    "source": "Farmer.gltf",
+    "triangles": 384,
+    "materials": [
+     {
+      "name": "Brown",
+      "color": "#756442",
+      "triangles": 232
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 152
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "farmer",
+    "source": "Farmer.gltf",
+    "triangles": 816,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 308
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 164
+     },
+     {
+      "name": "Beige",
+      "color": "#9b967b",
+      "triangles": 256
+     },
+     {
+      "name": "Red",
+      "color": "#7b1724",
+      "triangles": 64
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "farmer",
+    "source": "Farmer.gltf",
+    "triangles": 918,
+    "materials": [
+     {
+      "name": "LightBlue",
+      "color": "#364149",
+      "triangles": 918
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "king",
+    "source": "King.gltf",
+    "triangles": 4772,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1826
+     },
+     {
+      "name": "Blue",
+      "color": "#414959",
+      "triangles": 536
+     },
+     {
+      "name": "Metal",
+      "color": "#636463",
+      "triangles": 1708
+     },
+     {
+      "name": "Beige",
+      "color": "#9b967b",
+      "triangles": 120
+     },
+     {
+      "name": "Metal_Dark",
+      "color": "#505150",
+      "triangles": 582
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "king",
+    "source": "King.gltf",
+    "triangles": 624,
+    "materials": [
+     {
+      "name": "Metal",
+      "color": "#636463",
+      "triangles": 624
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "king",
+    "source": "King.gltf",
+    "triangles": 3892,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 448
+     },
+     {
+      "name": "Hair_White",
+      "color": "#c0c0c0",
+      "triangles": 2364
+     },
+     {
+      "name": "Gold",
+      "color": "#8f733b",
+      "triangles": 1056
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "king",
+    "source": "King.gltf",
+    "triangles": 1822,
+    "materials": [
+     {
+      "name": "DarkBrown",
+      "color": "#4c4039",
+      "triangles": 604
+     },
+     {
+      "name": "Metal",
+      "color": "#636463",
+      "triangles": 994
+     },
+     {
+      "name": "Metal_Dark",
+      "color": "#505150",
+      "triangles": 224
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 2958,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2232
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 252
+     },
+     {
+      "name": "Black",
+      "color": "#292929",
+      "triangles": 474
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 552,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 144
+     },
+     {
+      "name": "Black",
+      "color": "#292929",
+      "triangles": 408
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 1244,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 308
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 24
+     },
+     {
+      "name": "Red_Dark",
+      "color": "#7c2b37",
+      "triangles": 140
+     },
+     {
+      "name": "Red",
+      "color": "#7b1724",
+      "triangles": 588
+     },
+     {
+      "name": "Earrings",
+      "color": "#ae864a",
+      "triangles": 160
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 746,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 24
+     },
+     {
+      "name": "LightBlue",
+      "color": "#364149",
+      "triangles": 722
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "space_suit",
+    "source": "Spacesuit.gltf",
+    "triangles": 4022,
+    "materials": [
+     {
+      "name": "SciFi_Light",
+      "color": "#b1a6a1",
+      "triangles": 494
+     },
+     {
+      "name": "SciFi_Light_Accent",
+      "color": "#a25e34",
+      "triangles": 2074
+     },
+     {
+      "name": "SciFi_Main",
+      "color": "#445553",
+      "triangles": 1074
+     },
+     {
+      "name": "SciFi_MainDark",
+      "color": "#333e41",
+      "triangles": 380
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "space_suit",
+    "source": "Spacesuit.gltf",
+    "triangles": 576,
+    "materials": [
+     {
+      "name": "SciFi_Light_Accent",
+      "color": "#a25e34",
+      "triangles": 520
+     },
+     {
+      "name": "SciFi_Light",
+      "color": "#b1a6a1",
+      "triangles": 56
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "space_suit",
+    "source": "Spacesuit.gltf",
+    "triangles": 4854,
+    "materials": [
+     {
+      "name": "SciFi_Light",
+      "color": "#b1a6a1",
+      "triangles": 584
+     },
+     {
+      "name": "SciFi_Light_Accent",
+      "color": "#a25e34",
+      "triangles": 2112
+     },
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 2158
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "space_suit",
+    "source": "Spacesuit.gltf",
+    "triangles": 1106,
+    "materials": [
+     {
+      "name": "SciFi_Main",
+      "color": "#445553",
+      "triangles": 72
+     },
+     {
+      "name": "SciFi_Light",
+      "color": "#b1a6a1",
+      "triangles": 222
+     },
+     {
+      "name": "SciFi_Light_Accent",
+      "color": "#a25e34",
+      "triangles": 294
+     },
+     {
+      "name": "SciFi_MainDark",
+      "color": "#333e41",
+      "triangles": 518
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 2916,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1826
+     },
+     {
+      "name": "Tie",
+      "color": "#4a505a",
+      "triangles": 16
+     },
+     {
+      "name": "Suit",
+      "color": "#262c32",
+      "triangles": 872
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 202
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 528,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#292929",
+      "triangles": 528
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 2456,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 448
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 24
+     },
+     {
+      "name": "Hair",
+      "color": "#4b321e",
+      "triangles": 1960
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 734,
+    "materials": [
+     {
+      "name": "Suit",
+      "color": "#262c32",
+      "triangles": 734
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "swat",
+    "source": "Swat.gltf",
+    "triangles": 3106,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1042
+     },
+     {
+      "name": "Swat",
+      "color": "#50545a",
+      "triangles": 692
+     },
+     {
+      "name": "Swat_Black",
+      "color": "#34322f",
+      "triangles": 1372
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "swat",
+    "source": "Swat.gltf",
+    "triangles": 560,
+    "materials": [
+     {
+      "name": "Swat_Black",
+      "color": "#34322f",
+      "triangles": 560
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "swat",
+    "source": "Swat.gltf",
+    "triangles": 2308,
+    "materials": [
+     {
+      "name": "Swat_Black",
+      "color": "#34322f",
+      "triangles": 930
+     },
+     {
+      "name": "Swat",
+      "color": "#50545a",
+      "triangles": 1246
+     },
+     {
+      "name": "Visor",
+      "color": "#1c1c1c",
+      "triangles": 132
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "swat",
+    "source": "Swat.gltf",
+    "triangles": 1780,
+    "materials": [
+     {
+      "name": "Swat",
+      "color": "#50545a",
+      "triangles": 1056
+     },
+     {
+      "name": "Swat_Black",
+      "color": "#34322f",
+      "triangles": 724
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 3018,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2064
+     },
+     {
+      "name": "Worker_Yellow",
+      "color": "#b3931a",
+      "triangles": 104
+     },
+     {
+      "name": "Worker_Vest",
+      "color": "#b8642e",
+      "triangles": 358
+     },
+     {
+      "name": "LightBrown",
+      "color": "#958f82",
+      "triangles": 492
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 464,
+    "materials": [
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 312
+     },
+     {
+      "name": "Black",
+      "color": "#292929",
+      "triangles": 152
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 936,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 308
+     },
+     {
+      "name": "Eyebrows",
+      "color": "#40372d",
+      "triangles": 164
+     },
+     {
+      "name": "Worker_Yellow",
+      "color": "#b3931a",
+      "triangles": 320
+     },
+     {
+      "name": "Moustache",
+      "color": "#70430c",
+      "triangles": 120
+     },
+     {
+      "name": "Eye",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 822,
+    "materials": [
+     {
+      "name": "Brown",
+      "color": "#756442",
+      "triangles": 658
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 164
+     }
+    ]
+   }
+  ],
+  "clips": {
+   "q_death": {
+    "duration": 1.067,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_gun_shoot": {
+    "duration": 0.6,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_hitreceive": {
+    "duration": 0.567,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_hitreceive_2": {
+    "duration": 0.567,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "idle": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun_pointing": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun_shoot": {
+    "duration": 0.667,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_neutral": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_interact": {
+    "duration": 1.267,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_kick_left": {
+    "duration": 0.933,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_kick_right": {
+    "duration": 0.933,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_punch_left": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_punch_right": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_roll": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "run": {
+    "duration": 0.8,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 3.03
+   },
+   "q_run_back": {
+    "duration": 0.833,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.93
+   },
+   "q_run_left": {
+    "duration": 0.8,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.99
+   },
+   "q_run_right": {
+    "duration": 0.8,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.99
+   },
+   "q_run_shoot": {
+    "duration": 0.833,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.93
+   },
+   "walk": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 1.33
+   },
+   "q_wave": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "crouch_walk": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual1",
+    "original": "Crouch_Fwd_Loop",
+    "speed": 0.71,
+    "hands": "relaxed"
+   },
+   "crouch": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Crouch_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "dance": {
+    "duration": 1,
+    "loop": true,
+    "source": "ual1",
+    "original": "Dance_Loop",
+    "hands": "relaxed"
+   },
+   "death01": {
+    "duration": 2.4,
+    "loop": false,
+    "source": "ual1",
+    "original": "Death01",
+    "hands": "relaxed"
+   },
+   "driving": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Driving_Loop",
+    "hands": "grip"
+   },
+   "fixing_kneeling": {
+    "duration": 5.2,
+    "loop": false,
+    "source": "ual1",
+    "original": "Fixing_Kneeling",
+    "hands": "grip"
+   },
+   "hit_chest": {
+    "duration": 0.333,
+    "loop": false,
+    "source": "ual1",
+    "original": "Hit_Chest",
+    "hands": "relaxed"
+   },
+   "hit_head": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual1",
+    "original": "Hit_Head",
+    "hands": "relaxed"
+   },
+   "idle_ual": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Loop",
+    "hands": "relaxed"
+   },
+   "idle_talking": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Talking_Loop",
+    "hands": "relaxed"
+   },
+   "idle_torch": {
+    "duration": 1.267,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Torch_Loop",
+    "hands": "grip"
+   },
+   "interact": {
+    "duration": 2,
+    "loop": false,
+    "source": "ual1",
+    "original": "Interact",
+    "hands": "relaxed"
+   },
+   "jog": {
+    "duration": 0.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Jog_Fwd_Loop",
+    "speed": 5.07,
+    "hands": "relaxed"
+   },
+   "jump_land": {
+    "duration": 1.267,
+    "loop": false,
+    "source": "ual1",
+    "original": "Jump_Land",
+    "hands": "relaxed"
+   },
+   "jump_air": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual1",
+    "original": "Jump_Loop",
+    "hands": "relaxed"
+   },
+   "jump_start": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual1",
+    "original": "Jump_Start",
+    "hands": "relaxed"
+   },
+   "pick_up_table": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual1",
+    "original": "PickUp_Table",
+    "hands": "grip"
+   },
+   "pistol_aim_down": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Down",
+    "hands": "grip"
+   },
+   "pistol_aim_neutral": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Neutral",
+    "hands": "grip"
+   },
+   "pistol_aim_up": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Up",
+    "hands": "grip"
+   },
+   "pistol_idle": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Pistol_Idle_Loop",
+    "hands": "grip"
+   },
+   "pistol_reload": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Reload",
+    "hands": "grip"
+   },
+   "pistol_shoot": {
+    "duration": 0.633,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Shoot",
+    "hands": "grip"
+   },
+   "punch_cross": {
+    "duration": 1,
+    "loop": false,
+    "source": "ual1",
+    "original": "Punch_Cross",
+    "hands": "grip"
+   },
+   "punch_jab": {
+    "duration": 0.867,
+    "loop": false,
+    "source": "ual1",
+    "original": "Punch_Jab",
+    "hands": "grip"
+   },
+   "push": {
+    "duration": 2.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Push_Loop",
+    "speed": 0.28,
+    "hands": "grip"
+   },
+   "roll": {
+    "duration": 1.467,
+    "loop": false,
+    "source": "ual1",
+    "original": "Roll",
+    "hands": "relaxed"
+   },
+   "sitting_enter": {
+    "duration": 1.3,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sitting_Enter",
+    "hands": "relaxed"
+   },
+   "sitting_exit": {
+    "duration": 1.033,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sitting_Exit",
+    "hands": "relaxed"
+   },
+   "sitting_idle": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sitting_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "sitting_talking": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sitting_Talking_Loop",
+    "hands": "relaxed"
+   },
+   "spell_simple_enter": {
+    "duration": 0.533,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Enter",
+    "hands": "relaxed"
+   },
+   "spell_simple_exit": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Exit",
+    "hands": "relaxed"
+   },
+   "spell_simple_idle": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "ual1",
+    "original": "Spell_Simple_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "spell_simple_shoot": {
+    "duration": 0.5,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Shoot",
+    "hands": "relaxed"
+   },
+   "sprint": {
+    "duration": 0.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sprint_Loop",
+    "speed": 7.8,
+    "hands": "relaxed"
+   },
+   "swim_fwd": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Swim_Fwd_Loop",
+    "speed": 2.06,
+    "hands": "relaxed"
+   },
+   "swim_idle": {
+    "duration": 3.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Swim_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "sword_attack": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sword_Attack",
+    "hands": "grip"
+   },
+   "sword_idle": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sword_Idle",
+    "hands": "grip"
+   },
+   "walk_formal": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Walk_Formal_Loop",
+    "speed": 0.92,
+    "hands": "relaxed"
+   },
+   "walk_ual": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Walk_Loop",
+    "speed": 0.92,
+    "hands": "relaxed"
+   },
+   "chest_open": {
+    "duration": 1.367,
+    "loop": false,
+    "source": "ual2",
+    "original": "Chest_Open",
+    "hands": "grip"
+   },
+   "climb_up_1m": {
+    "duration": 0.667,
+    "loop": false,
+    "source": "ual2",
+    "original": "ClimbUp_1m",
+    "hands": "grip"
+   },
+   "consume": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "Consume",
+    "hands": "grip"
+   },
+   "farm_harvest": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_Harvest",
+    "hands": "grip"
+   },
+   "farm_plant_seed": {
+    "duration": 2.767,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_PlantSeed",
+    "hands": "grip"
+   },
+   "farm_watering": {
+    "duration": 3.8,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_Watering",
+    "hands": "grip"
+   },
+   "hit_knockback": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Hit_Knockback",
+    "hands": "relaxed"
+   },
+   "idle_fold_arms": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_FoldArms_Loop",
+    "hands": "relaxed"
+   },
+   "idle_lantern": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Lantern_Loop",
+    "hands": "grip"
+   },
+   "idle_no": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_No_Loop",
+    "hands": "relaxed"
+   },
+   "idle_rail_call": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Idle_Rail_Call",
+    "hands": "grip"
+   },
+   "idle_rail": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Rail_Loop",
+    "hands": "grip"
+   },
+   "idle_shield_break": {
+    "duration": 1.067,
+    "loop": false,
+    "source": "ual2",
+    "original": "Idle_Shield_Break",
+    "hands": "relaxed"
+   },
+   "idle_shield": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Shield_Loop",
+    "hands": "relaxed"
+   },
+   "idle_talking_phone": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_TalkingPhone_Loop",
+    "hands": "grip"
+   },
+   "lay_to_idle": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "ual2",
+    "original": "LayToIdle",
+    "hands": "relaxed"
+   },
+   "melee_hook": {
+    "duration": 0.467,
+    "loop": false,
+    "source": "ual2",
+    "original": "Melee_Hook",
+    "hands": "grip"
+   },
+   "melee_hook_rec": {
+    "duration": 0.6,
+    "loop": false,
+    "source": "ual2",
+    "original": "Melee_Hook_Rec",
+    "hands": "grip"
+   },
+   "ninja_jump_idle": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "NinjaJump_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "ninja_jump_land": {
+    "duration": 1.267,
+    "loop": false,
+    "source": "ual2",
+    "original": "NinjaJump_Land",
+    "hands": "relaxed"
+   },
+   "ninja_jump_start": {
+    "duration": 0.967,
+    "loop": false,
+    "source": "ual2",
+    "original": "NinjaJump_Start",
+    "hands": "relaxed"
+   },
+   "overhand_throw": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "OverhandThrow",
+    "hands": "grip"
+   },
+   "shield_dash": {
+    "duration": 1.1,
+    "loop": false,
+    "source": "ual2",
+    "original": "Shield_Dash",
+    "hands": "grip"
+   },
+   "shield_one_shot": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Shield_OneShot",
+    "hands": "grip"
+   },
+   "slide_exit": {
+    "duration": 0.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Slide_Exit",
+    "hands": "relaxed"
+   },
+   "slide": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "Slide_Loop",
+    "speed": 4.26,
+    "hands": "relaxed"
+   },
+   "slide_start": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Slide_Start",
+    "hands": "relaxed"
+   },
+   "sword_block": {
+    "duration": 1.233,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Block",
+    "hands": "grip"
+   },
+   "sword_dash": {
+    "duration": 1.567,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Dash",
+    "hands": "grip"
+   },
+   "sword_heavy_combo": {
+    "duration": 4.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Heavy_Combo",
+    "hands": "grip"
+   },
+   "sword_regular_a": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_A",
+    "hands": "grip"
+   },
+   "sword_regular_a_rec": {
+    "duration": 0.967,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_A_Rec",
+    "hands": "grip"
+   },
+   "sword_regular_b": {
+    "duration": 0.533,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_B",
+    "hands": "grip"
+   },
+   "sword_regular_b_rec": {
+    "duration": 1.033,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_B_Rec",
+    "hands": "grip"
+   },
+   "sword_regular_c": {
+    "duration": 2,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_C",
+    "hands": "grip"
+   },
+   "sword_regular_combo": {
+    "duration": 3,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_Combo",
+    "hands": "grip"
+   },
+   "tree_chopping": {
+    "duration": 0.967,
+    "loop": true,
+    "source": "ual2",
+    "original": "TreeChopping_Loop",
+    "hands": "grip"
+   },
+   "walk_carry": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "Walk_Carry_Loop",
+    "speed": 0.61,
+    "hands": "grip"
+   },
+   "yes": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Yes",
+    "hands": "relaxed"
+   },
+   "zombie_idle": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual2",
+    "original": "Zombie_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "zombie_scratch": {
+    "duration": 1.8,
+    "loop": false,
+    "source": "ual2",
+    "original": "Zombie_Scratch",
+    "hands": "relaxed"
+   },
+   "zombie_walk_fwd": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual2",
+    "original": "Zombie_Walk_Fwd_Loop",
+    "speed": 0.99,
+    "hands": "relaxed"
+   },
+   "rifle_idle": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_aim": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_walk": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.4,
+    "hands": "grip"
+   },
+   "rifle_run": {
+    "duration": 0.5,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 3.9,
+    "hands": "grip"
+   },
+   "rifle_walk_back": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.2,
+    "hands": "grip"
+   },
+   "rifle_strafe_left": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.3,
+    "hands": "grip"
+   },
+   "rifle_strafe_right": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.3,
+    "hands": "grip"
+   },
+   "rifle_fire": {
+    "duration": 0.267,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_reload": {
+    "duration": 3.3,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "vault_low": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "relaxed"
+   },
+   "rifle_crouch_aim": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_crouch_walk": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 0.9,
+    "hands": "grip"
+   },
+   "rifle_crouch_fire": {
+    "duration": 0.267,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_crouch_reload": {
+    "duration": 3.3,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   }
+  }
+ },
+ "female": {
+  "file": "female.glb",
+  "bytes": 4063732,
+  "height": 1.7,
+  "scale": 0.9302,
+  "bones": 58,
+  "parts": [
+   {
+    "slot": "body",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 4066,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1932
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 240
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 80
+     },
+     {
+      "name": "LightGreen",
+      "color": "#595339",
+      "triangles": 1088
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 240
+     },
+     {
+      "name": "Green",
+      "color": "#47422a",
+      "triangles": 486
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 772,
+    "materials": [
+     {
+      "name": "Brown_02",
+      "color": "#756442",
+      "triangles": 416
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 356
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 646,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 336
+     },
+     {
+      "name": "Hair_Brown",
+      "color": "#40372d",
+      "triangles": 286
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "adventurer",
+    "source": "Adventurer.gltf",
+    "triangles": 1328,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 216
+     },
+     {
+      "name": "Brown_02",
+      "color": "#756442",
+      "triangles": 348
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 36
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 148
+     },
+     {
+      "name": "LightGreen",
+      "color": "#595339",
+      "triangles": 444
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 136
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "casual",
+    "source": "Casual.gltf",
+    "triangles": 2654,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2166
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 488
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "casual",
+    "source": "Casual.gltf",
+    "triangles": 538,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 110
+     },
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 428
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "casual",
+    "source": "Casual.gltf",
+    "triangles": 2526,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 334
+     },
+     {
+      "name": "Hair_Brown",
+      "color": "#40372d",
+      "triangles": 40
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Hair_Blond",
+      "color": "#8a7548",
+      "triangles": 2128
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "casual",
+    "source": "Casual.gltf",
+    "triangles": 706,
+    "materials": [
+     {
+      "name": "Orange",
+      "color": "#9d623b",
+      "triangles": 706
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "formal",
+    "source": "Formal.gltf",
+    "triangles": 2542,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 390
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 64
+     },
+     {
+      "name": "Red",
+      "color": "#682714",
+      "triangles": 2088
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "formal",
+    "source": "Formal.gltf",
+    "triangles": 2594,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2310
+     },
+     {
+      "name": "LimeGreen",
+      "color": "#486845",
+      "triangles": 256
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 28
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "formal",
+    "source": "Formal.gltf",
+    "triangles": 490,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 250
+     },
+     {
+      "name": "Red",
+      "color": "#682714",
+      "triangles": 240
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "formal",
+    "source": "Formal.gltf",
+    "triangles": 482,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 348
+     },
+     {
+      "name": "LimeGreen",
+      "color": "#486845",
+      "triangles": 134
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "medieval",
+    "source": "Medieval.gltf",
+    "triangles": 3214,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1856
+     },
+     {
+      "name": "DarkBrown",
+      "color": "#4b321e",
+      "triangles": 388
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 68
+     },
+     {
+      "name": "LightBrown",
+      "color": "#6e4729",
+      "triangles": 268
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 410
+     },
+     {
+      "name": "Metal",
+      "color": "#737373",
+      "triangles": 224
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "medieval",
+    "source": "Medieval.gltf",
+    "triangles": 570,
+    "materials": [
+     {
+      "name": "DarkBrown",
+      "color": "#4b321e",
+      "triangles": 180
+     },
+     {
+      "name": "LightBrown",
+      "color": "#6e4729",
+      "triangles": 390
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "medieval",
+    "source": "Medieval.gltf",
+    "triangles": 2022,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 302
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 1072
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 64
+     },
+     {
+      "name": "DarkBrown",
+      "color": "#4b321e",
+      "triangles": 552
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 32
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "medieval",
+    "source": "Medieval.gltf",
+    "triangles": 598,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 598
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 3118,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2398
+     },
+     {
+      "name": "Pink",
+      "color": "#682265",
+      "triangles": 456
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 264
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 720,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 470
+     },
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 250
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 1386,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 378
+     },
+     {
+      "name": "Pink",
+      "color": "#682265",
+      "triangles": 784
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 160
+     },
+     {
+      "name": "Hair_Brown",
+      "color": "#40372d",
+      "triangles": 40
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "punk",
+    "source": "Punk.gltf",
+    "triangles": 732,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 70
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 662
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "scifi",
+    "source": "SciFi.gltf",
+    "triangles": 3238,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1120
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 1430
+     },
+     {
+      "name": "Metal",
+      "color": "#737373",
+      "triangles": 148
+     },
+     {
+      "name": "LightBlue",
+      "color": "#267a93",
+      "triangles": 96
+     },
+     {
+      "name": "Blue",
+      "color": "#174f6c",
+      "triangles": 444
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "scifi",
+    "source": "SciFi.gltf",
+    "triangles": 634,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 200
+     },
+     {
+      "name": "Metal",
+      "color": "#737373",
+      "triangles": 434
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "scifi",
+    "source": "SciFi.gltf",
+    "triangles": 2582,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 358
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 32
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Hair_Black",
+      "color": "#2d2c2d",
+      "triangles": 2036
+     },
+     {
+      "name": "Blue",
+      "color": "#174f6c",
+      "triangles": 132
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "scifi",
+    "source": "SciFi.gltf",
+    "triangles": 544,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 256
+     },
+     {
+      "name": "Metal",
+      "color": "#737373",
+      "triangles": 148
+     },
+     {
+      "name": "LightBlue",
+      "color": "#267a93",
+      "triangles": 140
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "soldier",
+    "source": "Soldier.gltf",
+    "triangles": 2708,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 464
+     },
+     {
+      "name": "Swat",
+      "color": "#50545a",
+      "triangles": 176
+     },
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2068
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "soldier",
+    "source": "Soldier.gltf",
+    "triangles": 1036,
+    "materials": [
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 624
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 412
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "soldier",
+    "source": "Soldier.gltf",
+    "triangles": 2848,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 334
+     },
+     {
+      "name": "Hair_Brown",
+      "color": "#40372d",
+      "triangles": 2490
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "soldier",
+    "source": "Soldier.gltf",
+    "triangles": 1308,
+    "materials": [
+     {
+      "name": "Grey",
+      "color": "#414141",
+      "triangles": 12
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 420
+     },
+     {
+      "name": "Swat",
+      "color": "#50545a",
+      "triangles": 876
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 2738,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1858
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 746
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 134
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 522,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 114
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 408
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 2526,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 334
+     },
+     {
+      "name": "Hair_Brown",
+      "color": "#40372d",
+      "triangles": 40
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Hair_Blond",
+      "color": "#8a7548",
+      "triangles": 2128
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "suit",
+    "source": "Suit.gltf",
+    "triangles": 696,
+    "materials": [
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 696
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "witch",
+    "source": "Witch.gltf",
+    "triangles": 2782,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 1932
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 34
+     },
+     {
+      "name": "Purple",
+      "color": "#441f68",
+      "triangles": 622
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 194
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "witch",
+    "source": "Witch.gltf",
+    "triangles": 592,
+    "materials": [
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 592
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "witch",
+    "source": "Witch.gltf",
+    "triangles": 2946,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 334
+     },
+     {
+      "name": "Purple",
+      "color": "#441f68",
+      "triangles": 176
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 96
+     },
+     {
+      "name": "Hair_Black",
+      "color": "#2d2c2d",
+      "triangles": 2316
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "witch",
+    "source": "Witch.gltf",
+    "triangles": 552,
+    "materials": [
+     {
+      "name": "Purple",
+      "color": "#441f68",
+      "triangles": 146
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 344
+     },
+     {
+      "name": "Gold",
+      "color": "#ae864a",
+      "triangles": 62
+     }
+    ]
+   },
+   {
+    "slot": "body",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 2610,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 2068
+     },
+     {
+      "name": "Worker_Vest",
+      "color": "#b8642e",
+      "triangles": 176
+     },
+     {
+      "name": "White",
+      "color": "#b3b3b3",
+      "triangles": 262
+     },
+     {
+      "name": "Worker_Yellow",
+      "color": "#b3931a",
+      "triangles": 104
+     }
+    ]
+   },
+   {
+    "slot": "feet",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 522,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 114
+     },
+     {
+      "name": "Black",
+      "color": "#34322f",
+      "triangles": 408
+     }
+    ]
+   },
+   {
+    "slot": "head",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 2148,
+    "materials": [
+     {
+      "name": "Skin",
+      "color": "#cdac85",
+      "triangles": 294
+     },
+     {
+      "name": "DarkBrown",
+      "color": "#4b321e",
+      "triangles": 1510
+     },
+     {
+      "name": "Brown",
+      "color": "#352921",
+      "triangles": 24
+     },
+     {
+      "name": "Worker_Yellow",
+      "color": "#b3931a",
+      "triangles": 320
+     }
+    ]
+   },
+   {
+    "slot": "legs",
+    "id": "worker",
+    "source": "Worker.gltf",
+    "triangles": 832,
+    "materials": [
+     {
+      "name": "Brown_02",
+      "color": "#756442",
+      "triangles": 606
+     },
+     {
+      "name": "Brown2",
+      "color": "#5c4f35",
+      "triangles": 226
+     }
+    ]
+   }
+  ],
+  "clips": {
+   "q_death": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_gun_shoot": {
+    "duration": 0.75,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_hitreceive": {
+    "duration": 0.708,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_hitreceive_2": {
+    "duration": 0.708,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "idle": {
+    "duration": 2.083,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun": {
+    "duration": 2.083,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun_pointing": {
+    "duration": 2.083,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_gun_shoot": {
+    "duration": 0.833,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_idle_neutral": {
+    "duration": 2.083,
+    "loop": true,
+    "source": "quaternius-modular"
+   },
+   "q_interact": {
+    "duration": 1.583,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_kick_left": {
+    "duration": 1.167,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_kick_right": {
+    "duration": 1.167,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_punch_left": {
+    "duration": 1.042,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_punch_right": {
+    "duration": 1.042,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "q_roll": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "run": {
+    "duration": 1,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.27
+   },
+   "q_run_back": {
+    "duration": 1.042,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.25
+   },
+   "q_run_left": {
+    "duration": 1,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.27
+   },
+   "q_run_right": {
+    "duration": 1,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.27
+   },
+   "q_run_shoot": {
+    "duration": 1.042,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 2.27
+   },
+   "walk": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "quaternius-modular",
+    "speed": 1.01
+   },
+   "q_wave": {
+    "duration": 2.083,
+    "loop": false,
+    "source": "quaternius-modular"
+   },
+   "crouch_walk": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual1",
+    "original": "Crouch_Fwd_Loop",
+    "speed": 0.76,
+    "hands": "relaxed"
+   },
+   "crouch": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Crouch_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "dance": {
+    "duration": 1,
+    "loop": true,
+    "source": "ual1",
+    "original": "Dance_Loop",
+    "hands": "relaxed"
+   },
+   "death01": {
+    "duration": 2.4,
+    "loop": false,
+    "source": "ual1",
+    "original": "Death01",
+    "hands": "relaxed"
+   },
+   "driving": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Driving_Loop",
+    "hands": "grip"
+   },
+   "fixing_kneeling": {
+    "duration": 5.2,
+    "loop": false,
+    "source": "ual1",
+    "original": "Fixing_Kneeling",
+    "hands": "grip"
+   },
+   "hit_chest": {
+    "duration": 0.333,
+    "loop": false,
+    "source": "ual1",
+    "original": "Hit_Chest",
+    "hands": "relaxed"
+   },
+   "hit_head": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual1",
+    "original": "Hit_Head",
+    "hands": "relaxed"
+   },
+   "idle_ual": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Loop",
+    "hands": "relaxed"
+   },
+   "idle_talking": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Talking_Loop",
+    "hands": "relaxed"
+   },
+   "idle_torch": {
+    "duration": 1.267,
+    "loop": true,
+    "source": "ual1",
+    "original": "Idle_Torch_Loop",
+    "hands": "grip"
+   },
+   "interact": {
+    "duration": 2,
+    "loop": false,
+    "source": "ual1",
+    "original": "Interact",
+    "hands": "relaxed"
+   },
+   "jog": {
+    "duration": 0.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Jog_Fwd_Loop",
+    "speed": 5.45,
+    "hands": "relaxed"
+   },
+   "jump_land": {
+    "duration": 1.267,
+    "loop": false,
+    "source": "ual1",
+    "original": "Jump_Land",
+    "hands": "relaxed"
+   },
+   "jump_air": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual1",
+    "original": "Jump_Loop",
+    "hands": "relaxed"
+   },
+   "jump_start": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual1",
+    "original": "Jump_Start",
+    "hands": "relaxed"
+   },
+   "pick_up_table": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual1",
+    "original": "PickUp_Table",
+    "hands": "grip"
+   },
+   "pistol_aim_down": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Down",
+    "hands": "grip"
+   },
+   "pistol_aim_neutral": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Neutral",
+    "hands": "grip"
+   },
+   "pistol_aim_up": {
+    "duration": 0.167,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Aim_Up",
+    "hands": "grip"
+   },
+   "pistol_idle": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Pistol_Idle_Loop",
+    "hands": "grip"
+   },
+   "pistol_reload": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Reload",
+    "hands": "grip"
+   },
+   "pistol_shoot": {
+    "duration": 0.633,
+    "loop": false,
+    "source": "ual1",
+    "original": "Pistol_Shoot",
+    "hands": "grip"
+   },
+   "punch_cross": {
+    "duration": 1,
+    "loop": false,
+    "source": "ual1",
+    "original": "Punch_Cross",
+    "hands": "grip"
+   },
+   "punch_jab": {
+    "duration": 0.867,
+    "loop": false,
+    "source": "ual1",
+    "original": "Punch_Jab",
+    "hands": "grip"
+   },
+   "push": {
+    "duration": 2.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Push_Loop",
+    "speed": 0.31,
+    "hands": "grip"
+   },
+   "roll": {
+    "duration": 1.467,
+    "loop": false,
+    "source": "ual1",
+    "original": "Roll",
+    "hands": "relaxed"
+   },
+   "sitting_enter": {
+    "duration": 1.3,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sitting_Enter",
+    "hands": "relaxed"
+   },
+   "sitting_exit": {
+    "duration": 1.033,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sitting_Exit",
+    "hands": "relaxed"
+   },
+   "sitting_idle": {
+    "duration": 1.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sitting_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "sitting_talking": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sitting_Talking_Loop",
+    "hands": "relaxed"
+   },
+   "spell_simple_enter": {
+    "duration": 0.533,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Enter",
+    "hands": "relaxed"
+   },
+   "spell_simple_exit": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Exit",
+    "hands": "relaxed"
+   },
+   "spell_simple_idle": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "ual1",
+    "original": "Spell_Simple_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "spell_simple_shoot": {
+    "duration": 0.5,
+    "loop": false,
+    "source": "ual1",
+    "original": "Spell_Simple_Shoot",
+    "hands": "relaxed"
+   },
+   "sprint": {
+    "duration": 0.667,
+    "loop": true,
+    "source": "ual1",
+    "original": "Sprint_Loop",
+    "speed": 8.39,
+    "hands": "relaxed"
+   },
+   "swim_fwd": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Swim_Fwd_Loop",
+    "speed": 2.21,
+    "hands": "relaxed"
+   },
+   "swim_idle": {
+    "duration": 3.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Swim_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "sword_attack": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sword_Attack",
+    "hands": "grip"
+   },
+   "sword_idle": {
+    "duration": 1.667,
+    "loop": false,
+    "source": "ual1",
+    "original": "Sword_Idle",
+    "hands": "grip"
+   },
+   "walk_formal": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Walk_Formal_Loop",
+    "speed": 0.99,
+    "hands": "relaxed"
+   },
+   "walk_ual": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual1",
+    "original": "Walk_Loop",
+    "speed": 0.99,
+    "hands": "relaxed"
+   },
+   "chest_open": {
+    "duration": 1.367,
+    "loop": false,
+    "source": "ual2",
+    "original": "Chest_Open",
+    "hands": "grip"
+   },
+   "climb_up_1m": {
+    "duration": 0.667,
+    "loop": false,
+    "source": "ual2",
+    "original": "ClimbUp_1m",
+    "hands": "grip"
+   },
+   "consume": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "Consume",
+    "hands": "grip"
+   },
+   "farm_harvest": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_Harvest",
+    "hands": "grip"
+   },
+   "farm_plant_seed": {
+    "duration": 2.767,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_PlantSeed",
+    "hands": "grip"
+   },
+   "farm_watering": {
+    "duration": 3.8,
+    "loop": false,
+    "source": "ual2",
+    "original": "Farm_Watering",
+    "hands": "grip"
+   },
+   "hit_knockback": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Hit_Knockback",
+    "hands": "relaxed"
+   },
+   "idle_fold_arms": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_FoldArms_Loop",
+    "hands": "relaxed"
+   },
+   "idle_lantern": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Lantern_Loop",
+    "hands": "grip"
+   },
+   "idle_no": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_No_Loop",
+    "hands": "relaxed"
+   },
+   "idle_rail_call": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Idle_Rail_Call",
+    "hands": "grip"
+   },
+   "idle_rail": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Rail_Loop",
+    "hands": "grip"
+   },
+   "idle_shield_break": {
+    "duration": 1.067,
+    "loop": false,
+    "source": "ual2",
+    "original": "Idle_Shield_Break",
+    "hands": "relaxed"
+   },
+   "idle_shield": {
+    "duration": 2.5,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_Shield_Loop",
+    "hands": "relaxed"
+   },
+   "idle_talking_phone": {
+    "duration": 2.933,
+    "loop": true,
+    "source": "ual2",
+    "original": "Idle_TalkingPhone_Loop",
+    "hands": "grip"
+   },
+   "lay_to_idle": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "ual2",
+    "original": "LayToIdle",
+    "hands": "relaxed"
+   },
+   "melee_hook": {
+    "duration": 0.467,
+    "loop": false,
+    "source": "ual2",
+    "original": "Melee_Hook",
+    "hands": "grip"
+   },
+   "melee_hook_rec": {
+    "duration": 0.6,
+    "loop": false,
+    "source": "ual2",
+    "original": "Melee_Hook_Rec",
+    "hands": "grip"
+   },
+   "ninja_jump_idle": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "NinjaJump_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "ninja_jump_land": {
+    "duration": 1.267,
+    "loop": false,
+    "source": "ual2",
+    "original": "NinjaJump_Land",
+    "hands": "relaxed"
+   },
+   "ninja_jump_start": {
+    "duration": 0.967,
+    "loop": false,
+    "source": "ual2",
+    "original": "NinjaJump_Start",
+    "hands": "relaxed"
+   },
+   "overhand_throw": {
+    "duration": 1.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "OverhandThrow",
+    "hands": "grip"
+   },
+   "shield_dash": {
+    "duration": 1.1,
+    "loop": false,
+    "source": "ual2",
+    "original": "Shield_Dash",
+    "hands": "grip"
+   },
+   "shield_one_shot": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Shield_OneShot",
+    "hands": "grip"
+   },
+   "slide_exit": {
+    "duration": 0.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Slide_Exit",
+    "hands": "relaxed"
+   },
+   "slide": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "Slide_Loop",
+    "speed": 4.58,
+    "hands": "relaxed"
+   },
+   "slide_start": {
+    "duration": 0.833,
+    "loop": false,
+    "source": "ual2",
+    "original": "Slide_Start",
+    "hands": "relaxed"
+   },
+   "sword_block": {
+    "duration": 1.233,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Block",
+    "hands": "grip"
+   },
+   "sword_dash": {
+    "duration": 1.567,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Dash",
+    "hands": "grip"
+   },
+   "sword_heavy_combo": {
+    "duration": 4.333,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Heavy_Combo",
+    "hands": "grip"
+   },
+   "sword_regular_a": {
+    "duration": 0.433,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_A",
+    "hands": "grip"
+   },
+   "sword_regular_a_rec": {
+    "duration": 0.967,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_A_Rec",
+    "hands": "grip"
+   },
+   "sword_regular_b": {
+    "duration": 0.533,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_B",
+    "hands": "grip"
+   },
+   "sword_regular_b_rec": {
+    "duration": 1.033,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_B_Rec",
+    "hands": "grip"
+   },
+   "sword_regular_c": {
+    "duration": 2,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_C",
+    "hands": "grip"
+   },
+   "sword_regular_combo": {
+    "duration": 3,
+    "loop": false,
+    "source": "ual2",
+    "original": "Sword_Regular_Combo",
+    "hands": "grip"
+   },
+   "tree_chopping": {
+    "duration": 0.967,
+    "loop": true,
+    "source": "ual2",
+    "original": "TreeChopping_Loop",
+    "hands": "grip"
+   },
+   "walk_carry": {
+    "duration": 2,
+    "loop": true,
+    "source": "ual2",
+    "original": "Walk_Carry_Loop",
+    "speed": 0.66,
+    "hands": "grip"
+   },
+   "yes": {
+    "duration": 2.5,
+    "loop": false,
+    "source": "ual2",
+    "original": "Yes",
+    "hands": "relaxed"
+   },
+   "zombie_idle": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual2",
+    "original": "Zombie_Idle_Loop",
+    "hands": "relaxed"
+   },
+   "zombie_scratch": {
+    "duration": 1.8,
+    "loop": false,
+    "source": "ual2",
+    "original": "Zombie_Scratch",
+    "hands": "relaxed"
+   },
+   "zombie_walk_fwd": {
+    "duration": 1.333,
+    "loop": true,
+    "source": "ual2",
+    "original": "Zombie_Walk_Fwd_Loop",
+    "speed": 1.07,
+    "hands": "relaxed"
+   },
+   "rifle_idle": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_aim": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_walk": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.4,
+    "hands": "grip"
+   },
+   "rifle_run": {
+    "duration": 0.5,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 3.9,
+    "hands": "grip"
+   },
+   "rifle_walk_back": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.2,
+    "hands": "grip"
+   },
+   "rifle_strafe_left": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.3,
+    "hands": "grip"
+   },
+   "rifle_strafe_right": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 1.3,
+    "hands": "grip"
+   },
+   "rifle_fire": {
+    "duration": 0.267,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_reload": {
+    "duration": 3.3,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "vault_low": {
+    "duration": 1.533,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "relaxed"
+   },
+   "rifle_crouch_aim": {
+    "duration": 2.1,
+    "loop": true,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_crouch_walk": {
+    "duration": 1,
+    "loop": true,
+    "source": "mixamo",
+    "speed": 0.9,
+    "hands": "grip"
+   },
+   "rifle_crouch_fire": {
+    "duration": 0.267,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   },
+   "rifle_crouch_reload": {
+    "duration": 3.3,
+    "loop": false,
+    "source": "mixamo",
+    "hands": "grip"
+   }
+  }
+ }
+}

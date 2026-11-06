@@ -14,11 +14,9 @@ import sharp from 'sharp';
 import {MeshoptDecoder,MeshoptEncoder} from 'meshoptimizer';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-// source: originais (não vão p/ o site, a não ser npcs/hd que o jogador usa) · out: o que o jogo carrega
+// source: originais (não vão p/ o site) · out: o que o jogo carrega. Personagens: tools/import-quaternius.mjs já compacta.
 export const GROUPS={
- vehicles:{source:'assets/references/glb-originals/vehicles',out:'assets/vehicles/live',max:1024,quality:88},
- // os NPCs na rua aparecem com ~100–150 px de altura; o jogador e o editor de personagem usam o original (npcs/hd)
- npcs:{source:'assets/npcs/hd',out:'assets/npcs',max:1024,quality:90}
+ vehicles:{source:'assets/references/glb-originals/vehicles',out:'assets/vehicles/live',max:1024,quality:88}
 };
 const exists=p=>access(p).then(()=>true,()=>false);
 

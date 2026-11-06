@@ -26,7 +26,9 @@ function frameOf(rest) {
 // do quadril — ambos em "alturas de quadril" do próprio personagem }]
 export function poseClip(root, name, keys, { upperOnly = false, height = 1.75, fist = null } = {}) {
   // cache próprio: o userData.restPose do npc-roster vira objeto comum quando o personagem é clonado (JSON)
-  let rest = REST.get(root); if (!rest) REST.set(root, rest = restPose(root));
+  // repouso lido dos próprios ossos (os GLBs modulares já vêm na pose de repouso): pelo bind da malha, a compactação
+  // meshopt (malha com escala/deslocamento próprios) deslocava o quadril e o corpo morto ia parar 1,4 m abaixo do chão
+  let rest = REST.get(root); if (!rest) REST.set(root, rest = restPose(root, { fromBind: false }));
   if (!rest) return null;
   const F = frameOf(rest), names = [...rest.keys()], hips = rest.get('mixamorigHips');
   const foot = rest.get('mixamorigLeftFoot'), hipH = hips.pos.dot(F.up) - (foot ? foot.pos.dot(F.up) : 0);   // altura do quadril (unidades da armadura)

@@ -214,7 +214,8 @@ const CityUI = (() => {
         ${appBtn('dating','💕','CityMatch')}
         ${appBtn('calculator','🧮','Calculadora')}
         ${appBtn('gps','📍','GPS')}
-        ${appBtn('jobs','💼','Carreiras')}
+        ${appBtn('career','🎓','Carreira')}
+        ${appBtn('jobs','💼','Empregos')}
         ${appBtn('taxi','🚕','CityTaxi')}
         ${appBtn('business','🏪','Negócios')}
         ${appBtn('services','🛎️','Serviços')}

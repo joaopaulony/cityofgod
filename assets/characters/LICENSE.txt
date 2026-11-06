@@ -1,3 +1,5 @@
-Animações: Mixamo (Adobe) — esqueletos David e Megan sem malha, só as animações (rigs/mixamo).
-Personagens do jogo: modelos do autor em assets/npcs (gerados por tools/rig-npcs.mjs).
-City of God: clipes próprios de pulo baixo e andar agachado; texturas de no máximo 1024 px.
+Personagens (assets/characters/modular): Ultimate Modular Men e Ultimate Modular Women — Quaternius, CC0 1.0.
+Animações: Universal Animation Library 1 e 2 (Standard) e as dos packs modulares — Quaternius, CC0 1.0;
+ clipes de fuzil e transpor muro: Mixamo (Adobe), esqueletos David e Megan sem malha (rigs/mixamo).
+https://quaternius.com · https://creativecommons.org/publicdomain/zero/1.0/
+Gerados por tools/import-quaternius.mjs (esqueleto limpo com nomes Mixamo, retarget offline, meshopt).
