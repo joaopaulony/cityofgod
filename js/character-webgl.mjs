@@ -499,7 +499,8 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     e.mixer.update(Math.min(.06,Math.max(0,dt)));
     // piso sob os pés: decks, degraus de entrada e plataformas 3D ficam acima do chão (antes os pés afundavam neles)
     const gy=groundAt(a);e.groundY=e.groundY==null?gy:e.groundY+(gy-e.groundY)*Math.min(1,dt*14);
-    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+e.groundY,a.y);
+    // caído: as poses de morte encostam ~5–9 cm abaixo do chão (mãos e costas); ergue um pouco p/ o corpo ficar sobre o piso
+    e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+e.groundY+(a.dead?.08:0),a.y);
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.rotation.x=0;
     if(a.homeAction?.kind==='rest'&&a.homeAction.item){const bed=a.homeAction.item,angle=(bed.rot||0)+(bed.d>bed.w?Math.PI/2:0),half=e.spec.height*.45;e.root.rotation.set(-Math.PI/2,Math.PI/2-angle,0,'YXZ');e.root.position.set(bed.x+Math.cos(angle)*half,(a.floorZ||0)+(bed.h||.7)+.16,bed.y+Math.sin(angle)*half);}

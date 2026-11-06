@@ -37,3 +37,14 @@ for(const sex of ['male','female']){
   for(const a of anims)for(const c of a.listChannels())assert.ok(joints.has(c.getTargetNode().getName()),a.getName()+' → '+c.getTargetNode().getName());
  });
 }
+test('morte: o corpo termina deitado sobre o chão (nem enterrado, nem em pé)',async()=>{
+ const {execFileSync}=await import('node:child_process');
+ for(const sex of ['male','female']){
+  const out=execFileSync(process.execPath,['tools/quaternius/death-check.mjs',sex],{cwd:new URL('..',import.meta.url),encoding:'utf8'});
+  for(const clip of ['death_shot','death_car']){
+   const end=out.split('\n').find(l=>l.startsWith(clip)).trim().split(/\s+/).pop().split(':')[1].split('/').map(Number);
+   assert.ok(end[0]>-0.15,`${sex} ${clip}: fundo do corpo ${end[0]} m`);
+   assert.ok(end[1]<0.6,`${sex} ${clip}: topo do corpo ${end[1]} m (deveria estar deitado)`);
+  }
+ }
+});

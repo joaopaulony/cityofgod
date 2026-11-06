@@ -83,12 +83,32 @@ const CameraMotion = (() => {
     ox = sx; oy = sy; appliedZoom = z;
     cam.x += ox; cam.y += oy; cam.zoom *= appliedZoom;
   }
+  // ---------- seguir o jogador a pé ----------
+  // O cam.update persegue o alvo com lerp de taxa 6/s: andando, a câmera ficava sempre atrás (v/6 — 0,7 m correndo) e o
+  // jogador escorregava p/ a borda, sem ver p/ onde ia. Aqui o alvo ganha um deslocamento na direção do movimento:
+  // compensa esse atraso e antecipa ~0,3 s (menos dentro de casa; nada mirando — a mira já desloca — nem dirigindo).
+  // A velocidade é suavizada e o deslocamento entra/sai devagar: parar não dá tranco. Pulo grande (teleporte) zera tudo.
+  const lead = { vx: 0, vy: 0, x: 0, y: 0, px: null, py: null };
+  function followLead(px, py, dt, { aiming = false, indoors = false, driving = false } = {}) {
+    if (!(dt > 0)) return [lead.x, lead.y];
+    if (lead.px === null || Math.hypot(px - lead.px, py - lead.py) > 20) { Object.assign(lead, { px, py, vx: 0, vy: 0, x: 0, y: 0 }); return [0, 0]; }
+    const vx = (px - lead.px) / dt, vy = (py - lead.py) / dt; lead.px = px; lead.py = py;
+    const kv = 1 - Math.exp(-dt * 5); lead.vx += (vx - lead.vx) * kv; lead.vy += (vy - lead.vy) * kv;
+    const on = opts().follow && !driving && !aiming, v = Math.hypot(lead.vx, lead.vy);
+    let tx = 0, ty = 0;
+    if (on && v > 0.3) {
+      const ahead = 1 / 6 + (indoors ? 0.08 : 0.3), cap = indoors ? 1.2 : 3;
+      tx = lead.vx * ahead; ty = lead.vy * ahead; const m = Math.hypot(tx, ty); if (m > cap) { tx *= cap / m; ty *= cap / m; }
+    }
+    const kl = 1 - Math.exp(-dt * 2.5); lead.x += (tx - lead.x) * kl; lead.y += (ty - lead.y) * kl;
+    return [lead.x, lead.y];
+  }
   // direção na tela (WASD) -> chão, com o ângulo travado enquanto a tecla de andar segue apertada
   function moveDir(dx, dy) {
     if (ctrl === null) ctrl = cam.ang;
     const c = Math.cos(ctrl), s = Math.sin(ctrl);
     return [c * dx + s * dy, -s * dx + c * dy];
   }
-  return { pre, post, shake, moveDir, get state() { return { hold, zoomMul, kicks: kicks.length, punch }; } };
+  return { pre, post, shake, moveDir, followLead, get state() { return { hold, zoomMul, kicks: kicks.length, punch, lead: [lead.x, lead.y] }; } };
 })();
 window.CameraMotion = CameraMotion;

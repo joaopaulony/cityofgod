@@ -1053,7 +1053,10 @@ function tick(dt) {
   if(!window.cityVehicles?.driver){
     // Centra tronco e rosto em zoom alto, em vez de colocar os pés no meio da tela.
     const floorFocus=((player.floorZ||0)+.85)*HZ/TILT;
-    cam.tx = player.x + lx-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly-Math.cos(cam.ang)*floorFocus;
+    // antecipa a direção do movimento e compensa o atraso do seguimento (camera-motion.js)
+    const [ax,ay]=window.CameraMotion?.followLead?.(player.x,player.y,dt,{aiming:player.aimV>.3,indoors:houses.some(H=>H.inside)})||[0,0];
+    cam.tx = player.x + lx + ax-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly+ay-Math.cos(cam.ang)*floorFocus;
+    if(Math.hypot(cam.x-cam.tx,cam.y-cam.ty)>30){cam.x=cam.tx;cam.y=cam.ty;}   // teleporte/renascer: encaixa, sem atravessar a cidade
     if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
   window.CameraMotion?.pre(dt);   // acompanha a direção, zoom pela velocidade (camera-motion.js)

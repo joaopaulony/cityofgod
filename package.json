@@ -20,7 +20,8 @@
     "assets:optimize": "node tools/optimize-assets.mjs",
     "import:quaternius": "node tools/import-quaternius.mjs",
     "import:furniture": "node tools/import-furniture.mjs",
-    "roster:modular": "node tools/quaternius/make-roster.mjs"
+    "roster:modular": "node tools/quaternius/make-roster.mjs",
+    "test:camera": "node --test tests/camera-motion.test.mjs"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.1",
