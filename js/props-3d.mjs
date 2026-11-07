@@ -98,7 +98,19 @@ export function createProps(THREE, scene, bridge) {
     k.cylX(-0.29, 0.29, 0.1, -0.24, 0.1, DARK); k.cylX(-0.24, 0.24, 0.96, -0.33, 0.022, lid);
     for (const s of [-1, 1]) k.box(s * 0.22, 0.4, 0.28, s * 0.12, 0.7, 0.3, lid);
   } };
-  M.post = { dims: [0.14, 1.1, 0.14], make(k) { k.box(-0.06, 0, -0.06, 0.06, 1.1, 0.06, '#e9e5dc', 0.01); k.box(-0.075, 0, -0.075, 0.075, 0.08, 0.075, '#8f8a80'); } };
+  // poste da caixa de correio: fuste torneado de madeira pintada, base de concreto e capitel com bolinha
+  M.post = { dims: [0.14, 1.1, 0.14], make(k) {
+    k.cyl(0, 0, 0, 0.08, 0.07, '#8f8a80', 12, 0.07); k.cyl(0, 0.07, 0, 0.052, 1.0, '#ece7dc', 12, 0.045);
+    k.cyl(0, 1.0, 0, 0.065, 1.05, '#ddd6c6', 12); k.sph(0, 1.08, 0, 0.045, '#ece7dc');
+  } };
+  // frade de calçada (balizador): sapata de concreto chanfrada, fuste de aço grafite, duas faixas refletivas e topo
+  // arredondado — no lugar da caixa cinza quadrada
+  M.bollard = { dims: [0.22, 0.9, 0.22], make(k) {
+    k.cyl(0, 0, 0, 0.135, 0.05, '#9a978f', 20, 0.12);
+    k.cyl(0, 0.05, 0, 0.092, 0.8, '#3b4044', 20);
+    k.cyl(0, 0.6, 0, 0.095, 0.655, '#f0bf2c', 20); k.cyl(0, 0.68, 0, 0.095, 0.715, '#ebe7dd', 20);
+    k.cyl(0, 0.8, 0, 0.092, 0.83, '#33373b', 20, 0.08); k.sph(0, 0.83, 0, 0.08, '#3b4044', 0.45);
+  } };
   M.mailbox = { dims: [0.48, 0.3, 0.26], tinted: true, make(k, c) {
     const body = c || '#2b4f7a';
     k.box(-0.24, 0, -0.12, 0.24, 0.17, 0.12, body, 0.01); k.cylX(-0.24, 0.24, 0.17, 0, 0.12, body, 16);
@@ -393,7 +405,7 @@ export function createProps(THREE, scene, bridge) {
   const matHomeCeramic=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.28,metalness:.07});
   const matHomeSteel=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.46});
   const fabricSet=new Set(['sofa','couch','sectional','chair','bed','mattress','rug',...HOSPITAL_FABRIC,...POLICE_FABRIC]);
-  const metallicSet=new Set(['fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL,...POLICE_STEEL,...DEALER_STEEL]);
+  const metallicSet=new Set(['bollard','fridge','stove','microwave','mirror','tv','screen','lamp','lampdesk',...HOSPITAL_STEEL,...POLICE_STEEL,...DEALER_STEEL]);
   const hospitalSet=new Set([...Object.keys(hospitalModels(THREE,{chair})),...Object.keys(policeModels(THREE,{chair})),...Object.keys(dealerModels(THREE,{chair}))]);   // demais aparelhos: plástico lavável (cerâmico)
   const ceramicSet=new Set(['sink','toilet','shower']);
   const indoorMaterial=name=>fabricSet.has(name)?matHomeFabric:metallicSet.has(name)?matHomeSteel:
@@ -430,6 +442,15 @@ export function createProps(THREE, scene, bridge) {
   lampKit.cylX(0.25, 1.05, 4.15, 0, 0.045, '#8a9296', 8); lampKit.box(0.8, 4.06, -0.13, 1.35, 4.18, 0.13, '#3c4044', 0.03); lampKit.box(0.85, 4.04, -0.1, 1.3, 4.06, 0.1, '#fff4d8', 0, 'glow');
   const lampGeo = lampKit.done(), matGlow = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   const lampMeshes = Object.entries(lampGeo).map(([set, geo]) => { const m = new THREE.InstancedMesh(geo, set === 'glow' ? matGlow : matBody, 2500); m.castShadow = set !== 'glow'; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; scene.add(m); return m; });
+  // brilho da lâmpada à noite: um ponto aditivo exatamente na cabeça do poste 3D (o halo antigo era desenhado no 2D e,
+  // com a câmera inclinada, ficava solto no ar ao lado do poste)
+  const LAMP_HEAD = 1.075, glowPos = new Float32Array(2500 * 3), glowGeo = new THREE.BufferGeometry();
+  glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos, 3)); glowGeo.setDrawRange(0, 0);
+  const glowTex = typeof document === 'undefined' ? null : (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,244,214,1)'); gr.addColorStop(.18, 'rgba(255,226,160,.75)'); gr.addColorStop(.5, 'rgba(250,196,110,.22)'); gr.addColorStop(1, 'rgba(244,180,90,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const glowPts = new THREE.Points(glowGeo, new THREE.PointsMaterial({ map: glowTex, size: 60, sizeAttenuation: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  glowPts.frustumCulled = false; glowPts.visible = false; glowPts.renderOrder = 5; scene.add(glowPts);
 
   // ======================= semáforos (poucos: um Group por semáforo) =======================
   const LIGHT = { red: '#ff3a2a', yellow: '#ffc21a', green: '#2aff7a', walk: '#e8fff2', stop: '#ff6a2a' };
@@ -469,10 +490,13 @@ export function createProps(THREE, scene, bridge) {
   let shownLamps = [];
   function placeLamps() {
     shownLamps.forEach((l, i) => {
-      ps.set(l.x, 0, l.y); q.setFromAxisAngle(up, -Math.atan2(l.ay || 0, l.ax || 1)); if (l.fallen) q.premultiply(tilt(l.fallen));
+      ps.set(l.x, 0, l.y); q.setFromAxisAngle(up, -Math.atan2(l.ay ?? 0, l.ax ?? 1));   // ?? e não ||: braço com ax = 0 (rua no eixo Y) ficava girado 45° if (l.fallen) q.premultiply(tilt(l.fallen));
       sc.set(1, 1, 1); mat.compose(ps, q, sc); for (const m of lampMeshes) m.setMatrixAt(i, mat);
     });
     for (const m of lampMeshes) { m.count = shownLamps.length; m.instanceMatrix.needsUpdate = true; }
+    let n = 0;
+    for (const l of shownLamps) { if (l.fallen || l.broken) continue; const ax = l.ax ?? 1, ay = l.ay ?? 0; glowPos[n * 3] = l.x + ax * LAMP_HEAD; glowPos[n * 3 + 1] = 4.02; glowPos[n * 3 + 2] = l.y + ay * LAMP_HEAD; n++; }
+    glowGeo.attributes.position.needsUpdate = true; glowGeo.setDrawRange(0, n);
   }
   function updateSignals(T, night) {
     const list = bridge.world.trafficSignals || [], seen = new Set();
@@ -642,6 +666,7 @@ export function createProps(THREE, scene, bridge) {
     state,thumbnail,
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
+      glowPts.visible = night; glowPts.material.size = (c.zoom || 50) * 1.7;   // ~1,7 m de halo em qualquer zoom
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5), R = Math.min(150, Math.hypot(halfW, halfH) + 22);
       const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':'+(H.architecture?(bridge.player.stairTravel?.to??bridge.player.floor??0):upstairsIn(H) ? 'u' : '')).join(',');
       const n = (bridge.boxes || []).length;

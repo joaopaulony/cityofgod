@@ -914,7 +914,8 @@ function drawNight(W,H){
   protectBuildingSurfaces(gg);
   g.drawImage(glows,0,0);
   g.globalCompositeOperation='screen';
-  for(const l of lamps){
+  // com postes em 3D o brilho da lâmpada é desenhado no 3D, na cabeça do poste (props-3d.mjs)
+  for(const l of globalThis.VEG3D?[]:lamps){
     if(!lampHeadVisible(l.l))continue;
     const bulb=proj(l.x,l.y,4.03);
     // Emissivo no ponto real da luminaria, mesmo que o chao entre

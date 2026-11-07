@@ -145,8 +145,32 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const px=canvas?.clientHeight||innerHeight,m=camera&&camera.isOrthographicCamera?(camera.top-camera.bottom)/(camera.zoom||1)/px:.01,s=e.root.scale.y||1;
   b.scale.set(b.userData.px[0]*m/s,b.userData.px[1]*m/s,1);
  }
+ // carros (estacionados, do trânsito, viaturas) são sólidos p/ os pedestres: a colisão do mundo não os enxerga
+ // (estacionados não têm paredes) e os que andam só empurram. Estacionados num grid de 8 m refeito 1×/s
+ const carGrid={t:-1,cells:new Map()},NOCARS=[];
+ const inBox=(x,y,bx,by,a,hl,hw,r)=>{const c=Math.cos(a),s=Math.sin(a),dx=x-bx,dy=y-by;return Math.abs(dx*c+dy*s)<hl+r&&Math.abs(-dx*s+dy*c)<hw+r;};
+ function inCar(x,y,r){
+  for(const b of bridge.world.aiCars||NOCARS)if(inBox(x,y,b.x,b.y,b.a||0,b.hl,b.hw,r))return {x:b.x,y:b.y,a:b.a||0,hl:b.hl,hw:b.hw};
+  const now=performance.now();
+  if(now-carGrid.t>1000){carGrid.t=now;carGrid.cells.clear();const p=bridge.player;
+   for(const b of bridge.boxes||NOCARS){if(b.kind!=='parkedcar'&&b.kind!=='vehicle'||b.solid===false||Math.abs(b.x-p.x)>140||Math.abs(b.y-p.y)>140)continue;
+    const k=Math.floor(b.x/8)+','+Math.floor(b.y/8);if(!carGrid.cells.has(k))carGrid.cells.set(k,[]);carGrid.cells.get(k).push(b);}}
+  const i=Math.floor(x/8),j=Math.floor(y/8);
+  for(let a=i-1;a<=i+1;a++)for(let c=j-1;c<=j+1;c++)for(const b of carGrid.cells.get(a+','+c)||NOCARS)
+   if(inBox(x,y,b.x,b.y,b.rot||0,b.w/2,b.d/2,r))return {x:b.x,y:b.y,a:b.rot||0,hl:b.w/2,hw:b.d/2};
+  return null;
+ }
+ // pedestre que ficou dentro de um carro (o carro parou em cima, ou nasceu ali): desliza p/ fora pelo lado mais perto
+ function outOfCar(n,dt){
+  if(n.dead||n.inVehicle||n.hidden)return;
+  const b=inCar(n.x,n.y,.05);if(!b)return;
+  const c=Math.cos(b.a),s=Math.sin(b.a),dx=n.x-b.x,dy=n.y-b.y,lx=dx*c+dy*s,ly=-dx*s+dy*c;
+  const ex=b.hl+.4-Math.abs(lx),ey=b.hw+.4-Math.abs(ly),step=Math.min(4*dt,ex<ey?ex:ey);
+  if(ex<ey){const sg=Math.sign(lx)||1;n.x+=c*sg*step;n.y+=s*sg*step;}else{const sg=Math.sign(ly)||1;n.x+=-s*sg*step;n.y+=c*sg*step;}
+ }
  const clear=(x,y,ignore,r=.28)=>{
   if(x<.5||y<.5||x>bridge.mapSize-.5||y>bridge.mapSize-.5)return false;
+  if(inCar(x,y,r))return false;
   if(bridge.pondVal(x,y)<=1.02&&!bridge.onRoad(x,y))return false;
   // só a célula da grade de colisão (world.js collNear): antes varria as ~11 mil paredes do mundo, 7 vezes por NPC por quadro
   const near=bridge.collNear?bridge.collNear(x,y):{segs:bridge.world.segs,circles:bridge.world.circles,dyn:[]};
@@ -473,7 +497,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
     const controlled=activities.tick(n,dt);if(!visit&&!controlled)if(!ai.tickNPC(n,dt)&&!streetLife.control(n,dt))walkNPC(n,dt);
-    if(!visit&&!n.floor)offAsphalt(n,dt);
+    if(!visit&&!n.floor){offAsphalt(n,dt);outOfCar(n,dt);}
     // ferido sangrando deixa rastro de pingos
     if(n.hp<100&&n.speed>.1){n.dripD=(n.dripD||0)+n.speed*dt;if(n.dripD>(n.hp<50?.35:.8)){n.dripD=0;blood.drip(n.x+(Math.random()-.5)*.2,n.y+(Math.random()-.5)*.2,.04+Math.random()*.05,n.floorZ||0);}}
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
