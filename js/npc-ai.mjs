@@ -5,6 +5,7 @@
 // de todo mundo armado (linha de visão, rajadas, recarga, anda de lado, mantém distância, procura onde viu por último,
 // flanqueia, recua ferido). character-webgl.mjs entrega os personagens; ai-vehicles.mjs dirige os carros.
 import {createAIVehicles} from './ai-vehicles.mjs';
+import {createTraffic} from './ai-traffic.mjs';
 
 const TAU = Math.PI * 2;
 const now = () => performance.now();
@@ -27,6 +28,10 @@ export function createNPCAI(THREE, scene, ctx) {
   const { bridge, system, npcs, entries } = ctx, P = () => bridge.player, dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const fleet = createAIVehicles(THREE, scene, bridge, { people: () => [P(), ...npcs.filter(n => !n.dead && entries.has(n))] });
   system.fleet = fleet.state;
+  // trânsito civil leve: poucos carros só perto do jogador (menos no perfil gráfico baixo)
+  const traffic = createTraffic(THREE, scene, bridge, { network: fleet.network, roadPoint: fleet.roadPoint, people: () => [P(), ...npcs.filter(n => !n.dead && entries.has(n))],
+    max: () => ({ low: 2, medium: 4 }[window.CityDriving?.quality] ?? 5) });
+  system.traffic = traffic.state; window.cityTraffic = traffic;
   const notify = t => window.CityUI?.notify?.(t);
   const looks = g => ctx.roster()?.list().filter(c => c.group === g) || [];
   const arms = n => { const W = window.CityWeapons?.list[n.weaponId]; return { ...(ARMS[W?.cat] || ARMS.pistol), dmg: W?.damage || 26 }; };
@@ -529,7 +534,7 @@ export function createNPCAI(THREE, scene, ctx) {
   // bala de policial não pega em colega/socorrista; de gangster, não pega em parceiro da mesma facção
   const friendly = (from, n) => from?.cop && n.kind === 'service' || !!from?.gang && n.gang === from.gang;
   function tick(dt) {
-    fleet.update(dt);
+    fleet.update(dt); traffic.update(dt);
     for (const u of [...fleet.units]) (u.kind === 'police' ? policeUnit : ambulanceUnit)(u, dt);
     wantedTick(dt); outlawTick(dt); medicalTick(dt); angerTick(dt); warTick(dt); crewTick(dt); threatTick(dt);
     const p = P();

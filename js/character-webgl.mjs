@@ -316,15 +316,32 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
  }
  // passo com desvio: tenta a direção pedida e, se bloqueada, ângulos crescentes p/ cada lado (sem girar ao acaso
  // de cara na parede); devolve se andou
+ // asfalto: com o trânsito de carros, ninguém fica nem anda no meio da rua. Só pisa nele quem está atravessando (com a
+ // vez: sem carro chegando, ou no boneco verde), o policial perseguindo e o socorrista indo até a vítima
+ const asphalt=(x,y)=>!!bridge.roadDist&&bridge.roadDist(x,y)<(bridge.ROAD_W||3.5)+.15;
+ const roadOK=n=>n.cop&&n.chase||!!n.aid||!!n.medic||n.crossUntil>performance.now()||!!n.route?.cross?.go;
  function stepToward(n,face,v,dt,{keepOffRoad=false}={}){
+  const off=keepOffRoad||!roadOK(n),here=off&&asphalt(n.x,n.y)?bridge.roadDist(n.x,n.y):null;
+  let curb=false;
   for(const da of [0,.35,-.35,.7,-.7,1.1,-1.1]){
    const a=face+da,nx=n.x+Math.cos(a)*v*dt,ny=n.y+Math.sin(a)*v*dt;
    if(!clear(nx,ny,null,.3))continue;
-   if(keepOffRoad&&bridge.roadDist&&bridge.roadDist(nx,ny)<(bridge.ROAD_W||3.5)+.15)continue;   // não pisa no asfalto fora da faixa
+   // não entra no asfalto; quem já está nele só pode andar p/ fora (em direção ao meio-fio)
+   if(off&&asphalt(nx,ny)&&(here===null||bridge.roadDist(nx,ny)<=here+.001)){if(da===0)curb=true;continue;}
    if(crowded(n,nx,ny))continue;
    n.x=nx;n.y=ny;n.speed=v;n.face=a;n.moveA=a;n.running=!!n.run;return true;
   }
+  // o caminho atravessa a rua: espera no meio-fio e atravessa reto quando não vem carro
+  if(curb&&!keepOffRoad&&!window.cityTraffic?.carNear(n.x,n.y,24)){n.crossUntil=performance.now()+9000;return stepToward(n,face,Math.max(v,1.3),dt);}
   n.speed=0;return false;
+ }
+ // parado ou largado no asfalto sem motivo (empurrão, fim de conversa, chegou ali antes desta regra): vai p/ a calçada
+ function offAsphalt(n,dt){
+  if(n.dead||roadOK(n)||!asphalt(n.x,n.y))return;
+  let best=null,bd=bridge.roadDist(n.x,n.y);
+  for(let k=0;k<8;k++){const a=k/8*Math.PI*2,x=n.x+Math.cos(a)*1.2,y=n.y+Math.sin(a)*1.2,d=bridge.roadDist(x,y);if(d>bd+.05&&clear(x,y,null,.3)){bd=d;best=a;}}
+  if(best===null)return;
+  const v=Math.max(n.walk||1.2,1.4);n.x+=Math.cos(best)*v*dt;n.y+=Math.sin(best)*v*dt;n.face=n.moveA=best;n.speed=v;
  }
  // outra pessoa (ou o jogador) logo à frente: abre espaço
  function crowded(n,x,y){
@@ -342,7 +359,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
    if(!r.cross.go){
     const sig=(bridge.world.trafficSignals||[]).find(s=>Math.hypot(s.x-n.x,s.y-n.y)<14),car=window.cityVehicles?.driver?window.cityVehicles.car:null;
     const walk=sig&&typeof bridge.trafficPhase==='function'?bridge.trafficPhase(bridge.gameTime).pedestrian==='walk':true;
-    const carNear=car&&Math.hypot(car.x-n.x,car.y-n.y)<18&&Math.abs(car.speed||0)>.5;
+    const carNear=car&&Math.hypot(car.x-n.x,car.y-n.y)<18&&Math.abs(car.speed||0)>.5||!!window.cityTraffic?.carNear(n.x,n.y,24);
     n.speed=0;n.face=Math.atan2(r.cross.y-n.y,r.cross.x-n.x);
     if(walk&&!carNear)r.cross.go=true;else return;
    }
@@ -456,6 +473,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     if(n.dead){deadTick(n,dt);continue;}
     const visit=window.CityHomeVisitors?.has(n)&&window.CityHomeVisitors.tick(dt,n,(x,y,nx,ny)=>bridge.movePet?bridge.movePet(x,y,nx,ny,.28,n.floor||0):bridge.collide(nx,ny,.28,n.floor||0));
     const controlled=activities.tick(n,dt);if(!visit&&!controlled)if(!ai.tickNPC(n,dt)&&!streetLife.control(n,dt))walkNPC(n,dt);
+    if(!visit&&!n.floor)offAsphalt(n,dt);
     // ferido sangrando deixa rastro de pingos
     if(n.hp<100&&n.speed>.1){n.dripD=(n.dripD||0)+n.speed*dt;if(n.dripD>(n.hp<50?.35:.8)){n.dripD=0;blood.drip(n.x+(Math.random()-.5)*.2,n.y+(Math.random()-.5)*.2,.04+Math.random()*.05,n.floorZ||0);}}
    }if(n.leaving&&Math.hypot(n.x-p.x,n.y-p.y)>DESPAWN)remove(n);}
