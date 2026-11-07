@@ -63,13 +63,6 @@ function signText(g, text, x, y, w, h, bg, fg, night, neon) {
   g.fillText(text, x + w / 2, y + h / 2 + 1);
   g.restore();
 }
-function awning(g, x, y, w, h, c1, c2) {
-  g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x, y + h, w, h * 0.9);
-  const n = Math.max(2, Math.round(w / 10));
-  for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? c1 : c2; g.fillRect(x + i * w / n, y, w / n + 0.5, h); }
-  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x, y + h * 0.7, w, h * 0.3);
-  for (let i = 0; i < n * 2; i++) { g.fillStyle = i % 2 ? c1 : c2; g.beginPath(); g.arc(x + (i + 0.5) * w / (n * 2), y + h, w / (n * 4), 0, Math.PI); g.fill(); }
-}
 function interiorTex(H, F, rnd) {
   const { g, W, Hp, K, Y } = F; paintPlaster(g, 0, 0, W, Hp, H.style.interior, rnd, 0.1);
   g.fillStyle = '#5f4a36'; g.fillRect(0, Y(0.12), W, 0.12 * K);
@@ -106,7 +99,6 @@ function facadeDeco(H, side, ext, rnd, night) {
   g.fillStyle = 'rgba(30,26,22,0.35)'; g.fillRect(X(0.5), Y(FLOOR0 - 0.2), W - K, (FLOOR0 - 0.45) * K);
   for (let u = 0.8; u < L - 1.2; u += 2.4) glass(g, X(u), Y(3.2), 1.9 * K, 2.6 * K, '#6f97ad', night, rnd, { lit: 0.9 });
   if (F.front) {
-    awning(g, X(0.6), Y(3.75), W - 1.2 * K, 0.5 * K, acc, '#f7f5ef');
     signText(g, 'HOTEL ' + H.hotelName, X(L / 2 - 4), Y(4.15), 8 * K, 0.42 * K, null, '#f7f5ef', night, acc);
     const fx = X(L / 2 - 0.55), top = Y(H.h - 0.3), bot = Y(FLOOR0 + 0.6), fw = 1.1 * K;
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(fx + 4, top + 4, fw, bot - top);
@@ -254,7 +246,6 @@ function facadeShop(H, side, ext, rnd, night) {
       glass(g, X(u), Y(3.0), 2.0 * K, 2.8 * K, '#6c90a6', night, rnd, { lit: 0.95, frame: '#3a3f44' });
       if (!night) { const pc = ['#e8364f', '#f5c518', '#2b8be6', '#ffffff']; g.fillStyle = pc[(rnd() * 4) | 0]; g.fillRect(X(u + 0.3), Y(2.2), 0.5 * K, 0.7 * K); }
     }
-    awning(g, X(0.3), Y(3.55), W - 0.6 * K, 0.45 * K, col, '#f4f1ea');
     signText(g, txt, X(0.6), Y(4.15), W - 1.2 * K, 0.5 * K, col, '#ffffff', night, shadeHex(col, 1.5));
   } else for (let u = 1; u < L - 1; u += 2.6) { glass(g, X(u), Y(2.6), 1.2 * K, 1.2 * K, S.glassTint, night, rnd, { blinds: true }); if (H.poor) winBars(g, X(u), Y(2.6), 1.2 * K, 1.2 * K); }
   for (let f = 1; f < n; f++) { const z0 = floorZ(f); for (let u = 1; u < L - 1; u += 2.4) { glass(g, X(u), Y(z0 + 2.3), 1.2 * K, 1.3 * K, S.glassTint, night, rnd, { blinds: true }); if (H.poor) winBars(g, X(u), Y(z0 + 2.3), 1.2 * K, 1.3 * K); else if (!night && rnd() < 0.3) acUnit(g, X(u + 0.25), Y(z0 + 0.95), K); } }

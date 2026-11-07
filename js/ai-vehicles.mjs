@@ -168,12 +168,18 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
   }
   // sensores: projeta a carroceria à frente (até ~2 s de viagem) e mede a distância livre até poste, carro parado,
   // muro ou o carro do jogador; se algo bloqueia, procura um desvio p/ um dos lados que esteja livre
-  function sense(u, dt) {
+  function sense(u, dt, tx, ty) {
     u.senseT = (u.senseT || 0) - dt; if (u.senseT > 0) return; u.senseT = .12;
     u.clear = 99; u.dodge = 0;
     if (u.speed < -.1 || u.reverseT > 0) return;
     const ca = Math.cos(u.a), sa = Math.sin(u.a), look = Math.min(30, Math.max(6, Math.abs(u.speed) * 2 + 4));
     for (let s = 1.2; s <= look; s += 1.2) if (!free(u, u.x + ca * s, u.y + sa * s, u.a)) { u.clear = s; break; }
+    // fazendo curva: olha também p/ onde o carro está virando (a quina da carroceria varre poste e carro parado)
+    const turn = Math.max(-.7, Math.min(.7, angDiff(u.a, Math.atan2(ty - u.y, tx - u.x))));
+    if (Math.abs(turn) > .12) for (let s = 1.2; s <= Math.min(look, 10) && s < u.clear; s += 1.2) {
+      const b = u.a + turn * Math.min(1, s / 6);
+      if (!free(u, u.x + Math.cos(u.a + turn / 2) * s, u.y + Math.sin(u.a + turn / 2) * s, b)) { u.clear = s; break; }
+    }
     if (u.clear === 99) return;
     const s = Math.max(3, u.clear + 1.2);
     for (const off of [1.7, -1.7, 3, -3]) {   // esquerda = (-sen, cos)
@@ -182,7 +188,7 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     }
   }
   function steer(u, dt, tx, ty, maxSp, arrive) {
-    sense(u, dt);
+    sense(u, dt, tx, ty);
     const d = Math.hypot(tx - u.x, ty - u.y);
     // obstáculo parado à frente com lado livre: mira num ponto deslocado p/ contorná-lo (volta à rota depois)
     if (u.dodge && d > u.dodgeS) { const ca = Math.cos(u.a), sa = Math.sin(u.a); tx = u.x + ca * u.dodgeS - sa * u.dodge; ty = u.y + sa * u.dodgeS + ca * u.dodge; }
@@ -203,7 +209,8 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     const yaw = Math.max(-1, Math.min(1, da * 1.9)) * Math.min(1.35, Math.abs(u.speed) / 3.2) * (u.speed < 0 ? -1 : 1) * (u.reverseT > 0 ? -1 : 1);
     const na = u.a + yaw * dt * 1.3, nx = u.x + Math.cos(na) * u.speed * dt, ny = u.y + Math.sin(na) * u.speed * dt;
     if (Math.abs(u.speed) < .01 || free(u, nx, ny, na)) { u.x = nx; u.y = ny; u.a = na; if (Math.abs(u.speed) > .5) u.stuck = Math.max(0, u.stuck - dt); }
-    else { u.speed *= -.15; u.stuck += dt; if (u.stuck > .45 && u.reverseT <= 0) { u.reverseT = 1.1; u.stuck = 0; } }
+    // devagar (manobra) só para, sem quicar; rápido, o impacto devolve um pouco
+    else { u.speed = Math.abs(u.speed) < 4 ? 0 : u.speed * -.15; u.stuck += dt; if (u.stuck > .45 && u.reverseT <= 0) { u.reverseT = 1.1; u.stuck = 0; } }
     return d;
   }
   // segue a rota; na reta final (ou sem rota) vai direto ao alvo

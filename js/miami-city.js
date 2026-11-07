@@ -273,16 +273,11 @@ function miaMansion(S, c, rects) {
   for (const sg of [-1, 1]) miaDecal(miaQuad(fc[0] + t[0] * sg * 3.4, fc[1] + t[1] * sg * 3.4, n, t, 1.4, ext - fy * 0.5 + 0.2), 'pavers', r);
   world.decals.push({ kind: 'ring', x: fc[0], y: fc[1], r0: 2.2, r1: 4.6, bb: [fc[0] - 5, fc[1] - 5, fc[0] + 5, fc[1] + 5], paint: paintRing });
   addBox({ x: fc[0], y: fc[1], w: 3.2, d: 3.2, h: 1.8, kind: 'fountain', draw: drawFountain });
-  // pórtico com colunas em pé-direito duplo
-  for (const u of [-2.8, -1.2, 1.2, 2.8]) addBox({ x: H.doorPt[0] + n[0] * 2.6 + t[0] * u, y: H.doorPt[1] + n[1] * 2.6 + t[1] * u, w: 0.42, d: 0.42, h: H.h - 0.3, top: '#fbfaf6', side: '#ebe7de', kind: 'column' });
-  addBox({ x: H.doorPt[0] + n[0] * 1.45, y: H.doorPt[1] + n[1] * 1.45, z: H.h - 0.3, w: ax ? 3.2 : 7, d: ax ? 7 : 3.2, h: 0.4, top: '#f1ede4', side: '#fbfaf6', kind: 'portico', solid: false });
+  // entrada da mansão sem pórtico nem colunas (pedido do jogador)
   miaDecal(miaQuad(H.doorPt[0], H.doorPt[1], n, t, 3.6, 3.2), 'terrazzo', r);
   for (const sg of [-1, 1]) miaPlanter(H.doorPt[0] + n[0] * 3.6 + t[0] * sg * 4.2, H.doorPt[1] + n[1] * 3.6 + t[1] * sg * 4.2);
-  // loggia dos fundos: colunata em pé-direito duplo e varanda com guarda-corpo no andar de cima
+  // fundos: a varanda do andar de cima vem do plano arquitetônico (sem colunata)
   const bw = [hcx - n[0] * (HD / 2), hcy - n[1] * (HD / 2)];
-  for (let u = -HW / 2 + 2; u <= HW / 2 - 2; u += (HW - 4) / 4) addBox({ x: bw[0] - n[0] * 2.4 + t[0] * u, y: bw[1] - n[1] * 2.4 + t[1] * u, w: 0.4, d: 0.4, h: H.h - 0.3, top: '#fbfaf6', side: '#ebe7de', kind: 'column' });
-  // The architectural plan supplies this balcony, its door and solid rails.
-  addBox({ x: bw[0] - n[0] * 1.3, y: bw[1] - n[1] * 1.3, z: H.h - 0.3, w: ax ? 2.9 : HW - 2.4, d: ax ? HW - 2.4 : 2.9, h: 0.35, top: '#f1ede4', side: '#fbfaf6', kind: 'portico', solid: false });
   miaDecal(miaQuad(bw[0], bw[1], [-n[0], -n[1]], t, HW / 2 - 1, 3), 'terrazzo', r);
   // piscina com deque nos fundos + espreguiçadeiras e guarda-sol
   const bk = [hcx - n[0] * (HD / 2 + 5.2), hcy - n[1] * (HD / 2 + 5.2)];

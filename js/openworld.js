@@ -282,8 +282,9 @@ function* owGenSector(S) {
       if (sitios.some(q => Math.hypot(q[0] - hx, q[1] - hy) < 60)) continue;
       let ok = true, near = 99;
       for (let y = box[1]; y <= box[3] && ok; y += 2) for (let x = box[0]; x <= box[2]; x += 2) { const r2 = roadDist(x, y); near = Math.min(near, r2); if (r2 < ROAD_W + SIDE + 2 || pondVal(x, y) < 1.26) { ok = false; break; } }
-      // perto o bastante de uma via p/ ter acesso; no campo aberto (quase sem ruas) aceita mais longe depois de 130 tentativas
-      if (!ok || near > (i < 130 ? 28 : 90)) continue;
+      // perto o bastante de uma via p/ ter acesso; no campo aberto aceita mais longe depois de 130 tentativas e, onde não há
+      // estrada nenhuma no setor (roadDist satura em 99), depois de 200 o sítio fica no meio do pasto mesmo
+      if (!ok || near > (i < 130 ? 28 : i < 200 ? 90 : 1e9)) continue;
       const H = withSeed(S, n, () => placeTemplate(T, hx, hy, k, { roofKind: n % 2 ? 'hip' : 'gable', ext: '#a38c6d', roof: '#685a47', seed: owSeed(S, 'farm' + n) }));
       H.country = true; rects.push(box); owWalk(H); n++; sitios.push([hx, hy]);
       owIndexOwnedLive(S);
