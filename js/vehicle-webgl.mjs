@@ -24,6 +24,7 @@ import {syncCivicFleetParking} from './civic-fleet.mjs';
 import {installDealership} from './dealership.mjs';
 import {installJobs} from './jobs.mjs';
 import {installFarm} from './farm.mjs';
+import {installCareers} from './careers.mjs';
 import {createSkidFX} from './vehicle-skids.mjs';
 import {createDestructibles} from './destructibles.mjs';
 import {createVehicleLights} from './vehicle-lights.mjs';
@@ -329,6 +330,7 @@ function initRenderer(){
  createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
  installJobs(THREE,scene,bridge);
  installFarm(THREE,scene,bridge);   // sítio do jogador: lavoura, animais, construções e cooperativa   // empregos de verdade (entregador, taxista, gari, mecânico, atendente)
+ installCareers(scene,bridge);   // profissões: faculdade, piloto automático até a aula, negócio próprio (careers.mjs)
  createPets(scene,bridge);
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){

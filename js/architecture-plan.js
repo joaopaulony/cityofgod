@@ -85,6 +85,119 @@
  }
  // Delegacia Central: térreo com carceragem, interrogatório, evidências, saguão, sala dos investigadores, arquivo e
  // central de rádio; em cima briefing, arsenal, vestiário, escritórios, sala do delegado e copa
+ // Universidade City of God (campus em civic.js): prédio central de aulas e o prédio da biblioteca com restaurante
+ const UNIVERSITY_FLOORS=[
+  {L:[['lecture',.42],['lab',.70],['reception',1]],R:[['classroom',.36],['bathroom',.50],['office',.68],['lounge',1]]},
+  {L:[['classroom',.36],['lab',.68],['classroom',1]],R:[['classroom',.36],['bathroom',.50],['study',.72],['office',1]]},
+  {L:[['lecture',.50],['meeting',.72],['office',1]],R:[['classroom',.40],['bathroom',.54],['study',1]]}];
+ const CAMPUSLIB_FLOORS=[
+  {L:[['library',.62],['reception',1]],R:[['cafeteria',.66],['bathroom',.80],['lounge',1]]},
+  {L:[['library',.55],['study',1]],R:[['study',.40],['bathroom',.56],['library',1]]}];
+ // salas de aula, auditório, laboratórios, biblioteca, restaurante e convivência, cheios de verdade
+ function furnishUniversity(r,put,level,{W,D,cx,cy}){
+  const E={exact:true},left=r.x1<=level.entry[0]+.01,outer=left?r.x0:r.x1,os=left?1:-1,inner=left?r.x1:r.x0,is=-os;
+  const wallX=off=>outer+os*off,doorX=off=>inner+is*off;
+  const plant=(x,y)=>put('bigplant',.7,.7,1.6,[x,y],E);
+  switch(r.use){
+   case'lecture':{   // auditório: telão e púlpito no fundo, fileiras de cadeiras com corredor central viradas p/ ele
+    put('screen',Math.min(4,W-2),.12,1.6,[cx,r.y0+.25],{...E,overlay:true});put('lectern',.7,.6,1.25,[cx+Math.min(2.4,W/2-1),r.y0+1.2],E);
+    for(let y=r.y0+2.6;y<r.y1-.9;y+=1.15)for(let x=r.x0+.75;x<r.x1-.5;x+=.72){if(Math.abs(x-cx)<.8||Math.abs(x-doorX(.6))<1.1&&Math.abs(y-cy)<1.4)continue;put('chair',.5,.55,.85,[x,y],{...E,turn:Math.PI,top:'#3d5a80'});}
+    plant(r.x0+.5,r.y0+.5);plant(r.x1-.5,r.y0+.5);break;}
+   case'lab':{   // laboratório de informática: bancadas com computador em fileiras, lousa
+    put('infoboard',Math.min(3,W-2),.08,1.5,[cx,r.y0+.15],{...E,overlay:true});
+    // corredor junto à parede da porta: as fileiras de bancadas se alcançam por ele
+    for(let y=r.y0+1.9;y<r.y1-1.2;y+=2.1)for(let x=r.x0+1.1;x<r.x1-.9;x+=1.8){if(Math.abs(x-inner)<2)continue;put('policedesk',1.5,1.3,1.25,[x,y],{...E,turn:Math.PI});}
+    break;}
+   case'classroom':{   // sala de aula: lousa, mesa do professor, carteiras com cadeira
+    put('infoboard',Math.min(3.4,W-2),.08,1.5,[cx,r.y0+.15],{...E,overlay:true});put('desk',1.3,.65,.75,[cx-Math.min(2,W/3),r.y0+1.1],E);
+    // colunas de carteiras com corredores de ~0,7 m entre elas e um corredor largo junto à parede da porta
+    for(let y=r.y0+2.4;y<r.y1-1;y+=1.75)for(let x=r.x0+.9;x<r.x1-.7;x+=1.8){if(Math.abs(x-inner)<1.8)continue;put('studentdesk',1.1,.6,.75,[x,y],{...E,turn:Math.PI});put('chair',.45,.5,.8,[x,y+.7],{...E,turn:Math.PI,top:'#6d8aa0'});}
+    break;}
+   case'library':{   // estantes em fileiras junto à parede externa e mesas de leitura perto do corredor
+    for(let y=r.y0+1;y<r.y1-1.4;y+=2.3)for(const off of [1.15,3.35])put('qf_shelf_large',1.69,.38,2.22,[wallX(off),y],E);
+    for(let y=r.y0+1.6;y<r.y1-1.2;y+=2.6){const x=doorX(1.9);put('table',1.6,.9,.75,[x,y],E);for(const dx of [-.45,.45])for(const s of [-1,1])put('chair',.45,.45,.85,[x+dx,y+s*.75],{...E,turn:s>0?Math.PI:0,top:'#8a6a4a'});put('qf_light_desk',.25,.45,.57,[x+.6,y],{...E,overlay:true});}
+    plant(r.x0+.5,r.y1-.5);plant(r.x1-.5,r.y1-.5);break;}
+   case'study':{   // estudo: mesas individuais com cadeira junto à janela, estante e sofá
+    for(let y=r.y0+.7;y<r.y1-1.4;y+=1.5){put('desk',1.2,.6,.75,[wallX(.9),y],E);put('chair',.45,.45,.85,[wallX(1.45),y],{...E,turn:left?-Math.PI/2:Math.PI/2});}
+    put('qf_bookshelf',1.16,.38,2.22,[doorX(1.2),r.y0+.3],E);put('qf_couch_medium2',Math.min(2.26,W-1),1,.98,[cx,r.y1-.7],E);plant(doorX(.5),r.y1-.5);break;}
+   case'cafeteria':{   // restaurante universitário: balcão, café, geladeira e mesas redondas com cadeiras
+    put('counter',Math.min(4,W-3),.7,1.05,[cx,r.y0+.55],E);put('coffeestation',1.4,.6,1.25,[r.x0+.95,r.y0+.45],E);put('qf_kitchen_fridge',.65,.65,1.65,[r.x1-.6,r.y0+.5],E);
+    for(let y=r.y0+2.6;y<r.y1-1.2;y+=2.4)for(let x=r.x0+1.5;x<r.x1-1.2;x+=2.5){put('cafetable',1.2,1.2,.95,[x,y],E);for(const [dx,t] of [[-.92,Math.PI/2],[.92,-Math.PI/2]])put('qf_chair_3',.38,.42,.85,[x+dx,y],{...E,turn:t});}
+    put('vending',.9,.8,1.9,[doorX(.6),r.y1-.6],E);break;}
+   case'lounge':{   // convivência: sofás frente a frente, mesa, plantas, luminária e máquina de lanche
+    put('qf_couch_large1',Math.min(2.74,W-1),1,1.05,[cx,r.y0+.75],{...E,turn:0});put('qf_couch_medium1',Math.min(2.34,W-1),1.1,.96,[cx,r.y1-.8],{...E,turn:Math.PI});
+    put('qf_table_roundsmall',1.26,1.26,.75,[cx,cy],E);put('vending',.9,.8,1.9,[wallX(.6),cy],E);plant(r.x0+.5,cy+1.6);plant(r.x1-.5,cy-1.6);put('qf_light_floor1',.28,.3,1.6,[doorX(.4),cy+1.4],E);break;}
+   case'reception':{   // secretaria: balcão, banco de espera, mural e plantas
+    put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,cy-.6],E);put('infoboard',1.6,.08,1.5,[cx,r.y0+.15],{...E,overlay:true});
+    put('hbench',1.8,.5,.85,[cx,r.y1-.6],E);plant(r.x0+.5,r.y1-.5);plant(r.x1-.5,r.y1-.5);break;}
+   case'office':{   // sala dos professores / coordenação
+    for(let x=r.x0+1;x<r.x1-.8;x+=2){put('desk',1.3,.65,.75,[x,r.y0+.65],E);put('chair',.45,.45,.85,[x,r.y0+1.35],{...E,turn:Math.PI});}
+    put('qf_bookshelf',1.16,.38,2.22,[r.x0+.85,r.y1-.35],E);put('qf_drawer_5',1.4,.58,.67,[r.x1-1,r.y1-.45],E);plant(cx,r.y1-.5);break;}
+   case'meeting':{put('table',Math.min(4,W-2),1.4,.75,[cx,cy],E);for(let x=cx-1.5;x<=cx+1.5;x+=.9)for(const s of [-1,1])put('chair',.5,.5,.85,[x,cy+s*1.05],{...E,turn:s>0?Math.PI:0});put('screen',2,.12,1.2,[cx,r.y0+.25],{...E,overlay:true});break;}
+   case'bathroom':{put('toiletstall',.95,1.4,2,[wallX(.75),r.y0+1],E);if(D>4.2)put('toiletstall',.95,1.4,2,[wallX(.75),r.y0+2.5],E);put('sinkrow',Math.min(2.4,W-1.4),.55,.9,[doorX(1.4),r.y1-.4],E);break;}
+  }
+ }
+ // Estabelecimentos das profissões (careers.mjs): um pavimento, corredor central e salas de verdade de cada ofício
+ const BUSINESS_FLOORS={
+  vetclinic:[{L:[['vetsurgery',.42],['vetconsult',.72],['vetwait',1]],R:[['kennel',.38],['bathroom',.56],['pharmacy',.72],['vetconsult',1]]}],
+  medclinic:[{L:[['medlab',.38],['medconsult',.70],['medwait',1]],R:[['medexam',.38],['bathroom',.56],['medconsult',1]]}],
+  lawoffice:[{L:[['archive',.32],['lawoffice',.68],['lawwait',1]],R:[['lawmeeting',.40],['bathroom',.58],['lawoffice',1]]}],
+  autoshop:[{L:[['garage',1]],R:[['parts',.36],['bathroom',.54],['shopoffice',.74],['shopwait',1]]}],
+  restaurant:[{L:[['restkitchen',.45],['restdining',1]],R:[['pantry',.30],['bathroom',.48],['restdining',1]]}],
+  barbershop:[{L:[['barberhall',1]],R:[['pantry',.30],['bathroom',.50],['barberwait',1]]}],
+ };
+ const BUSINESS_KINDS=Object.keys(BUSINESS_FLOORS);
+ function furnishBusiness(r,put,level,{W,D,cx,cy}){
+  const E={exact:true},left=r.x1<=level.entry[0]+.01,outer=left?r.x0:r.x1,os=left?1:-1,inner=left?r.x1:r.x0,is=-os;
+  const wallX=off=>outer+os*off,doorX=off=>inner+is*off;
+  const plant=(x,y)=>put('bigplant',.7,.7,1.6,[x,y],E);
+  const wait=(n=2)=>{for(let i=0;i<n;i++)put('hbench',.5,1.8,.85,[wallX(.45),r.y0+1.4+i*2.2],E);};
+  switch(r.use){
+   // ---- veterinária
+   case'vetconsult':   // mesa de exame no centro (o pet sobe nela), pia, armário, balança e mesa da(o) veterinária(o)
+    put('exambed',1.15,2.05,.9,[cx,cy],{...E,service:'exam'});put('sink',.8,.6,.9,[wallX(.55),r.y0+.5],E);put('medcabinet',.9,.45,1.9,[wallX(.5),r.y1-.5],E);
+    put('scale',.55,.55,1.1,[doorX(.5),r.y0+.5],E);put('desk',1.3,.65,.75,[cx,r.y0+.55],E);put('infoboard',1.2,.08,1.2,[cx,r.y1-.15],{...E,overlay:true});break;
+   case'vetsurgery':put('ortable',1,2.1,1,[cx,cy],{...E,service:'surgery'});put('surglamp',1,1,2.2,[cx,cy],{...E,overlay:true});put('anesthesia',.8,.6,1.4,[wallX(.5),cy],E);put('mayo',.6,.45,1,[cx+1,cy+1.1],E);put('crashcart',.7,.5,1,[doorX(.5),r.y0+.5],E);put('sinkrow',1.8,.55,.9,[cx,r.y0+.4],E);break;
+   case'kennel':   // canis com grade e caminha
+    for(let y=r.y0+.4;y<r.y1-1.4;y+=1.6){put('cellbars',1.5,.12,1.1,[wallX(1.6),y+.75],{...E,overlay:true});put('qf_carpet_round',1.2,1.2,.02,[wallX(.85),y+.1],{...E,overlay:true});}
+    put('shelf',1.6,.45,1.8,[doorX(.4),cy],E);plant(doorX(.5),r.y1-.5);break;
+   case'pharmacy':put('medshelf',1.8,.45,1.9,[wallX(.35),cy],E);put('counter',2,.7,1.05,[cx,r.y1-.6],E);break;
+   case'vetwait':put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,r.y0+1],{...E,service:'desk'});wait(2);put('vending',.9,.8,1.9,[doorX(.6),r.y1-.6],E);plant(wallX(.5),r.y1-.5);put('infoboard',1.6,.08,1.5,[cx,r.y1-.15],{...E,overlay:true});break;
+   // ---- médico
+   case'medconsult':put('execdesk',2.2,2.15,1.3,[cx,r.y0+1.4],{...E,service:'desk'});put('exambed',1.15,2.05,.9,[wallX(.75),r.y1-1.4],{...E,service:'exam'});put('sink',.8,.6,.9,[doorX(.5),r.y1-.5],E);put('medcabinet',.9,.45,1.9,[wallX(.5),r.y0+.5],E);put('scale',.55,.55,1.1,[doorX(.5),r.y0+.5],E);break;
+   case'medlab':put('labbench',2.4,.75,1,[cx,r.y0+.5],E);put('labbench',2.4,.75,1,[cx,cy+.4],E);put('labfridge',.8,.7,1.9,[wallX(.5),r.y1-.5],E);put('sink',.8,.6,.9,[doorX(.5),r.y1-.5],E);break;
+   case'medexam':put('xray',1.2,2.2,2,[cx,cy],{...E,service:'exam'});put('leadscreen',1.2,.2,1.9,[doorX(.7),r.y1-.6],E);put('desk',1.3,.65,.75,[wallX(.75),r.y0+.5],E);break;
+   case'medwait':put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,r.y0+1],{...E,service:'desk'});wait(2);put('watercooler',.35,.35,1.25,[doorX(.4),r.y1-.4],E);plant(wallX(.5),r.y1-.5);put('infoboard',1.6,.08,1.5,[cx,r.y1-.15],{...E,overlay:true});break;
+   // ---- advocacia
+   case'lawoffice':put('execdesk',2.2,2.15,1.3,[cx,r.y0+1.4],{...E,service:'desk'});for(const dx of [-.6,.6])put('chair',.5,.5,.9,[cx+dx,r.y0+3.1],{...E,turn:Math.PI,top:'#6b4a32',service:dx<0?'client':undefined});
+    put('qf_bookshelf',1.16,.38,2.22,[wallX(.75),r.y1-.35],E);put('qf_bookshelf',1.16,.38,2.22,[wallX(2),r.y1-.35],E);put('qf_houseplant_8',.52,.52,1.56,[doorX(.5),r.y1-.5],E);put('qf_couch_small2',1.06,1,.64,[wallX(.65),cy+.6],{...E,turn:left?Math.PI/2:-Math.PI/2});break;
+   case'lawmeeting':put('table',Math.min(4,W-2),1.4,.75,[cx,cy],E);for(let x=cx-1.5;x<=cx+1.5;x+=1)for(const s of [-1,1])put('chair',.5,.5,.9,[x,cy+s*1.05],{...E,turn:s>0?Math.PI:0,top:'#6b4a32'});put('screen',2,.12,1.2,[cx,r.y0+.25],{...E,overlay:true});break;
+   case'archive':for(let x=r.x0+.5;x<r.x1-.4;x+=.62)put('filingcab',.5,.65,1.35,[x,r.y0+.5],E);put('shelf',2,.45,1.9,[cx,r.y1-.4],E);break;
+   case'lawwait':put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,r.y0+1],{...E,service:'desk'});put('qf_couch_medium2',2.26,1,.98,[wallX(1.4),r.y1-.7],E);put('qf_table_roundsmall',1.26,1.26,.75,[cx+.6,r.y1-1.9],E);plant(doorX(.5),r.y1-.5);put('qf_light_floor1',.28,.3,1.6,[wallX(.3),r.y0+.4],E);break;
+   // ---- oficina
+   case'garage':put('carlift',3.4,5.2,2.2,[cx,r.y0+3.6],{...E,service:'lift'});for(let x=r.x0+.9;x<r.x1-.8;x+=1.15)put('toolchest',1.05,.55,1.1,[x,r.y0+.4],E);
+    put('workbench',2,.8,1,[wallX(.5),r.y1-2.6],E);put('compressor',.8,.6,1,[wallX(.5),r.y1-4.2],E);put('tirestack',.8,.8,1.1,[doorX(.6),r.y1-4],E);put('oildrum',.6,.6,.9,[doorX(.5),r.y1-5],E);put('tirestand',1.6,.7,1.9,[wallX(1.1),r.y0+6.8],E);break;
+   case'parts':for(let y=r.y0+.5;y<r.y1-.6;y+=1.4)put('shelf',Math.min(2.4,W-1.5),.5,1.9,[cx,y],E);break;
+   case'shopoffice':put('desk',1.3,.65,.75,[cx,r.y0+.55],E);put('filingcab',.5,.65,1.35,[wallX(.4),r.y1-.45],E);put('printer',.7,.6,1.1,[doorX(.45),r.y1-.45],E);break;
+   case'shopwait':put('counter',Math.min(2.6,W-2),.7,1.05,[cx,r.y0+.8],{...E,service:'desk'});wait(1);put('vending',.9,.8,1.9,[doorX(.6),r.y1-.6],E);put('tirestand',1.6,.7,1.9,[cx,r.y1-.45],E);break;
+   // ---- restaurante
+   case'restkitchen':put('stove',.75,.62,.9,[wallX(.45),r.y0+.9],{...E,service:'stove'});put('stove',.75,.62,.9,[wallX(.45),r.y0+1.8],E);put('qf_kitchen_oven_large',.59,.54,.8,[wallX(.4),r.y0+2.7],E);
+    put('fridge',.72,.7,1.8,[r.x0+.5,r.y1-.5],E);put('counter',2.4,.65,.9,[cx,cy],E);put('sink',.8,.6,.9,[doorX(.5),r.y0+.5],E);put('counter',1.6,.65,.9,[doorX(.45),r.y0+1.6],E);break;
+   case'restdining':for(let y=r.y0+1.6;y<r.y1-1.3;y+=2.5)for(let x=r.x0+1.5;x<r.x1-1.2;x+=2.8){put('cafetable',1.2,1.2,.95,[x,y],{...E,service:'table'});for(const [dx,t] of [[-.92,Math.PI/2],[.92,-Math.PI/2]])put('qf_chair_3',.38,.42,.85,[x+dx,y],{...E,turn:t});}
+    plant(wallX(.5),r.y1-.5);if(!left){put('counter',2,.7,1.05,[cx,r.y1-.55],{...E,service:'desk'});put('coffeestation',1.4,.6,1.25,[wallX(.8),r.y0+.45],E);}break;
+   case'pantry':for(let y=r.y0+.5;y<r.y1-.5;y+=1.3)put('shelf',Math.min(2.4,W-1.5),.5,1.9,[cx,y],E);break;
+   // ---- barbearia
+   case'barberhall':{   // bancadas com espelho na parede interna (sem janelas), cadeira hidráulica de frente p/ o espelho; lavatórios e sofá do lado das janelas
+    const st=left?-Math.PI/2:Math.PI/2;
+    // (w/d da planta são extensões em x/y do mundo; bancada e lavatório viram sozinhos para o centro da sala)
+    for(let y=r.y0+1.3;y<r.y1-1;y+=2.3){if(Math.abs(y-cy)<2)continue;put('barberstation',.45,1.2,2.05,[doorX(.25),y],E);put('barberchair',.75,.75,1.25,[doorX(1.4),y],{...E,turn:-st,top:'#6b2626',service:'chair'});}
+    put('sink',.58,.8,.86,[wallX(.35),r.y0+3.85],E);put('sink',.58,.8,.86,[wallX(.35),r.y1-3.85],E);put('qf_shelf_small1',.28,.97,.29,[wallX(.2),r.y0+6.4],{...E,overlay:true});
+    put('qf_couch_medium1',.9,1.9,.9,[wallX(.55),cy],E);put('qf_table_roundsmall',.6,.6,.5,[wallX(1.6),cy],E);
+    plant(wallX(.45),r.y0+.5);plant(wallX(.45),r.y1-.5);plant(doorX(.5),r.y0+.5);break;}
+   case'barberwait':put('counter',Math.min(2.2,W-2),.7,1.05,[cx,r.y0+.9],{...E,service:'desk'});put('qf_couch_small1',1.44,1.1,.96,[wallX(1),r.y1-.8],E);put('qf_couch_small2',1.06,1,.64,[doorX(.8),r.y1-.8],E);put('tv',1.1,.36,.8,[cx,r.y0+.25],E);plant(wallX(.5),cy);break;
+   case'bathroom':put('toilet',.55,.72,.55,[wallX(.6),r.y0+.65],{...E,top:'#eeece6'});put('sink',.65,.52,.85,[doorX(.6),r.y0+.55],{...E,top:'#eee9dd'});put('shower',.88,.88,1.9,[wallX(.7),r.y1-.7],{...E,top:'#bad1d1'});break;
+  }
+ }
  const POLICE_FLOORS=[
   {L:[['holding',.30],['interrogation',.46],['evidence',.62],['lobby',1]],R:[['bullpen',.36],['bathroom',.50],['records',.64],['dispatch',1]]},
   {L:[['briefing',.34],['armory',.50],['lockers',.66],['office',1]],R:[['chief',.30],['bathroom',.44],['break',.66],['office',1]]}];
@@ -200,7 +313,7 @@
   for(let floor=0;floor<count;floor++){
    const setback=count>3&&floor>1?Math.min(Math.min(W,D)*.13,.65+Math.floor((floor-2)/3)*.6):0;
    const w=W-setback*2,d=D-setback*2,ox=setback,oy=setback;
-   const civic=['hospital','police','military','cityhall','school'].includes(kind);
+   const civic=['hospital','police','military','cityhall','school','university','campuslib',...BUSINESS_KINDS].includes(kind);
    const publicFloor=civic||floor===0&&['office','condo','projects','deco','shop','airport','warehouse'].includes(kind);
    const hallW=publicFloor?(kind==='airport'?3.6:kind==='warehouse'?2.8:3.4):count>1?3.0:1.8;   // corredores largos: a escada encosta numa parede e sobra passagem
    const left=round(coreX-hallW/2-ox),right=round(left+hallW),rear=round(Math.max(2.8,d*rearFraction));
@@ -223,7 +336,7 @@
    if(kind==='mansion'&&w>=14){const bath=rooms[1];const split=round(rear*.57);bath.y1=split;rooms.push(rect('laundry','laundry',right,split,w,rear));}
    // hospital: corredor central largo e alas com vários cômodos de verdade (cada um com porta p/ o corredor)
    let hospital=null;
-   const custom={hospital:HOSPITAL_FLOORS,police:POLICE_FLOORS}[kind];
+   const custom={hospital:HOSPITAL_FLOORS,police:POLICE_FLOORS,university:UNIVERSITY_FLOORS,campuslib:CAMPUSLIB_FLOORS,...BUSINESS_FLOORS}[kind];
    if(custom){
     const HW=4.4,hl=round(w/2-HW/2),hr=round(hl+HW),he=round(d-1.2),plan=custom[Math.min(floor,custom.length-1)];
     rooms=[];
@@ -270,6 +383,7 @@
     if(front)wall.openings.push({kind:'door',style:'glazed',at:len/2,width:2.6,height:2.7});
     wall.openings.sort((a,b)=>a.at-b.at);
    }
+   else if(ext&&owner.use==='garage'&&wall.normal[1]>.5&&len>4){wall.openings.push({kind:'door',style:'roller',at:len/2,width:Math.min(3.6,len-1),height:3.4});}   // portão da oficina, de frente p/ a rua
    else if(ext&&(owner.use==='workshop'||owner.use==='storehouse')&&wall.normal[1]<-.5&&len>5){wall.openings.push({kind:'door',style:'roller',at:len/2,width:3.6,height:3.6});}
    else if(ext&&owner.use!=='circulation'&&len>=1.8){
     const privacy=owner.use==='bathroom',count=Math.max(1,Math.floor(len/(privacy?3.7:2.6)));
@@ -290,7 +404,7 @@
  function furnish(level,seed){
   const random=rng(seed);
   for(const r of level.rooms){
-   if(r.use==='circulation'&&!['hospital','police','dealer','depot'].includes(level.kind))continue;
+   if(r.use==='circulation'&&!['hospital','police','dealer','depot','university','campuslib'].includes(level.kind))continue;
    const W=r.x1-r.x0,D=r.y1-r.y0,cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
    const portals=level.walls.filter(w=>w.rooms.includes(r.id)).flatMap(w=>w.openings.filter(o=>o.kind==='door').map(o=>{const L=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),x=w.a[0]+(w.b[0]-w.a[0])*o.at/L,y=w.a[1]+(w.b[1]-w.a[1])*o.at/L;return{x,y};}));
    const items=[];
@@ -310,6 +424,8 @@
    const lounge=()=>{put('sofa',Math.min(2.3,W-1.2),.85,.6,[cx,r.y1-.75],{top:'#839b93'});put('tv',1.1,.36,.8,[cx,r.y0+.4],{top:'#30363b'});if(D>3.8)put('table',1.05,.65,.42,[cx,cy]);};
    if(level.kind==='hospital')furnishHospital(r,put,level,{W,D,cx,cy});
    else if(level.kind==='police')furnishPolice(r,put,level,{W,D,cx,cy});
+   else if(BUSINESS_KINDS.includes(level.kind))furnishBusiness(r,put,level,{W,D,cx,cy});
+   else if(level.kind==='university'||level.kind==='campuslib'){if(r.use==='circulation'){for(let y=r.y0+3;y<r.y1-3;y+=6){put('hbench',.5,1.8,.85,[r.x0+.4,y],{exact:true});put('bigplant',.6,.6,1.6,[r.x1-.45,y],{exact:true});}}else furnishUniversity(r,put,level,{W,D,cx,cy});}
    else if(level.kind==='dealer')furnishDealer(r,put,level,{W,D,cx,cy});
    else if(level.kind==='depot')furnishDepot(r,put,level,{W,D,cx,cy});
    else switch(r.use){
@@ -347,7 +463,9 @@
   const entry=plan.levels[0].walls.some(w=>w.ext&&w.openings.some(o=>o.kind==='door'));
   if(!entry)problems.push('missing entrance');
   const needed={bedroom:['bed'],bathroom:['toilet','sink','shower'],living:['sofa','tv'],kitchen:['fridge','sink','stove']};
-  for(const level of plan.levels)for(const room of level.rooms)for(const kind of needed[room.use]||[])if(!level.furniture.some(f=>f.room===room.id&&f.kind===kind))problems.push(`floor ${level.floor}: ${room.use} missing ${kind}`);
+  // banheiro coletivo da universidade: cabines e pia corrida (sem chuveiro)
+  const campus=['university','campuslib'].includes(plan.kind),neededFor=use=>campus&&use==='bathroom'?['toiletstall','sinkrow']:needed[use]||[];
+  for(const level of plan.levels)for(const room of level.rooms)for(const kind of neededFor(room.use))if(!level.furniture.some(f=>f.room===room.id&&f.kind===kind))problems.push(`floor ${level.floor}: ${room.use} missing ${kind}`);
   return{passed:!problems.length,problems};
  }
  const api={makePlan,auditPlan,inside,residential};root.CityArchitecture=api;if(typeof module!=='undefined')module.exports=api;

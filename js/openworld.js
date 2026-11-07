@@ -220,6 +220,7 @@ function owFree(S, x, y, r, inset = 1.5) {
   const [x0, y0, x1, y1] = S.bounds;
   const ap = owAirportReserve();
   if (ap && x > ap[0]-r && x < ap[2]+r && y > ap[1]-r && y < ap[3]+r) return false;
+  for (const c of world.civicSites || []) if (c.campus && x > c.bb[0] - r && x < c.bb[2] + r && y > c.bb[1] - r && y < c.bb[3] + r) return false;   // campus: só a vegetação planejada
   if (x < x0 + inset || y < y0 + inset || x > x1 - inset || y > y1 - inset) return false;
   if (onRoad(x, y) || pondVal(x, y) < 1.12 + r * 0.25 || world.blocked(x, y, r)) return false;
   return !OW.place.any(x - r - 2, y - r - 2, x + r + 2, y + r + 2, c => Math.hypot(c.x - x, c.y - y) < c.r + r + 0.4);

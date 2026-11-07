@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "piloto-iso",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server@14.1.1",
+        "cityofgod-main",
+        "-p",
+        "4321",
+        "-c-1",
+        "-s"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "cityofgod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/serve.mjs"
+      ],
+      "port": 4322
+    },
+    {
+      "name": "shots",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/quaternius/shot-server.mjs"
+      ],
+      "port": 4323
+    }
+  ]
+}

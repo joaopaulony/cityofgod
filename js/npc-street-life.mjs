@@ -63,7 +63,10 @@ export function createStreetLife(ctx) {
     }
     if (!text) text = m.rival ? pick(['Tá olhando o quê?', 'Me deixa em paz!', 'Isso não vai ficar assim.', 'Sai fora, mano.']) : pick(['E aí, tudo certo?', 'Viu o jogo ontem?', 'Tá calor hoje, hein.', 'Bora no baile sábado?', 'Minha mãe mandou um abraço.', 'O ônibus atrasou de novo.', 'Tô trampando muito.', 'Kkkk verdade!']);
     ctx.say(sp, text, icon);
+    // gestos reais (Universal Animation Library): quem fala gesticula; quem ouve concorda, cruza os braços ou nega
     if (!m.rival && Math.random() < .18) emote(sp, 'phone', 3000);   // mostra algo no celular
+    else emote(sp, m.rival ? pick(['no', 'call']) : 'talk', 2600);
+    if (Math.random() < .45) emote(ls, m.rival ? pick(['fold', 'no']) : pick(['yes', 'fold', 'talk']), 2400);
     m.talker = ls;
   }
   // controla quem está num encontro (ou seguindo um amigo); false = segue a rotina normal

@@ -1,0 +1,1525 @@
+{
+ "schema": 1,
+ "source": "Quaternius — Ultimate Home Interior Pack (CC0)",
+ "items": {
+  "qf_couch_small1": {
+   "file": "Couch_Small1",
+   "name": "Sofá compacto",
+   "category": "Sala",
+   "price": 890,
+   "w": 1.443,
+   "d": 1.102,
+   "h": 0.955,
+   "face": "short",
+   "primary": "Couch_Blue",
+   "top": "#354758",
+   "side": "#323232",
+   "materials": {
+    "Couch_Blue": "#354758",
+    "Black": "#323232"
+   },
+   "triangles": 852
+  },
+  "qf_couch_small2": {
+   "file": "Couch_Small2",
+   "name": "Poltrona",
+   "category": "Sala",
+   "price": 540,
+   "w": 1.057,
+   "d": 0.996,
+   "h": 0.635,
+   "face": "short",
+   "primary": "Couch_BeigeDark",
+   "top": "#504c49",
+   "side": "#635d5a",
+   "materials": {
+    "Couch_BeigeDark": "#504c49",
+    "Couch_Beige": "#635d5a"
+   },
+   "triangles": 468
+  },
+  "qf_couch_medium1": {
+   "file": "Couch_Medium1",
+   "name": "Sofá 2 lugares azul",
+   "category": "Sala",
+   "price": 1290,
+   "w": 2.344,
+   "d": 1.102,
+   "h": 0.955,
+   "face": "short",
+   "primary": "Couch_Blue",
+   "top": "#354758",
+   "side": "#323232",
+   "materials": {
+    "Couch_Blue": "#354758",
+    "Black": "#323232"
+   },
+   "triangles": 1012
+  },
+  "qf_couch_medium2": {
+   "file": "Couch_Medium2",
+   "name": "Sofá 2 lugares",
+   "category": "Sala",
+   "price": 1190,
+   "w": 2.259,
+   "d": 1,
+   "h": 0.98,
+   "face": "short",
+   "primary": "Couch_Mustard",
+   "top": "#635536",
+   "side": "#564d3e",
+   "materials": {
+    "Couch_Mustard": "#635536",
+    "Wood": "#564d3e"
+   },
+   "triangles": 924
+  },
+  "qf_couch_large1": {
+   "file": "Couch_Large1",
+   "name": "Sofá 3 lugares",
+   "category": "Sala",
+   "price": 1890,
+   "w": 2.738,
+   "d": 0.996,
+   "h": 1.053,
+   "face": "short",
+   "primary": "DarkRed",
+   "top": "#52322a",
+   "side": "#633c31",
+   "materials": {
+    "DarkRed": "#52322a",
+    "Red": "#633c31"
+   },
+   "triangles": 1460
+  },
+  "qf_couch_large2": {
+   "file": "Couch_Large2",
+   "name": "Sofá 3 lugares reto",
+   "category": "Sala",
+   "price": 1790,
+   "w": 2.595,
+   "d": 0.996,
+   "h": 1.054,
+   "face": "short",
+   "primary": "Couch_BeigeDark",
+   "top": "#504c49",
+   "side": "#635d5a",
+   "materials": {
+    "Couch_BeigeDark": "#504c49",
+    "Couch_Beige": "#635d5a"
+   },
+   "triangles": 1332
+  },
+  "qf_couch_large3": {
+   "file": "Couch_Large3",
+   "name": "Sofá-cama baixo",
+   "category": "Sala",
+   "price": 1590,
+   "w": 3.543,
+   "d": 1.511,
+   "h": 0.544,
+   "face": "short",
+   "primary": "Couch_Green",
+   "top": "#3a4030",
+   "side": "#3a4030",
+   "materials": {
+    "Couch_Green": "#3a4030"
+   },
+   "triangles": 1300
+  },
+  "qf_couch_l": {
+   "file": "Couch_L",
+   "name": "Sofá em L",
+   "category": "Sala",
+   "price": 2690,
+   "w": 2.807,
+   "d": 2.163,
+   "h": 1.131,
+   "face": "short",
+   "primary": "Couch_BeigeDark",
+   "top": "#504c49",
+   "side": "#635d5a",
+   "materials": {
+    "Couch_BeigeDark": "#504c49",
+    "Couch_Beige": "#635d5a"
+   },
+   "triangles": 1428
+  },
+  "qf_fireplace": {
+   "file": "Fireplace",
+   "name": "Lareira",
+   "category": "Sala",
+   "price": 2400,
+   "w": 1.625,
+   "d": 0.579,
+   "h": 1.281,
+   "face": "short",
+   "primary": "Marble",
+   "top": "#a09a88",
+   "side": "#a09a88",
+   "materials": {
+    "Marble": "#a09a88"
+   },
+   "triangles": 360
+  },
+  "qf_chair_1": {
+   "file": "Chair_1",
+   "name": "Cadeira de madeira",
+   "category": "Sala",
+   "price": 190,
+   "w": 0.381,
+   "d": 0.413,
+   "h": 0.884,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#564d3e",
+   "materials": {
+    "Wood": "#564d3e"
+   },
+   "triangles": 216
+  },
+  "qf_chair_2": {
+   "file": "Chair_2",
+   "name": "Cadeira estofada",
+   "category": "Sala",
+   "price": 260,
+   "w": 0.381,
+   "d": 0.413,
+   "h": 0.845,
+   "face": "short",
+   "primary": "Wood_Dark",
+   "top": "#3e3630",
+   "side": "#867e78",
+   "materials": {
+    "Wood_Dark": "#3e3630",
+    "Cushin": "#867e78"
+   },
+   "triangles": 352
+  },
+  "qf_chair_3": {
+   "file": "Chair_3",
+   "name": "Cadeira de jantar",
+   "category": "Sala",
+   "price": 240,
+   "w": 0.381,
+   "d": 0.419,
+   "h": 0.847,
+   "face": "short",
+   "primary": "Wood_Dark",
+   "top": "#3e3630",
+   "side": "#867e78",
+   "materials": {
+    "Wood_Dark": "#3e3630",
+    "Cushin": "#867e78"
+   },
+   "triangles": 428
+  },
+  "qf_chair_4": {
+   "file": "Chair_4",
+   "name": "Cadeira clássica",
+   "category": "Sala",
+   "price": 230,
+   "w": 0.381,
+   "d": 0.413,
+   "h": 0.884,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#564d3e",
+   "materials": {
+    "Wood": "#564d3e"
+   },
+   "triangles": 264
+  },
+  "qf_stool": {
+   "file": "Stool",
+   "name": "Banqueta",
+   "category": "Cozinha",
+   "price": 150,
+   "w": 0.338,
+   "d": 0.355,
+   "h": 0.686,
+   "face": "any",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#867e78",
+   "materials": {
+    "Wood": "#564d3e",
+    "Cushin": "#867e78"
+   },
+   "triangles": 500
+  },
+  "qf_table_roundsmall": {
+   "file": "Table_RoundSmall",
+   "name": "Mesa redonda",
+   "category": "Sala",
+   "price": 620,
+   "w": 1.262,
+   "d": 1.262,
+   "h": 0.746,
+   "face": "any",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#564d3e",
+   "materials": {
+    "Wood": "#564d3e"
+   },
+   "triangles": 592
+  },
+  "qf_table_roundsmall2": {
+   "file": "Table_RoundSmall2",
+   "name": "Mesa redonda com toalha",
+   "category": "Sala",
+   "price": 680,
+   "w": 1.262,
+   "d": 1.262,
+   "h": 0.785,
+   "face": "any",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#564d3e",
+   "materials": {
+    "Wood": "#564d3e"
+   },
+   "triangles": 744
+  },
+  "qf_table_roundlarge": {
+   "file": "Table_RoundLarge",
+   "name": "Mesa oval grande",
+   "category": "Sala",
+   "price": 980,
+   "w": 2.414,
+   "d": 1.262,
+   "h": 0.729,
+   "face": "any",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#564d3e",
+   "materials": {
+    "Wood": "#564d3e"
+   },
+   "triangles": 592
+  },
+  "qf_bed_single": {
+   "file": "Bed_Single",
+   "name": "Cama de solteiro",
+   "category": "Quarto",
+   "price": 890,
+   "w": 0.99,
+   "d": 1.97,
+   "h": 0.677,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#633c31",
+   "materials": {
+    "White": "#a09f9d",
+    "Red": "#633c31",
+    "Wood": "#564d3e",
+    "Grey": "#7d7c7b",
+    "DarkRed": "#52322a"
+   },
+   "triangles": 536
+  },
+  "qf_bed_king": {
+   "file": "Bed_King",
+   "name": "Cama king",
+   "category": "Quarto",
+   "price": 2490,
+   "w": 1.532,
+   "d": 1.976,
+   "h": 0.607,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#633c31",
+   "materials": {
+    "White": "#a09f9d",
+    "Red": "#633c31",
+    "Wood": "#564d3e",
+    "Grey": "#7d7c7b",
+    "DarkRed": "#52322a"
+   },
+   "triangles": 676
+  },
+  "qf_bed_bunk": {
+   "file": "Bed_Bunk",
+   "name": "Beliche",
+   "category": "Quarto",
+   "price": 1490,
+   "w": 1.084,
+   "d": 1.999,
+   "h": 1.515,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#633c31",
+   "materials": {
+    "Wood": "#564d3e",
+    "White": "#a09f9d",
+    "Red": "#633c31",
+    "Grey": "#7d7c7b"
+   },
+   "triangles": 960
+  },
+  "qf_nightstand_1": {
+   "file": "NightStand_1",
+   "name": "Criado-mudo",
+   "category": "Quarto",
+   "price": 220,
+   "w": 0.476,
+   "d": 0.476,
+   "h": 0.412,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#605651",
+   "materials": {
+    "Wood": "#564d3e",
+    "Metal": "#605651"
+   },
+   "triangles": 172
+  },
+  "qf_nightstand_2": {
+   "file": "NightStand_2",
+   "name": "Criado-mudo com gaveta",
+   "category": "Quarto",
+   "price": 260,
+   "w": 0.476,
+   "d": 0.476,
+   "h": 0.473,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#605651",
+   "materials": {
+    "Wood": "#564d3e",
+    "Metal": "#605651"
+   },
+   "triangles": 184
+  },
+  "qf_nightstand_3": {
+   "file": "NightStand_3",
+   "name": "Criado-mudo duplo",
+   "category": "Quarto",
+   "price": 280,
+   "w": 0.476,
+   "d": 0.476,
+   "h": 0.414,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#605651",
+   "materials": {
+    "Wood": "#564d3e",
+    "Metal": "#605651"
+   },
+   "triangles": 272
+  },
+  "qf_drawer_1": {
+   "file": "Drawer_1",
+   "name": "Cômoda baixa",
+   "category": "Quarto",
+   "price": 640,
+   "w": 1.397,
+   "d": 0.559,
+   "h": 0.676,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#6b5f4d",
+   "materials": {
+    "Wood": "#564d3e",
+    "Wood_Dark": "#3e3630",
+    "Wood_Light": "#6b5f4d"
+   },
+   "triangles": 404
+  },
+  "qf_drawer_2": {
+   "file": "Drawer_2",
+   "name": "Cômoda larga",
+   "category": "Quarto",
+   "price": 780,
+   "w": 2.018,
+   "d": 0.559,
+   "h": 0.652,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#6b5f4d",
+   "materials": {
+    "Wood": "#564d3e",
+    "Wood_Dark": "#3e3630",
+    "Wood_Light": "#6b5f4d"
+   },
+   "triangles": 436
+  },
+  "qf_drawer_3": {
+   "file": "Drawer_3",
+   "name": "Aparador",
+   "category": "Quarto",
+   "price": 860,
+   "w": 2.077,
+   "d": 0.668,
+   "h": 0.789,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#6b5f4d",
+   "materials": {
+    "Wood": "#564d3e",
+    "Wood_Dark": "#3e3630",
+    "Wood_Light": "#6b5f4d"
+   },
+   "triangles": 604
+  },
+  "qf_drawer_4": {
+   "file": "Drawer_4",
+   "name": "Cômoda alta",
+   "category": "Quarto",
+   "price": 820,
+   "w": 1.397,
+   "d": 0.559,
+   "h": 1.035,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#6b5f4d",
+   "materials": {
+    "Wood": "#564d3e",
+    "Wood_Dark": "#3e3630",
+    "Wood_Light": "#6b5f4d"
+   },
+   "triangles": 464
+  },
+  "qf_drawer_5": {
+   "file": "Drawer_5",
+   "name": "Cômoda 3 gavetas",
+   "category": "Quarto",
+   "price": 690,
+   "w": 1.397,
+   "d": 0.576,
+   "h": 0.666,
+   "face": "short",
+   "primary": "Wood",
+   "top": "#564d3e",
+   "side": "#6b5f4d",
+   "materials": {
+    "Wood": "#564d3e",
+    "Wood_Dark": "#3e3630",
+    "Wood_Light": "#6b5f4d"
+   },
+   "triangles": 352
+  },
+  "qf_bookshelf": {
+   "file": "Bookshelf",
+   "name": "Estante de livros",
+   "category": "Decoração",
+   "price": 720,
+   "w": 1.159,
+   "d": 0.378,
+   "h": 2.219,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 120
+  },
+  "qf_shelf_1": {
+   "file": "Shelf_1",
+   "name": "Estante estreita",
+   "category": "Decoração",
+   "price": 380,
+   "w": 0.354,
+   "d": 0.326,
+   "h": 1.583,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 96
+  },
+  "qf_shelf_2": {
+   "file": "Shelf_2",
+   "name": "Estante média",
+   "category": "Decoração",
+   "price": 460,
+   "w": 0.56,
+   "d": 0.378,
+   "h": 2.219,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 120
+  },
+  "qf_shelf_large": {
+   "file": "Shelf_Large",
+   "name": "Estante grande",
+   "category": "Decoração",
+   "price": 980,
+   "w": 1.69,
+   "d": 0.378,
+   "h": 2.219,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 220
+  },
+  "qf_shelf_small1": {
+   "file": "Shelf_Small1",
+   "name": "Prateleira longa",
+   "category": "Decoração",
+   "price": 160,
+   "w": 0.972,
+   "d": 0.275,
+   "h": 0.289,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 132
+  },
+  "qf_shelf_small2": {
+   "file": "Shelf_Small2",
+   "name": "Prateleira",
+   "category": "Decoração",
+   "price": 110,
+   "w": 0.52,
+   "d": 0.275,
+   "h": 0.195,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 92
+  },
+  "qf_shelf_small3": {
+   "file": "Shelf_Small3",
+   "name": "Prateleira simples",
+   "category": "Decoração",
+   "price": 90,
+   "w": 0.52,
+   "d": 0.275,
+   "h": 0.195,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 48
+  },
+  "qf_carpet_1": {
+   "file": "Carpet_1",
+   "name": "Tapete retangular",
+   "category": "Decoração",
+   "price": 260,
+   "w": 1.066,
+   "d": 1.547,
+   "h": 0.018,
+   "face": "any",
+   "primary": "DarkRed",
+   "top": "#52322a",
+   "side": "#af8b53",
+   "materials": {
+    "DarkRed": "#52322a",
+    "LightOrange": "#af8b53"
+   },
+   "triangles": 108
+  },
+  "qf_carpet_2": {
+   "file": "Carpet_2",
+   "name": "Tapete quadrado",
+   "category": "Decoração",
+   "price": 300,
+   "w": 1.547,
+   "d": 1.591,
+   "h": 0.018,
+   "face": "any",
+   "primary": "DarkRed",
+   "top": "#52322a",
+   "side": "#af8b53",
+   "materials": {
+    "DarkRed": "#52322a",
+    "LightOrange": "#af8b53"
+   },
+   "triangles": 98
+  },
+  "qf_carpet_round": {
+   "file": "Carpet_Round",
+   "name": "Tapete redondo",
+   "category": "Decoração",
+   "price": 280,
+   "w": 1.246,
+   "d": 1.266,
+   "h": 0.008,
+   "face": "any",
+   "primary": "DarkRed",
+   "top": "#52322a",
+   "side": "#af8b53",
+   "materials": {
+    "DarkRed": "#52322a",
+    "LightOrange": "#af8b53"
+   },
+   "triangles": 128
+  },
+  "qf_curtains_single": {
+   "file": "Curtains_Single",
+   "name": "Cortina",
+   "category": "Decoração",
+   "price": 230,
+   "w": 0.816,
+   "d": 0.238,
+   "h": 2.172,
+   "face": "any",
+   "primary": "Couch_Blue",
+   "top": "#354758",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868",
+    "Couch_Blue": "#354758"
+   },
+   "triangles": 208
+  },
+  "qf_curtains_double": {
+   "file": "Curtains_Double",
+   "name": "Cortina dupla",
+   "category": "Decoração",
+   "price": 390,
+   "w": 1.734,
+   "d": 0.238,
+   "h": 2.172,
+   "face": "any",
+   "primary": "Couch_Blue",
+   "top": "#354758",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868",
+    "Couch_Blue": "#354758"
+   },
+   "triangles": 320
+  },
+  "qf_houseplant_1": {
+   "file": "Houseplant_1",
+   "name": "Vaso de folhagem",
+   "category": "Decoração",
+   "price": 120,
+   "w": 0.769,
+   "d": 0.694,
+   "h": 0.717,
+   "face": "any",
+   "primary": "Plant_Green",
+   "top": "#7a973d",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "Plant_Green": "#7a973d"
+   },
+   "triangles": 245
+  },
+  "qf_houseplant_2": {
+   "file": "Houseplant_2",
+   "name": "Suculenta",
+   "category": "Decoração",
+   "price": 45,
+   "w": 0.251,
+   "d": 0.251,
+   "h": 0.385,
+   "face": "any",
+   "primary": "Black",
+   "top": "#323232",
+   "side": "#4c6240",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "DarkGreen": "#4c6240",
+    "LightOrange": "#af8b53"
+   },
+   "triangles": 324
+  },
+  "qf_houseplant_3": {
+   "file": "Houseplant_3",
+   "name": "Planta em vaso alto",
+   "category": "Decoração",
+   "price": 140,
+   "w": 0.343,
+   "d": 0.338,
+   "h": 0.845,
+   "face": "any",
+   "primary": "DarkGreen",
+   "top": "#4c6240",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "DarkGreen": "#4c6240",
+    "LightOrange": "#af8b53"
+   },
+   "triangles": 412
+  },
+  "qf_houseplant_4": {
+   "file": "Houseplant_4",
+   "name": "Planta espada",
+   "category": "Decoração",
+   "price": 150,
+   "w": 0.338,
+   "d": 0.338,
+   "h": 0.928,
+   "face": "any",
+   "primary": "Plant_Green",
+   "top": "#7a973d",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "Plant_Green": "#7a973d"
+   },
+   "triangles": 316
+  },
+  "qf_houseplant_5": {
+   "file": "Houseplant_5",
+   "name": "Vaso de flores",
+   "category": "Decoração",
+   "price": 90,
+   "w": 0.512,
+   "d": 0.528,
+   "h": 0.424,
+   "face": "any",
+   "primary": "Plant_Green",
+   "top": "#7a973d",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "Plant_Green": "#7a973d"
+   },
+   "triangles": 492
+  },
+  "qf_houseplant_6": {
+   "file": "Houseplant_6",
+   "name": "Samambaia",
+   "category": "Decoração",
+   "price": 210,
+   "w": 1.04,
+   "d": 1.05,
+   "h": 0.959,
+   "face": "any",
+   "primary": "Plant_Green",
+   "top": "#7a973d",
+   "side": "#7d7c7b",
+   "materials": {
+    "Grey": "#7d7c7b",
+    "Brown": "#564d3e",
+    "Plant_Green": "#7a973d"
+   },
+   "triangles": 652
+  },
+  "qf_houseplant_7": {
+   "file": "Houseplant_7",
+   "name": "Palmeira de vaso",
+   "category": "Decoração",
+   "price": 260,
+   "w": 1.166,
+   "d": 1.22,
+   "h": 0.882,
+   "face": "any",
+   "primary": "Plant_Green",
+   "top": "#7a973d",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "Plant_Green": "#7a973d"
+   },
+   "triangles": 449
+  },
+  "qf_houseplant_8": {
+   "file": "Houseplant_8",
+   "name": "Árvore de interior",
+   "category": "Decoração",
+   "price": 340,
+   "w": 0.517,
+   "d": 0.517,
+   "h": 1.557,
+   "face": "any",
+   "primary": "Black",
+   "top": "#323232",
+   "side": "#564d3e",
+   "materials": {
+    "Black": "#323232",
+    "Brown": "#564d3e",
+    "Wood": "#564d3e"
+   },
+   "triangles": 310
+  },
+  "qf_light_floor1": {
+   "file": "Light_Floor1",
+   "name": "Luminária de pé",
+   "category": "Iluminação",
+   "price": 420,
+   "w": 0.281,
+   "d": 0.295,
+   "h": 1.603,
+   "face": "any",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#7d7c7b",
+   "materials": {
+    "Grey": "#7d7c7b",
+    "Light": "#d0d0d0",
+    "LightMetal": "#686868"
+   },
+   "triangles": 226
+  },
+  "qf_light_floor2": {
+   "file": "Light_Floor2",
+   "name": "Luminária pequena",
+   "category": "Iluminação",
+   "price": 190,
+   "w": 0.313,
+   "d": 0.329,
+   "h": 0.757,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "White": "#a09f9d",
+    "LightMetal": "#686868"
+   },
+   "triangles": 276
+  },
+  "qf_light_floor3": {
+   "file": "Light_Floor3",
+   "name": "Luminária cúpula",
+   "category": "Iluminação",
+   "price": 230,
+   "w": 0.4,
+   "d": 0.421,
+   "h": 0.894,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868",
+    "White": "#a09f9d"
+   },
+   "triangles": 244
+  },
+  "qf_light_floor4": {
+   "file": "Light_Floor4",
+   "name": "Luminária cilíndrica",
+   "category": "Iluminação",
+   "price": 210,
+   "w": 0.351,
+   "d": 0.351,
+   "h": 0.763,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "White": "#a09f9d",
+    "LightMetal": "#686868"
+   },
+   "triangles": 244
+  },
+  "qf_light_stand1": {
+   "file": "Light_Stand1",
+   "name": "Luminária de pé alta",
+   "category": "Iluminação",
+   "price": 520,
+   "w": 0.387,
+   "d": 0.407,
+   "h": 1.497,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868",
+    "White": "#a09f9d"
+   },
+   "triangles": 244
+  },
+  "qf_light_stand2": {
+   "file": "Light_Stand2",
+   "name": "Luminária de pé moderna",
+   "category": "Iluminação",
+   "price": 560,
+   "w": 0.339,
+   "d": 0.339,
+   "h": 1.473,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "White": "#a09f9d",
+    "LightMetal": "#686868"
+   },
+   "triangles": 244
+  },
+  "qf_light_desk": {
+   "file": "Light_Desk",
+   "name": "Luminária de mesa",
+   "category": "Iluminação",
+   "price": 160,
+   "w": 0.252,
+   "d": 0.453,
+   "h": 0.573,
+   "face": "short",
+   "primary": "Black",
+   "top": "#323232",
+   "side": "#a09f9d",
+   "materials": {
+    "Black": "#323232",
+    "LightMetal": "#686868",
+    "White": "#a09f9d"
+   },
+   "triangles": 356
+  },
+  "qf_kitchen_fridge": {
+   "file": "Kitchen_Fridge",
+   "name": "Geladeira retrô",
+   "category": "Cozinha",
+   "price": 2600,
+   "w": 0.649,
+   "d": 0.651,
+   "h": 1.654,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#323232",
+   "materials": {
+    "White": "#a09f9d",
+    "Black": "#323232"
+   },
+   "triangles": 404
+  },
+  "qf_kitchen_oven": {
+   "file": "Kitchen_Oven",
+   "name": "Fogão",
+   "category": "Cozinha",
+   "price": 1090,
+   "w": 0.505,
+   "d": 0.56,
+   "h": 0.809,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#4d4d4d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d",
+    "LightMetal": "#686868",
+    "DarkMetal": "#4d4d4d",
+    "Glass": "#d0d0d0",
+    "KitchenTop": "#807f7d"
+   },
+   "triangles": 524
+  },
+  "qf_kitchen_oven_large": {
+   "file": "Kitchen_Oven_Large",
+   "name": "Fogão grande",
+   "category": "Cozinha",
+   "price": 1490,
+   "w": 0.586,
+   "d": 0.535,
+   "h": 0.796,
+   "face": "short",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#4d4d4d",
+   "materials": {
+    "Black": "#323232",
+    "White": "#a09f9d",
+    "LightMetal": "#686868",
+    "DarkMetal": "#4d4d4d",
+    "Glass": "#d0d0d0"
+   },
+   "triangles": 528
+  },
+  "qf_kitchen_sink": {
+   "file": "Kitchen_Sink",
+   "name": "Pia com gabinete",
+   "category": "Cozinha",
+   "price": 740,
+   "w": 0.505,
+   "d": 0.56,
+   "h": 0.962,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#a09f9d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d",
+    "LightMetal": "#686868",
+    "KitchenTop": "#807f7d"
+   },
+   "triangles": 444
+  },
+  "qf_kitchen_1drawers": {
+   "file": "Kitchen_1Drawers",
+   "name": "Balcão 1 gaveta",
+   "category": "Cozinha",
+   "price": 380,
+   "w": 0.505,
+   "d": 0.56,
+   "h": 0.807,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#807f7d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d",
+    "KitchenTop": "#807f7d"
+   },
+   "triangles": 84
+  },
+  "qf_kitchen_2drawers": {
+   "file": "Kitchen_2Drawers",
+   "name": "Balcão 2 gavetas",
+   "category": "Cozinha",
+   "price": 420,
+   "w": 0.505,
+   "d": 0.56,
+   "h": 0.812,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#807f7d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d",
+    "KitchenTop": "#807f7d"
+   },
+   "triangles": 148
+  },
+  "qf_kitchen_3drawers": {
+   "file": "Kitchen_3Drawers",
+   "name": "Balcão 3 gavetas",
+   "category": "Cozinha",
+   "price": 460,
+   "w": 0.505,
+   "d": 0.56,
+   "h": 0.812,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#807f7d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d",
+    "KitchenTop": "#807f7d"
+   },
+   "triangles": 212
+  },
+  "qf_kitchen_cabinet1": {
+   "file": "Kitchen_Cabinet1",
+   "name": "Balcão com porta",
+   "category": "Cozinha",
+   "price": 400,
+   "w": 0.505,
+   "d": 0.536,
+   "h": 0.784,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#a09f9d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d"
+   },
+   "triangles": 68
+  },
+  "qf_kitchen_cabinet2": {
+   "file": "Kitchen_Cabinet2",
+   "name": "Balcão com portas",
+   "category": "Cozinha",
+   "price": 430,
+   "w": 0.505,
+   "d": 0.536,
+   "h": 0.784,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#a09f9d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d"
+   },
+   "triangles": 68
+  },
+  "qf_kitchen_cabinetsmall": {
+   "file": "Kitchen_CabinetSmall",
+   "name": "Balcão pequeno",
+   "category": "Cozinha",
+   "price": 300,
+   "w": 0.431,
+   "d": 0.536,
+   "h": 0.474,
+   "face": "short",
+   "primary": "Kitchen",
+   "top": "#5b6660",
+   "side": "#a09f9d",
+   "materials": {
+    "Kitchen": "#5b6660",
+    "White": "#a09f9d"
+   },
+   "triangles": 68
+  },
+  "qf_bathroom_toilet": {
+   "file": "Bathroom_Toilet",
+   "name": "Vaso sanitário com caixa",
+   "category": "Banheiro",
+   "price": 640,
+   "w": 0.598,
+   "d": 0.846,
+   "h": 0.95,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 402
+  },
+  "qf_bathroom_toilet2": {
+   "file": "Bathroom_Toilet2",
+   "name": "Vaso sanitário compacto",
+   "category": "Banheiro",
+   "price": 520,
+   "w": 0.556,
+   "d": 0.77,
+   "h": 0.504,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#a09f9d",
+   "materials": {
+    "White": "#a09f9d"
+   },
+   "triangles": 334
+  },
+  "qf_bathroom_sink": {
+   "file": "Bathroom_Sink",
+   "name": "Pia de banheiro",
+   "category": "Banheiro",
+   "price": 480,
+   "w": 0.695,
+   "d": 0.408,
+   "h": 0.723,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#7d7c7b",
+   "materials": {
+    "White": "#a09f9d",
+    "Grey": "#7d7c7b"
+   },
+   "triangles": 350
+  },
+  "qf_bathroom_bathtub": {
+   "file": "Bathroom_Bathtub",
+   "name": "Banheira",
+   "category": "Banheiro",
+   "price": 2900,
+   "w": 0.804,
+   "d": 1.95,
+   "h": 0.63,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#7d7c7b",
+   "materials": {
+    "White": "#a09f9d",
+    "Grey": "#7d7c7b"
+   },
+   "triangles": 248
+  },
+  "qf_bathroom_shower1": {
+   "file": "Bathroom_Shower1",
+   "name": "Box com chuveiro",
+   "category": "Banheiro",
+   "price": 1690,
+   "w": 0.948,
+   "d": 0.946,
+   "h": 1.774,
+   "face": "any",
+   "primary": "Grey",
+   "top": "#7d7c7b",
+   "side": "#354758",
+   "materials": {
+    "Grey": "#7d7c7b",
+    "LightMetal": "#686868",
+    "Couch_Blue": "#354758",
+    "Metal": "#605651"
+   },
+   "triangles": 652
+  },
+  "qf_bathroom_washingmachine": {
+   "file": "Bathroom_WashingMachine",
+   "name": "Máquina de lavar",
+   "category": "Banheiro",
+   "price": 1890,
+   "w": 0.646,
+   "d": 0.662,
+   "h": 0.735,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#7d7c7b",
+   "materials": {
+    "White": "#a09f9d",
+    "Black": "#323232",
+    "Grey": "#7d7c7b"
+   },
+   "triangles": 304
+  },
+  "qf_bathroom_mirror1": {
+   "file": "Bathroom_Mirror1",
+   "name": "Espelho de parede",
+   "category": "Banheiro",
+   "price": 230,
+   "w": 0.648,
+   "d": 0.102,
+   "h": 2.08,
+   "face": "any",
+   "primary": "Mirror",
+   "top": "#d0d0d0",
+   "side": "#323232",
+   "materials": {
+    "Black": "#323232",
+    "Mirror": "#d0d0d0"
+   },
+   "triangles": 76,
+   "hang": 1.15
+  },
+  "qf_bathroom_mirror2": {
+   "file": "Bathroom_Mirror2",
+   "name": "Espelho redondo",
+   "category": "Banheiro",
+   "price": 190,
+   "w": 0.537,
+   "d": 0.038,
+   "h": 1.974,
+   "face": "any",
+   "primary": "Black",
+   "top": "#323232",
+   "side": "#d0d0d0",
+   "materials": {
+    "Black": "#323232",
+    "Mirror": "#d0d0d0"
+   },
+   "triangles": 92,
+   "hang": 1.2
+  },
+  "qf_bathroom_towel": {
+   "file": "Bathroom_Towel",
+   "name": "Toalheiro",
+   "category": "Banheiro",
+   "price": 90,
+   "w": 1.185,
+   "d": 0.161,
+   "h": 1.554,
+   "face": "any",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868",
+    "White": "#a09f9d",
+    "Red": "#633c31"
+   },
+   "triangles": 192,
+   "hang": 0.9
+  },
+  "qf_bathroom_toiletpaper": {
+   "file": "Bathroom_ToiletPaper",
+   "name": "Papel higiênico",
+   "category": "Banheiro",
+   "price": 15,
+   "w": 0.3,
+   "d": 0.175,
+   "h": 0.944,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#686868",
+   "materials": {
+    "White": "#a09f9d",
+    "Brown": "#564d3e",
+    "LightMetal": "#686868"
+   },
+   "triangles": 276,
+   "hang": 0.6
+  },
+  "qf_bathroom_toiletpaperpile": {
+   "file": "Bathroom_ToiletPaperPile",
+   "name": "Pilha de papel higiênico",
+   "category": "Banheiro",
+   "price": 25,
+   "w": 0.334,
+   "d": 0.35,
+   "h": 0.375,
+   "face": "short",
+   "primary": "White",
+   "top": "#a09f9d",
+   "side": "#564d3e",
+   "materials": {
+    "White": "#a09f9d",
+    "Brown": "#564d3e"
+   },
+   "triangles": 384
+  },
+  "qf_trashcan_small1": {
+   "file": "Trashcan_Small1",
+   "name": "Lixeira pequena",
+   "category": "Cozinha",
+   "price": 60,
+   "w": 0.252,
+   "d": 0.153,
+   "h": 0.356,
+   "face": "any",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#323232",
+   "materials": {
+    "LightMetal": "#686868",
+    "Black": "#323232"
+   },
+   "triangles": 260
+  },
+  "qf_trashcan_small2": {
+   "file": "Trashcan_Small2",
+   "name": "Lixeira com pedal",
+   "category": "Cozinha",
+   "price": 85,
+   "w": 0.232,
+   "d": 0.214,
+   "h": 0.28,
+   "face": "any",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868"
+   },
+   "triangles": 432
+  },
+  "qf_trashcan_cylindric": {
+   "file": "Trashcan_Cylindric",
+   "name": "Lixeira cilíndrica",
+   "category": "Cozinha",
+   "price": 95,
+   "w": 0.377,
+   "d": 0.377,
+   "h": 0.537,
+   "face": "any",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868"
+   },
+   "triangles": 380
+  },
+  "qf_trashcan_large": {
+   "file": "Trashcan_Large",
+   "name": "Lixeira grande",
+   "category": "Cozinha",
+   "price": 180,
+   "w": 0.612,
+   "d": 0.612,
+   "h": 0.923,
+   "face": "any",
+   "primary": "LightMetal",
+   "top": "#686868",
+   "side": "#686868",
+   "materials": {
+    "LightMetal": "#686868"
+   },
+   "triangles": 646
+  },
+  "qf_trashcan_green": {
+   "file": "Trashcan_Green",
+   "name": "Contêiner de lixo",
+   "category": "Decoração",
+   "price": 320,
+   "w": 0.609,
+   "d": 0.796,
+   "h": 1.106,
+   "face": "any",
+   "primary": "DarkGreen",
+   "top": "#4c6240",
+   "side": "#323232",
+   "materials": {
+    "DarkGreen": "#4c6240",
+    "Black": "#323232"
+   },
+   "triangles": 739
+  },
+  "qf_column_squaresmall": {
+   "file": "Column_SquareSmall",
+   "name": "Pedestal",
+   "category": "Decoração",
+   "price": 260,
+   "w": 0.454,
+   "d": 0.454,
+   "h": 1.224,
+   "face": "any",
+   "primary": "Marble",
+   "top": "#a09a88",
+   "side": "#a09a88",
+   "materials": {
+    "Marble": "#a09a88"
+   },
+   "triangles": 148
+  },
+  "qf_column_round1": {
+   "file": "Column_Round1",
+   "name": "Pedestal redondo",
+   "category": "Decoração",
+   "price": 290,
+   "w": 0.7,
+   "d": 0.736,
+   "h": 0.886,
+   "face": "any",
+   "primary": "Marble",
+   "top": "#a09a88",
+   "side": "#a09a88",
+   "materials": {
+    "Marble": "#a09a88"
+   },
+   "triangles": 332
+  }
+ }
+}

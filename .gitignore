@@ -14,3 +14,4 @@ dist/
 # FBX originais (Mixamo etc.) ficam fora do repositorio
 *.Fbx
 *.fbx
+.shots/

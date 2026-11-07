@@ -59,6 +59,13 @@ O jogo começa com o personagem **desembarcando no saguão do aeroporto**, como 
 - `js/openworld.js` — liga o mundo grande ao jogo (setores, campos do terreno, descarga)
 
 
+## Personagens, animações e móveis (Quaternius, CC0)
+
+- **Personagens modulares** (`assets/characters/modular/`): peças do *Ultimate Modular Men* e *Ultimate Modular Women* — cabeça (rosto + cabelo/chapéu), tronco, pernas, calçados e acessório — num esqueleto único por sexo (nomes Mixamo). O CAS (**Meu personagem**) combina as peças, tinge pele, cabelo e roupas e começa de 52 visuais prontos; os NPCs do elenco (`roster.json`) usam as mesmas peças.
+- **Animações**: ~120 clipes por sexo — *Universal Animation Library 1 e 2*, os do pack modular e os de fuzil/transpor muro do Mixamo, já retargetados no esqueleto final. Gestos no jogo pela tecla **T**.
+- **Móveis**: *Ultimate Home Interior Pack* (83 peças) na loja de decoração e no lugar dos móveis procedurais das casas.
+- Reimportar (pasta com os packs baixados): `npm run import:quaternius -- <pasta>` · `npm run import:furniture -- <pasta OBJ>` · `npm run roster:modular`. Inspeção: `tools/quaternius/viewer.html`.
+
 ## Estado dos veículos
 
 Os veículos, arquivos de arte e sistemas de direção foram retirados do protótipo. O restante do mapa permanece intacto. Uma nova implementação poderá ser planejada do zero.
