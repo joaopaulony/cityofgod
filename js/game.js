@@ -985,7 +985,8 @@ function tick(dt) {
   }
   T += dt;
   document.body.classList.toggle('cursor-free', !player.armed || !!window.cityVehicles?.driver);
-  st.clock += dt * envClockRate(st.clock) * (window.CityTimeScale || 1);   // aula acelerada (careers.mjs) hud.msgT -= dt;window.CityUI?.syncClock?.(st.clock);
+  st.clock += dt * envClockRate(st.clock) * (window.CityTimeScale || 1);   // aula acelerada (careers.mjs)
+  hud.msgT -= dt; window.CityUI?.syncClock?.(st.clock);
   // sol, lua, claridade e clima seguem o relógio (env.js); a noite deixa de ser só a tecla N
   envTick(dt, st.clock);
   if (st.night !== ENV.night) st.night = world.night = ENV.night;

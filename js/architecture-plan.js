@@ -106,7 +106,7 @@
    case'lab':{   // laboratório de informática: bancadas com computador em fileiras, lousa
     put('infoboard',Math.min(3,W-2),.08,1.5,[cx,r.y0+.15],{...E,overlay:true});
     // corredor junto à parede da porta: as fileiras de bancadas se alcançam por ele
-    for(let y=r.y0+1.9;y<r.y1-1.2;y+=2.1)for(let x=r.x0+1.1;x<r.x1-.9;x+=1.8){if(Math.abs(x-inner)<2)continue;put('policedesk',1.5,1.3,1.25,[x,y],{...E,turn:Math.PI});}
+    for(let y=r.y0+1.9;y<r.y1-1.2;y+=2.1)for(let x=r.x0+1.1;x<r.x1-.9;x+=1.8){if(Math.abs(x-inner)<2)continue;put('policedesk',1.5,1.3,1.25,[x,y],{...E,turn:0});}   // cadeira do lado de trás: o aluno olha o monitor e a lousa
     break;}
    case'classroom':{   // sala de aula: lousa, mesa do professor, carteiras com cadeira
     put('infoboard',Math.min(3.4,W-2),.08,1.5,[cx,r.y0+.15],{...E,overlay:true});put('desk',1.3,.65,.75,[cx-Math.min(2,W/3),r.y0+1.1],E);

@@ -67,7 +67,8 @@ export function installCareers(scene,bridge){
   const A=H.architecture,cx=(room.x0+room.x1)/2;
   const board=A2W(H,cx,room.y0+.4);
   let seats=furnOf(H,room,f=>f.kind==='chair').map(f=>({...A2W(H,f.x,f.y),ly:f.y}));
-  if(seats.length<4)seats=furnOf(H,room,f=>f.kind==='policedesk'||f.kind==='studentdesk').map(f=>({...A2W(H,f.x,f.y+.85),ly:f.y}));   // laboratório (bancadas) ou sala sem cadeiras soltas
+  // laboratório: a bancada traz a própria cadeira (+0,45 m atrás do tampo, virada p/ a lousa); sala sem cadeiras soltas: atrás da carteira
+  if(seats.length<4)seats=furnOf(H,room,f=>f.kind==='policedesk'||f.kind==='studentdesk').map(f=>({...A2W(H,f.x,f.y+(f.kind==='policedesk'?.45:.7)),ly:f.y}));
   seats.sort((a,b)=>a.ly-b.ly||d2(a,board)-d2(b,board));
   const teacherF=furnOf(H,room,f=>f.kind==='lectern'||f.kind==='desk')[0];
   const teacher=teacherF?A2W(H,teacherF.x,teacherF.y+.8):A2W(H,cx,room.y0+1.4);
@@ -192,7 +193,7 @@ export function installCareers(scene,bridge){
    lessonUI.innerHTML=`<small>${PROFESSIONS[c.id].icon} ${esc(PROFESSIONS[c.id].title)} · aula ${c.attended.length+1}/${lessonsFor(c.id)} · <span class="cr-clock"></span></small><h3>${esc(L.topic)}</h3>
     <div class="cr-bar"><i></i></div><small class="cr-progress"></small>
     ${L.quiz?`<div class="cr-q"><b>${esc(L.quiz.q)} <small class="cr-t"></small></b><div class="cr-opts">${L.quiz.options.map((o,i)=>`<button data-ans="${i}">${esc(o)}</button>`).join('')}</div></div>`:''}
-    <div class="cr-row"><button data-act="fast">${L.fast?'⏩ Aula acelerada':'▶ Tempo real'}</button><button data-act="leave">Sair da aula</button></div>`;}
+    <div class="cr-row"><button data-act="fast" title="${L.fast?'A aula está acelerada (10×)':'A aula está em tempo real'}">${L.fast?'▶ Voltar ao tempo real':'⏩ Acelerar a aula'}</button><button data-act="leave">Sair da aula</button></div>`;}
   lessonUI.querySelector('.cr-clock').textContent=fmt(clock());
   lessonUI.querySelector('.cr-bar i').style.width=Math.round(frac*100)+'%';
   lessonUI.querySelector('.cr-progress').textContent=Math.round(L.minutes)+' de '+Math.round(L.end-L.start)+' min · acertos '+L.correct+'/'+L.asked;

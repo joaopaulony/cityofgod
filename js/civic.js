@@ -97,10 +97,8 @@ function civicPlaceSector(S){
    const [x0,y0,x1,y1]=site.bb,gate=(px,py)=>py>y1-1&&Math.abs(px-H.doorPt[0])<4;
    for(const [a,b] of [[[x0,y0],[x1,y0]],[[x0,y0],[x0,y1]],[[x1,y0],[x1,y1]],[[x0,y1],[x1,y1]]])chainLine(...a,...b,gate,{h:2.3});
   }
-  // Welcoming portico; city hall has a wider colonnade and a central raised crown.
-  const portico=site.kind==='cityhall',width=portico?16:9;
-  for(const dx of portico?[-8,-5,5,8]:[-4.5,4.5])addBox({x:H.doorPt[0]+dx,y:H.y1+3,w:.55,d:.55,h:portico?7:3.5,kind:'civic-column',top:site.color,side:site.color,house:H,exteriorFixture:true});
-  addBox({x:H.doorPt[0],y:H.y1+1.8,w:width+1,d:4.5,h:.3,z:portico?7:3.5,kind:'civic-canopy',top:site.color,side:site.color,solid:false,house:H,exteriorFixture:true});
+  // sem marquise nem pilares na entrada (pedido do jogador); a prefeitura mantém só o coroamento no telhado
+  const portico=site.kind==='cityhall';
   if(portico)addBox({x,y:H.y0+6,w:12,d:8,h:1.1,z:H.h,kind:'civic-crown',top:'#d7cfb8',side:site.color,solid:false,house:H,exteriorFixture:true});
   owIndexOwnedLive(S);
  }
@@ -137,15 +135,8 @@ function civicCampus(S,site){
  main.style={...main.style,plaster:'#efe7d8'};remodelProperty(main);main.walk=[main.doorPt,[main.doorPt[0],Y-6]];
  const lib=addHouse({x0:X+27,y0:Y-62,x1:X+49,y1:Y-38,h:2*fh,nFloors:2,floorHeight:fh,seed:owSeed(S,site.id+':lib'),roofKind:'flat',frontSide:'S',open:{S:{door:[10]}},civic:true,miaKind:'campuslib',bName:'Biblioteca e Restaurante Universitário'});
  lib.style={...lib.style,plaster:'#d9cdb7'};remodelProperty(lib);lib.walk=[lib.doorPt,[lib.doorPt[0],Y-34]];
- // marquise com colunas na entrada do prédio central e coroamento no telhado (nome da universidade)
- for(const dx of [-6,-3,3,6])addBox({x:main.doorPt[0]+dx,y:main.y1+3,w:.6,d:.6,h:6.8,kind:'civic-column',top:'#f4efe4',side:'#f4efe4',house:main,exteriorFixture:true});
- addBox({x:main.doorPt[0],y:main.y1+1.8,w:14,d:4.6,h:.35,z:6.8,kind:'civic-canopy',top:'#f4efe4',side:'#efe7d8',solid:false,house:main,exteriorFixture:true});
+ // coroamento no telhado do prédio central (nome da universidade); sem marquise nem colunas na entrada
  addBox({x:X,y:main.y0+6,w:14,d:8,h:1.2,z:main.h,kind:'civic-crown',top:'#cdbf9f',side:'#efe7d8',solid:false,house:main,exteriorFixture:true});
- for(const dx of [-3,3])addBox({x:lib.doorPt[0]+dx,y:lib.y1+2.4,w:.5,d:.5,h:3.4,kind:'civic-column',top:'#e6dcc8',side:'#e6dcc8',house:lib,exteriorFixture:true});
- addBox({x:lib.doorPt[0],y:lib.y1+1.4,w:8,d:3.4,h:.3,z:3.4,kind:'civic-canopy',top:'#e6dcc8',side:'#d9cdb7',solid:false,house:lib,exteriorFixture:true});
- // portal da entrada: duas colunas e a viga com o nome
- for(const dx of [-4.2,4.2])addBox({x:X+dx,y:Y-1.2,w:.8,d:.8,h:4.2,kind:'civic-column',top:'#efe7d8',side:'#efe7d8'});
- addBox({x:X,y:Y-1.2,w:9.2,d:1,h:.7,z:4.2,kind:'civic-canopy',top:'#efe7d8',side:'#c9b48a',solid:false});
  // quadras esportivas com alambrado (basquete ao lado do prédio; futsal e vôlei atrás)
  campusCourt(S,X-39,Y-51,'y','basketball');
  campusCourt(S,X-11,Y-79,'x','soccer');
@@ -190,9 +181,7 @@ function civicBusiness(S,site){
  const lot=[X+4,Y-9,X+15,Y-1];world.paved.push(lot);
  world.decals.push({kind:'biz-lot',bb:lot,paint(g){g.fillStyle='#55595b';g.fillRect(lot[0],lot[1],lot[2]-lot[0],lot[3]-lot[1]);g.strokeStyle='#ece8da';g.lineWidth=.1;for(let i=0;i<2;i++)g.strokeRect(lot[0]+.6+i*5.2,lot[1]+.6,4.6,6.6);}});
  if(site.kind==='autoshop'){const apron=[X-12,Y-10,X-2,Y];world.paved.push(apron);miaDecal(q(-12,-10,-2,0),'drive',null);}   // rampa do portão da oficina
- // marquise com o nome sobre a porta, colunas e canteiros
- for(const dx of [-2.6,2.6])addBox({x:H.doorPt[0]+dx,y:H.y1+2,w:.4,d:.4,h:3,kind:'civic-column',top:site.color,side:site.color,house:H,exteriorFixture:true});
- addBox({x:H.doorPt[0],y:H.y1+1.2,w:6.4,d:2.6,h:.28,z:3,kind:'civic-canopy',top:'#2c3e50',side:site.color,solid:false,house:H,exteriorFixture:true});
+ // canteiros, palmeiras e postes na frente (sem marquise nem colunas)
  for(const dx of [-10,-6,7,10])miaBush(X+dx,Y-8.5,['hibiscus','croton','bougainvillea','seagrape'][(dx+20)&3]);
  for(const dx of [-14,14])miaPalm(X+dx,Y-2,'royal');
  world.lamps.push({x:X-6,y:Y-1,ax:0,ay:-1},{x:X+6,y:Y-1,ax:0,ay:-1});

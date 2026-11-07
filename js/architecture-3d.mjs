@@ -183,8 +183,6 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   const label=H.civic?H.bName:A.kind==='shop'?(['CAFÉ PALM','MERCADO LOCAL','STUDIO MIAMI'][A.palette%3]):A.kind==='airport'?'AEROPORTO':A.kind==='warehouse'?'DADE SUPPLY':A.kind==='office'?(H.bName||'BISCAYNE OFFICES'):(H.hotelName||'PALM COURT');g.fillText(label,256,49,480);
   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;e.textures.push(tex);const material=new THREE.MeshStandardMaterial({map:tex,roughness:.8});e.materials.push(material);
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(r.x1-r.x0-.3,5),.75),material);mesh.position.set((r.x0+r.x1)/2,2.65,r.y1+.12);e.exterior.add(mesh);
-  // Slatted shop shade: real depth, alternating canvas stripes.
-  if(A.kind==='shop'){const kit=Kit(),x0=r.x0+.2,x1=r.x1-.2;for(let x=x0,i=0;x<x1;x+=.38,i++)kit.box(x,2.42,r.y1,Math.min(x+.37,x1),2.49,Math.min(r.y1+.65,A.depth),i%2?'#eee7d5':'#698a81',0,'trim');groups(kit,e.exterior);}
  }
  function* build(H){
   const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
@@ -206,19 +204,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   if(A.kind==='deco'){const r=last.rooms.find(r=>r.id==='front-left'),cx=(r.x0+r.x1)/2,z=A.levels.length*A.floorHeight;for(let i=0;i<3;i++)roofKit.box(cx-1.4+i*.3,z+.2,r.y1-.1,cx+1.4-i*.3,z+.55+i*.26,r.y1+.08,i===2?accent:base,0,'trim');}
   roofServices(roofKit,A,last,base);
   if(H.civic){
-   const cx=A.levels[0].entry[0],front=A.depth,grand=A.kind==='cityhall',h=grand?7:3.5;
-   for(const dx of grand?[-8,-5,5,8]:[-4.5,4.5]){
-    wallKit.box(cx+dx-.5,0,front+2.5,cx+dx+.5,.3,front+3.5,base,0,'stone');
-    const col=new THREE.CylinderGeometry(.27,.34,h-.6,12);col.translate(cx+dx,h/2,front+3);wallKit.raw(col,base,'stone');
-    wallKit.box(cx+dx-.45,h-.3,front+2.55,cx+dx+.45,h,front+3.45,base,0,'stone');
-   }
-   const half=grand?8.5:5;wallKit.box(cx-half,h,front-.6,cx+half,h+.3,front+4.2,base,0,'concrete');
-   wallKit.box(cx-half-.15,h+.3,front-.7,cx+half+.15,h+.45,front+4.35,'#f0eade',0,'trim');
-   if(grand){roofKit.box(cx-6,H.h,4,cx+6,H.h+.65,12,base,0,'stone');roofKit.box(cx-6.2,H.h+.65,3.8,cx+6.2,H.h+.82,12.2,'#ece5d4',0,'concrete');
-    quad(wallKit,[[cx-8.65,h+.45,front+4.36],[cx+8.65,h+.45,front+4.36],[cx,h+2.75,front+4.36]],base,'stone');
-    span(wallKit,[cx-8.65,front+4.4],[cx+8.65,front+4.4],h+.4,h+.57,.25,'#f3eee2','trim');
-    const crest=new THREE.CylinderGeometry(.48,.48,.08,24);crest.rotateX(Math.PI/2);crest.translate(cx,h+1.2,front+4.42);wallKit.raw(crest,'#bd9a48','metal');
-   }
+   const cx=A.levels[0].entry[0],front=A.depth,grand=A.kind==='cityhall';
+   // sem pórtico, marquise ou colunas na entrada (pedido do jogador); a prefeitura mantém o coroamento no telhado
+   if(grand){roofKit.box(cx-6,H.h,4,cx+6,H.h+.65,12,base,0,'stone');roofKit.box(cx-6.2,H.h+.65,3.8,cx+6.2,H.h+.82,12.2,'#ece5d4',0,'concrete');}
    if(A.kind==='hospital'){wallKit.box(2,2,front+.13,4,2.5,front+.25,'#d64e4e',0,'trim');wallKit.box(2.75,1.25,front+.13,3.25,3.25,front+.25,'#d64e4e',0,'trim');}
    if(A.kind==='school')for(let x=2;x<A.width-2;x+=3)wallKit.box(x,3.1,front+.1,x+2.5,3.45,front+.22,x%2?'#587fa4':'#e2b55f',0,'trim');
   }
@@ -226,7 +214,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   // Entry recess stays inside the original envelope and is fully walkable.
   const hall=A.levels[0].rooms.find(r=>r.id==='hall'),x0=hall.x0+.08,x1=hall.x1-.08,y0=hall.y1,y1=A.depth-.05;
   wallKit.box(x0,-.08,y0,x1,0,y1,'#c8bfa9',0,'tile');
-  if(y1-y0>.4){wallKit.box(x0,2.45,y0,x1,2.56,y1,'#d9cbb3',0,'wood');for(const x of [x0+.07,x1-.07])wallKit.box(x-.045,0,y1-.06,x+.045,2.45,y1+.03,accent,0,'trim');}
+  // sem forro de madeira nem postes quadrados no recuo da porta (pedido do jogador)
   groups(wallKit,exterior,materialSet);groups(roofKit,roof,materialSet);
   paintGangFacade(THREE,H,A,exterior);
   for(const d of e.doors)exterior.add(d.object);

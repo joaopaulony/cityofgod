@@ -183,17 +183,6 @@ function drawHelipad(g, H, z, it) {
   g.fillStyle = '#ffffff'; g.font = `bold ${r * 0.9}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('H', 0, 0); g.restore();
 }
-// marquise da portaria: laje com testeira escura e o nome do prédio em letras brancas na face da rua
-function drawMarquee(g, b) {
-  drawBox(g, Object.assign({}, b, { draw: null }));
-  if (!b.label || facingCam(b.nx, b.ny) <= 0) return;
-  const ax = Math.abs(b.nx) > 0.5, half = (ax ? b.d : b.w) / 2, ex = b.x + b.nx * (ax ? b.w : b.d) / 2, ey = b.y + b.ny * (ax ? b.w : b.d) / 2;
-  const tx = -b.ny, ty = b.nx, zm = b.z + b.h / 2, a = proj(ex - tx * half, ey - ty * half, zm), c = proj(ex + tx * half, ey + ty * half, zm), Z = cam.zoom;
-  g.save(); g.translate((a.x + c.x) / 2, (a.y + c.y) / 2); g.transform(1, (c.y - a.y) / (c.x - a.x || 1), 0, 1, 0, 0);
-  g.fillStyle = b.side === '#2f3a44' ? '#f4f2ec' : '#3a4650'; g.font = `bold ${Math.max(6, Z * 0.26)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(b.label, 0, 0); g.restore();
-}
-
 // arredores de cada prédio: calçadão/praça, palmeiras em canteiro, docas, estacionamento, quadra
 function miaBuildingSurround(S, H, kind, L, r) {
   const n = H.doorN, t = [-n[1], n[0]], cx = (H.x0 + H.x1) / 2, cy = (H.y0 + H.y1) / 2, half = (H.frontSide==='N'||H.frontSide==='S'?H.x1-H.x0:H.y1-H.y0) / 2;
@@ -207,10 +196,7 @@ function miaBuildingSurround(S, H, kind, L, r) {
       const px = fx + t[0] * sgn * (half - 1.4) + n[0] * ext * 0.5, py = fy + t[1] * sgn * (half - 1.4) + n[1] * ext * 0.5;
       if (ext > 2.4) miaPalm(px, py, 'royal', true);
     }
-    if (kind !== 'deco') {   // marquise da portaria + bancos, floreiras e frades na praça
-      const ax = Math.abs(n[0]) > 0.5, cx2 = fx + n[0] * 1.4, cy2 = fy + n[1] * 1.4;
-      addBox({ x: cx2, y: cy2, z: 3.4, w: ax ? 2.8 : 6, d: ax ? 6 : 2.8, h: 0.42, top: '#ecebe6', side: kind === 'office' ? '#2f3a44' : '#d9d6ce', kind: 'canopy', solid: false, nx: n[0], ny: n[1], label: H.bName, draw: drawMarquee });
-      for (const sg of [-1, 1]) addBox({ x: fx + n[0] * 2.6 + t[0] * sg * 2.7, y: fy + n[1] * 2.6 + t[1] * sg * 2.7, w: 0.26, d: 0.26, h: 3.4, top: '#c9c6bf', side: kind === 'office' ? '#3a4650' : '#e4e1da', kind: 'column' });
+    if (kind !== 'deco') {   // bancos, floreiras e frades na praça (sem marquise nem pilares na portaria)
       for (const sg of [-1, 1]) {
         if (ext > 3) { miaBench(fx + t[0] * sg * 4.5 + n[0] * (ext - 1.6), fy + t[1] * sg * 4.5 + n[1] * (ext - 1.6), Math.atan2(t[1], t[0])); miaPlanter(fx + t[0] * sg * 2.6 + n[0] * (ext - 1.3), fy + t[1] * sg * 2.6 + n[1] * (ext - 1.3)); }
         for (let k = 0; k < 3; k++) miaBollard(fx + t[0] * sg * (1.2 + k * 1.3) + n[0] * (ext - 0.3), fy + t[1] * sg * (1.2 + k * 1.3) + n[1] * (ext - 0.3));
