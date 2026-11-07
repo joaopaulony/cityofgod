@@ -129,7 +129,7 @@ function remodelProperty(H){
    const s=level.segments.at(-1);s.kind='balcony-rail';s.h=level.z+1.05;
   }
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
-  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)){
+  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)&&!CityRealty.bare?.(H)){
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
      const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});H.interactables.push(b);
     }
@@ -142,6 +142,7 @@ function remodelProperty(H){
  H.furnishOnPurchase=()=>{
    if(H._architectureFurnished)return;
    H._architectureFurnished=true;
+   if(typeof CityRealty!=='undefined'&&CityRealty.bare?.(H))return;
    const newBoxes=[];
    for(const level of plan.levels)for(const f of level.furniture){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);

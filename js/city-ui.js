@@ -349,7 +349,7 @@ const CityUI = (() => {
       if ((e.key.toLowerCase()==='tab' || e.key.toLowerCase()==='u') && wheelOpen) { e.preventDefault(); closeWheel(true); }
     });
     window.addEventListener('blur', () => { if (wheelOpen) closeWheel(false); });
-    window.addEventListener('city-life-change', () => { if(phoneOpen && ['status','bag','market','wallet','home','jobs','business','properties','cars'].includes(app)) render(); });
+    window.addEventListener('city-life-change', () => { if(phoneOpen && ['status','bag','market','wallet','bank','home','jobs','business','properties','cars'].includes(app)) render(); });
     window.addEventListener('city-sim-change', () => { if(phoneOpen && app!=='social') {updatePhoneTheme();render();} });
     mounted = true;
     updatePhoneTheme();

@@ -25,6 +25,19 @@ const CityRealty=(()=>{
  }
  const isOwned=H=>residential(H)&&!!owned[id(H)];
  const canFurnish=H=>!residential(H)||isOwned(H);
+ // casa construída "sem móveis" num terreno (city-lots.js): é do jogador, mas o mobiliário padrão não entra
+ const bare=H=>residential(H)&&!!owned[id(H)]?.bare;
+ function claim(H,info={}){
+   if(!residential(H))return;
+   const k=id(H);
+   if(!owned[k]){
+     owned[k]={id:k,name:info.name||name(H),x:H.doorPt[0],y:H.doorPt[1],price:info.price||0,at:Date.now(),lot:info.lot,bare:!!info.bare};
+     try{localStorage.setItem(KEY,JSON.stringify(owned));}catch(_){}
+   }
+   H.furnishOnPurchase?.();
+   window.CityHome?.sync(H);
+   window.dispatchEvent(new Event('city-property-change'));
+ }
  // sítio (casa de campo): a casa + terreno de 52 × 46 m para lavoura, animais e construções (farm.mjs)
  const isFarm=H=>!!H?.country;
  const price=H=>{
@@ -110,7 +123,7 @@ const CityRealty=(()=>{
    panel(H);return true;
  }
  function prompt(p){const H=nearby(p);return H?'F · '+(isOwned(H)?'Ver minha propriedade':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
- return {init,residential,isOwned,canFurnish,nearby,onInteract,prompt,buy,adminSetOwned,id,price,name,close,
+ return {init,residential,isOwned,canFurnish,bare,claim,nearby,onInteract,prompt,buy,adminSetOwned,id,price,name,close,
   get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
 })();

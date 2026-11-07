@@ -1,9 +1,9 @@
 // CityApps — aplicativos locais do celular CityOS; ações sempre ligadas ao CitySim.
 'use strict';
 const CityApps = (() => {
- const names={ farm:'Fazenda',camera:'Câmera',social:'CitySocial',jobs:'Carreiras',taxi:'Viagens',business:'Meus negócios',
+ const names={ bank:'NexoBank',farm:'Fazenda',camera:'Câmera',social:'CitySocial',jobs:'Carreiras',taxi:'Viagens',business:'Meus negócios',
    services:'Serviços',properties:'Imóveis',cars:'Concessionária',browser:'CityWeb',settings:'Aparência',calls:'Ligações' };
- const icons={farm:'🚜',camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞'};
+ const icons={bank:'💳',farm:'🚜',camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞'};
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let lastPhoto=null,lastPhotoUrl=null,selectedMode='world',lastCall='',frameTimestamp=0;
  const price=n=>CityLife.money(n);
@@ -17,6 +17,7 @@ const CityApps = (() => {
      ['cars','🚗','AutoShow'],['properties','🏠','CasaCerta'],['jobs','💼','VagasJá'],
      ['business','🏪','Negócios'],['services','🛎️','Serviços'],['taxi','🚕','CityTaxi']
     ].map(x=>'<button class="city-app" data-app="'+x[0]+'"><span class="city-app-icon">'+x[1]+'</span>'+x[2]+'</button>').join('')+'</div><p class="city-help">Este navegador contém portais fictícios integrados à economia do jogo, não sites externos.</p>';
+  if(app==='bank')return window.CityBank?window.CityBank.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>NexoBank</strong><small>Carregando…</small>');
   if(app==='farm')return window.CityFarm?window.CityFarm.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Fazenda</strong><small>Carregando…</small>');
   if(app==='jobs')return banner('<strong>Carreiras</strong><small>Conquiste seu próprio dinheiro</small>')+
     (data.job&&CitySim.JOBS[data.job]?card('Seu emprego: '+CitySim.JOBS[data.job].title,
@@ -43,7 +44,7 @@ const CityApps = (() => {
       btn('sim:service:'+id,'Contratar',CityLife.funds<v.price || (id==='adopt'&&!!data.pet)),v.icon)).join('')+
       (data.pet?'<div class="city-panel">🐶 Pet adotado: '+esc(data.pet)+'</div>':'');
   if(app==='properties'){
-    const owned=data.ownedLots.map(l=>card(l.name,'Terreno adquirido · '+Math.round(l.area)+' m²',
+    const owned=data.ownedLots.map(l=>window.CityLots?window.CityLots.renderLot(l,{card,btn}):card(l.name,'Terreno adquirido · '+Math.round(l.area)+' m²',
       btn('sim:home:'+l.key,data.home?.name===l.name?'Residência atual':'Mudar para cá',data.home?.name===l.name),'🏡')).join('');
     return banner('<strong>CasaCerta</strong><small>Moradia e contas</small>')+
       '<div class="city-panel"><h3>Minha residência</h3><p>'+esc(data.home?.name||'Sem residência cadastrada')+'</p>'+
@@ -177,6 +178,7 @@ const CityApps = (() => {
     if(result?.ok)lastCall=(window.cityCharacters.social.people.get(id)?.name||id)+': “'+result.text+'”';
   }
   else if(type==='police-report')result=window.cityCharacters?.fileCrimeReport?.();
+  else if(type==='bank')result=window.CityBank?.action(id,arg,args[4])||{ok:false,text:'Banco indisponível'};
   else if(type==='farm')result=window.CityFarm?.action(id,arg,args[4])||{ok:false,text:'Fazenda indisponível'};
   else if(type==='apply')result=CitySim.applyJob(id);
   else if(type==='work')result=CitySim.work();
@@ -190,6 +192,8 @@ const CityApps = (() => {
   else if(type==='rent')result=CitySim.rentApartment();
   else if(type==='home')result=CitySim.setHome(id);
   else if(type==='lot')result=CitySim.buyLot(id);
+  else if(type==='lotbuild')result=window.CityLots?.build(id,arg)||{ok:false,text:'Indisponível'};
+  else if(type==='lotfurn')result=window.CityLots?.setFurnish(id)||{ok:false,text:'Indisponível'};
   else if(type==='bills')result=CitySim.payBills();
   else if(type==='car-buy')result=CitySim.buyCar(id);
   else if(type==='car-deliver')result=await CitySim.deliverCar(id);

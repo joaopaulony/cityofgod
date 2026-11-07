@@ -285,6 +285,7 @@ function placeTemplate(T, x0, y0, k, extra = {}) {
   H.furnishOnPurchase=()=>{
     if(H._furnished)return;
     H._furnished=true;
+    if(typeof CityRealty!=='undefined'&&CityRealty.bare?.(H))return;   // casa nova sem móveis: o jogador decora
     for (const f of layoutFurniture(T)) { const p=L(f.x,f.y);
       addBox(Object.assign({},f,{x:p[0],y:p[1],rot:(f.rot||0)+k*Math.PI/2,house:H}));
     }

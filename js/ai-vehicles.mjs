@@ -154,21 +154,49 @@ export function createAIVehicles(THREE, scene, bridge, { people = () => [] } = {
     }
     return true;
   }
-  // alguém (ou outra unidade) logo à frente: freia
+  // alguém (ou outro carro) à frente: devolve a distância livre até ele (null = pista livre); o alcance cresce com a
+  // velocidade p/ dar tempo de frear suave em vez de parar seco em cima
   function blockedAhead(u, carsOnly = false) {
-    const ca = Math.cos(u.a), sa = Math.sin(u.a), reach = 2.2 + Math.abs(u.speed) * .45, dir = Math.sign(u.speed || 1);
-    const test = (x, y, w) => { const dx = x - u.x, dy = y - u.y, lx = (dx * ca + dy * sa) * dir, ly = Math.abs(-dx * sa + dy * ca); return lx > u.length / 2 - .2 && lx < u.length / 2 + reach && ly < u.width / 2 + w; };
-    if (!carsOnly) for (const p of people()) if (test(p.x, p.y, .45)) return true;
-    for (const o of units) if (o !== u && test(o.x, o.y, o.width / 2)) return true;
-    return false;
+    const ca = Math.cos(u.a), sa = Math.sin(u.a), reach = 3 + Math.abs(u.speed) * .85, dir = Math.sign(u.speed || 1);
+    let best = null;
+    const test = (x, y, w) => { const dx = x - u.x, dy = y - u.y, lx = (dx * ca + dy * sa) * dir, ly = Math.abs(-dx * sa + dy * ca);
+      if (lx > u.length / 2 - .2 && lx < u.length / 2 + reach && ly < u.width / 2 + w) { const g = lx - u.length / 2; if (best === null || g < best) best = g; } };
+    if (!carsOnly) for (const p of people()) test(p.x, p.y, .45);
+    for (const o of units) if (o !== u) test(o.x, o.y, o.width / 2 + .3);
+    const V = window.cityVehicles; if (V?.car) test(V.car.x, V.car.y, 1.1);   // carro do jogador, andando ou parado
+    return best;
+  }
+  // sensores: projeta a carroceria à frente (até ~2 s de viagem) e mede a distância livre até poste, carro parado,
+  // muro ou o carro do jogador; se algo bloqueia, procura um desvio p/ um dos lados que esteja livre
+  function sense(u, dt) {
+    u.senseT = (u.senseT || 0) - dt; if (u.senseT > 0) return; u.senseT = .12;
+    u.clear = 99; u.dodge = 0;
+    if (u.speed < -.1 || u.reverseT > 0) return;
+    const ca = Math.cos(u.a), sa = Math.sin(u.a), look = Math.min(30, Math.max(6, Math.abs(u.speed) * 2 + 4));
+    for (let s = 1.2; s <= look; s += 1.2) if (!free(u, u.x + ca * s, u.y + sa * s, u.a)) { u.clear = s; break; }
+    if (u.clear === 99) return;
+    const s = Math.max(3, u.clear + 1.2);
+    for (const off of [1.7, -1.7, 3, -3]) {   // esquerda = (-sen, cos)
+      const x = u.x + ca * s - sa * off, y = u.y + sa * s + ca * off, mx = u.x + ca * s * .5 - sa * off * .5, my = u.y + sa * s * .5 + ca * off * .5;
+      if (free(u, x, y, u.a) && free(u, mx, my, Math.atan2(y - u.y, x - u.x))) { u.dodge = off; u.dodgeS = s; return; }
+    }
   }
   function steer(u, dt, tx, ty, maxSp, arrive) {
-    const dx = tx - u.x, dy = ty - u.y, d = Math.hypot(dx, dy), da = angDiff(u.a, Math.atan2(dy, dx));
+    sense(u, dt);
+    const d = Math.hypot(tx - u.x, ty - u.y);
+    // obstáculo parado à frente com lado livre: mira num ponto deslocado p/ contorná-lo (volta à rota depois)
+    if (u.dodge && d > u.dodgeS) { const ca = Math.cos(u.a), sa = Math.sin(u.a); tx = u.x + ca * u.dodgeS - sa * u.dodge; ty = u.y + sa * u.dodgeS + ca * u.dodge; }
+    const dx = tx - u.x, dy = ty - u.y, da = angDiff(u.a, Math.atan2(dy, dx));
     let v = d < arrive ? 0 : Math.min(maxSp, 2.5 + (d - arrive) * .9);
     if (Math.abs(da) > 1.1) v = Math.min(v, 4); else if (Math.abs(da) > .45) v = Math.min(v, 8);
     if (u.slowFor) v = Math.min(v, u.slowFor);
-    // gente/carro na frente: espera; com sirene, depois de 1,2 s passa devagar (pedestre sai da frente)
-    if (v > 0 && blockedAhead(u, u.siren && u.blockT > 1.2)) { u.blockT = (u.blockT || 0) + dt; v = u.siren && u.blockT > 1.2 ? Math.min(v, 2) : 0; } else u.blockT = 0;
+    // freia a tempo do que os sensores viram (desaceleração confortável de ~6 m/s², para a ~1,5 m)
+    if (u.clear < 99) v = Math.min(v, u.dodge ? 5 : Math.max(0, Math.sqrt(12 * Math.max(0, u.clear - 1.5))));
+    // parado diante de algo sem desvio livre por 2,5 s: dá ré p/ abrir espaço e tenta de novo
+    if (u.clear < 99 && !u.dodge && Math.abs(u.speed) < .3) { u.waitT = (u.waitT || 0) + dt; if (u.waitT > 2.5 && u.reverseT <= 0) { u.reverseT = 1.1; u.waitT = 0; } } else u.waitT = 0;
+    // gente/carro na frente: freia proporcional à distância; com sirene, depois de 1,2 s passa devagar (pedestre sai)
+    const gap = v > 0 ? blockedAhead(u, u.siren && u.blockT > 1.2) : null;
+    if (gap !== null) { u.blockT = (u.blockT || 0) + dt; v = u.siren && u.blockT > 1.2 ? Math.min(v, 2) : Math.min(v, Math.max(0, Math.sqrt(12 * Math.max(0, gap - 1.2)))); } else u.blockT = 0;
     if (u.reverseT > 0) { u.reverseT -= dt; v = -3.2; }
     const acc = Math.abs(v) > Math.abs(u.speed) ? 6.5 : 13; u.speed += Math.max(-acc * dt, Math.min(acc * dt, v - u.speed));
     // carro não gira parado; de ré o volante inverte

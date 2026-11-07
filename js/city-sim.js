@@ -177,9 +177,9 @@ const CitySim = (() => {
   function nearbyLots(){
     if(typeof world==='undefined'||!Array.isArray(world.lotsForSale))return [];
     return world.lotsForSale
-      .filter(x=>x&&x.sign&&Number.isFinite(x.price)&&!state.ownedLots.some(o=>o.key===lotKey(x)))
+      .filter(x=>x&&x.sign&&Number.isFinite(x.price)&&!state.ownedLots.some(o=>o.key===lotKey(x))&&!window.CityLots?.buildOf(x.id))
       .sort((a,b)=>Math.hypot(a.sign[0]-game.player.x,a.sign[1]-game.player.y)-Math.hypot(b.sign[0]-game.player.x,b.sign[1]-game.player.y))
-      .slice(0,5).map(lot=>({key:lotKey(lot),price:lot.price,name:'Lote '+lotKey(lot),x:lot.sign[0],y:lot.sign[1],area:lot.area}));
+      .slice(0,5).map(lot=>({key:lotKey(lot),id:lot.id,price:lot.price,name:'Lote '+lotKey(lot),x:lot.sign[0],y:lot.sign[1],area:lot.area}));
   }
   function buyLot(key){
     const lot=nearbyLots().find(x=>x.key===key);

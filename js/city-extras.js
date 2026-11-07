@@ -177,7 +177,7 @@ const CityExtras=(()=>{
  }
  function render(app){
   boot();
-  if(app==='bank')return bankView();
+  if(app==='bank'&&!window.CityBank)return bankView();   // o NexoBank completo (city-bank.js) substitui esta conta simulada
   if(app==='graphics')return '<div class="city-panel"><h3>⚙️ Ajustes gráficos</h3><p>Reduza a carga da GPU nos bairros com muitos prédios, sombras e carros 3D.</p><p>Perfil atual: <b>'+esc(CityDriving.quality)+'</b></p>'+['high','balanced','economy'].map(x=>btn('extra:graphics:'+x,({high:'Ultra · melhor nitidez',balanced:'Equilibrado · recomendado',economy:'Econômico · mais FPS'})[x])).join(' ')+'<p class="city-help">O modo Equilibrado reduz a resolução das sombras de 4096 para 2048 pixels, diminuindo o custo de memória das sombras. Não muda o mapa nem o número de NPCs.</p></div>'; 
   if(app==='social')return socialView();
   if(app==='dating')return datingView();

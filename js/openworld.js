@@ -269,18 +269,22 @@ function* owGenSector(S) {
     // caminho de concreto da porta até a calçada
     for (const H of S.own.houses || []) if (!H.walk) owWalk(H);
   }
-  // --- sítios e chácaras no campo (longe da via, com acesso de terra)
-  if (frac(D_.FARM) + frac(D_.RURAL) > 0.25) {
-    for (let i = 0, n = 0; i < 120 && n < 2; i++) {
+  // --- sítios e chácaras no campo (longe da via, com acesso de terra): até 5 por setor, a 60 m uns dos outros, p/ cada
+  // um ter espaço p/ o terreno de 52 × 46 m da fazenda do jogador (farm.mjs)
+  if (frac(D_.FARM) + frac(D_.RURAL) > 0.15) {
+    const sitios = [];
+    for (let i = 0, n = 0; i < 260 && n < 5; i++) {
       const key = i % 2 ? 'COTTAGE' : 'FARM', T = TPL[key], k = (rng() * 4) | 0, W = k % 2 ? T.d : T.w, Dp = k % 2 ? T.w : T.d;
       const hx = Math.floor(x0 + 8 + rng() * (S.SP - W - 16)), hy = Math.floor(y0 + 8 + rng() * (S.SP - Dp - 16)), m = 3.2, box = [hx - m, hy - m, hx + W + m, hy + Dp + m];
       const dc = dd(hx + W / 2, hy + Dp / 2); if (dc !== D_.FARM && dc !== D_.RURAL) continue;
       if (rects.some(b => box[0] < b[2] + 3 && box[2] > b[0] - 3 && box[1] < b[3] + 3 && box[3] > b[1] - 3)) continue;
+      if (sitios.some(q => Math.hypot(q[0] - hx, q[1] - hy) < 60)) continue;
       let ok = true, near = 99;
       for (let y = box[1]; y <= box[3] && ok; y += 2) for (let x = box[0]; x <= box[2]; x += 2) { const r2 = roadDist(x, y); near = Math.min(near, r2); if (r2 < ROAD_W + SIDE + 2 || pondVal(x, y) < 1.26) { ok = false; break; } }
-      if (!ok || near > 28) continue;   // perto o bastante de uma via p/ ter acesso
+      // perto o bastante de uma via p/ ter acesso; no campo aberto (quase sem ruas) aceita mais longe depois de 130 tentativas
+      if (!ok || near > (i < 130 ? 28 : 90)) continue;
       const H = withSeed(S, n, () => placeTemplate(T, hx, hy, k, { roofKind: n % 2 ? 'hip' : 'gable', ext: '#a38c6d', roof: '#685a47', seed: owSeed(S, 'farm' + n) }));
-      H.country = true; rects.push(box); owWalk(H); n++;
+      H.country = true; rects.push(box); owWalk(H); n++; sitios.push([hx, hy]);
       owIndexOwnedLive(S);
       yield;
     }

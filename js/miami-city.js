@@ -882,6 +882,9 @@ function miaLotsForSale(S, zoneAt, rects) {
       let ok = true;
       for (let u = -W / 2; u <= W / 2 + 0.01 && ok; u += 2) for (let v = 0; v <= D + 0.01 && ok; v += 2) { const [x, y] = P(u, v); if (roadDist(x, y) < ROAD_W + SIDE + 0.3 || pondVal(x, y) < 1.4 || miaBlocked(x, y, 0.5)) ok = false; }
       if (!ok) continue;
+      // terreno já comprado e construído pelo jogador (city-lots.js): a casa escolhida no lugar da cerca e da placa
+      { const lid = `lot-${S.sx}-${S.sy}-${made}`, build = window.CityLots?.buildOf(lid);
+        if (build && miaLotHouse(S, rects, rd, p, s, q, build, lid)) { made++; continue; } }
       rects.push(bb); world.yards.push(bb);
       miaDecal(q, 'lot', R, { ax: n, origin: P(0, 0), w: W, len: D });   // terra limpa, cascalho, marcas de trator
       const [gx, gy] = P(0, 0.1), gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.7;
@@ -895,6 +898,30 @@ function miaLotsForSale(S, zoneAt, rects) {
       made++;
     }
   }
+}
+
+// casa que o jogador mandou construir no terreno: o modelo escolhido (com o modelo compacto de reserva se não couber),
+// gramado no lote todo e alguns arbustos; o CityLots registra o imóvel como dele
+function miaLotHouse(S, rects, rd, p, s, q, build, lid) {
+  let H = null;
+  for (const key of [build.tpl, 'B']) {
+    const T = TPL[key]; if (!T) continue;
+    const was = T.yard; T.yard = false;
+    try { H = owTryHouse(S, key, { p, s, off: rd.off || 0 }, rects); } finally { T.yard = was; }
+    if (H) break;
+  }
+  if (!H) return false;
+  const r = mulberry(H.seed + 21);
+  H.miaKind = 'bungalow'; H.lotId = lid; if (H.architecture) H.architecture.kind = 'bungalow';
+  H.style.trim = '#fbf8f0'; H.style.aging = 0.05;
+  // gramado cobre o lote e a volta da casa (o modelo maior pode passar um pouco do terreno original)
+  const xs = q.map(c => c[0]).concat(H.x0 - 1, H.x1 + 1), ys = q.map(c => c[1]).concat(H.y0 - 1, H.y1 + 1), bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  world.yards.push(bb); rects.push(bb);
+  miaDecal([[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]], 'lawn', r, { dir: Math.abs(p.nx) > Math.abs(p.ny) ? 1 : 0 });
+  miaShrubs(H, ['hibiscus', 'croton', 'bougainvillea'], 3 + ((r() * 3) | 0), r);
+  owWalk(H); owIndexOwnedLive(S);
+  window.CityLots?.claim(H, lid);
+  return true;
 }
 
 // ---------- palmeiras imperiais nas avenidas, hidrantes e pontos de ônibus ----------
