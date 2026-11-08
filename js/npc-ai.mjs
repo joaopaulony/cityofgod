@@ -538,7 +538,9 @@ export function createNPCAI(THREE, scene, ctx) {
   // bala de policial não pega em colega/socorrista; de gangster, não pega em parceiro da mesma facção
   const friendly = (from, n) => from?.cop && n.kind === 'service' || !!from?.gang && n.gang === from.gang;
   function tick(dt) {
-    fleet.update(dt); traffic.update(dt); buses.update(dt);
+    fleet.update(dt);
+    // trânsito e ônibus nunca podem travar o jogo: um erro vira aviso no console (uma vez) e o resto segue
+    for (const [k, sys] of [['traffic', traffic], ['buses', buses]]) try { sys.update(dt); } catch (e) { if (!system['err_' + k]) { system['err_' + k] = String(e); console.error(k, e); } }
     for (const u of [...fleet.units]) (u.kind === 'police' ? policeUnit : ambulanceUnit)(u, dt);
     wantedTick(dt); outlawTick(dt); medicalTick(dt); angerTick(dt); warTick(dt); crewTick(dt); threatTick(dt);
     const p = P();

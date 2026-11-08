@@ -217,7 +217,6 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     cylZ(g, x, r, z + side * .03, r * .6, .32, mat('#aeb4b8', { roughness: .3, metalness: .7 }), 18);   // aro
     cylZ(g, x, r, z + side * .05, r * .2, .3, mat('#5c6267', { metalness: .6, roughness: .4 }), 12);    // cubo
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, b = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .3, 6), mat('#3c4146')); b.rotation.x = Math.PI / 2; b.position.set(x + Math.cos(a) * r * .4, r + Math.sin(a) * r * .4, z + side * .05); g.add(b); }
-    rbox(g, x - r - .12, r + .05, side > 0 ? z - .2 : z - .2, x + r + .12, r * 2 + .16, side > 0 ? z + .2 : z + .2, DARK(), .05);   // caixa de roda
   }
   function lightBox(g, x0, y0, z0, x1, y1, z1, color, glow) { return rbox(g, x0, y0, z0, x1, y1, z1, mat(color, { emissive: glow, emissiveIntensity: .9, roughness: .2 }), .02); }
   function textPlane(g, text, w, h, x, y, z, rotY, bg, fg, font = 'bold') {
@@ -226,83 +225,153 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: !bg, toneMapped: false })); o.position.set(x, y, z); o.rotation.y = rotY; g.add(o); return o;
   }
-  // urbano: piso baixo 12 m, carroceria arredondada, vidros colados escuros com colunas finas, para-brisa inteiro com
-  // moldura preta, letreiro de LED, faróis em bloco, grade e para-choque, 2 portas duplas de vidro, retrovisores,
-  // ar-condicionado e pintura com a cor da linha (faixa larga embaixo, filete sob os vidros e saia frontal)
+  // ---------- texturas pintadas (uma por face da carroceria; nada sobreposto = nada "brigando") ----------
+  // Cada ônibus é uma caixa só com 6 materiais: laterais, frente, traseira e teto desenhados em canvas (vidro com reflexo
+  // e passageiros, faixas da linha, portas, caixas de roda, emendas, sujeira perto do chão). O que sobressai de verdade
+  // (rodas, para-choques, faróis, retrovisores, ar-condicionado) é peça 3D por fora da caixa. Texturas por linha (cache).
+  const texCache = new Map();
+  const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };
+  const toTex = c => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255, k = v => Math.max(0, Math.min(255, Math.round(v * f))); return '#' + ((k(r) << 16) | (k(g) << 8) | k(b)).toString(16).padStart(6, '0'); };
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  // vidro: azul-petróleo escuro, mais claro em cima, reflexos diagonais, bancos e algumas cabeças de passageiros
+  function glassPane(g, x, y, w, h, seed, people = true) {
+    const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#3d5361'); gr.addColorStop(.45, '#1c2b35'); gr.addColorStop(1, '#121b21');
+    g.fillStyle = gr; g.fillRect(x, y, w, h);
+    if (people) { let s = seed; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+      g.fillStyle = 'rgba(8,12,15,.55)'; for (let px = x + 6; px < x + w - 10; px += 22) g.fillRect(px, y + h * .55, 16, h * .45);   // encostos
+      for (let px = x + 10; px < x + w - 10; px += 22) if (rnd() < .38) { g.fillStyle = ['#3b2a20', '#1e1611', '#5a4030', '#2a2a2a'][(rnd() * 4) | 0]; g.beginPath(); g.ellipse(px + 4, y + h * .44, 6, 8, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = ['#c25b3c', '#2f5d8a', '#e5e0d8', '#3d7a4a'][(rnd() * 4) | 0]; g.fillRect(px - 4, y + h * .54, 17, h * .2); } }
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.globalAlpha = .13; g.fillStyle = '#fff';
+    for (let k = -h; k < w; k += 70) { g.beginPath(); g.moveTo(x + k, y + h); g.lineTo(x + k + 28, y + h); g.lineTo(x + k + 28 + h * .6, y); g.lineTo(x + k + h * .6, y); g.fill(); }
+    g.restore(); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  }
+  function grime(g, w, h, from = .72) { const gr = g.createLinearGradient(0, h * from, 0, h); gr.addColorStop(0, 'rgba(70,58,44,0)'); gr.addColorStop(1, 'rgba(70,58,44,.35)'); g.fillStyle = gr; g.fillRect(0, h * from, w, h * (1 - from)); }
+  function arch(g, cx, cy, r) { g.fillStyle = '#121314'; g.beginPath(); g.arc(cx, cy, r, Math.PI, 0); g.lineTo(cx + r, cy + r); g.lineTo(cx - r, cy + r); g.fill(); g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, r + 2, Math.PI, 0); g.stroke(); }
+  // urbano: lateral 12 m × 2,7 m (y de 0,3 a 3,0)
+  function citySide(line, doors, mirror) {
+    const L = 12, Y0 = .3, Y1 = 3.0, W = 1536, H = 346, kx = W / L, ky = H / (Y1 - Y0), X = m => (mirror ? L - m : m) * kx, Yp = y => (Y1 - y) * ky;
+    const [c, g] = canvas(W, H), col = line.color;
+    const base = g.createLinearGradient(0, 0, 0, H); base.addColorStop(0, '#ffffff'); base.addColorStop(.6, '#f1f3f4'); base.addColorStop(1, '#d9dde0'); g.fillStyle = base; g.fillRect(0, 0, W, H);
+    // emendas de painel e rebites na saia
+    g.strokeStyle = 'rgba(0,0,0,.12)'; g.lineWidth = 2; for (let m = 1.2; m < L; m += 2.1) { g.beginPath(); g.moveTo(X(m), Yp(1.22)); g.lineTo(X(m), Yp(.34)); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.18)'; for (let m = .3; m < L; m += .3) g.fillRect(X(m) - 1, Yp(1.28) - 1, 2, 2);
+    // faixa da linha: larga embaixo com "onda" subindo na frente, filete sob os vidros, filete escuro
+    g.fillStyle = col; g.beginPath(); g.moveTo(X(0), Yp(.86)); g.lineTo(X(L - 3.2), Yp(.86)); g.bezierCurveTo(X(L - 2.2), Yp(.86), X(L - 1.6), Yp(1.26), X(L), Yp(1.26)); g.lineTo(X(L), Yp(.48)); g.lineTo(X(0), Yp(.48)); g.closePath(); g.fill();
+    g.fillStyle = shade(col, .72); g.fillRect(Math.min(X(0), X(L)), Yp(.52), W, 5);
+    g.fillStyle = col; g.fillRect(Math.min(X(.1), X(L - .1)), Yp(1.25), Math.abs(X(L - .1) - X(.1)), 7);
+    // vidros com colunas
+    const w0 = .55, w1 = L - 1.3; glassPane(g, Math.min(X(w0), X(w1)), Yp(2.5), Math.abs(X(w1) - X(w0)), Yp(1.32) - Yp(2.5), line.num.charCodeAt(0) + (mirror ? 7 : 3));
+    g.fillStyle = '#f4f6f7'; for (let m = w0 + 1.55; m < w1 - .2; m += 1.55) g.fillRect(X(m) - 5, Yp(2.52), 10, Yp(1.3) - Yp(2.52));
+    // portas (lado da calçada): duas folhas de vidro, moldura escura, friso amarelo, degrau
+    for (const dm of doors) { const x0 = Math.min(X(dm - .62), X(dm + .62)), wD = Math.abs(X(dm + .62) - X(dm - .62));
+      g.fillStyle = '#2a2e32'; rr(g, x0, Yp(2.52), wD, Yp(.34) - Yp(2.52), 6); g.fill();
+      for (const f of [-.31, .31]) glassPane(g, Math.min(X(dm + f - .26), X(dm + f + .26)), Yp(2.4), Math.abs(X(dm + f + .26) - X(dm + f - .26)), Yp(.5) - Yp(2.4), 11, false);
+      g.fillStyle = '#f2c230'; g.fillRect(X(dm) - 2, Yp(2.4), 4, Yp(.5) - Yp(2.4)); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x0 + 4, Yp(1.45), wD - 8, 3); }
+    // caixas de roda, saia de borracha, sujeira
+    for (const m of [2.7, L - 2.4]) arch(g, X(m), Yp(.52), .66 * kx);
+    g.fillStyle = '#1d1f22'; g.fillRect(0, Yp(.36), W, Yp(.3) - Yp(.36) + 1); grime(g, W, H);
+    // número da linha e marca
+    g.fillStyle = col; rr(g, Math.min(X(L - 3.1), X(L - 2.0)), Yp(2.9), Math.abs(X(L - 2.0) - X(L - 3.1)), Yp(2.58) - Yp(2.9), 6); g.fill();
+    g.fillStyle = '#fff'; g.font = 'bold 26px "Arial Black",Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(line.num, (X(L - 3.1) + X(L - 2.0)) / 2, (Yp(2.9) + Yp(2.58)) / 2 + 1);
+    g.fillStyle = 'rgba(30,40,50,.75)'; g.font = 'bold 18px Arial'; g.fillText('CITY TRANSPORTE · ' + line.name.toUpperCase(), (X(2.2) + X(6.2)) / 2, Yp(1.06));
+    return toTex(c);
+  }
+  function cityFront(line) {
+    const W = 340, H = 360, kx = W / 2.55, ky = H / 2.7, Yp = y => (3.0 - y) * ky, col = line.color, [c, g] = canvas(W, H);
+    g.fillStyle = '#eef1f2'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#121416'; rr(g, 10, Yp(2.94), W - 20, Yp(2.5) - Yp(2.94), 8); g.fill();             // caixa do letreiro
+    g.fillStyle = '#ffb02e'; g.font = 'bold 30px "Arial Narrow",Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(line.num + '  ' + line.name.replace('Centro ⇄ ', '').toUpperCase(), W / 2, (Yp(2.94) + Yp(2.5)) / 2 + 1, W - 40);
+    g.fillStyle = '#121416'; rr(g, 8, Yp(2.48), W - 16, Yp(1.0) - Yp(2.48), 14); g.fill(); glassPane(g, 16, Yp(2.44), W - 32, Yp(1.06) - Yp(2.44), 5, false);   // para-brisa
+    g.strokeStyle = '#0d0f10'; g.lineWidth = 4; g.beginPath(); g.moveTo(W / 2, Yp(2.44)); g.lineTo(W / 2, Yp(1.06)); g.stroke();
+    g.strokeStyle = '#222'; g.lineWidth = 3; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(W / 2 + s * 20, Yp(1.1)); g.lineTo(W / 2 + s * 110, Yp(1.45)); g.stroke(); }   // limpadores
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, Yp(1.0)); g.lineTo(W, Yp(1.0)); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+    g.fillStyle = '#16181a'; rr(g, W * .3, Yp(.84), W * .4, Yp(.52) - Yp(.84), 6); g.fill(); g.strokeStyle = '#3a3e42'; g.lineWidth = 2; for (let y = Yp(.82); y < Yp(.54); y += 6) { g.beginPath(); g.moveTo(W * .31, y); g.lineTo(W * .69, y); g.stroke(); }
+    g.fillStyle = '#fff'; g.font = 'bold 16px Arial'; g.fillText('CITY', W / 2, Yp(.94)); grime(g, W, H, .8);
+    return toTex(c);
+  }
+  function cityRear(line) {
+    const W = 340, H = 360, ky = H / 2.7, Yp = y => (3.0 - y) * ky, [c, g] = canvas(W, H);
+    g.fillStyle = '#eef1f2'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#121416'; rr(g, 50, Yp(2.88), W - 100, Yp(2.56) - Yp(2.88), 6); g.fill(); g.fillStyle = '#ffb02e'; g.font = 'bold 34px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(line.num, W / 2, (Yp(2.88) + Yp(2.56)) / 2 + 1);
+    glassPane(g, 40, Yp(2.45), W - 80, Yp(1.75) - Yp(2.45), 9);
+    g.fillStyle = line.color; g.fillRect(0, Yp(.86), W, Yp(.48) - Yp(.86));
+    g.fillStyle = '#26292c'; rr(g, W * .22, Yp(1.55), W * .56, Yp(.92) - Yp(1.55), 6); g.fill(); g.strokeStyle = '#50565b'; g.lineWidth = 3; for (let y = Yp(1.5); y < Yp(.95); y += 8) { g.beginPath(); g.moveTo(W * .24, y); g.lineTo(W * .76, y); g.stroke(); }
+    g.fillStyle = '#e8e8e2'; g.fillRect(W / 2 - 40, Yp(.45), 80, 22); g.fillStyle = '#222'; g.font = 'bold 14px Arial'; g.fillText('CDG-' + line.num + '0', W / 2, Yp(.45) + 11);
+    grime(g, W, H, .7); return toTex(c);
+  }
+  function roofTex(base) { const [c, g] = canvas(512, 128); g.fillStyle = base; g.fillRect(0, 0, 512, 128); g.strokeStyle = 'rgba(0,0,0,.08)'; g.lineWidth = 2; for (let x = 40; x < 512; x += 60) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 128); g.stroke(); } g.fillStyle = 'rgba(80,70,60,.12)'; g.fillRect(0, 0, 512, 128); return toTex(c); }
+  // escolar: lateral da carroceria (sem o capô) 8,5 m
+  function schoolSide(mirror, Lb) {
+    const Y0 = .35, Y1 = 2.95, W = 1280, H = 390, kx = W / Lb, ky = H / (Y1 - Y0), X = m => (mirror ? Lb - m : m) * kx, Yp = y => (Y1 - y) * ky, [c, g] = canvas(W, H);
+    const base = g.createLinearGradient(0, 0, 0, H); base.addColorStop(0, '#ffc21c'); base.addColorStop(1, '#e8a800'); g.fillStyle = base; g.fillRect(0, 0, W, H);
+    for (let m = .45, i = 0; m < Lb - .9; m += .95, i++) { g.fillStyle = '#141414'; rr(g, Math.min(X(m), X(m + .82)) - 3, Yp(2.5) - 3, Math.abs(X(m + .82) - X(m)) + 6, Yp(1.52) - Yp(2.5) + 6, 6); g.fill(); glassPane(g, Math.min(X(m), X(m + .82)), Yp(2.5), Math.abs(X(m + .82) - X(m)), Yp(1.52) - Yp(2.5), 31 + i); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.min(X(m), X(m + .82)), Yp(2.02), Math.abs(X(m + .82) - X(m)), 3); }
+    g.fillStyle = '#141414'; for (const y of [1.45, 1.05, .66]) g.fillRect(0, Yp(y + .06), W, Yp(y) - Yp(y + .06));
+    g.fillStyle = '#141414'; g.font = 'bold 54px "Arial Black",Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ESCOLAR', (X(Lb * .32) + X(Lb * .62)) / 2, Yp(1.25));
+    g.fillStyle = 'rgba(0,0,0,.25)'; for (let m = .2; m < Lb; m += .25) g.fillRect(X(m) - 1, Yp(.9) - 1, 2, 2);
+    arch(g, X(2.2), Yp(.5), .62 * kx); grime(g, W, H, .74); return toTex(c);
+  }
+  function schoolFront() {
+    const W = 330, H = 340, ky = H / 2.6, Yp = y => (2.95 - y) * ky, [c, g] = canvas(W, H);
+    g.fillStyle = '#f2b705'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#121416'; rr(g, 12, Yp(2.9), W - 24, Yp(2.62) - Yp(2.9), 6); g.fill(); g.fillStyle = '#ffd23a'; g.font = 'bold 26px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('E1  ESCOLAR', W / 2, (Yp(2.9) + Yp(2.62)) / 2 + 1);
+    g.fillStyle = '#141414'; rr(g, 10, Yp(2.58), W - 20, Yp(1.48) - Yp(2.58), 10); g.fill(); glassPane(g, 18, Yp(2.54), W / 2 - 22, Yp(1.52) - Yp(2.54), 3, false); glassPane(g, W / 2 + 4, Yp(2.54), W / 2 - 22, Yp(1.52) - Yp(2.54), 4, false);
+    return toTex(c);
+  }
+  function hoodFront() {
+    const [c, g] = canvas(300, 128); g.fillStyle = '#f2b705'; g.fillRect(0, 0, 300, 128);
+    g.fillStyle = '#2a2c2e'; rr(g, 90, 18, 120, 92, 8); g.fill(); g.strokeStyle = '#8a9095'; g.lineWidth = 3; for (let x = 100; x < 205; x += 10) { g.beginPath(); g.moveTo(x, 24); g.lineTo(x, 104); g.stroke(); }
+    g.fillStyle = '#141414'; g.font = 'bold 18px Arial'; g.textAlign = 'center'; g.fillText('SCHOOL BUS', 150, 126 - 6); return toTex(c);
+  }
+  function schoolRear() {
+    const W = 320, H = 330, ky = H / 2.6, Yp = y => (2.95 - y) * ky, [c, g] = canvas(W, H);
+    g.fillStyle = '#f2b705'; g.fillRect(0, 0, W, H); g.fillStyle = '#141414'; for (const y of [1.45, 1.05, .66]) g.fillRect(0, Yp(y + .06), W, Yp(y) - Yp(y + .06));
+    g.fillStyle = '#d9a300'; rr(g, W / 2 - 58, Yp(2.6), 116, Yp(.45) - Yp(2.6), 6); g.fill(); g.strokeStyle = '#141414'; g.lineWidth = 3; g.stroke();
+    glassPane(g, W / 2 - 46, Yp(2.45), 92, Yp(1.55) - Yp(2.45), 2, false);
+    g.fillStyle = '#141414'; g.font = 'bold 13px Arial'; g.textAlign = 'center'; g.fillText('SAÍDA DE EMERGÊNCIA', W / 2, Yp(1.35)); grime(g, W, H, .74); return toTex(c);
+  }
+  function texturesFor(line) {
+    if (texCache.has(line.num)) return texCache.get(line.num);
+    const t = line.school ? { right: schoolSide(false, 8.5), left: schoolSide(true, 8.5), front: schoolFront(), hood: hoodFront(), rear: schoolRear(), roof: roofTex('#f0b400') }
+      : { right: citySide(line, [12 - 1.35, 5.6], false), left: citySide(line, [], true), front: cityFront(line), rear: cityRear(line), roof: roofTex('#e9ecee') };
+    for (const k in t) t[k].userData.shared = true;
+    texCache.set(line.num, t); return t;
+  }
+  const painted = (map, o = {}) => new THREE.MeshStandardMaterial({ map, roughness: .34, metalness: .12, ...o });
+  // caixa com material por face: [+X frente, −X trás, +Y teto, −Y fundo, +Z direita (calçada), −Z esquerda]
+  function bodyBox(g, x0, y0, z0, x1, y1, z1, mats) { const o = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mats); o.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); o.castShadow = true; o.receiveShadow = true; g.add(o); return o; }
   function cityBus(line) {
-    const g = new THREE.Group(), L = 12, W = 2.55, H = 3.1, hl = L / 2, hw = W / 2, c = line.color;
-    const paint = mat('#f4f6f7', { roughness: .32, metalness: .15 }), col = mat(c, { roughness: .35, metalness: .15 });
-    rbox(g, -hl, .3, -hw, hl, 1.15, hw, paint, .14);                                   // saia
-    rbox(g, -hl + .02, 1.1, -hw + .02, hl - .02, 2.62, hw - .02, paint, .12);              // caixa dos vidros
-    rbox(g, -hl + .05, 2.55, -hw + .05, hl - .05, 2.95, hw - .05, paint, .2);             // teto
-    // vidros laterais (faixa contínua escura) com colunas
+    const g = new THREE.Group(), L = 12, W = 2.55, hl = L / 2, hw = W / 2, T = texturesFor(line), under = mat('#1c1e20');
+    bodyBox(g, -hl, .3, -hw, hl, 3.0, hw, [painted(T.front), painted(T.rear), painted(T.roof, { roughness: .5 }), under, painted(T.right), painted(T.left)]);
+    rbox(g, -hl + .1, 2.98, -hw + .1, hl - .1, 3.06, hw - .1, mat('#e4e8ea', { roughness: .45 }), .04);                    // borda arredondada do teto
+    rbox(g, -1.8, 3.04, -.85, .9, 3.32, .85, mat('#dfe3e6', { roughness: .45 }), .14); rbox(g, 2.2, 3.04, -.45, 3.1, 3.12, .45, mat('#cfd4d7'), .04);   // ar-condicionado, escotilha
+    rbox(g, hl - .02, .26, -hw - .03, hl + .16, .48, hw + .03, mat('#2f3337', { roughness: .55 }), .07);                 // para-choques
+    rbox(g, -hl - .14, .26, -hw - .03, -hl + .02, .46, hw + .03, mat('#2f3337', { roughness: .55 }), .06);
     for (const s of [-1, 1]) {
-      rbox(g, -hl + .55, 1.32, s * hw - .03, hl - 1.25, 2.48, s * hw + .03, GLASS(), .04);
-      for (let x = -hl + .55; x <= hl - 1.25; x += 1.55) rbox(g, x - .05, 1.3, s * hw - .045, x + .05, 2.5, s * hw + .045, paint, .01);
-      rbox(g, -hl + .1, .48, s * hw - .035, hl - .1, .86, s * hw + .035, col, .03);          // faixa larga da linha
-      rbox(g, -hl + .1, 1.16, s * hw - .036, hl - .1, 1.24, s * hw + .036, col, .01);        // filete sob os vidros
-      rbox(g, -hl + .3, .3, s * hw - .03, hl - .3, .36, s * hw + .03, DARK(), .02);          // borracha da saia
+      lightBox(g, hl + .005, .66, s * (hw - .58), hl + .06, .86, s * (hw - .12), '#fffbe8', '#fff1c2'); lightBox(g, hl + .005, .58, s * (hw - .5), hl + .05, .64, s * (hw - .2), '#ffb02e', '#a85a00');
+      lightBox(g, -hl - .05, .55, s * (hw - .32), -hl - .005, 1.45, s * (hw - .08), '#c0171b', '#6e0608');
+      rbox(g, hl - .2, 2.2, s * (hw + .02), hl + .25, 2.26, s * (hw + .32), DARK(), .02); rbox(g, hl + .18, 1.72, s * (hw + .26), hl + .3, 2.3, s * (hw + .44), DARK(), .04);   // retrovisores
     }
-    // portas duplas (calçada, +Z): vidro em 4 folhas com moldura e friso amarelo de segurança
-    for (const dx of [hl - 1.35, -.4]) {
-      rbox(g, dx - .62, .34, hw - .03, dx + .62, 2.5, hw + .045, mat('#2b2f33', { roughness: .4 }), .03);
-      for (const f of [-.31, .31]) rbox(g, dx + f - .27, .45, hw + .03, dx + f + .27, 2.4, hw + .055, GLASS(), .02);
-      rbox(g, dx - .01, .45, hw + .04, dx + .01, 2.4, hw + .06, mat('#f2c230'), .002);
-    }
-    // frente: para-brisa, moldura, letreiro, faróis, grade e para-choque
-    rbox(g, hl - .08, 1.0, -hw + .12, hl + .03, 2.55, hw - .12, GLASS(), .06);
-    rbox(g, hl - .1, 2.5, -hw + .1, hl + .04, 2.92, hw - .1, DARK(), .05);
-    textPlane(g, line.num + ' ' + line.name.replace('Centro ⇄ ', '').toUpperCase(), 2.2, .3, hl + .05, 2.71, 0, Math.PI / 2, '#0b0b0b', '#ffb02e');
-    rbox(g, hl - .06, .3, -hw + .05, hl + .06, 1.0, hw - .05, col, .1);                    // saia frontal na cor da linha
-    rbox(g, hl - .02, .55, -.55, hl + .07, .82, .55, DARK(), .04);                          // grade
-    for (const s of [-1, 1]) { lightBox(g, hl - .02, .66, s * hw - s * .58, hl + .08, .86, s * hw - s * .12, '#fffbe8', '#fff1c2'); lightBox(g, hl, .58, s * hw - s * .5, hl + .08, .64, s * hw - s * .2, '#ffb02e', '#a85a00'); }
-    rbox(g, hl - .05, .26, -hw - .02, hl + .14, .46, hw + .02, mat('#3a3f44', { roughness: .6 }), .06);   // para-choque
-    for (const s of [-1, 1]) {                                                             // retrovisores
-      rbox(g, hl - .2, 2.2, s * (hw + .02), hl + .25, 2.26, s * (hw + .32), DARK(), .02);
-      rbox(g, hl + .18, 1.75, s * (hw + .26), hl + .3, 2.3, s * (hw + .44), DARK(), .04);
-    }
-    // traseira: vidro, lanternas altas, grade do motor, número da linha
-    rbox(g, -hl - .03, 1.7, -hw + .3, -hl + .05, 2.45, hw - .3, GLASS(), .04);
-    for (const s of [-1, 1]) lightBox(g, -hl - .04, .5, s * hw - s * .32, -hl + .02, 1.45, s * hw - s * .08, '#c0171b', '#6e0608');
-    for (let i = 0; i < 6; i++) rbox(g, -hl - .03, .55 + i * .12, -.75, -hl + .02, .6 + i * .12, .75, DARK(), .01);
-    textPlane(g, line.num, .9, .32, -hl - .05, 2.62, 0, -Math.PI / 2, '#0b0b0b', '#ffb02e');
-    // teto: ar-condicionado e escotilha
-    rbox(g, -1.8, 2.92, -.85, .9, 3.22, .85, mat('#e3e7ea', { roughness: .4 }), .14);
-    rbox(g, 2.2, 2.92, -.45, 3.1, 3.02, .45, mat('#d4d9dc'), .05);
-    // número da linha nas laterais
-    for (const s of [-1, 1]) textPlane(g, line.num, 1.0, .34, hl - 2.6, 2.75, s * (hw + .04), s > 0 ? 0 : Math.PI, c, '#ffffff');
-    for (const x of [hl - 2.4, -hl + 2.7]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .2));
+    for (const x of [hl - 2.4, -hl + 2.7]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .12));
     g.userData.L = L; g.userData.W = W; return g;
   }
-  // escolar (estilo clássico): capô na frente, carroceria amarela arredondada, frisos pretos, janelas em sequência com
-  // moldura, "ESCOLAR" nas laterais, placa de PARE, luzes âmbar/vermelhas no teto, porta de emergência atrás
   function schoolBus(line) {
-    const g = new THREE.Group(), L = 10, W = 2.5, H = 3.0, hl = L / 2, hw = W / 2, HOOD = 1.5, bx = hl - HOOD;
-    const Y = mat('#f2b705', { roughness: .33, metalness: .12 }), BLK = mat('#151515', { roughness: .5 });
-    rbox(g, -hl, .35, -hw, bx, 2.95, hw, Y, .22);                                          // carroceria
-    rbox(g, bx - .05, .35, -hw + .15, hl, 1.45, hw - .15, Y, .2);                           // capô
-    rbox(g, hl - .05, .45, -.6, hl + .06, 1.2, .6, mat('#2a2c2e', { roughness: .4, metalness: .5 }), .05);   // grade
-    for (const s of [-1, 1]) lightBox(g, hl - .02, 1.05, s * .82 - .14, hl + .06, 1.3, s * .82 + .14, '#fffbe8', '#fff1c2');
-    rbox(g, hl - .05, .3, -hw - .02, hl + .16, .5, hw + .02, BLK, .05);                     // para-choque
-    rbox(g, bx - .02, 1.5, -hw + .12, bx + .06, 2.6, hw - .12, GLASS(), .05);               // para-brisa
-    rbox(g, bx - .03, 2.62, -hw + .1, bx + .07, 2.88, hw - .1, BLK, .04);
-    textPlane(g, 'E1 ESCOLAR', 1.8, .22, bx + .08, 2.75, 0, Math.PI / 2, '#0b0b0b', '#ffd23a');
+    const g = new THREE.Group(), L = 10, W = 2.5, hl = L / 2, hw = W / 2, HOOD = 1.5, bx = hl - HOOD, T = texturesFor(line), Y = mat('#f2b705', { roughness: .34, metalness: .12 }), under = mat('#1c1e20');
+    bodyBox(g, -hl, .35, -hw, bx, 2.95, hw, [painted(T.front), painted(T.rear), painted(T.roof, { roughness: .5 }), under, painted(T.right), painted(T.left)]);
+    bodyBox(g, bx, .35, -hw + .15, hl, 1.45, hw - .15, [painted(T.hood), Y, Y, under, Y, Y]);                             // capô
+    rbox(g, -hl + .1, 2.93, -hw + .1, bx - .1, 3.0, hw - .1, mat('#f0b400', { roughness: .45 }), .04);
     for (const s of [-1, 1]) {
-      for (let x = -hl + .5; x < bx - .6; x += .95) { rbox(g, x, 1.55, s * hw - .03, x + .78, 2.45, s * hw + .03, GLASS(), .05); rbox(g, x - .05, 1.5, s * hw - .035, x + .83, 1.55, s * hw + .035, BLK, .01); }
-      for (const y of [.62, 1.05, 1.45]) rbox(g, -hl + .1, y, s * hw - .035, bx - .1, y + .06, s * hw + .035, BLK, .01);   // frisos
-      textPlane(g, 'ESCOLAR', 2.6, .32, -.6, 1.25, s * (hw + .045), s > 0 ? 0 : Math.PI, null, '#151515');
-      rbox(g, bx + .2, 2.05, s * (hw + .02), bx + .55, 2.1, s * (hw + .3), BLK, .02); rbox(g, bx + .48, 1.7, s * (hw + .25), bx + .6, 2.15, s * (hw + .4), BLK, .04);   // retrovisores
-      for (const dx of [-.6, .6]) { lightBox(g, bx - .35 + dx * .2, 2.86, s * (hw - .35), bx - .1 + dx * .2, 2.98, s * (hw - .12), dx < 0 ? '#ff8a00' : '#e01b1b', dx < 0 ? '#a24c00' : '#6e0608'); }
+      lightBox(g, hl + .005, 1.12, s * .82 - .14, hl + .06, 1.32, s * .82 + .14, '#fffbe8', '#fff1c2');
+      for (const k of [0, 1]) lightBox(g, bx - .35 + k * .25, 2.95, s * (hw - .36), bx - .15 + k * .25, 3.06, s * (hw - .14), k ? '#e01b1b' : '#ff8a00', k ? '#6e0608' : '#a24c00');
+      lightBox(g, -hl - .05, 1.0, s * .9 - .15, -hl - .005, 1.3, s * .9 + .15, '#c0171b', '#6e0608');
+      rbox(g, bx + .2, 2.05, s * (hw + .02), bx + .55, 2.1, s * (hw + .3), DARK(), .02); rbox(g, bx + .48, 1.7, s * (hw + .25), bx + .6, 2.15, s * (hw + .4), DARK(), .04);
     }
-    // porta da frente (calçada) e placa de PARE (lado do motorista)
-    rbox(g, bx - 1.0, .4, hw - .03, bx - .15, 2.45, hw + .05, GLASS(), .03); rbox(g, bx - .6, .4, hw + .03, bx - .56, 2.45, hw + .06, BLK, .005);
-    const stop = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .03, 8), mat('#d61f1f', { roughness: .4 })); stop.rotation.x = Math.PI / 2; stop.rotation.y = Math.PI / 8; stop.position.set(bx - 1.3, 1.6, -hw - .05); g.add(stop);
-    textPlane(g, 'PARE', .36, .12, bx - 1.3, 1.6, -hw - .07, Math.PI, null, '#ffffff');
-    // traseira: porta de emergência com vidro, lanternas
-    rbox(g, -hl - .04, .45, -.45, -hl + .02, 2.55, .45, Y, .03); rbox(g, -hl - .06, 1.5, -.38, -hl + .02, 2.4, .38, GLASS(), .03);
-    textPlane(g, 'SAÍDA DE EMERGÊNCIA', .8, .09, -hl - .07, 1.35, 0, -Math.PI / 2, null, '#151515');
-    for (const s of [-1, 1]) lightBox(g, -hl - .05, 1.0, s * .9 - .15, -hl + .02, 1.3, s * .9 + .15, '#c0171b', '#6e0608');
-    for (const x of [hl - 1.0, -hl + 2.2]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .2), .5);
+    rbox(g, hl - .02, .3, -hw - .02, hl + .18, .5, hw + .02, mat('#151515', { roughness: .5 }), .06); rbox(g, -hl - .14, .3, -hw - .02, -hl + .02, .48, hw + .02, mat('#151515'), .05);
+    // porta da frente (calçada) e placa de PARE (lado do motorista), por fora da caixa
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(.85, 2.0), new THREE.MeshStandardMaterial({ map: (() => { const [c, x] = canvas(128, 300); x.fillStyle = '#141414'; x.fillRect(0, 0, 128, 300); glassPane(x, 8, 8, 52, 284, 1, false); glassPane(x, 68, 8, 52, 284, 2, false); return toTex(c); })(), roughness: .15, metalness: .4 }));
+    door.position.set(bx - .58, 1.42, hw + .012); g.add(door);
+    const stop = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .03, 8), mat('#d61f1f', { roughness: .4 })); stop.rotation.x = Math.PI / 2; stop.rotation.y = Math.PI / 8; stop.position.set(bx - 1.3, 1.6, -hw - .06); g.add(stop);
+    textPlane(g, 'PARE', .36, .12, bx - 1.3, 1.6, -hw - .08, Math.PI, null, '#ffffff');
+    for (const x of [hl - 1.0, -hl + 2.2]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .12), .5);
     g.userData.L = L; g.userData.W = W; return g;
   }
   const busModel = line => line.school ? schoolBus(line) : cityBus(line);
@@ -393,7 +462,7 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
       b.mesh = new THREE.Group(); const m = civilModel(b.line) || busModel(b.line); b.mesh.add(m); b.L = m.userData.L; scene.add(b.mesh);
       b.box = { x: b.x, y: b.y, a: b.a, hl: b.L / 2, hw: 1.3, unit: b, bus: true }; world.aiCars.push(b.box); state.shown++;
     } else if (!on && b.mesh) {
-      scene.remove(b.mesh); b.mesh.traverse(o => { if (o.isMesh && o.material?.map) o.material.map.dispose(); }); b.mesh = null;
+      scene.remove(b.mesh); b.mesh.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) if (m?.map?.isTexture && !m.map.userData.shared) m.map.dispose(); });   // texturas da linha (cache) ficam b.mesh = null;
       const j = world.aiCars.indexOf(b.box); if (j >= 0) world.aiCars.splice(j, 1); b.box = null; state.shown--;
     }
   }
