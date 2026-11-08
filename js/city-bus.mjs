@@ -12,6 +12,7 @@
 // Regras puras (montagem das linhas, posição/tempo na linha) exportadas p/ os testes.
 import {loadVehicleGLB} from './vehicle-asset-cache.mjs';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {leadAhead, stopSpeed, signalStop, junctionStop, JUNCTION_R} from './ai-traffic.mjs';
 
 const TAU = Math.PI * 2;
@@ -203,34 +204,108 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = 'bold ' + (h * .62) + 'px "Arial Narrow",Arial,sans-serif'; g.textBaseline = 'middle'; g.fillText(text, 14, h / 2 + 2, w - 28);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   }
-  // ônibus urbano (12 m, piso baixo) e escolar (9 m, amarelo), procedurais; frente p/ +X
-  function busModel(line) {
-    const g = new THREE.Group(), school = !!line.school, L = school ? 9 : 12, W = 2.55, Hh = school ? 2.9 : 3.05;
-    const body = school ? '#f2b705' : '#f2f4f5', stripe = school ? '#141414' : line.color;
-    box(g, L, Hh - .55, W, 0, .35 + (Hh - .55) / 2, 0, mat(body, { roughness: .4 }));
-    box(g, L - .1, .12, W + .02, 0, 1.0, 0, mat(stripe));                                                   // faixa da linha
-    box(g, L - .4, .9, W + .03, -.1, 1.95, 0, mat('#1d2a33', { roughness: .15, metalness: .5 }));            // janelas
-    for (let i = 0; i < (school ? 7 : 9); i++) box(g, .08, .9, W + .05, -L / 2 + 1.2 + i * (L - 2) / (school ? 6 : 8), 1.95, 0, mat(body));   // colunas
-    box(g, .1, 1.6, W - .3, L / 2 + .02, 1.55, 0, mat('#1d2a33', { roughness: .1, metalness: .5 }));           // para-brisa
-    box(g, L, .14, W, 0, Hh - .15, 0, mat(school ? '#f2b705' : '#d9dde0'));                                 // teto
-    if (!school) { box(g, 2.2, .35, 1.4, -L / 4, Hh + .12, 0, mat('#cfd3d6')); box(g, 1.2, .3, 1.2, L / 4, Hh + .1, 0, mat('#cfd3d6')); }   // ar-condicionado
-    // portas (lado direito = −z local… o lado da calçada é +z no mundo após o giro): duas portas de vidro
-    for (const dx of school ? [L / 2 - 1.1] : [L / 2 - 1.2, -.6]) box(g, 1.1, 2.1, .04, dx, 1.4, W / 2 + .02, mat('#2a3b45', { roughness: .1, metalness: .4 }));
-    // letreiro de LED com número e nome
-    const tex = signTex(line.num + '  ' + (school ? 'ESCOLAR' : line.name.toUpperCase()), '#111', school ? '#ffd23a' : '#ffb02e');
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.9, .34), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
-    sign.rotation.y = Math.PI / 2; sign.position.set(L / 2 + .06, Hh - .45, 0); g.add(sign);
-    const side = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .32), new THREE.MeshBasicMaterial({ map: signTex(line.num, line.color, '#fff', 256, 96), toneMapped: false }));
-    side.position.set(L / 2 - 2.6, 2.75, W / 2 + .03); g.add(side); const side2 = side.clone(); side2.rotation.y = Math.PI; side2.position.z = -W / 2 - .03; g.add(side2);
-    if (school) for (const z of [-1, 1]) box(g, L - .3, .06, .02, 0, .7, z * (W / 2 + .02), mat('#141414'));   // frisos pretos
-    // rodas e faróis
-    for (const x of school ? [L / 2 - 1.6, -L / 2 + 1.9] : [L / 2 - 2.2, -L / 2 + 2.6]) for (const z of [-1, 1]) {
-      const wh = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .32, 18), mat('#151617', { roughness: .9 })); wh.rotation.x = Math.PI / 2; wh.position.set(x, .5, z * (W / 2 - .12)); g.add(wh);
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .34, 12), mat('#9aa0a4', { metalness: .6 })); hub.rotation.x = Math.PI / 2; hub.position.copy(wh.position); g.add(hub);
+  // ---------- ônibus procedurais (frente p/ +X, lado da calçada/portas em +Z) ----------
+  const rbox = (g, x0, y0, z0, x1, y1, z1, m, r = .06) => { const w = x1 - x0, h = y1 - y0, d = z1 - z0, rr = Math.min(r, w / 2 - .001, h / 2 - .001, d / 2 - .001);
+    const geo = rr > .004 ? new RoundedBoxGeometry(w, h, d, 3, rr) : new THREE.BoxGeometry(w, h, d); const o = new THREE.Mesh(geo, m); o.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); o.castShadow = true; o.receiveShadow = true; g.add(o); return o; };
+  const cylZ = (g, x, y, z, r, len, m, seg = 20) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), m); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); o.castShadow = true; g.add(o); return o; };
+  const GLASS = () => mat('#16232c', { roughness: .06, metalness: .65 });
+  const DARK = () => mat('#1b1d20', { roughness: .7 });
+  const CHROME = () => mat('#c8cdd1', { roughness: .25, metalness: .8 });
+  function wheel(g, x, z, r = .52) {
+    const side = Math.sign(z);
+    cylZ(g, x, r, z, r, .34, mat('#141516', { roughness: .95 }), 24);                       // pneu
+    cylZ(g, x, r, z + side * .03, r * .6, .32, mat('#aeb4b8', { roughness: .3, metalness: .7 }), 18);   // aro
+    cylZ(g, x, r, z + side * .05, r * .2, .3, mat('#5c6267', { metalness: .6, roughness: .4 }), 12);    // cubo
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, b = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .3, 6), mat('#3c4146')); b.rotation.x = Math.PI / 2; b.position.set(x + Math.cos(a) * r * .4, r + Math.sin(a) * r * .4, z + side * .05); g.add(b); }
+    rbox(g, x - r - .12, r + .05, side > 0 ? z - .2 : z - .2, x + r + .12, r * 2 + .16, side > 0 ? z + .2 : z + .2, DARK(), .05);   // caixa de roda
+  }
+  function lightBox(g, x0, y0, z0, x1, y1, z1, color, glow) { return rbox(g, x0, y0, z0, x1, y1, z1, mat(color, { emissive: glow, emissiveIntensity: .9, roughness: .2 }), .02); }
+  function textPlane(g, text, w, h, x, y, z, rotY, bg, fg, font = 'bold') {
+    const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w); const x2 = c.getContext('2d');
+    if (bg) { x2.fillStyle = bg; x2.fillRect(0, 0, c.width, c.height); } x2.fillStyle = fg; x2.font = font + ' ' + Math.round(c.height * .7) + 'px "Arial Black",Arial,sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText(text, c.width / 2, c.height / 2 + 2, c.width - 20);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: !bg, toneMapped: false })); o.position.set(x, y, z); o.rotation.y = rotY; g.add(o); return o;
+  }
+  // urbano: piso baixo 12 m, carroceria arredondada, vidros colados escuros com colunas finas, para-brisa inteiro com
+  // moldura preta, letreiro de LED, faróis em bloco, grade e para-choque, 2 portas duplas de vidro, retrovisores,
+  // ar-condicionado e pintura com a cor da linha (faixa larga embaixo, filete sob os vidros e saia frontal)
+  function cityBus(line) {
+    const g = new THREE.Group(), L = 12, W = 2.55, H = 3.1, hl = L / 2, hw = W / 2, c = line.color;
+    const paint = mat('#f4f6f7', { roughness: .32, metalness: .15 }), col = mat(c, { roughness: .35, metalness: .15 });
+    rbox(g, -hl, .3, -hw, hl, 1.15, hw, paint, .14);                                   // saia
+    rbox(g, -hl + .02, 1.1, -hw + .02, hl - .02, 2.62, hw - .02, paint, .12);              // caixa dos vidros
+    rbox(g, -hl + .05, 2.55, -hw + .05, hl - .05, 2.95, hw - .05, paint, .2);             // teto
+    // vidros laterais (faixa contínua escura) com colunas
+    for (const s of [-1, 1]) {
+      rbox(g, -hl + .55, 1.32, s * hw - .03, hl - 1.25, 2.48, s * hw + .03, GLASS(), .04);
+      for (let x = -hl + .55; x <= hl - 1.25; x += 1.55) rbox(g, x - .05, 1.3, s * hw - .045, x + .05, 2.5, s * hw + .045, paint, .01);
+      rbox(g, -hl + .1, .48, s * hw - .035, hl - .1, .86, s * hw + .035, col, .03);          // faixa larga da linha
+      rbox(g, -hl + .1, 1.16, s * hw - .036, hl - .1, 1.24, s * hw + .036, col, .01);        // filete sob os vidros
+      rbox(g, -hl + .3, .3, s * hw - .03, hl - .3, .36, s * hw + .03, DARK(), .02);          // borracha da saia
     }
-    for (const z of [-.9, .9]) { box(g, .06, .2, .4, L / 2 + .03, .75, z, mat('#fff8de', { emissive: '#fff4c8', emissiveIntensity: .6 })); box(g, .06, .25, .3, -L / 2 - .03, .9, z, mat('#c0171b', { emissive: '#7a0a0c', emissiveIntensity: .4 })); }
+    // portas duplas (calçada, +Z): vidro em 4 folhas com moldura e friso amarelo de segurança
+    for (const dx of [hl - 1.35, -.4]) {
+      rbox(g, dx - .62, .34, hw - .03, dx + .62, 2.5, hw + .045, mat('#2b2f33', { roughness: .4 }), .03);
+      for (const f of [-.31, .31]) rbox(g, dx + f - .27, .45, hw + .03, dx + f + .27, 2.4, hw + .055, GLASS(), .02);
+      rbox(g, dx - .01, .45, hw + .04, dx + .01, 2.4, hw + .06, mat('#f2c230'), .002);
+    }
+    // frente: para-brisa, moldura, letreiro, faróis, grade e para-choque
+    rbox(g, hl - .08, 1.0, -hw + .12, hl + .03, 2.55, hw - .12, GLASS(), .06);
+    rbox(g, hl - .1, 2.5, -hw + .1, hl + .04, 2.92, hw - .1, DARK(), .05);
+    textPlane(g, line.num + ' ' + line.name.replace('Centro ⇄ ', '').toUpperCase(), 2.2, .3, hl + .05, 2.71, 0, Math.PI / 2, '#0b0b0b', '#ffb02e');
+    rbox(g, hl - .06, .3, -hw + .05, hl + .06, 1.0, hw - .05, col, .1);                    // saia frontal na cor da linha
+    rbox(g, hl - .02, .55, -.55, hl + .07, .82, .55, DARK(), .04);                          // grade
+    for (const s of [-1, 1]) { lightBox(g, hl - .02, .66, s * hw - s * .58, hl + .08, .86, s * hw - s * .12, '#fffbe8', '#fff1c2'); lightBox(g, hl, .58, s * hw - s * .5, hl + .08, .64, s * hw - s * .2, '#ffb02e', '#a85a00'); }
+    rbox(g, hl - .05, .26, -hw - .02, hl + .14, .46, hw + .02, mat('#3a3f44', { roughness: .6 }), .06);   // para-choque
+    for (const s of [-1, 1]) {                                                             // retrovisores
+      rbox(g, hl - .2, 2.2, s * (hw + .02), hl + .25, 2.26, s * (hw + .32), DARK(), .02);
+      rbox(g, hl + .18, 1.75, s * (hw + .26), hl + .3, 2.3, s * (hw + .44), DARK(), .04);
+    }
+    // traseira: vidro, lanternas altas, grade do motor, número da linha
+    rbox(g, -hl - .03, 1.7, -hw + .3, -hl + .05, 2.45, hw - .3, GLASS(), .04);
+    for (const s of [-1, 1]) lightBox(g, -hl - .04, .5, s * hw - s * .32, -hl + .02, 1.45, s * hw - s * .08, '#c0171b', '#6e0608');
+    for (let i = 0; i < 6; i++) rbox(g, -hl - .03, .55 + i * .12, -.75, -hl + .02, .6 + i * .12, .75, DARK(), .01);
+    textPlane(g, line.num, .9, .32, -hl - .05, 2.62, 0, -Math.PI / 2, '#0b0b0b', '#ffb02e');
+    // teto: ar-condicionado e escotilha
+    rbox(g, -1.8, 2.92, -.85, .9, 3.22, .85, mat('#e3e7ea', { roughness: .4 }), .14);
+    rbox(g, 2.2, 2.92, -.45, 3.1, 3.02, .45, mat('#d4d9dc'), .05);
+    // número da linha nas laterais
+    for (const s of [-1, 1]) textPlane(g, line.num, 1.0, .34, hl - 2.6, 2.75, s * (hw + .04), s > 0 ? 0 : Math.PI, c, '#ffffff');
+    for (const x of [hl - 2.4, -hl + 2.7]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .2));
     g.userData.L = L; g.userData.W = W; return g;
   }
+  // escolar (estilo clássico): capô na frente, carroceria amarela arredondada, frisos pretos, janelas em sequência com
+  // moldura, "ESCOLAR" nas laterais, placa de PARE, luzes âmbar/vermelhas no teto, porta de emergência atrás
+  function schoolBus(line) {
+    const g = new THREE.Group(), L = 10, W = 2.5, H = 3.0, hl = L / 2, hw = W / 2, HOOD = 1.5, bx = hl - HOOD;
+    const Y = mat('#f2b705', { roughness: .33, metalness: .12 }), BLK = mat('#151515', { roughness: .5 });
+    rbox(g, -hl, .35, -hw, bx, 2.95, hw, Y, .22);                                          // carroceria
+    rbox(g, bx - .05, .35, -hw + .15, hl, 1.45, hw - .15, Y, .2);                           // capô
+    rbox(g, hl - .05, .45, -.6, hl + .06, 1.2, .6, mat('#2a2c2e', { roughness: .4, metalness: .5 }), .05);   // grade
+    for (const s of [-1, 1]) lightBox(g, hl - .02, 1.05, s * .82 - .14, hl + .06, 1.3, s * .82 + .14, '#fffbe8', '#fff1c2');
+    rbox(g, hl - .05, .3, -hw - .02, hl + .16, .5, hw + .02, BLK, .05);                     // para-choque
+    rbox(g, bx - .02, 1.5, -hw + .12, bx + .06, 2.6, hw - .12, GLASS(), .05);               // para-brisa
+    rbox(g, bx - .03, 2.62, -hw + .1, bx + .07, 2.88, hw - .1, BLK, .04);
+    textPlane(g, 'E1 ESCOLAR', 1.8, .22, bx + .08, 2.75, 0, Math.PI / 2, '#0b0b0b', '#ffd23a');
+    for (const s of [-1, 1]) {
+      for (let x = -hl + .5; x < bx - .6; x += .95) { rbox(g, x, 1.55, s * hw - .03, x + .78, 2.45, s * hw + .03, GLASS(), .05); rbox(g, x - .05, 1.5, s * hw - .035, x + .83, 1.55, s * hw + .035, BLK, .01); }
+      for (const y of [.62, 1.05, 1.45]) rbox(g, -hl + .1, y, s * hw - .035, bx - .1, y + .06, s * hw + .035, BLK, .01);   // frisos
+      textPlane(g, 'ESCOLAR', 2.6, .32, -.6, 1.25, s * (hw + .045), s > 0 ? 0 : Math.PI, null, '#151515');
+      rbox(g, bx + .2, 2.05, s * (hw + .02), bx + .55, 2.1, s * (hw + .3), BLK, .02); rbox(g, bx + .48, 1.7, s * (hw + .25), bx + .6, 2.15, s * (hw + .4), BLK, .04);   // retrovisores
+      for (const dx of [-.6, .6]) { lightBox(g, bx - .35 + dx * .2, 2.86, s * (hw - .35), bx - .1 + dx * .2, 2.98, s * (hw - .12), dx < 0 ? '#ff8a00' : '#e01b1b', dx < 0 ? '#a24c00' : '#6e0608'); }
+    }
+    // porta da frente (calçada) e placa de PARE (lado do motorista)
+    rbox(g, bx - 1.0, .4, hw - .03, bx - .15, 2.45, hw + .05, GLASS(), .03); rbox(g, bx - .6, .4, hw + .03, bx - .56, 2.45, hw + .06, BLK, .005);
+    const stop = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .03, 8), mat('#d61f1f', { roughness: .4 })); stop.rotation.x = Math.PI / 2; stop.rotation.y = Math.PI / 8; stop.position.set(bx - 1.3, 1.6, -hw - .05); g.add(stop);
+    textPlane(g, 'PARE', .36, .12, bx - 1.3, 1.6, -hw - .07, Math.PI, null, '#ffffff');
+    // traseira: porta de emergência com vidro, lanternas
+    rbox(g, -hl - .04, .45, -.45, -hl + .02, 2.55, .45, Y, .03); rbox(g, -hl - .06, 1.5, -.38, -hl + .02, 2.4, .38, GLASS(), .03);
+    textPlane(g, 'SAÍDA DE EMERGÊNCIA', .8, .09, -hl - .07, 1.35, 0, -Math.PI / 2, null, '#151515');
+    for (const s of [-1, 1]) lightBox(g, -hl - .05, 1.0, s * .9 - .15, -hl + .02, 1.3, s * .9 + .15, '#c0171b', '#6e0608');
+    for (const x of [hl - 1.0, -hl + 2.2]) for (const s of [-1, 1]) wheel(g, x, s * (hw - .2), .5);
+    g.userData.L = L; g.userData.W = W; return g;
+  }
+  const busModel = line => line.school ? schoolBus(line) : cityBus(line);
   function civilModel(line) {
     const c = civil[line.school ? 'school-bus' : 'city-bus']; if (!c) return null;
     const root = c.g.scene.clone(true); root.updateMatrixWorld(true);
@@ -354,7 +429,7 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     pick = pick || place(best.i);
     st.sx = pick.x; st.sy = pick.y; st.a = pick.a;
     // porta da frente do ônibus (a ~1,2 m do para-choque) em frente ao abrigo
-    for (const { line, stop } of st.lines) { const L = line.school ? 9 : 12, s0 = sNear(line, pick.x, pick.y, stop.s); stop.s = (s0 - (L / 2 - 1.2) + line.len) % line.len; }
+    for (const { line, stop } of st.lines) { const L = line.school ? 10 : 12, s0 = sNear(line, pick.x, pick.y, stop.s); stop.s = (s0 - (L / 2 - 1.2) + line.len) % line.len; }
     for (const ln of new Set(st.lines.map(e => e.line))) ln.stops.sort((a, b) => a.s - b.s);
   }
   function update(dt) {
