@@ -155,7 +155,49 @@
      const length=points.slice(1).reduce((sum,p,i)=>sum+dist(p,points[i]),0);
      return {points,length,from:[start.x,start.y],to:[end.x,end.y],snapStart:start.d,snapEnd:end.d,segments:segments.length,nodes:n};
    }
-   return {route,nearest,nodeCount:nodes.length,edgeCount:adj.reduce((v,x)=>v+x.length,0)/2,segmentCount:segments.length,version};
+   // rota com sentido (ônibus): sai do ponto no mesmo sentido em que chegou (heading = [dx,dy]) e, nos cruzamentos,
+   // nunca volta pela rua de onde veio nem faz meia-volta; virar custa um pouco mais que seguir reto. Busca nos
+   // estados (nó, nó anterior). Sem caminho assim (rua sem saída), devolve null
+   function routeDirected(from,to,heading){
+     const start=nearest(from.x,from.y),end=nearest(to.x,to.y);
+     if(!start||!end||start.d>180||end.d>220)return null;
+     const n=nodes.length,sid=n,eid=n+1,out=new Map(),put=(a,b,w)=>{if(!out.has(a))out.set(a,[]);out.get(a).push({to:b,w});};
+     const P=id=>id===sid?[start.x,start.y]:id===eid?[end.x,end.y]:nodes[id];
+     const hookEnds=point=>{const s=point.seg,parts=s.splits;let a=parts[0],b=parts[parts.length-1];
+       for(let j=1;j<parts.length;j++)if(point.t<=parts[j].t+.00001){a=parts[j-1];b=parts[j];break;}
+       const f=weight[s.cls]||1;return [[a.id,Math.max(0,(point.t-a.t)*s.len)*f],[b.id,Math.max(0,(b.t-point.t)*s.len)*f]];};
+     const hs=Math.hypot(heading?.[0]||0,heading?.[1]||0);
+     for(const [id,w] of hookEnds(start)){
+       const q=P(id),dx=q[0]-start.x,dy=q[1]-start.y;
+       if(hs&&dx*heading[0]+dy*heading[1]<=0)continue;   // só p/ frente
+       put(sid,id,w);
+     }
+     for(const [id,w] of hookEnds(end))put(id,eid,w);
+     if(start.seg===end.seg){const ex=end.x-start.x,ey=end.y-start.y;if(!hs||ex*heading[0]+ey*heading[1]>0)put(sid,eid,Math.hypot(ex,ey)*(weight[start.seg.cls]||1));}
+     const links=id=>id<n?[...adj[id],...(out.get(id)||[])]:(out.get(id)||[]);
+     const key=(id,p)=>id*(n+3)+(p+1),cost=new Map(),prev=new Map(),heap=[];
+     const push=(s,k)=>{let i=heap.length;heap.push([s,k]);while(i>0){const q=(i-1)>>1;if(heap[q][0]<=s)break;heap[i]=heap[q];i=q;}heap[i]=[s,k];};
+     const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){let c=i*2+1;if(c>=heap.length)break;if(c+1<heap.length&&heap[c+1][0]<heap[c][0])c++;if(last[0]<=heap[c][0])break;heap[i]=heap[c];i=c;}heap[i]=last;}return top;};
+     const h=id=>.83*dist(P(id),P(eid)),k0=key(sid,-1);cost.set(k0,0);push(h(sid),k0);let goal=null,closed=new Set();
+     while(heap.length&&closed.size<200000){
+       const [,k]=pop();if(closed.has(k))continue;closed.add(k);
+       const id=Math.floor(k/(n+3)),p=k%(n+3)-1,c=cost.get(k);
+       if(id===eid){goal=k;break;}
+       for(const e of links(id)){
+         if(e.to===p)continue;                                   // não volta pela mesma rua
+         let turn=0;
+         if(p>=0){const a=P(p),b=P(id),q=P(e.to),ux=b[0]-a[0],uy=b[1]-a[1],vx=q[0]-b[0],vy=q[1]-b[1],lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);
+           if(lu>.01&&lv>.01){const cs=(ux*vx+uy*vy)/(lu*lv);if(cs<-.6)continue;if(cs<.7)turn=12;}}   // meia-volta proibida; curva custa 12 m
+         const nk=key(e.to,id),nc=c+e.w+turn;
+         if(nc+1e-8<(cost.get(nk)??Infinity)){cost.set(nk,nc);prev.set(nk,k);push(nc+h(e.to),nk);}
+       }
+     }
+     if(goal===null)return null;
+     const ids=[];for(let k=goal;k!==undefined;k=prev.get(k))ids.push(Math.floor(k/(n+3)));
+     ids.reverse();const points=ids.map(P);
+     return {points,length:points.slice(1).reduce((s,p,i)=>s+dist(p,points[i]),0),from:[start.x,start.y],to:[end.x,end.y]};
+   }
+   return {route,routeDirected,nearest,nodeCount:nodes.length,edgeCount:adj.reduce((v,x)=>v+x.length,0)/2,segmentCount:segments.length,version};
  }
  const api={build,project,crossing};
  root.CityRoadRouting=api;

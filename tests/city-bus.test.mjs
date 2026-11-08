@@ -71,3 +71,15 @@ test('faixa do ônibus: junto ao meio-fio e antes das vagas', () => {
   assert.ok(Math.abs(busLane({ cls: 'avenue', w: 13 }) - 4.9) < .01);
   assert.ok(Math.abs(busLane({ cls: 'street', w: 11 }) - 1.7) < .01, 'rua com vagas');
 });
+
+// meia-volta: o percurso passa logo depois pelo mesmo lugar no sentido contrário
+function hairpins(l) {
+  const P = l.path, n = P.length, hd = i => { const a = P[i], b = P[(i + 2) % n]; return Math.atan2(b[1] - a[1], b[0] - a[0]); }; let c = 0, last = -99;
+  for (let i = 0; i < n; i += 3) for (let k = 6; k < 160; k += 2) { const j = (i + k) % n; if (Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]) < 14 && Math.cos(hd(i) - hd(j)) < -.8) { if (i - last > 12) c++; last = i; break; } }
+  return c;
+}
+test('nenhuma linha faz meia-volta (nem no ponto, nem no cruzamento); escolar ainda atende a universidade', () => {
+  const { roads, net } = grid(), lines = buildLines({ net, roads, sites, landmarks, hub: sites[0] });
+  for (const l of lines) assert.equal(hairpins(l), 0, l.num + ' sem meia-volta');
+  assert.ok(lines.find(l => l.school).stops.some(s => s.name === 'Universidade'));
+});

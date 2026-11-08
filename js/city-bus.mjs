@@ -12,7 +12,7 @@
 // Regras puras (montagem das linhas, posição/tempo na linha) exportadas p/ os testes.
 import {loadVehicleGLB} from './vehicle-asset-cache.mjs';
 import {VEHICLE_MODELS} from './vehicle-catalog.mjs';
-import {leadAhead, stopSpeed} from './ai-traffic.mjs';
+import {leadAhead, stopSpeed, signalStop, junctionStop, JUNCTION_R} from './ai-traffic.mjs';
 
 const TAU = Math.PI * 2;
 const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
@@ -52,18 +52,48 @@ export function destinations(sites = [], landmarks = []) {
   }
   return out;
 }
+// tira do percurso os trechos de "vai e volta": quando a rota entra numa rua e volta por ela (ponto no fim de um trecho,
+// rua sem saída, ligação de um ponto ao seguinte que começa no sentido contrário) o ônibus faria meia-volta no meio da
+// via. Acha a ponta da meia-volta, anda p/ os dois lados enquanto ida e volta passam pelos mesmos pontos e corta tudo,
+// emendando no último ponto em comum (o cruzamento), sem cortar esquina. Percurso circular (índices em volta)
+export function removeRetraces(raw, tol = 6) {
+  let P = raw.slice();
+  for (let guard = 0; guard < 80 && P.length > 4; guard++) {
+    const n = P.length; let cut = null;
+    for (let r = 0; r < n && !cut; r++) {
+      const a = P[(r - 1 + n) % n], b = P[r], c = P[(r + 1) % n];
+      const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1], lu = Math.hypot(ux, uy) || 1, lv = Math.hypot(vx, vy) || 1;
+      if ((ux * vx + uy * vy) / (lu * lv) > -.85) continue;                     // não é meia-volta
+      let k = 1; while (k < n / 2 - 1 && Math.hypot(P[(r - k + n) % n][0] - P[(r + k) % n][0], P[(r - k + n) % n][1] - P[(r + k) % n][1]) < tol) k++;
+      if (k < 2) continue;                                                      // curva fechada de verdade, não ida e volta
+      cut = new Set(); for (let t = -(k - 2); t <= k - 1; t++) cut.add((r + t + n) % n);   // fica o último ponto comum (r−k+1)
+    }
+    if (!cut) break;
+    P = P.filter((_, i) => !cut.has(i));
+  }
+  return P;
+}
 // percurso circular passando pelos pontos na ordem dada; devolve a linha pronta (faixa, distâncias, pontos com s)
 export function makeLine(style, stops, net, roads, extraEvery = 350) {
   if (stops.length < 2) return null;
-  const raw = [];
-  for (let k = 0; k < stops.length; k++) {
-    const a = stops[k], b = stops[(k + 1) % stops.length], r = net.route({ x: a.cx, y: a.cy }, { x: b.cx, y: b.cy });
-    if (!r || r.points.length < 2) return null;
-    for (const p of r.points) if (!raw.length || Math.hypot(p[0] - raw[raw.length - 1][0], p[1] - raw[raw.length - 1][1]) > .3) raw.push([p[0], p[1]]);
+  // cada trecho sai do ponto no MESMO sentido em que o ônibus chegou (routeDirected: sem meia-volta, nem no cruzamento);
+  // duas passadas p/ o circuito fechar no terminal também sem meia-volta. Sem caminho assim (rua sem saída), a rota comum
+  let raw = [], arrive = null;
+  const dirOf = P => { for (let i = P.length - 1; i > 0; i--) { const dx = P[i][0] - P[i - 1][0], dy = P[i][1] - P[i - 1][1]; if (Math.hypot(dx, dy) > .5) return [dx, dy]; } return null; };
+  for (let pass = 0; pass < 2; pass++) {
+    raw = []; let heading = arrive;
+    for (let k = 0; k < stops.length; k++) {
+      const a = stops[k], b = stops[(k + 1) % stops.length], A = { x: a.cx, y: a.cy }, B = { x: b.cx, y: b.cy };
+      const r = (net.routeDirected && net.routeDirected(A, B, heading)) || net.route(A, B);
+      if (!r || r.points.length < 2) return null;
+      for (const p of r.points) if (!raw.length || Math.hypot(p[0] - raw[raw.length - 1][0], p[1] - raw[raw.length - 1][1]) > .3) raw.push([p[0], p[1]]);
+      heading = dirOf(r.points) || heading;
+    }
+    arrive = heading;
   }
-  // reamostra a cada ~2 m e desloca p/ a faixa da direita (largura da via no ponto)
-  const dense = [];
-  for (let i = 0; i < raw.length; i++) { const a = raw[i], b = raw[(i + 1) % raw.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 2)); for (let s = 0; s < n; s++) dense.push([a[0] + (b[0] - a[0]) * s / n, a[1] + (b[1] - a[1]) * s / n]); }
+  // sem vai-e-volta; reamostra a cada ~2 m e desloca p/ a faixa da direita (largura da via no ponto)
+  const flow = removeRetraces(raw), dense = [];
+  for (let i = 0; i < flow.length; i++) { const a = flow[i], b = flow[(i + 1) % flow.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 2)); for (let s = 0; s < n; s++) dense.push([a[0] + (b[0] - a[0]) * s / n, a[1] + (b[1] - a[1]) * s / n]); }
   const path = dense.map((p, i) => {
     const a = dense[(i - 2 + dense.length) % dense.length], b = dense[(i + 2) % dense.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const fx = (b[0] - a[0]) / l, fy = (b[1] - a[1]) / l, seg = net.nearest(p[0], p[1])?.seg, lane = busLane(roads[seg?.roadId]);
@@ -74,7 +104,10 @@ export function makeLine(style, stops, net, roads, extraEvery = 350) {
   const line = { ...style, id: style.num, path: smooth, cum: null, len: 0, stops: [] };
   line.cum = cumulative(smooth); line.len = line.cum[line.cum.length - 1] + Math.hypot(smooth[0][0] - smooth[smooth.length - 1][0], smooth[0][1] - smooth[smooth.length - 1][1]);
   const sOf = (x, y) => { let best = 0, bd = Infinity; for (let i = 0; i < smooth.length; i += 1) { const d = Math.hypot(smooth[i][0] - x, smooth[i][1] - y); if (d < bd) { bd = d; best = i; } } return line.cum[best]; };
-  for (const st of stops) line.stops.push({ ...st, s: sOf(st.cx, st.cy) });
+  // cada destino para no ponto do percurso mais perto dele; se o percurso (sem o vai-e-volta) passa longe demais, a
+  // linha não atende aquele destino (o terminal sempre fica)
+  const near = (x, y) => { let bd = Infinity; for (let i = 0; i < smooth.length; i += 2) bd = Math.min(bd, Math.hypot(smooth[i][0] - x, smooth[i][1] - y)); return bd; };
+  for (const st of stops) if (st.kind === 'hub' || near(st.cx, st.cy) < 160) line.stops.push({ ...st, s: sOf(st.cx, st.cy) });
   line.stops.sort((a, b) => a.s - b.s);
   // pontos intermediários onde o trecho entre dois pontos passa de ~420 m
   const extra = [];
@@ -93,8 +126,25 @@ export function makeLine(style, stops, net, roads, extraEvery = 350) {
   return line;
 }
 // divide os destinos em regiões em volta do centro e monta as linhas (puro: net, roads, sites e landmarks entram)
+// ponto de parada p/ um destino: a rua mais perto DE ONDE O ÔNIBUS SAI NOS DOIS SENTIDOS (não fim de rua sem saída,
+// onde ele teria de fazer meia-volta). Procura em anéis em volta do destino; sem rota com sentido, a mais perto
+export function viableSnap(net, d, hub) {
+  const near0 = net.nearest(d.x, d.y); if (!near0) return null;
+  if (!net.routeDirected || !hub) return near0.d < 140 ? near0 : null;
+  const cands = [near0];
+  for (let r = 25; r <= 175; r += 25) for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, q = net.nearest(d.x + Math.cos(a) * r, d.y + Math.sin(a) * r); if (q) cands.push(q); }
+  const seen = new Set(), list = cands.map(q => ({ q, dd: Math.hypot(q.x - d.x, q.y - d.y) })).filter(o => o.dd < 200).sort((a, b) => a.dd - b.dd);
+  for (const { q } of list) {
+    const key = Math.round(q.x) + ',' + Math.round(q.y); if (seen.has(key)) continue; seen.add(key);
+    const sx = q.seg.b[0] - q.seg.a[0], sy = q.seg.b[1] - q.seg.a[1], P = { x: q.x, y: q.y };
+    if (net.routeDirected(P, hub, [sx, sy]) && net.routeDirected(P, hub, [-sx, -sy])) return q;
+    if (seen.size > 40) break;
+  }
+  return near0.d < 140 ? near0 : null;
+}
 export function buildLines({ net, roads, sites = [], landmarks = [], hub }) {
-  const all = destinations(sites, landmarks).map(d => { const q = net.nearest(d.x, d.y); return q && q.d < 140 ? { ...d, cx: q.x, cy: q.y } : null; }).filter(Boolean);
+  const hub0 = hub ? net.nearest(hub.x, hub.y) : null, hubP = hub0 ? { x: hub0.x, y: hub0.y } : null;
+  const all = destinations(sites, landmarks).map(d => { const q = viableSnap(net, d, hubP); return q ? { ...d, cx: q.x, cy: q.y } : null; }).filter(Boolean);
   if (all.length < 3) return [];
   const c = hub ? { x: hub.x, y: hub.y } : { x: all.reduce((s, d) => s + d.x, 0) / all.length, y: all.reduce((s, d) => s + d.y, 0) / all.length };
   const hq = net.nearest(c.x, c.y), H = { name: 'Terminal Centro', kind: 'hub', x: c.x, y: c.y, cx: hq.x, cy: hq.y };
@@ -227,17 +277,33 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     const L = b.line, p = P(), near = p && Math.hypot(b.x - p.x, b.y - p.y) < 170;
     if (b.dwell > 0) { b.dwell -= dt; b.speed = 0; return; }
     const { i, d } = stopIdx(b), st = L.stops[i];
-    let v = 11;
+    // limite da via (avenida, rua) — consultado 1×/s
+    if ((b.clsT = (b.clsT || 0) - dt) <= 0) { b.clsT = 1; b.cls = net()?.nearest(b.x, b.y)?.seg?.cls || 'street'; }
+    let v = CRUISE[b.cls] || 10;
     // curva à frente: reduz conforme o quanto a direção muda nos próximos 18 m
     const here = posAt(L, b.s), fwd = posAt(L, b.s + 18), turn = Math.abs(angDiff(here.a, fwd.a)); if (turn > .25) v = Math.min(v, Math.max(4, 11 - turn * 6));
     // parada no ponto
-    if (d < 70 && i !== b.lastStop) { v = Math.min(v, stopSpeed(d - .5) + .3); if (d < .8) { b.dwell = DWELL; b.lastStop = i; b.atStop = st; b.speed = 0; return; } }
-    if (d > 3 && b.lastStop === i) b.lastStop = -1;
-    if (i !== b.lastStop || d > 3) b.atStop = null;
+    // (o ponto é guardado pelo objeto, não pelo índice: os pontos são reordenados quando o abrigo é ajustado)
+    if (d < 70 && st !== b.lastStop) { v = Math.min(v, stopSpeed(d - .5) + .3); if (d < .8) { b.dwell = DWELL; b.lastStop = st; b.atStop = st; b.speed = 0; return; } }
+    if (d > 3 && b.lastStop === st) b.lastStop = null;
+    if (st !== b.lastStop || d > 3) b.atStop = null;
     // perto do jogador: freia p/ carro/pessoa na frente
     // perto do jogador: freia p/ carro, pessoa ou outro ônibus na frente (fila no ponto/terminal)
     if (near) { const others = buses.filter(o => o !== b && o.mesh).map(o => ({ x: o.x, y: o.y, half: 1.3, len: (o.L || 11) / 2, speed: o.speed }));
-      const lead = leadAhead({ x: b.x, y: b.y, a: b.a, length: b.L || 11, width: 2.6 }, obs.concat(others), 10 + b.speed * 1.5); if (lead.gap !== null) v = Math.min(v, stopSpeed(lead.gap - 2.5)); }
+      b.length = b.L || 11; b.width = 2.6;
+      const lead = leadAhead(b, obs.concat(others), 10 + b.speed * 1.5); if (lead.gap !== null) v = Math.min(v, stopSpeed(lead.gap - 2.5));
+      // semáforo e cruzamento sem sinal: mesmas regras dos carros (um veículo por vez no cruzamento)
+      const phase = typeof bridge.trafficPhase === 'function' ? bridge.trafficPhase(bridge.gameTime || 0) : {};
+      const sig = signalStop(b, world.trafficSignals, phase); if (sig !== null) v = Math.min(v, stopSpeed(sig));
+      for (const J of junctionPts()) {
+        const dx = J.x - b.x, dy = J.y - b.y, dj = Math.hypot(dx, dy); if (dj > 32) continue;
+        const along = dx * Math.cos(b.a) + dy * Math.sin(b.a), lat = Math.abs(-dx * Math.sin(b.a) + dy * Math.cos(b.a));
+        if (along < -2) { if (owners.get(J.key) === b && dj > JUNCTION_R + 3) owners.delete(J.key); continue; }
+        if (lat > 10 || J.signal) continue;
+        const stp = junctionStop(b, J, owners, obs.filter(o => !o.person)); if (stp !== null) v = Math.min(v, stopSpeed(stp));
+        break;
+      } }
+    b.wait = b.speed < .3 ? (b.wait || 0) + dt : 0;
     b.speed += Math.max(-6 * dt, Math.min(1.6 * dt, v - b.speed)); if (b.speed < 0) b.speed = 0;
     b.s = (b.s + b.speed * dt) % L.len;
   }
@@ -256,26 +322,48 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
       const j = world.aiCars.indexOf(b.box); if (j >= 0) world.aiCars.splice(j, 1); b.box = null; state.shown--;
     }
   }
-  const shelters = new Map();
-  // o abrigo vai p/ um trecho livre da calçada (sem vaga, carro estacionado, poste, árvore): procura ao longo da via
-  // e na largura da calçada quando o setor está carregado (roadDist e as caixas daquele trecho já existem)
+  const shelters = new Map(), owners = new Map();
+  let jpts = null, jsrc = null;
+  const junctionPts = () => { const src = (typeof OW !== 'undefined' && OW.cw?.junctions) || []; if (src !== jsrc) { jsrc = src; jpts = src.map((j, i) => ({ x: j.x, y: j.y, key: 'bj' + i, signal: (world.trafficSignals || []).some(s => Math.hypot(s.x - j.x, s.y - j.y) < 24) })); } return jpts; };
+  // abrigo na calçada de verdade: pela RUA CONSTRUÍDA do setor (não pela malha macro), com os postes da frente a ~0,5 m
+  // do meio-fio, o vidro do fundo dentro da calçada e alinhado com a rua; desliza ao longo da calçada até um trecho
+  // sem árvore, poste, hidrante, banco ou carro. Depois a parada do ônibus é acertada p/ a porta da frente ficar
+  // em frente ao abrigo. Roda uma vez, quando o setor do ponto carrega
+  const sNear = (line, x, y, around) => { let best = around, bd = Infinity; for (let ds = -80; ds <= 80; ds += 1) { const s = (around + ds + line.len) % line.len, p = posAt(line, s), d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = s; } } return best; };
   function settle(st) {
-    const rd = bridge.roadDist, W = bridge.ROAD_W || 3.5, SIDE = 2; if (typeof rd !== 'function') { st.fixed = true; return; }
-    const fx = Math.cos(st.a), fy = Math.sin(st.a), rx = -fy, ry = fx, bx = bridge.boxes || [], circ = world.circles || [];
-    const free = (x, y) => { const d = rd(x, y); if (d < W + .9 || d > W + SIDE + 1.2) return false;
-      for (const b of bx) if (Math.abs(b.x - x) < 3.2 && Math.abs(b.y - y) < 3.2 && b.solid !== false && !b.floor && Math.hypot(b.x - x, b.y - y) < 1.9 + Math.max(b.w || 0, b.d || 0) / 2) return false;
-      for (const c of circ) if (Math.abs(c.x - x) < 3 && Math.abs(c.y - y) < 3 && Math.hypot(c.x - x, c.y - y) < 2.2 + (c.r || 0)) return false; return true; };
-    for (const along of [0, 3, -3, 6, -6, 9, -9, 12, -12]) for (let lat = -2.5; lat <= 3; lat += .5) {
-      const x = st.sx + fx * along + rx * lat, y = st.sy + fy * along + ry * lat; if (free(x, y)) { st.sx = x; st.sy = y; st.fixed = true; return; }
-    }
-    st.fixed = true;   // sem lugar ideal: fica onde estava
+    const W = bridge.ROAD_W || 3.5, SIDE = 2, rd = bridge.roadDist, ent = st.lines[0];
+    if (!ent || typeof rd !== 'function') { st.fixed = true; return; }
+    const bus = posAt(ent.line, ent.stop.s), roadsNow = bridge.roads || world.roads || [];
+    let best = null;
+    for (const r of roadsNow) for (let i = 0; i < (r.pts?.length || 0); i += 2) { const p = r.pts[i], d = Math.hypot(p.x - bus.x, p.y - bus.y); if (d < 14 && (!best || d < best.d)) best = { r, i, d }; }
+    if (!best) return;   // rua do ponto ainda não carregou: tenta de novo daqui a pouco
+    st.fixed = true;
+    const r = best.r, half = W + (r.off || 0);
+    const place = idx => { const p = r.pts[Math.max(0, Math.min(r.pts.length - 1, idx))], sg = p.tx * Math.cos(bus.a) + p.ty * Math.sin(bus.a) >= 0 ? 1 : -1, tx = p.tx * sg, ty = p.ty * sg, rx = -ty, ry = tx;
+      return { x: p.x + rx * (half + 1.1), y: p.y + ry * (half + 1.1), a: Math.atan2(ty, tx), tx, ty }; };
+    const bx = bridge.boxes || [], circ = world.circles || [];
+    const clear = c => {
+      const d = rd(c.x, c.y); if (d < W + .5 || d > W + SIDE + .6) return false;   // centro na calçada
+      for (let u = -2.1; u <= 2.1; u += .7) { const x = c.x + c.tx * u, y = c.y + c.ty * u;
+        for (const b of bx) if (b.solid !== false && !b.floor && Math.abs(b.x - x) < 3 && Math.abs(b.y - y) < 3 && Math.hypot(b.x - x, b.y - y) < .8 + Math.max(b.w || 0, b.d || 0) / 2) return false;
+        for (const o of circ) if (!o.soft && Math.abs(o.x - x) < 2.5 && Math.abs(o.y - y) < 2.5 && Math.hypot(o.x - x, o.y - y) < .75 + (o.r || 0)) return false; }
+      return true;
+    };
+    let pick = null;
+    for (const step of [0, 6, -6, 12, -12, 18, -18, 24, -24, 32, -32]) { const c = place(best.i + step); if (clear(c)) { pick = c; break; } }   // passos de 0,5 m
+    pick = pick || place(best.i);
+    st.sx = pick.x; st.sy = pick.y; st.a = pick.a;
+    // porta da frente do ônibus (a ~1,2 m do para-choque) em frente ao abrigo
+    for (const { line, stop } of st.lines) { const L = line.school ? 9 : 12, s0 = sNear(line, pick.x, pick.y, stop.s); stop.s = (s0 - (L / 2 - 1.2) + line.len) % line.len; }
+    for (const ln of new Set(st.lines.map(e => e.line))) ln.stops.sort((a, b) => a.s - b.s);
   }
   function update(dt) {
     if (!built) { build(); if (!built) return; }
     const p = P(); if (!p) return;
     const obs = obstacles();
     for (const b of buses) { step(b, dt, obs); place(b); show(b, Math.hypot(b.x - p.x, b.y - p.y) < 180 || ride?.bus === b); }
-    for (const st of stops) { const near = Math.hypot(st.sx - p.x, st.sy - p.y) < 150; if (near && !shelters.has(st)) { if (!st.fixed) settle(st); const g = shelterModel(st); g.position.set(st.sx, 0, st.sy); g.rotation.y = -st.a; scene.add(g); shelters.set(st, g); } else if (!near && shelters.has(st)) { scene.remove(shelters.get(st)); shelters.delete(st); } }
+    for (const st of stops) { const near = Math.hypot(st.sx - p.x, st.sy - p.y) < 150; if (near && !st.fixed && (st.tryT = (st.tryT || 0) - dt) <= 0) { st.tryT = 1; settle(st); const g0 = shelters.get(st); if (st.fixed && g0) { g0.position.set(st.sx, 0, st.sy); g0.rotation.y = -st.a; } }
+      if (near && !shelters.has(st)) { const g = shelterModel(st); g.position.set(st.sx, 0, st.sy); g.rotation.y = -st.a; scene.add(g); shelters.set(st, g); } else if (!near && shelters.has(st)) { scene.remove(shelters.get(st)); shelters.delete(st); } }
     tickRide(dt);
   }
 
