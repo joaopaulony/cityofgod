@@ -55,7 +55,7 @@ window.cityVehicleBridge={
   collide, collNear, collQuery, addBox, drawParkedCar, onRoad:(x,y)=>!!world.open&&roadDist(x,y)<ROAD_W+SIDE,
   movePet:moveTo,petStairs:updateHouseStairs,
   releaseControls:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;},
-  driving:()=>!!window.cityVehicles?.driver,
+  driving:()=>!!window.cityVehicles?.driver||!!window.CityBus?.riding,   // dentro do ônibus também some e não interage
   canPickSocial:()=>!wmap.open&&!window.CityHomeUI?.active&&!window.CityRealty?.dialogOpen&&!window.cityCharacterEditorOpen&&!window.CityPets?.uiOpen,
   get mapSize(){return MAP;},
   // polícia (character-webgl.mjs): linha de visão, traçante do tiro e dano no jogador
@@ -969,7 +969,7 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
-  if(window.CityRealty?.dialogOpen){
+  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen){
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
@@ -1009,7 +1009,7 @@ function tick(dt) {
   const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
   const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
     ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
-  const vehicleMessage=interactPressed?(window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
+  const vehicleMessage=interactPressed?((!window.cityVehicles?.driver&&(window.CityBus?.interact(player)||window.CityStreetFood?.interact(player)))||window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
@@ -1028,11 +1028,12 @@ function tick(dt) {
   const manualHomeInput=['w','a','s','d','shift'].some(k=>input.down(k))||input.rmb;
   const guided=window.CityHomeRoutine?.tick(dt,player,(x,y)=>
     moveTo(player.x,player.y,x,y,.28,player.floor||0),manualHomeInput);
-  if(!guided)updatePlayer(dt);
+  if(!guided&&!window.CityBus?.riding)updatePlayer(dt);   // no ônibus, a posição vem do ônibus (city-bus.mjs)
   window.CityHome?.tick(player);
   window.CityHomeUI?.tick();
   window.CityGPS?.tick(player);
   CityLife.tick(dt,player);
+  window.CityStreetFood?.tick(dt);
   CitySim.tick();
   ecosystemTick(dt,player,T);
   for(const n of npcs){
@@ -1087,7 +1088,7 @@ function tick(dt) {
   // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
-  const otherPrompt=window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const otherPrompt=(!window.cityVehicles?.driver&&(window.CityBus?.prompt(player)||window.CityStreetFood?.prompt(player)))||window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){

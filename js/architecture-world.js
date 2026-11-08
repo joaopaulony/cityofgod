@@ -98,6 +98,7 @@ function remodelProperty(H){
  const origin=P(0,0),ex=P(1,0).map((n,i)=>n-origin[i]),ey=P(0,1).map((n,i)=>n-origin[i]);
  const local=(x,y)=>[(x-origin[0])*ex[0]+(y-origin[1])*ex[1],(x-origin[0])*ey[0]+(y-origin[1])*ey[1]];
  plan.toWorld=P;plan.toLocal=local;plan.angle=Math.atan2(ex[1],ex[0]);
+ const furnishLevel=f=>typeof CityRealty==='undefined'||(CityRealty.canFurnishLevel?CityRealty.canFurnishLevel(H,f):CityRealty.canFurnish(H)&&!CityRealty.bare?.(H));
  const erase=arr=>{let j=0;for(const o of arr||[])if(o.house!==H)arr[j++]=o;if(arr)arr.length=j;};
  erase(world.segs);erase(world.upperSegs);erase(boxes);
  H.architecture=plan;H.segs=[];H.floors=[];H.upper=null;H.stair=null;H.interactables=[];H.indoorLights=[];H.switches=[];
@@ -129,7 +130,9 @@ function remodelProperty(H){
    const s=level.segments.at(-1);s.kind='balcony-rail';s.h=level.z+1.05;
   }
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
-  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H)&&!CityRealty.bare?.(H)){
+  // mobília por andar: casa só do dono; prédio de apartamentos, a portaria e as unidades do jogador (city-realty.js)
+  if(furnishLevel(level.floor)){
+    (H._levelsFurnished||(H._levelsFurnished=new Set())).add(level.floor);
     for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
      const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});H.interactables.push(b);
     }
@@ -139,17 +142,18 @@ function remodelProperty(H){
   for(const r of level.rooms){const c=P((r.x0+r.x1)/2,(r.y0+r.y1)/2);H.indoorLights.push({x:c[0],y:c[1],floor:level.floor,z:level.z+2.4,r:Math.min(5,Math.hypot(r.x1-r.x0,r.y1-r.y0)*.6)});}
  }
  // Compra ativará a criação do mobiliário de todos os andares, sem reler assets.
+ // (no prédio, chamado de novo a cada unidade comprada: mobília só os andares liberados que ainda estão vazios)
  H.furnishOnPurchase=()=>{
-   if(H._architectureFurnished)return;
+   const done=H._levelsFurnished||(H._levelsFurnished=new Set());
    H._architectureFurnished=true;
    if(typeof CityRealty!=='undefined'&&CityRealty.bare?.(H))return;
    const newBoxes=[];
-   for(const level of plan.levels)for(const f of level.furniture){
+   for(const level of plan.levels){if(done.has(level.floor)||!furnishLevel(level.floor))continue;done.add(level.floor);for(const f of level.furniture){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
      const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});
      H.interactables.push(b);newBoxes.push(b);
-   }
+   }}
    if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())
      if(sector.own?.houses?.includes(H)){(sector.own.boxes||(sector.own.boxes=[])).push(...newBoxes);break;}
  };

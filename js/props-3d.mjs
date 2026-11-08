@@ -166,13 +166,52 @@ export function createProps(THREE, scene, bridge) {
     k.box(L + 0.03, 1.9, 0.12, L + 0.05, 2.3, 0.9, '#f1efe8');
     for (let z = 0.2, i = 0; i < 5; z += 0.13, i++) k.box(L + 0.05, 2.0, z, L + 0.06, 2.2, z + 0.08, c);
   } };
+  // carrinho de cachorro-quente: corpo de inox com cantos arredondados, painel vermelho com faixa e cardápio, tampas das
+  // cubas, vidro de proteção, molhos (ketchup, mostarda, maionese), porta-guardanapo, botijão embaixo, duas rodas raiadas,
+  // pé de apoio, alça cromada e guarda-sol de gomos com babado
   M.cart = { dims: [1.6, 1.1, 1.0], make(k) {
-    k.box(-0.72, 0.32, -0.42, 0.72, 0.95, 0.42, '#cfd3d6', 0.04); k.box(-0.74, 0.95, -0.44, 0.74, 1.0, 0.44, '#e9ecee', 0.02);
-    k.box(-0.72, 0.4, 0.42, 0.72, 0.62, 0.44, '#d63a2f'); for (const s of [-1, 1]) k.cylZ(s * 0.5, 0.25, -0.5, 0.5, 0.025, DARK, 6);
-    for (const s of [-1, 1]) { k.cylZ(s * 0.55, 0.22, -0.48, -0.42, 0.22, DARK, 16); k.cylZ(s * 0.55, 0.22, 0.42, 0.48, 0.22, DARK, 16); }
-    k.cylX(0.74, 1.0, 0.85, -0.3, 0.025, CHROME); k.cylX(0.74, 1.0, 0.85, 0.3, 0.025, CHROME); k.cylZ(1.0, 0.85, -0.3, 0.3, 0.025, CHROME);
-    k.cyl(-0.2, 1.0, 0.1, 0.035, 1.18, '#d63a2f', 8); k.cyl(-0.1, 1.0, 0.1, 0.035, 1.18, '#e7c21e', 8); k.box(0.15, 1.0, -0.25, 0.55, 1.12, 0.1, '#b8bcc0');
-    k.cyl(0, 1.0, 0, 0.025, 2.2, '#e9e5dc', 6); k.umbrella(0, 2.0, 0, 1.15, 0.45, '#d63a2f', '#f7f5ef');
+    const INOX = '#c3c9cd', INOX2 = '#dde2e5', RED = '#c8322a';
+    k.box(-0.72, 0.36, -0.42, 0.72, 0.95, 0.42, INOX, 0.05); k.box(-0.74, 0.95, -0.44, 0.74, 0.99, 0.44, INOX2, 0.02);
+    k.box(-0.7, 0.36, 0.42, 0.7, 0.66, 0.445, RED, 0.01); k.box(-0.7, 0.66, 0.42, 0.7, 0.7, 0.446, '#f2c230');
+    k.box(-0.46, 0.73, 0.43, 0.06, 0.9, 0.447, '#f4efe2', 0.01); k.box(-0.42, 0.85, 0.44, 0.0, 0.87, 0.449, RED); for (let i = 0; i < 3; i++) k.box(-0.42, 0.77 + i * 0.025, 0.44, -0.12 + (i % 2) * 0.06, 0.785 + i * 0.025, 0.449, '#5a4a3a');
+    k.box(-0.7, 0.36, -0.445, 0.7, 0.66, -0.42, RED, 0.01); k.box(-0.7, 0.66, -0.446, 0.7, 0.7, -0.42, '#f2c230');
+    for (const x of [-0.42, 0.02]) { k.box(x, 0.99, -0.32, x + 0.36, 1.04, 0.12, '#e8ecee', 0.03); k.box(x + 0.14, 1.04, -0.12, x + 0.22, 1.07, -0.08, '#9aa0a4', 0.01); }
+    k.box(-0.5, 0.99, 0.2, 0.5, 1.26, 0.215, '#bfe0ea', 0.005); k.box(-0.5, 1.255, 0.18, 0.5, 1.27, 0.23, INOX2);
+    for (const [x, c, cap] of [[0.28, '#d0261c', '#e9e5dc'], [0.36, '#f0c419', '#e9e5dc'], [0.44, '#f4f0e4', '#3a7cc0']]) { k.cyl(x, 0.99, -0.34, 0.03, 1.15, c, 10); k.cyl(x, 1.15, -0.34, 0.012, 1.19, cap, 8, 0.004); }
+    k.box(0.5, 0.99, -0.38, 0.64, 1.1, -0.3, '#e1e5e8', 0.01); k.box(0.52, 1.0, -0.37, 0.62, 1.12, -0.31, '#fbfaf6');
+    k.cyl(0.35, 0.06, 0.05, 0.12, 0.36, '#e9eef0', 14); k.cyl(0.35, 0.36, 0.05, 0.035, 0.42, '#8f969b', 8);
+    for (const s of [-1, 1]) {
+      k.cylZ(-0.5, 0.29, s * 0.46, s * 0.52, 0.29, '#1c1d1f', 20); k.cylZ(-0.5, 0.29, s * 0.455, s * 0.525, 0.2, '#9aa0a4', 16); k.cylZ(-0.5, 0.29, s * 0.45, s * 0.53, 0.04, '#cfd3d6', 10);
+      for (let i = 0; i < 6; i++) { const g = new THREE.BoxGeometry(0.018, 0.38, 0.018); g.rotateZ(i / 6 * Math.PI); g.translate(-0.5, 0.29, s * 0.488); k.raw(g, '#b8bec2'); }   // raios
+    }
+    k.cylZ(-0.5, 0.29, -0.46, 0.46, 0.02, '#6a7074', 8); k.box(0.56, 0, -0.06, 0.62, 0.36, 0.06, '#6a7074'); k.box(0.5, 0, -0.12, 0.68, 0.03, 0.12, '#2a2b2d', 0.01);
+    k.cylX(0.74, 1.02, 0.86, -0.3, 0.022, CHROME); k.cylX(0.74, 1.02, 0.86, 0.3, 0.022, CHROME); k.cylZ(1.02, 0.86, -0.3, 0.3, 0.022, CHROME); k.cylZ(1.02, 0.86, -0.18, 0.18, 0.03, '#2a2b2d', 10);
+    k.cyl(-0.25, 0.99, 0.0, 0.022, 2.25, '#e9e5dc', 8); k.umbrella(-0.25, 1.98, 0.0, 1.2, 0.42, '#d63a2f', '#f7f5ef');
+    k.cyl(-0.25, 1.9, 0.0, 1.21, 1.98, '#d63a2f', 24, 1.21); k.sph(-0.25, 2.42, 0.0, 0.04, '#e9e5dc');
+  } };
+  // banco de praça: laterais de ferro fundido (pé, braço curvo, apoio do encosto), seis ripas de madeira em tons
+  // levemente diferentes, encosto inclinado e parafusos. Encosto no lado −z (o mesmo do desenho 2D antigo)
+  M.bench = { dims: [1.8, 0.85, 0.6], make(k) {
+    const IRON = '#2a2e31', WOOD = ['#8a5a36', '#7f5232', '#94623c', '#865734', '#7b4f30', '#8f5e39'];
+    for (const s of [-0.84, 0.84]) {
+      k.box(s - 0.03, 0, 0.14, s + 0.03, 0.44, 0.2, IRON, 0.012); k.box(s - 0.03, 0, -0.2, s + 0.03, 0.44, -0.14, IRON, 0.012);
+      k.box(s - 0.035, 0, 0.1, s + 0.035, 0.03, 0.24, IRON, 0.01); k.box(s - 0.035, 0, -0.24, s + 0.035, 0.03, -0.1, IRON, 0.01);
+      k.box(s - 0.025, 0.4, -0.22, s + 0.025, 0.44, 0.22, IRON, 0.01);
+      for (let i = 0; i < 6; i++) { const t = i / 5; k.box(s - 0.025, 0.44 + t * 0.4, -0.2 - t * 0.09, s + 0.025, 0.48 + t * 0.4, -0.15 - t * 0.09, IRON, 0.01); }
+      k.box(s - 0.022, 0.44, 0.18, s + 0.022, 0.62, 0.22, IRON, 0.01); k.box(s - 0.03, 0.61, -0.18, s + 0.03, 0.645, 0.24, IRON, 0.015); k.sph(s, 0.627, 0.24, 0.03, IRON);
+    }
+    for (let i = 0; i < 4; i++) { const z0 = 0.2 - i * 0.1; k.box(-0.92, 0.44, z0 - 0.085, 0.92, 0.475, z0, WOOD[i], 0.008); for (const s of [-0.84, 0.84]) k.sph(s, 0.478, z0 - 0.042, 0.008, '#4a4d50'); }
+    for (let i = 0; i < 3; i++) { const y = 0.55 + i * 0.11, z = -0.24 - i * 0.026; k.box(-0.92, y, z - 0.03, 0.92, y + 0.085, z, WOOD[3 + i], 0.008); }
+  } };
+  // canteiro de concreto com borda chanfrada, terra e um arbusto cheio (folhagem em camadas de verdes variados, com
+  // algumas flores), no lugar do bloco de cerca-viva quadrado
+  M.planter = { dims: [1.4, 0.55, 1.4], make(k) {
+    k.box(-0.7, 0, -0.7, 0.7, 0.5, 0.7, '#a59f93', 0.04); k.box(-0.74, 0.47, -0.74, 0.74, 0.55, 0.74, '#b9b3a6', 0.025);
+    k.box(-0.62, 0.5, -0.62, 0.62, 0.53, 0.62, '#4a3524'); k.box(-0.7, 0, -0.7, 0.7, 0.04, 0.7, '#9a9488', 0.01);
+    const G = ['#3f6e2c', '#4b7e33', '#365f27', '#5a8c3a', '#447530', '#2f5523'];
+    let n = 0; const rnd = () => { n = (n * 9301 + 49297) % 233280; return n / 233280; };
+    for (let i = 0; i < 34; i++) { const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.56, y = 0.66 + rnd() * 0.32 + (0.56 - r) * 0.45; k.sph(Math.cos(a) * r, y, Math.sin(a) * r, 0.2 + rnd() * 0.15, G[i % G.length], 0.85); }
+    for (let i = 0; i < 12; i++) { const a = rnd() * Math.PI * 2, r = 0.25 + rnd() * 0.32; k.sph(Math.cos(a) * r, 0.98 + rnd() * 0.32, Math.sin(a) * r, 0.04, i % 3 ? '#e5649a' : '#f6f1e8'); }
   } };
   M.couch = { dims: [2.0, 0.75, 0.9], tinted: true, make(k, c) { sofaModel(k, c || '#7a5a48', 2.0, 0.9, true); } };
   // ---------- lixo dos bairros pobres ----------

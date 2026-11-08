@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 globalThis.window = {};
-const { createTraffic, signalStop, junctionStop, gapAhead, lanePath, LANE, LIMIT } = await import('../js/ai-traffic.mjs');
+const { createTraffic, signalStop, junctionStop, gapAhead, lanePath, continuation, laneOffset, LANE, LIMIT } = await import('../js/ai-traffic.mjs');
 
 const car = (x, y, a = 0, speed = 10) => ({ x, y, a, speed, length: 4.5, width: 1.9 });
 
@@ -38,73 +38,83 @@ test('faixa da direita fica ao lado da linha central', () => {
   assert.ok(p.every(q => Math.abs(Math.abs(q[1]) - LANE) < 1e-9));
 });
 
-function world(junctions = []) {
-  const w = { aiCars: [], segs: [], circles: [], mapSize: 2000 };
-  return { world: w, houses: [], boxes: [], mapSize: 2000, player: { x: 210, y: 130 }, junctions };
+// rua reta de (x0,y0) a (x1,y1), pontos a cada 0,5 m como as do jogo
+function road(x0, y0, x1, y1, cls = 'street') {
+  const L = Math.hypot(x1 - x0, y1 - y0), tx = (x1 - x0) / L, ty = (y1 - y0) / L, pts = [];
+  for (let s = 0; s <= L; s += .5) pts.push({ x: x0 + tx * s, y: y0 + ty * s, tx, ty, nx: -ty, ny: tx });
+  return { pts, cls, off: -.2, lanes: 1 };
 }
-function run(bridge, T, seconds, watch) {
-  for (let i = 0; i < seconds * 30; i++) { T.update(1 / 30); watch?.(); }
+function city(roads, junctions = []) {
+  const w = { aiCars: [], segs: [], circles: [], mapSize: 2000, roads };
+  return { world: w, roads, houses: [], boxes: [], mapSize: 2000, player: { x: 150, y: 150 }, junctions, ROAD_W: 3.5 };
 }
+const run = (T, s, f) => { for (let i = 0; i < s * 30; i++) { T.update(1 / 30); f?.(); } };
+// distância do carro até o eixo da rua (deve ficar na faixa: ~1,65 m)
+const lateral = (c, r) => Math.min(...r.pts.map(p => Math.hypot(c.x - p.x, c.y - p.y)));
 
-test('dois carros chegando ao mesmo cruzamento não batem e os dois passam', () => {
-  const bridge = world([{ x: 200, y: 200 }]), T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 2 });
-  const A = T.add({ x: 140, y: 200, a: 0, path: [[140, 200], [200, 200], [300, 200]] });
-  const B = T.add({ x: 200, y: 142, a: Math.PI / 2, path: [[200, 142], [200, 200], [200, 300]] });
-  let min = 99;
-  run(bridge, T, 30, () => { min = Math.min(min, Math.hypot(A.x - B.x, A.y - B.y)); });
-  assert.ok(min > 4, 'nunca encostam (mínimo ' + min.toFixed(1) + ' m)');
-  assert.ok(A.x > 240 && B.y > 240, 'os dois atravessaram (A.x=' + A.x.toFixed(0) + ', B.y=' + B.y.toFixed(0) + ')');
+test('fim da rua: escolhe a continuação, nunca a meia-volta', () => {
+  const A = road(0, 100, 100, 100), B = road(100, 100, 220, 100), C = road(100, 0, 100, 220);
+  for (let k = 0; k < 40; k++) {
+    const n = continuation([A, B, C], A, A.pts.length - 1, 1, Math.random);
+    const p = n.road.pts[n.i];
+    assert.ok(p.tx * n.dir * 1 + p.ty * n.dir * 0 > -.17, 'sem voltar p/ trás');
+  }
+  assert.equal(continuation([A], A, A.pts.length - 1, 1), null, 'beco sem saída: nada');
+  assert.equal(continuation([A, B, C], A, A.pts.length - 1, 1, () => 0).road, B, 'reto vem primeiro / pesa mais');
 });
 
-test('fila no sinal vermelho: o de trás guarda distância e não ultrapassa quem espera', () => {
-  const bridge = world(); bridge.trafficPhase = () => ({ main: 'red' }); bridge.world.trafficSignals = [{ x: 166, y: 103, ax: 1, ay: 0, group: 'main' }];
-  const T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 2 });
-  const lead = T.add({ x: 160, y: 100, a: 0, path: [[160, 100], [250, 100], [400, 100]] });   // parado no vermelho
-  const back = T.add({ x: 100, y: 100, a: 0, path: [[100, 100], [250, 100], [400, 100]] });
-  back.speed = LIMIT.street;
-  run(bridge, T, 20);
+test('segue a rua na faixa e vira na esquina (L), sem sair da faixa', () => {
+  const A = road(0, 100, 100, 100), B = road(100, 100, 100, 260), b = city([A, B]);
+  const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 1 }), c = T.add({ road: A, i: 20, dir: 1 }); c.speed = 8;
+  let worst = 0;
+  run(T, 30, () => { const lat = c.road === A ? Math.abs(c.y - 100) : Math.abs(c.x - 100); if (Math.hypot(c.x - 100, c.y - 100) > 9) worst = Math.max(worst, Math.abs(lat - laneOffset(A))); });
+  assert.equal(c.road, B, 'virou p/ a rua B');
+  assert.ok(c.y > 180, 'seguiu na rua B (y=' + c.y.toFixed(0) + ')');
+  assert.ok(worst < .6, 'ficou na faixa (desvio máx. ' + worst.toFixed(2) + ' m)');
+  assert.ok(c.x < 100, 'na mão certa da rua B');
+});
+
+test('beco sem saída: para antes do fim e não dá meia-volta', () => {
+  const A = road(0, 100, 120, 100), b = city([A]);
+  const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 1 }), c = T.add({ road: A, i: 40, dir: 1 }); c.speed = 9;
+  run(T, 25);
+  assert.ok(c.x < 120 && c.x > 100, 'parou perto do fim (x=' + c.x.toFixed(1) + ')');
+  assert.ok(Math.cos(c.a) > .95, 'continua virado p/ frente');
+  assert.equal(c.why, 'sem saida');
+});
+
+test('fila no sinal vermelho: o de trás guarda distância e fica na faixa', () => {
+  const A = road(0, 100, 400, 100), b = city([A]); b.trafficPhase = () => ({ main: 'red' }); b.world.trafficSignals = [{ x: 170, y: 104, ax: 1, ay: 0, group: 'main' }];
+  const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 2 });
+  const lead = T.add({ road: A, i: 300, dir: 1 }), back = T.add({ road: A, i: 160, dir: 1 }); back.speed = LIMIT.street;
+  run(T, 20);
   const gap = lead.x - back.x - 4.5;
-  assert.ok(Math.abs(back.y - 100) < .3, 'continuou na faixa, atrás');
-  assert.ok(gap > 1 && gap < 6, 'parou atrás com folga de ' + gap.toFixed(1) + ' m');
+  assert.ok(lead.x < 170, 'o da frente parou no sinal');
+  assert.ok(gap > 1 && gap < 6, 'folga de ' + gap.toFixed(1) + ' m');
+  assert.ok(Math.abs(back.y - 100 - laneOffset(A)) < .3, 'continuou na faixa, atrás');
 });
 
-test('para p/ pedestre atravessando na frente', () => {
-  const bridge = world(), walker = { x: 160, y: 100 };
-  const T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 1, people: () => [walker] });
-  const c = T.add({ x: 100, y: 100, a: 0, path: [[100, 100], [250, 100], [400, 100]] }); c.speed = LIMIT.street;
-  run(bridge, T, 12);
-  assert.ok(c.x < walker.x - 2.25 - .3, 'parou antes da pessoa (x=' + c.x.toFixed(1) + ')');
-  walker.y = 106;   // terminou de atravessar
-  run(bridge, T, 6);
+test('para p/ pedestre atravessando e segue depois', () => {
+  const A = road(0, 100, 400, 100), walker = { x: 150, y: 101.6 }, b = city([A]);
+  const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 1, people: () => [walker] });
+  const c = T.add({ road: A, i: 160, dir: 1 }); c.speed = LIMIT.street;
+  run(T, 12);
+  assert.ok(c.x < walker.x - 2.5, 'parou antes da pessoa (x=' + c.x.toFixed(1) + ')');
+  walker.y = 106; run(T, 8);
   assert.ok(c.x > 170, 'seguiu depois');
 });
 
-test('carro estacionado invadindo a faixa: ultrapassa pela esquerda e volta p/ a faixa', () => {
-  const bridge = world(); bridge.boxes = [{ x: 160, y: 100, w: 4.4, d: 1.9, h: 1.4, kind: 'parkedcar', solid: true }];
-  const T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 1 });
-  const c = T.add({ x: 100, y: 100, a: 0, path: [[100, 100], [250, 100], [400, 100]] }); c.speed = LIMIT.street;
-  let minGap = 99;
-  for (let i = 0; i < 30 * 25; i++) { T.update(1 / 30); minGap = Math.min(minGap, Math.hypot(c.x - 160, c.y - 100)); }
-  assert.ok(c.x > 200, 'passou do carro parado (x=' + c.x.toFixed(0) + ')');
-  assert.ok(Math.abs(c.y - 100) < .6, 'voltou p/ a faixa (y=' + c.y.toFixed(2) + ')');
-  assert.ok(minGap > 1.9, 'sem encostar (' + minGap.toFixed(2) + ')');
+test('cruzamento: dois carros em ruas que se cruzam não batem e os dois passam', () => {
+  const A = road(0, 200, 400, 200), B = road(200, 0, 200, 400), b = city([A, B], [{ x: 200, y: 200 }]);
+  const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 2 });
+  const c1 = T.add({ road: A, i: 270, dir: 1 }), c2 = T.add({ road: B, i: 275, dir: 1 }); c1.speed = c2.speed = 8;
+  let min = 99; run(T, 25, () => { min = Math.min(min, Math.hypot(c1.x - c2.x, c1.y - c2.y)); });
+  assert.ok(min > 3, 'nunca encostam (' + min.toFixed(1) + ' m)');
+  assert.ok(c1.x > 240 && c2.y > 240, 'os dois atravessaram');
 });
 
-test('dois carros que se cruzam fora de cruzamento mapeado não se travam um esperando o outro', () => {
-  const bridge = world(), T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 2 });
-  const A = T.add({ x: 185, y: 200, a: 0, path: [[185, 200], [200, 200], [300, 200]] });
-  const B = T.add({ x: 200, y: 187, a: Math.PI / 2, path: [[200, 187], [200, 200], [200, 300]] });
-  let min = 99;
-  for (let i = 0; i < 30 * 25; i++) { T.update(1 / 30); min = Math.min(min, Math.hypot(A.x - B.x, A.y - B.y)); }
-  assert.ok(A.x > 240 && B.y > 240, 'os dois seguiram (A.x=' + A.x.toFixed(0) + ', B.y=' + B.y.toFixed(0) + ')');
-  assert.ok(min > 2.5, 'sem batida (' + min.toFixed(1) + ' m)');
-});
-
-test('carro da frente travado de vez (sem rota): o de trás contorna em vez de esperar p/ sempre', () => {
-  const bridge = world(), T = createTraffic(THREE, new THREE.Scene(), bridge, { max: () => 2 });
-  const lead = T.add({ x: 160, y: 100, a: 0, path: [[160, 100], [161, 100], [162, 100]] });   // fim da rota, sem rede p/ replanejar
-  const back = T.add({ x: 100, y: 100, a: 0, path: [[100, 100], [250, 100], [400, 100]] }); back.speed = LIMIT.street;
-  run(bridge, T, 25);
-  assert.equal(lead.why, 'sem rota');
-  assert.ok(back.x > lead.x + 8, 'passou pelo travado (back.x=' + back.x.toFixed(0) + ')');
+test('rua com vagas: a faixa fica fora da faixa de estacionamento', () => {
+  const r = { off: 2, lanes: 1, park: 2.2 }, lane = laneOffset(r);
+  assert.ok(Math.abs(lane - 1.65) < .01);
+  assert.ok(lane + 1.9 / 2 < 3.5 + 2 - 2.2 + .01, 'o carro inteiro cabe antes das vagas');
 });
