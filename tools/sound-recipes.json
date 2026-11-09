@@ -1,0 +1,48 @@
+{
+ "_doc": "Receitas do tools/sound-pack.mjs. file/zip/exclude são regex (sem maiúsc./minúsc.) sobre o caminho dentro do zip e o nome do zip. split corta golpes (tiros, passos, latidos) em variações. loop = trecho que repete sem costura (rms = volume médio). Os ids são os que o js/city-audio.js procura; id sem arquivo cai no som sintetizado.",
+ "sounds": [
+  { "id": "gun_pistol",   "file": "(colt|python|\\.357|pistol|handgun|glock|beretta)",  "exclude": "(reload|dry|foley|holster|cylinder|cock)", "variants": 4, "split": { "thresh": 0.25, "minGap": 0.3, "maxDur": 1.4 } },
+  { "id": "gun_revolver", "file": "(colt.?python|\\.357|revolver|magnum)",               "exclude": "(reload|dry|foley|holster|cylinder|cock)", "variants": 3, "split": { "thresh": 0.25, "minGap": 0.3, "maxDur": 1.8 } },
+  { "id": "gun_smg",      "file": "(smg|uzi|mp5|submachine|lynx)",                       "exclude": "(reload|dry|foley|bolt)",                   "variants": 3, "split": { "thresh": 0.3, "minGap": 0.06, "maxDur": 0.9 } },
+  { "id": "gun_rifle",    "file": "(dragunov|svd|rifle|ak.?47|ar.?15|m4|carbine)",       "exclude": "(reload|dry|foley|bolt|mag)",               "variants": 3, "split": { "thresh": 0.25, "minGap": 0.25, "maxDur": 2.0 } },
+  { "id": "gun_shotgun",  "file": "(spas|saiga|shotgun)",                                "exclude": "(reload|dry|foley|pump|shell|load)",        "variants": 3, "split": { "thresh": 0.25, "minGap": 0.35, "maxDur": 2.0 } },
+  { "id": "gun_dry",      "file": "(dry.?fire|empty.?click|trigger.?click)",              "variants": 2, "split": { "thresh": 0.2, "minGap": 0.2, "maxDur": 0.4 } },
+  { "id": "gun_reload",   "file": "(reload|magazine.?(in|insert))",                      "variants": 2, "dur": 2.5 },
+
+  { "id": "step",      "file": "(footstep|foot.?step|walk).*(concrete|asphalt|street|pavement|stone|tile)", "exclude": "(run|jog|sprint)", "variants": 8, "split": { "thresh": 0.25, "minGap": 0.25, "maxDur": 0.35 }, "peak": 0.6 },
+  { "id": "step_run",  "file": "(footstep|foot.?step|run|jog).*(concrete|asphalt|street|pavement|stone|tile)", "exclude": "walk", "variants": 8, "split": { "thresh": 0.25, "minGap": 0.18, "maxDur": 0.3 }, "peak": 0.7 },
+
+  { "id": "car_crash",   "file": "(car.?crash|car.?impact|metal.?crash|collision)", "variants": 3, "split": { "thresh": 0.3, "minGap": 1.0, "maxDur": 2.5 } },
+  { "id": "car_horn",    "file": "(horn|klaxon)", "exclude": "(train|ship|air.?horn|bike)", "variants": 2, "split": { "thresh": 0.3, "minGap": 0.5, "maxDur": 1.5 } },
+  { "id": "car_door_open",  "file": "(mustang|car).*door.*open",  "variants": 2, "dur": 1.5 },
+  { "id": "car_door_close", "file": "(mustang|car).*door.*(close|shut|slam)", "variants": 2, "dur": 1.5 },
+  { "id": "car_start",   "file": "(mustang|audi|citro|car).*(start|ignition)", "exclude": "(stop|off)", "dur": 3.5 },
+  { "id": "car_pass",    "file": "(pass.?by|passby|drive.?by)", "exclude": "(train|plane|motorcycle|moto|truck|bus|bike)", "variants": 5, "dur": 6, "fadeIn": 0.6, "fadeOut": 1.2, "stereo": true, "peak": 0.7 },
+  { "id": "moto_pass",   "file": "(honda|kawasaki|motorcycle|motorbike).*(pass|by)", "variants": 2, "dur": 6, "fadeIn": 0.5, "fadeOut": 1.2, "stereo": true, "peak": 0.7 },
+  { "id": "tire_skid",   "file": "(skid|tyre.?squeal|tire.?squeal|screech)", "loop": true, "dur": 4, "xfade": 0.5, "rms": 0.18 },
+
+  { "id": "engine_idle", "file": "(audi|citro).*(idle|900|1000|steady.*1k)",  "loop": true, "dur": 6, "xfade": 1, "rms": 0.18 },
+  { "id": "engine_low",  "file": "(audi|citro).*(2000|2k|2500|low)",          "exclude": "idle", "loop": true, "dur": 6, "xfade": 1, "rms": 0.18 },
+  { "id": "engine_mid",  "file": "(audi|citro).*(3500|3k|4000|4k|mid)",       "loop": true, "dur": 6, "xfade": 1, "rms": 0.18 },
+  { "id": "engine_high", "file": "(audi|citro).*(5500|5k|6000|6k|high)",      "loop": true, "dur": 6, "xfade": 1, "rms": 0.18 },
+
+  { "id": "siren_police", "file": "(police).*(siren|wail|yelp)", "exclude": "(radio|voice|officer)", "loop": true, "dur": 12, "xfade": 0.8, "rms": 0.2 },
+  { "id": "siren_amb",    "file": "(ambulance|hi.?lo|two.?tone).*(siren)?", "exclude": "(radio|voice)", "loop": true, "dur": 12, "xfade": 0.8, "rms": 0.2 },
+  { "id": "police_radio", "file": "(police).*(radio|chatter)", "variants": 4, "dur": 5, "fadeOut": 0.3 },
+
+  { "id": "bus_brake", "file": "(bus).*(brake|air|hiss)", "variants": 2, "dur": 3 },
+  { "id": "bus_door",  "file": "(bus|train).*(door)", "variants": 2, "dur": 3 },
+
+  { "id": "dog_bark", "file": "(dog).*(bark)", "variants": 6, "split": { "thresh": 0.3, "minGap": 0.4, "maxDur": 1.4 } },
+
+  { "id": "amb_city_day",   "file": "(urban.?life|public.?spaces|street|city).*(day|busy|ambience|amb)", "exclude": "(night|rain|storm|interior|hotel)", "loop": true, "dur": 40, "stereo": true, "rms": 0.1 },
+  { "id": "amb_city_night", "file": "(urban|city|street).*(night)", "exclude": "(storm|rain)", "loop": true, "dur": 40, "stereo": true, "rms": 0.08 },
+  { "id": "amb_traffic",    "file": "(traffic|motorway|highway)", "exclude": "(police|pass.?by)", "loop": true, "dur": 40, "stereo": true, "rms": 0.1 },
+  { "id": "amb_rain",       "file": "(city.?rain|rain)", "exclude": "(thunder|storm|interior|window)", "loop": true, "dur": 30, "stereo": true, "rms": 0.12 },
+  { "id": "amb_storm",      "file": "(stormy.?night|thunder|storm)", "loop": true, "dur": 40, "stereo": true, "rms": 0.12 },
+  { "id": "amb_crowd",      "file": "(walla|crowd|shops|market)", "exclude": "(cheer|applause|stadium)", "loop": true, "dur": 30, "stereo": true, "rms": 0.09 },
+  { "id": "amb_rural",      "file": "(country|rural|farm|forest|birds?).*(day|amb)?", "exclude": "(night|rain|city|urban)", "loop": true, "dur": 40, "stereo": true, "rms": 0.07 },
+  { "id": "church_bells",   "file": "(church|bell)", "dur": 12, "fadeOut": 2, "stereo": true },
+  { "id": "fireworks",      "file": "(firework)", "dur": 10, "fadeOut": 1.5, "stereo": true }
+ ]
+}

@@ -428,7 +428,7 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     const here = posAt(L, b.s), fwd = posAt(L, b.s + 18), turn = Math.abs(angDiff(here.a, fwd.a)); if (turn > .25) v = Math.min(v, Math.max(4, 11 - turn * 6));
     // parada no ponto
     // (o ponto é guardado pelo objeto, não pelo índice: os pontos são reordenados quando o abrigo é ajustado)
-    if (d < 70 && st !== b.lastStop) { v = Math.min(v, stopSpeed(d - .5) + .3); if (d < .8) { b.dwell = DWELL; b.lastStop = st; b.atStop = st; b.speed = 0; return; } }
+    if (d < 70 && st !== b.lastStop) { v = Math.min(v, stopSpeed(d - .5) + .3); if (d < .8) { b.dwell = DWELL; b.lastStop = st; b.atStop = st; b.speed = 0; busSound(b); return; } }
     if (d > 3 && b.lastStop === st) b.lastStop = null;
     if (st !== b.lastStop || d > 3) b.atStop = null;
     // perto do jogador: freia p/ carro/pessoa na frente
@@ -467,6 +467,8 @@ export function createBuses(THREE, scene, bridge, { people = () => [] } = {}) {
     }
   }
   const shelters = new Map(), owners = new Map();
+  // chiado do freio a ar e a porta abrindo no ponto (gravações do pacote de sons; sem elas, silêncio)
+  const busSound = b => { const A = window.CityAudio; if (!A?.fx) return; A.fx('bus_brake', b.x, b.y, { ref: 12, max: 90, gain: .7 }); setTimeout(() => A.fx('bus_door', b.x, b.y, { ref: 8, max: 60, gain: .8 }), 600); };
   let jpts = null, jsrc = null;
   const junctionPts = () => { const src = (typeof OW !== 'undefined' && OW.cw?.junctions) || []; if (src !== jsrc) { jsrc = src; jpts = src.map((j, i) => ({ x: j.x, y: j.y, key: 'bj' + i, signal: (world.trafficSignals || []).some(s => Math.hypot(s.x - j.x, s.y - j.y) < 24) })); } return jpts; };
   // abrigo na calçada de verdade: pela RUA CONSTRUÍDA do setor (não pela malha macro), com os postes da frente a ~0,5 m

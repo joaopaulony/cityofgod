@@ -45,6 +45,7 @@ const CityAudio = (() => {
     applyVolumes(); setInterval(applyVolumes, 500);
     document.addEventListener('visibilitychange', () => { hidden = document.hidden; applyVolumes(); });
     addEventListener('city-front-settings', applyVolumes);   // mexeu no controle: aplica na hora
+    loadSounds();
     return ctx;
   }
   function applyVolumes() {
@@ -63,6 +64,55 @@ const CityAudio = (() => {
   function env(g, t, a, peak, d, hold = 0) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(.0002, peak), t + a); if (hold) g.gain.setValueAtTime(Math.max(.0002, peak), t + a + hold); g.gain.exponentialRampToValueAtTime(.0001, t + a + hold + d); }
   const stopAt = (nodes, t) => { for (const n of nodes) { try { n.start?.(now()); } catch (_) {} try { n.stop?.(t); } catch (_) {} } setTimeout(() => nodes.forEach(n => { try { n.disconnect(); } catch (_) {} }), (t - now() + .3) * 1000); };
   const shaper = amount => { const s = ctx.createWaveShaper(), n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i / n * 2 - 1; c[i] = (1 + amount) * x / (1 + amount * Math.abs(x)); } s.curve = c; return s; };
+
+  // ---------- gravações reais (assets/sounds, geradas por tools/sound-pack.mjs) ----------
+  // manifest.json: { id: [{ src, loop, gain }] }. Efeitos curtos são decodificados logo; loops (ambiente, motor) só quando
+  // pedidos. Enquanto um id não tem arquivo (ou não carregou), cada função usa a receita sintetizada de sempre.
+  const SND = { list: {}, buf: new Map(), loaded: false };
+  function loadSounds() {
+    fetch('assets/sounds/manifest.json').then(r => r.ok ? r.json() : {}).then(m => {
+      SND.list = m && typeof m === 'object' ? m : {}; SND.loaded = true;
+      for (const id in SND.list) if (!SND.list[id].some(v => v.loop)) fetchSound(id);
+    }).catch(() => { SND.loaded = true; });
+  }
+  function fetchSound(id) {
+    for (const v of SND.list[id] || []) {
+      if (SND.buf.has(v.src)) continue; SND.buf.set(v.src, null);
+      fetch(v.src).then(r => { if (!r.ok) throw Error(r.status); return r.arrayBuffer(); }).then(a => ctx.decodeAudioData(a))
+        .then(b => SND.buf.set(v.src, b)).catch(() => SND.buf.set(v.src, false));
+    }
+  }
+  const has = id => !!SND.list[id]?.some(v => SND.buf.get(v.src));
+  // uma variação carregada do id (sorteada, sem repetir a última); pede o carregamento se ainda não veio
+  const lastPick = {};
+  function sample(id) {
+    const vs = SND.list[id]; if (!vs) return null;
+    const ok = vs.filter(v => SND.buf.get(v.src)); if (ok.length < vs.length) fetchSound(id); if (!ok.length) return null;
+    let v = pick(ok); if (ok.length > 1 && v === lastPick[id]) v = ok[(ok.indexOf(v) + 1) % ok.length]; lastPick[id] = v;
+    return { v, b: SND.buf.get(v.src) };
+  }
+  // toca o id na entrada dada (cadeia posicionada ou barramento); devolve { src, g, dur } ou null (sem arquivo)
+  function play(id, dest, { rate = 1, gain = 1, at = now(), loop, offset } = {}) {
+    const s = sample(id); if (!s) return null;
+    const src = ctx.createBufferSource(), lp = loop ?? s.v.loop; src.buffer = s.b; src.loop = lp; src.playbackRate.value = rate;
+    const g = G(dest, gain * (s.v.gain ?? 1)); src.connect(g);
+    src.start(at, offset ?? (lp ? Math.random() * s.b.duration : 0));
+    if (!lp) src.onended = () => { try { g.disconnect(); } catch (_) {} };
+    return { src, g, dur: s.b.duration / rate };
+  }
+  // efeito gravado avulso, posicionado no mundo (ônibus, portas, rádio da polícia...)
+  function fx(id, x, y, { ref = 10, max = 160, echo = .2, bus = sfx, rate = rnd(.97, 1.03), gain = 1 } = {}) {
+    if (!ready()) return false; const S = place(x, y, { ref, max, echo, bus }); if (!S) return false;
+    return !!play(id, S.input, { rate, gain });
+  }
+  // laço contínuo gravado (ambiente, motor, sirene): volume controlado por fora; nasce mudo e começa quando o arquivo chega
+  function loopLayer(id, dest) {
+    const L = { id, g: G(dest, 0), src: null, rate: 1 };
+    L.ensure = () => { if (L.src) return true; const p = play(id, L.g, { loop: true, rate: L.rate }); if (!p) return false; L.src = p.src; return true; };
+    L.set = (v, tc = .5) => { if (L.ensure() || v === 0) L.g.gain.setTargetAtTime(v, now(), tc); return !!L.src; };
+    L.stop = () => { try { L.src?.stop(); } catch (_) {} setTimeout(() => { try { L.g.disconnect(); } catch (_) {} }, 200); };
+    return L;
+  }
 
   // ---------- posição: ouvinte no jogador (ou carro), lado pela câmera ----------
   function listener() {
@@ -92,6 +142,9 @@ const CityAudio = (() => {
   function gun(cat, x, y, own = false) {
     if (!ready()) return; const P = GUN[cat] || GUN.pistol; if (!P) return;
     const S = place(x, y, { ref: own ? 30 : 16, max: 420, echo: .35 }); if (!S) return;
+    // gravação do tiro da arma (ou da arma mais parecida que houver)
+    const alt = { revolver: ['gun_revolver', 'gun_pistol'], smg: ['gun_smg', 'gun_pistol'], rifle: ['gun_rifle', 'gun_shotgun'], shotgun: ['gun_shotgun'], pistol: ['gun_pistol', 'gun_revolver'] }[cat] || ['gun_pistol'];
+    const id = alt.find(has); if (id && play(id, S.input, { rate: rnd(.96, 1.04), gain: (own ? .6 : 1) * (id === 'gun_' + cat ? 1 : .9) })) return;
     const t = now(), lvl = P.lvl * (own ? .55 : 1) * rnd(.9, 1.05), sh = shaper(6); sh.connect(S.input);
     // estalo supersônico/boca do cano
     const n1 = noise(white, rnd(.9, 1.1)), h1 = filt('highpass', 2600), g1 = G(sh); n1.connect(h1); h1.connect(g1); env(g1, t, .0008, lvl * P.crack, .035);
@@ -104,11 +157,12 @@ const CityAudio = (() => {
     const n4 = noise(brown), l4 = filt('lowpass', 500), g4 = G(S.input); n4.connect(l4); l4.connect(g4); env(g4, t + .02, .02, lvl * .35, P.dec * 2.5);
     stopAt([n1, n2, o, n4], t + 1.2);
   }
-  function dryFire(x, y) { if (!ready()) return; const S = place(x, y, { ref: 4, max: 20 }); if (!S) return; tick(S.input, now(), 3200, .25); tick(S.input, now() + .05, 1900, .15); }
+  function dryFire(x, y) { if (!ready()) return; const S = place(x, y, { ref: 4, max: 20 }); if (!S) return; if (play('gun_dry', S.input)) return; tick(S.input, now(), 3200, .25); tick(S.input, now() + .05, 1900, .15); }
   function tick(dest, t, f, lvl, d = .025) { const n = noise(white), b = filt('bandpass', f, 9), g = G(dest); n.connect(b); b.connect(g); env(g, t, .0006, lvl, d); stopAt([n], t + d + .05); }
   // recarga: solta o pente, encaixa, puxa o ferrolho
   function reload(step, x, y) {
     if (!ready()) return; const S = place(x, y, { ref: 4, max: 25, echo: .05 }); if (!S) return; const t = now();
+    if (has('gun_reload')) { if (step === 'out') play('gun_reload', S.input, { gain: .8 }); return; }   // a gravação já tem a recarga inteira
     if (step === 'out') { tick(S.input, t, 2400, .3); tick(S.input, t + .03, 1300, .25, .05); }
     else if (step === 'in') { tick(S.input, t, 1700, .45, .04); tick(S.input, t + .02, 3600, .3); }
     else if (step === 'ready') { tick(S.input, t, 2800, .35); tick(S.input, t + .09, 2200, .4, .04); }
@@ -130,10 +184,11 @@ const CityAudio = (() => {
   }
   function whoosh(x, y) { if (!ready()) return; const S = place(x, y, { ref: 4, max: 20 }); if (!S) return; const t = now(), n = noise(white), b = filt('bandpass', 600, 2), g = G(S.input); b.frequency.setValueAtTime(400, t); b.frequency.exponentialRampToValueAtTime(2400, t + .18); n.connect(b); b.connect(g); env(g, t, .05, .25, .14); stopAt([n], t + .3); }
   // passos (concreto); correndo = mais forte e agudo
-  function step(x, y, run) { if (!ready()) return; const S = place(x, y, { ref: 3, max: 25, echo: .05 }); if (!S) return; const t = now(), n = noise(pink, rnd(.8, 1.2)), l = filt('bandpass', run ? 1500 : 1000, .9), g = G(S.input); n.connect(l); l.connect(g); env(g, t, .002, run ? .22 : .13, run ? .07 : .05); const o = ctx.createOscillator(); o.frequency.value = rnd(70, 95); const g2 = G(S.input); o.connect(g2); env(g2, t, .002, run ? .15 : .08, .04); stopAt([n, o], t + .15); }
+  function step(x, y, run) { if (!ready()) return; const S = place(x, y, { ref: 3, max: 25, echo: .05 }); if (!S) return; if (play(run && has('step_run') ? 'step_run' : 'step', S.input, { rate: rnd(.93, 1.07), gain: run ? .55 : .4 })) return;const t = now(), n = noise(pink, rnd(.8, 1.2)), l = filt('bandpass', run ? 1500 : 1000, .9), g = G(S.input); n.connect(l); l.connect(g); env(g, t, .002, run ? .22 : .13, run ? .07 : .05); const o = ctx.createOscillator(); o.frequency.value = rnd(70, 95); const g2 = G(S.input); o.connect(g2); env(g2, t, .002, run ? .15 : .08, .04); stopAt([n, o], t + .15); }
   // batida de carro: pancada grave + lataria (ressonâncias metálicas) + vidro se forte
   function crash(x, y, strength = 1) {
     if (!ready()) return; const S = place(x, y, { ref: 14, max: 160, echo: .3 }); if (!S) return; const t = now(), k = Math.min(1.4, .35 + strength);
+    if (play('car_crash', S.input, { gain: Math.min(1, .3 + strength * .7), rate: rnd(.92, 1.05) })) return;
     const o = ctx.createOscillator(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(38, t + .25); const g = G(S.input); o.connect(g); env(g, t, .003, k, .3);
     const n = noise(white), sh = shaper(3), g0 = G(S.input); n.connect(sh);
     for (const [f, q, a] of [[620, 14, .5], [1320, 18, .4], [2750, 22, .3], [4100, 25, .2]]) { const b = filt('bandpass', f * rnd(.9, 1.1), q), gg = G(g0, a); sh.connect(b); b.connect(gg); }
@@ -144,6 +199,12 @@ const CityAudio = (() => {
   // buzina elétrica de carro: dois tons (terça) distorcidos num corneta (passa-banda)
   function horn(x, y, dur = .5, big = false, bus = sfx) {
     if (!ready()) return null; const S = place(x, y, { ref: 18, max: 260, echo: .2, bus }); if (!S) return null; const t = now();
+    // buzina gravada: repete enquanto segura (dur = 0) e corta com um fade curto
+    const rec = play('car_horn', S.input, { rate: big ? .8 : rnd(.97, 1.04), gain: .8, loop: !dur });
+    if (rec) {
+      const stopR = (at = now()) => { rec.g.gain.setValueAtTime(rec.g.gain.value, at); rec.g.gain.setTargetAtTime(0, at, .02); try { rec.src.stop(at + .15); } catch (_) {} };
+      if (dur && dur < rec.dur) stopR(t + dur); return { stop: stopR };
+    }
     const f = big ? 330 : rnd(400, 440), sh = shaper(8), bp = filt('bandpass', big ? 700 : 1000, 1.3), g = G(S.input); sh.connect(bp); bp.connect(g);
     const os = [f, f * 1.25].map(fr => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(sh); return o; });
     g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.32, t + .015);
@@ -154,6 +215,7 @@ const CityAudio = (() => {
   // latido: pulsos com o tom subindo e caindo filtrados por formantes de cachorro
   function bark(x, y, big = Math.random() < .5, n = 1 + (Math.random() * 3 | 0), bus = sfx) {
     if (!ready()) return; const S = place(x, y, { ref: 12, max: 220, echo: .3, bus }); if (!S) return;
+    if (has('dog_bark')) { let at = now(); for (let i = 0; i < n; i++) { const p = play('dog_bark', S.input, { at, rate: (big ? .85 : 1.1) * rnd(.95, 1.05) }); at += (p?.dur || .4) * .8 + rnd(.05, .2); } return; }
     for (let i = 0; i < n; i++) {
       const t = now() + i * rnd(.22, .34), f0 = big ? rnd(180, 230) : rnd(330, 420), o = ctx.createOscillator(); o.type = 'sawtooth';
       o.frequency.setValueAtTime(f0 * .8, t); o.frequency.linearRampToValueAtTime(f0 * 1.35, t + .03); o.frequency.exponentialRampToValueAtTime(f0 * .7, t + .14);
@@ -194,27 +256,50 @@ const CityAudio = (() => {
     [a, b, c, n, wob].forEach(o => o.start(t));
     // pneu cantando (derrapagem)
     const s = noise(white), sb = filt('bandpass', 2300, 7), sg = G(sfx, 0), am = ctx.createOscillator(), amg = G(sg.gain, 0); s.connect(sb); sb.connect(sg); am.frequency.value = 16; am.connect(amg); s.start(t); am.start(t);
-    engine.nodes = { a, b, c, lp, g, n, wob, s, sg, amg, am };
+    // camadas gravadas (rotação constante): cruzadas pela rotação e afinadas pelo playbackRate; pneu gravado idem
+    const rec = ENGINE_REC.map(([id, ref]) => ({ L: loopLayer(id, sfx), ref })), skid = loopLayer('tire_skid', sfx); ENGINE_REC.forEach(([id]) => fetchSound(id)); fetchSound('tire_skid');
+    engine.nodes = { a, b, c, lp, g, n, wob, s, sg, amg, am, rec, skid };
+    if (engine.wasOn === false) play('car_start', sfx, { gain: .7 });
   }
-  function engineStop() { const E = engine.nodes; if (!E) return; const t = now(); E.g.gain.setTargetAtTime(0, t, .15); E.sg.gain.setTargetAtTime(0, t, .1); setTimeout(() => { for (const k of ['a', 'b', 'c', 'n', 'wob', 's', 'am']) try { E[k].stop(); } catch (_) {} }, 900); engine.nodes = null; }
+  const ENGINE_REC = [['engine_idle', 900], ['engine_low', 2200], ['engine_mid', 3800], ['engine_high', 5800]];
+  function engineStop() { const E = engine.nodes; if (!E) return; const t = now(); E.g.gain.setTargetAtTime(0, t, .15); E.sg.gain.setTargetAtTime(0, t, .1); for (const r of E.rec) r.L.g.gain.setTargetAtTime(0, t, .15); E.skid.g.gain.setTargetAtTime(0, t, .1); setTimeout(() => { for (const k of ['a', 'b', 'c', 'n', 'wob', 's', 'am']) try { E[k].stop(); } catch (_) {} E.rec.forEach(r => r.L.stop()); E.skid.stop(); }, 900); engine.nodes = null; }
   function engineTick(dt) {
     const V = window.cityVehicles, driving = V?.driver && V.engineOn;
-    if (!driving) { if (engine.nodes) engineStop(); return; }
+    if (!driving) { if (engine.nodes) engineStop(); engine.wasOn = false; return; }
     engineStart(); const E = engine.nodes, t = now(), sp = Math.abs(V.car?.speed || 0);
     const GEARS = [0, 7, 14, 22, 31, 42, 60], gi = Math.max(1, GEARS.findIndex(v => sp < v)), lo = GEARS[gi - 1] || 0, hi = GEARS[gi] || 60;
     const inp = typeof input !== 'undefined' ? input : null, thr = inp?.down?.('w') || inp?.down?.('s') ? 1 : 0;
     const rpm = sp < .5 ? 850 + thr * 600 : 1100 + (sp - lo) / (hi - lo) * 4600 + thr * 300, f = rpm / 60 * 2;   // 4 cilindros: 2 explosões/volta
     E.a.frequency.setTargetAtTime(f, t, .06); E.b.frequency.setTargetAtTime(f / 2, t, .06); E.c.frequency.setTargetAtTime(f * 1.5, t, .06);
     E.lp.frequency.setTargetAtTime(380 + rpm * .18 + thr * 900, t, .08);
-    E.g.gain.setTargetAtTime(.07 + Math.min(.13, rpm / 50000) + thr * .05, t, .1);
     const slip = V.car?.drifting ? Math.min(1, Math.abs(V.car.slip || .3) * 2.5) * Math.min(1, sp / 8) : 0;
-    E.sg.gain.setTargetAtTime(slip * .16, t, .05); E.amg.gain.setTargetAtTime(slip * .05, t, .05);
+    // gravado: as duas camadas vizinhas da rotação atual (log), cada uma acelerada/freada até a rotação certa
+    const live = E.rec.filter(r => has(r.L.id));
+    if (live.length >= 2) {
+      E.g.gain.setTargetAtTime(0, t, .1);
+      const lr = Math.log(rpm), k = live.findIndex(r => r.ref > rpm), hi = k < 0 ? live.length - 1 : Math.max(1, k), lo = hi - 1;
+      const w = Math.max(0, Math.min(1, (lr - Math.log(live[lo].ref)) / (Math.log(live[hi].ref) - Math.log(live[lo].ref)))), vol = .55 + thr * .25;
+      live.forEach((r, i) => {
+        const on = i === lo ? Math.cos(w * Math.PI / 2) : i === hi ? Math.sin(w * Math.PI / 2) : 0;
+        r.L.set(on * vol, .06); r.L.src?.playbackRate.setTargetAtTime(Math.max(.5, Math.min(2, rpm / r.ref)), t, .06);
+      });
+    } else E.g.gain.setTargetAtTime(.07 + Math.min(.13, rpm / 50000) + thr * .05, t, .1);
+    if (has('tire_skid')) { E.sg.gain.setTargetAtTime(0, t, .05); E.amg.gain.setTargetAtTime(0, t, .05); E.skid.set(slip * .7, .05); }
+    else { E.sg.gain.setTargetAtTime(slip * .16, t, .05); E.amg.gain.setTargetAtTime(slip * .05, t, .05); }
   }
 
   // ---------- sirenes (unidades da IA) ----------
   function siren(kind, bus = sfx) {
     if (!init()) return null; const t = now(), sh = shaper(5), bp = filt('bandpass', 1300, .9), p = ctx.createStereoPanner(), g = G(null, 0), lp = filt('lowpass', 8000);
     sh.connect(bp); bp.connect(lp); lp.connect(g); g.connect(p); p.connect(bus); p.connect(G(sendOf(bus), .3));
+    // sirene gravada: o mesmo controle de distância/lado, sem os osciladores
+    const rec = play(kind === 'police' ? 'siren_police' : 'siren_amb', lp, { loop: true, gain: 1.6 });
+    if (rec) return {
+      update(x, y, on) { const L = listener(); if (!L) return; const dx = x - L.x, dy = y - L.y, d = Math.hypot(dx, dy), C = typeof cam !== 'undefined' ? cam : null, tt = now();
+        g.gain.setTargetAtTime(on && d < 260 ? .3 / (1 + (d / 22) ** 2) : 0, tt, .2); lp.frequency.setTargetAtTime(Math.max(900, 14000 / (1 + d / 30)), tt, .2);
+        p.pan.setTargetAtTime(Math.max(-.8, Math.min(.8, (C ? C.cos * dx - C.sin * dy : dx) / (d + 8))), tt, .2); },
+      stop() { try { rec.src.stop(); } catch (_) {} setTimeout(() => { try { g.disconnect(); p.disconnect(); } catch (_) {} }, 300); }
+    };
     const o = ctx.createOscillator(), o2 = ctx.createOscillator(); o.type = 'triangle'; o2.type = 'square'; const g2 = G(sh, .25); o.connect(sh); o2.connect(g2);
     let lfo = null;
     if (kind === 'police') { lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = .22; const dep = G(null, 380); lfo.connect(dep); dep.connect(o.frequency); dep.connect(o2.frequency); o.frequency.value = 1000; o2.frequency.value = 1000; lfo.start(t); }
@@ -242,12 +327,15 @@ const CityAudio = (() => {
   const district = () => { try { const p = window.cityVehicleBridge?.player, geo = window.cityVehicleBridge?.geo; if (!p || !geo) return 'urban'; const d = geo.districtAt?.(p.x, p.y), D = window.COG?.D || {}; return d === D.FAVELA || d === D.GHETTO ? 'favela' : d === D.DOWNTOWN ? 'downtown' : d === D.RURAL || d === D.FARM ? 'rural' : d === D.PORT || d === D.INDUSTRIAL ? 'industrial' : 'urban'; } catch (_) { return 'urban'; } };
   function chirp(x, y) { const S = place(x, y, { ref: 20, max: 120, echo: .15, bus: amb }); if (!S) return; let t = now(); const n = 2 + (Math.random() * 5 | 0), base = rnd(2600, 4200);
     for (let i = 0; i < n; i++) { const o = ctx.createOscillator(), g = G(S.input); o.frequency.setValueAtTime(base * rnd(.9, 1.15), t); o.frequency.exponentialRampToValueAtTime(base * rnd(.6, 1.4), t + .07); o.connect(g); env(g, t, .008, .12, .07); stopAt([o], t + .12); t += rnd(.08, .16); } }
-  function carPass(x, y) { const S = place(x, y, { ref: 25, max: 200, echo: .2, bus: amb }); if (!S) return; const t = now(), dur = rnd(2.5, 4.5), n = noise(pink), b = filt('bandpass', 420, .8), g = G(S.input), o = ctx.createOscillator(), og = G(S.input);
+  function carPass(x, y) { const S = place(x, y, { ref: 25, max: 200, echo: .2, bus: amb }); if (!S) return;
+    if (play(Math.random() < .15 && has('moto_pass') ? 'moto_pass' : 'car_pass', S.input, { rate: rnd(.92, 1.06), gain: .8 })) return;
+    const t = now(), dur = rnd(2.5, 4.5), n = noise(pink), b = filt('bandpass', 420, .8), g = G(S.input), o = ctx.createOscillator(), og = G(S.input);
     o.type = 'sawtooth'; o.frequency.setValueAtTime(rnd(85, 110), t); o.frequency.linearRampToValueAtTime(rnd(60, 75), t + dur);
     n.connect(b); b.connect(g); const lo = filt('lowpass', 300); o.connect(lo); lo.connect(og);
     g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + dur * .45); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
     og.gain.setValueAtTime(.0001, t); og.gain.exponentialRampToValueAtTime(.08, t + dur * .45); og.gain.exponentialRampToValueAtTime(.0001, t + dur);
     S.pan.pan.setValueAtTime(-S.pan.pan.value || -.6, t); S.pan.pan.linearRampToValueAtTime(S.pan.pan.value || .6, t + dur); stopAt([n, o], t + dur + .1); }
+  const recAmb = {};
   // baile funk ao longe (tamborzão abafado pelas paredes): só o grave e a caixa passam
   function funkStart() {
     if (funk) return; const g = G(mus, 0), lp = filt('lowpass', 260, .8); lp.connect(g); funk = { g, lp, next: now() + .1, step: 0 };
@@ -273,6 +361,21 @@ const CityAudio = (() => {
     ambNodes.wind.gain.setTargetAtTime((.04 + wind * .18) * indoor, t, .8);
     ambNodes.crickets.gain.setTargetAtTime(0, t, .5); ambNodes.cricketsAM.gain.setTargetAtTime(dark > .5 && reg !== 'downtown' ? .012 * (1 - dens * .5) * indoor : 0, t, 1);
     funkTick(reg === 'favela' && dark > .55 && indoor > .5);
+    // camadas gravadas: cidade de dia/noite, trânsito, gente, campo, chuva; onde há gravação o ruído sintetizado sai
+    const rain = E.rain ?? 0, mix = {
+      amb_city_day: dens * day * (reg === 'rural' ? .1 : 1) * .9,
+      amb_city_night: dens * (1 - day) * (reg === 'rural' ? .1 : 1) * .9,
+      amb_traffic: (reg === 'downtown' || reg === 'industrial' ? .8 : reg === 'urban' ? .5 : .15) * (.4 + .6 * day),
+      amb_crowd: (reg === 'downtown' ? .6 : reg === 'favela' ? .35 : 0) * day,
+      amb_rural: (reg === 'rural' ? 1 : 0) * (.3 + .7 * day),
+      amb_rain: rain, amb_storm: Math.max(0, rain - .6) * 2.5
+    };
+    let recCity = 0;
+    for (const id in mix) {
+      const v = mix[id] * muffle * indoor, L = recAmb[id] || (v > .01 && SND.list[id] ? (recAmb[id] = loopLayer(id, amb)) : null);
+      if (L && L.set(v, 1.5) && /city|traffic/.test(id)) recCity = 1;
+    }
+    if (recCity) { ambNodes.traffic.gain.setTargetAtTime(.12 * dens * muffle * indoor, t, 1); ambNodes.city.gain.setTargetAtTime(0, t, 1); }
     const L = listener(); if (!L) return;
     const around = (r1, r2) => { const a = Math.random() * TAU, d = rnd(r1, r2); return [L.x + Math.cos(a) * d, L.y + Math.sin(a) * d]; };
     for (const k in nextEvent) nextEvent[k] -= dt;
@@ -357,20 +460,31 @@ const CityAudio = (() => {
   addEventListener('pointerover', e => { const b = e.target.closest?.('#city-front button, #city-front [role=tab], #city-controls button, #social-entry, #city-pets-entry, #city-cas-open, .city-app-icon'); if (b && b !== lastHover && !b.disabled) { lastHover = b; uiSound('hover'); } else if (!b) lastHover = null; }, { passive: true });
   addEventListener('click', e => { if (e.target.closest?.('#city-controls button, #social-entry, #city-pets-entry, #city-cas-open, .city-app-icon, #city-phone button')) uiSound('click'); }, { passive: true, capture: true });
 
+  // portas: entrou no carro (abre + fecha) / saiu (abre + fecha), percebido pela troca de motorista
+  let wasDriver = null;
+  function doorsTick() {
+    const V = window.cityVehicles, d = !!V?.driver; if (wasDriver === null) { wasDriver = d; return; }
+    if (d === wasDriver) return; wasDriver = d; const c = V?.car, p = window.cityVehicleBridge?.player, x = c?.x ?? p?.x, y = c?.y ?? p?.y;
+    if (!has('car_door_close')) return;
+    fx('car_door_open', x, y, { ref: 6, max: 40, gain: .7 }); setTimeout(() => fx('car_door_close', x, y, { ref: 6, max: 40, gain: .8 }), d ? 700 : 900);
+  }
+
   // ======================= laço =======================
   let lastT = performance.now();
   function tickAll() {
     const tNow = performance.now(), dt = Math.min(.1, (tNow - lastT) / 1000); lastT = tNow;
     if (ready()) {
       const playing = window.CityFront && !window.CityFront.blocked;
-      if (playing) { engineTick(dt); ambienceTick(dt); }
-      else { if (engine.nodes) engineStop(); for (const k of ['traffic', 'city', 'wind']) ambNodes[k]?.gain.setTargetAtTime(0, now(), .5); funk?.g.gain.setTargetAtTime(0, now(), .5); }
+      if (playing) { engineTick(dt); ambienceTick(dt); doorsTick(); }
+      else { if (engine.nodes) engineStop(); for (const k of ['traffic', 'city', 'wind']) ambNodes[k]?.gain.setTargetAtTime(0, now(), .5); for (const k in recAmb) recAmb[k].g.gain.setTargetAtTime(0, now(), .5); funk?.g.gain.setTargetAtTime(0, now(), .5); }
     }
     requestAnimationFrame(tickAll);
   }
   requestAnimationFrame(tickAll);
   // volume efetivo de cada canal agora (depuração no console)
   const levels = () => ctx && Object.fromEntries([['master', master], ['effects', sfx], ['ambient', amb], ['music', mus], ['interface', ui], ['voices', vox]].map(([k, b]) => [k, +b.gain.value.toFixed(3)]));
-  return { init, unlock, preview, applyVolumes, levels, gun, dryFire, reload, bulletHit, thump, whoosh, step, crash, horn, bark, scream, babble, siren, menuMusic, ui: uiSound, get context() { return ctx; } };
+  // quais ids têm gravação carregada (depuração no console: CityAudio.recorded())
+  const recorded = () => Object.keys(SND.list).filter(has);
+  return { init, unlock, preview, applyVolumes, levels, fx, recorded, gun, dryFire, reload, bulletHit, thump, whoosh, step, crash, horn, bark, scream, babble, siren, menuMusic, ui: uiSound, get context() { return ctx; } };
 })();
 window.CityAudio = CityAudio;
