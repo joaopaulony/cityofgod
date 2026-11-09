@@ -9,7 +9,7 @@ function boot(old={}){
  const st={player:{x:100,y:100,armed:true,ammo:30,reserve:90,magState:'in',reloadT:-1},hp:.9,food:.8,water:.8,clock:700};
  const life=window.CityLife,sim=window.CitySim;
  life.init(st);sim.init(st);
- return {life,sim,st,store};
+ return {life,sim,st,store,window};
 }
 test('CitySim career pays exactly once per real-time cooldown',()=>{
  const {life,sim,st}=boot();
@@ -21,11 +21,22 @@ test('CitySim career pays exactly once per real-time cooldown',()=>{
  assert.equal(sim.work().ok,false);
  assert.equal(life.funds,initial+sim.JOBS.courier.pay);
 });
-test('home rental, service delivery and wallet are integrated atomically',()=>{
- const {life,sim,st}=boot();
+test('home rental requires a physical address; wallet and services remain transactional',()=>{
+ const {life,sim,window}=boot();
+ assert.equal(sim.rentApartment().ok,false);
+ assert.equal(life.funds,250);
+ assert.equal(sim.data.home,null);
+ let calls=0;
+ window.CityRealty={rentStarter(){
+   calls++;
+   if(!life.debit(160,'Aluguel físico'))return {ok:false,text:'Saldo insuficiente'};
+   sim.data.home={name:'Aluguel · Casa',x:100,y:100,price:160};
+   sim.save();return {ok:true,text:'Casa alugada'};
+ }};
  assert.equal(sim.rentApartment().ok,true);
+ assert.equal(calls,1);
  assert.equal(life.funds,90);
- assert.equal(sim.data.home.name.includes('virtual'),true);
+ assert.equal(sim.data.home.name.includes('virtual'),false);
  const burgers=life.inventory.burger;
  assert.equal(sim.service('pizza').ok,true);
  assert.equal(life.funds,58);
@@ -72,12 +83,12 @@ test('social feed is stored locally and user input is bounded',()=>{
  assert.equal(next.sim.data.posts[0].likes,1);
 });
 test('new UI modules parse and load in page order',()=>{
- for(const file of ['js/city-sim.js','js/city-apps.js','js/city-ui.js','js/city-life.js','js/game.js','js/hud.js','js/core.js']){
+ for(const file of ['js/city-sim.js','js/city-apps.js','js/city-ui.js','js/city-adventures.js','js/city-life.js','js/game.js','js/hud.js','js/core.js']){
    assert.doesNotThrow(()=>new vm.Script(fs.readFileSync(file,'utf8'),{filename:file}));
  }
  const html=fs.readFileSync('index.html','utf8');
  const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]);
- for(const src of ['js/city-life.js','js/city-sim.js','js/city-apps.js','js/city-ui.js'])
+ for(const src of ['js/city-life.js','js/city-sim.js','js/city-apps.js','js/city-ui.js','js/city-adventures.js'])
    assert.ok(scripts.includes(src),'index must load '+src);
  assert.ok(scripts.indexOf('js/city-life.js')<scripts.indexOf('js/city-sim.js'));
  assert.ok(scripts.indexOf('js/city-sim.js')<scripts.indexOf('js/city-ui.js'));
