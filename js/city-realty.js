@@ -9,7 +9,7 @@ const CityRealty=(()=>{
    if(started)return;started=true;
    try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(x&&typeof x==='object'&&!Array.isArray(x)) owned=x;}catch(_){}
    // Contratos de casas anteriores continuam acessíveis. Novos contratos usam apartamentos por andar.
-   for(const v of Object.values(owned))if(v&&v.rental===true)v.rental={rate:160,nextDueDay:gameDay()+RENT_DAYS,arrears:0,autoPay:true,interval:RENT_DAYS,legacy:true};
+   for(const v of Object.values(owned))if(v&&v.rental===true)v.rental={rate:160,nextDueDay:null,arrears:0,autoPay:true,interval:RENT_DAYS,legacy:true};
    document.addEventListener('click',e=>{
      const rent=e.target.closest('[data-unit-rent]');
      if(rent){const [hid,f]=rent.dataset.unitRent.split('|'),H=houses.find(h=>multi(h)&&id(h)===hid);const result=rentUnit(H,Number(f));window.CityUI?.notify?.(result.text);if(H)panel(H);return;}
@@ -180,44 +180,68 @@ const CityRealty=(()=>{
    const c=lease();if(!c)return {ok:false,text:'Você não possui um contrato de aluguel ativo'};
    const amount=c.arrears>0?c.arrears:c.rate;
    if(!CityLife.debit(amount,'Aluguel · '+c.property.name))return {ok:false,text:'Saldo insuficiente para pagar '+CityLife.money(amount)};
+   const old={...c.property.rental};
    if(c.arrears>0)c.property.rental.arrears=0;
    else c.property.rental.nextDueDay+=RENT_DAYS;
-   saveOwned();window.dispatchEvent(new Event('city-property-change'));
+   if(!saveOwned()){c.property.rental=old;CityLife.credit(amount,'Estorno de aluguel');return {ok:false,text:'Não foi possível salvar o pagamento'};}
+   window.dispatchEvent(new Event('city-property-change'));
    return {ok:true,text:c.arrears>0?'Pendência de aluguel quitada':'Próximo período de aluguel pago antecipadamente'};
  }
  function toggleAutoPay(){
    const c=lease();if(!c)return {ok:false,text:'Sem contrato de aluguel'};
-   c.property.rental.autoPay=!c.autoPay;saveOwned();
+   c.property.rental.autoPay=!c.autoPay;
+   if(!saveOwned()){c.property.rental.autoPay=c.autoPay;return {ok:false,text:'Não foi possível salvar a opção de pagamento'};}
    return {ok:true,text:'Pagamento automático '+(c.property.rental.autoPay?'ativado':'desativado')};
  }
  function clearLease(c){
-   delete owned[c.key];saveOwned();
-   if(window.CitySim?.data?.home?.propertyKey===c.key){window.CitySim.data.home=null;window.CitySim.save();}
+   const old=owned[c.key];delete owned[c.key];
+   if(!saveOwned()){owned[c.key]=old;return false;}
+   const home=window.CitySim?.data?.home;
+   if(home&&(home.propertyKey===c.key||(!home.propertyKey&&home.rental&&Math.hypot(home.x-old.x,home.y-old.y)<2))){
+     window.CitySim.data.home=null;window.CitySim.save();
+   }
    window.dispatchEvent(new Event('city-property-change'));
+   return true;
  }
  function terminateLease(){
    const c=lease();if(!c)return {ok:false,text:'Não há contrato para encerrar'};
    if(c.arrears>0)return {ok:false,text:'Quite os pagamentos atrasados antes de entregar as chaves'};
-   const p=window.__game?.player;
-   if(p&&p.floor===c.property.floor&&p.floor>0)return {ok:false,text:'Saia do andar do apartamento antes de encerrar o contrato'};
-   clearLease(c);
+   if(insideRentedUnit(c))return {ok:false,text:'Saia do apartamento antes de encerrar o contrato'};
+   if(!clearLease(c))return {ok:false,text:'Não foi possível registrar o encerramento do contrato'};
    return {ok:true,text:'Contrato encerrado. As chaves foram devolvidas e o apartamento voltou a ficar disponível'};
+ }
+ function insideRentedUnit(c){
+   const p=window.__game?.player;
+   if(!p||!(p.floor>0)||p.floor!==c.property.floor)return false;
+   const H=window.__game?.houses?.find(h=>multi(h)&&id(h)===c.property.building);
+   return !H||H.contains?.(p.x,p.y,p.floor)!==false;
  }
  let lastRentalClock=-1;
  function tick(clock){
    const day=Math.floor(Number(clock)/1440);
-   if(!Number.isInteger(day)||day<0||day===lastRentalClock)return;
-   lastRentalClock=day;
-   for(const [key,v] of Object.entries(owned)){
-     const c=v?.rental;if(!c||typeof c!=='object'||!Number.isFinite(c.rate)||!Number.isFinite(c.nextDueDay))continue;
-     if(day<c.nextDueDay)continue;
-     const cycles=Math.floor((day-c.nextDueDay)/RENT_DAYS)+1;
-     c.nextDueDay+=cycles*RENT_DAYS;
-     const amount=cycles*c.rate;
-     if(c.autoPay&&c.arrears===0&&CityLife.debit(amount,'Aluguel automático · '+v.name))
-       window.CityUI?.notify?.('🏠 Aluguel do '+v.name+' pago: '+CityLife.money(amount));
-     else{c.arrears=(c.arrears||0)+amount;window.CityUI?.notify?.('⚠️ Aluguel pendente: '+CityLife.money(c.arrears)+' · CasaCerta');}
-     saveOwned();
+   if(!Number.isInteger(day)||day<0)return;
+   if(day!==lastRentalClock){
+     lastRentalClock=day;
+     for(const v of Object.values(owned)){
+       const c=v?.rental;if(!c||typeof c!=='object'||!Number.isFinite(c.rate))continue;
+       if(!Number.isFinite(c.nextDueDay)){c.nextDueDay=day+RENT_DAYS;saveOwned();continue;}
+       if(day<c.nextDueDay)continue;
+       const old={...c},cycles=Math.floor((day-c.nextDueDay)/RENT_DAYS)+1,amount=cycles*c.rate;
+       c.nextDueDay+=cycles*RENT_DAYS;
+       const paid=!!(c.autoPay&&c.arrears===0&&CityLife.debit(amount,'Aluguel automático · '+v.name));
+       if(!paid)c.arrears=(c.arrears||0)+amount;
+       if(!saveOwned()){
+         Object.assign(c,old);
+         if(paid)CityLife.credit(amount,'Estorno · aluguel não salvo');
+         continue;
+       }
+       window.CityUI?.notify?.(paid?'🏠 Aluguel de '+v.name+' pago: '+CityLife.money(amount):
+         '⚠️ Aluguel pendente: '+CityLife.money(c.arrears)+' · CasaCerta');
+     }
+   }
+   const c=lease();
+   if(c&&c.arrears>=MAX_ARREARS*c.rate&&!insideRentedUnit(c)){
+     if(clearLease(c))window.CityUI?.notify?.('⚠️ Contrato encerrado após três parcelas de aluguel em atraso. Você perdeu o acesso ao apartamento.');
    }
  }
  function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;document.body.classList.remove('city-property-open');if(clear)selected=null;}
