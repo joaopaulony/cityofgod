@@ -68,7 +68,8 @@ const CitySim = (() => {
           state.businesses[k]={open:!!v.open,staff:Math.max(0,Math.min(3,Number(v.staff)||0)),lastCollect:Math.max(0,Number(v.lastCollect)||0)};
         if(Array.isArray(s.cars))state.cars=s.cars.filter(k=>CARS[k]);
         if(s.carColors&&typeof s.carColors==='object')state.carColors=Object.fromEntries(Object.entries(s.carColors).filter(([k,v])=>CARS[k]&&/^#[0-9a-f]{6}$/i.test(v)));
-        if(s.home && Number.isFinite(s.home.x)&&Number.isFinite(s.home.y)&&typeof s.home.name==='string')state.home={name:s.home.name,x:s.home.x,y:s.home.y,price:Number(s.home.price)||0};
+        if(s.home && Number.isFinite(s.home.x)&&Number.isFinite(s.home.y)&&typeof s.home.name==='string')state.home={name:s.home.name,x:s.home.x,y:s.home.y,price:Number(s.home.price)||0,
+          propertyKey:typeof s.home.propertyKey==='string'?s.home.propertyKey:null,floor:Number.isInteger(s.home.floor)?s.home.floor:0,rental:!!s.home.rental};
         if(Array.isArray(s.ownedLots))state.ownedLots=s.ownedLots.filter(x=>x&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&typeof x.name==='string').slice(0,15);
         if(Number.isFinite(s.maintenance))state.maintenance=Math.max(0,Math.min(100,s.maintenance));
         if(Number.isFinite(s.bills))state.bills=Math.max(0,Math.min(10000000,s.bills));
@@ -189,7 +190,7 @@ const CitySim = (() => {
   }
   function rentApartment(){
     if(state.home)return fail('Você já tem uma residência principal');
-    return window.CityRealty?.rentStarter?.() || fail('Imobiliária não está disponível');
+    return window.CityRealty?.rentNearbyApartment?.() || fail('Imobiliária não está disponível');
   }
   function setHome(key) {
     const lot=state.ownedLots.find(x=>x.key===key);
