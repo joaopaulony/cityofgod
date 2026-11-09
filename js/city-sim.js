@@ -284,7 +284,8 @@ const CitySim = (() => {
     const day=Math.floor(game.clock/1440);
     if(day>state.lastBillDay){
       const due=Math.min(day-state.lastBillDay,5);
-      if(state.home||state.ownedLots.length) state.bills+=due*(20+state.ownedLots.length*12);
+      const utilities=(state.home?(state.home.rental?6:14):0)+state.ownedLots.length*10;
+      if(utilities>0)state.bills+=due*utilities; // aluguel por período é cobrado exclusivamente pelo CityRealty
       state.lastBillDay=day;commit();
     }
   }
