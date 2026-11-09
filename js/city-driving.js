@@ -46,55 +46,79 @@ const CityDriving=(()=>{
    }
    return null;
  }
+ // painel do carro: mostrador redondo sem moldura, fundo transparente (estilo velocímetro de corrida)
+ // escala de giro 0–8 (x1000) em volta, arco verde→amarelo→vermelho, agulha vermelha, marcha grande no centro,
+ // indicadores (motor, faróis, combustível), velocidade grande embaixo e arco de combustível à esquerda
+ const GEARS=[0,7,14,22,31,42,60];
+ function gearAndRpm(car,engineOn){
+   const sp=Math.abs(car.speed||0);
+   if(!engineOn)return {gear:'N',rpm:0};
+   if(car.speed<-.4)return {gear:'R',rpm:1100+Math.min(1,sp/8)*2600};
+   if(sp<.5)return {gear:'N',rpm:850};
+   const gi=Math.max(1,GEARS.findIndex(v=>sp<v)),i=gi<0?GEARS.length-1:gi,lo=GEARS[i-1]||0,hi=GEARS[i]||60;
+   return {gear:String(i),rpm:Math.min(7900,1100+(sp-lo)/(hi-lo)*4600)};
+ }
  function draw(g,w,h,v){
    if(!v.driver)return;
-   const W=Math.min(550,Math.max(300,w*.49)),H=w<600?114:151,x=w/2-W/2,y=h-H-15;
-   const car=v.car||{},speed=Math.max(0,Math.round(Math.abs(car.speed||0)*3.6)),gear=car.speed<-.4?'R':car.speed>.4?'D':'N';
-   const level=Math.max(0,Math.min(1,v.fuel?.level||0));
-   const compact=w<680;
-   g.save();g.shadowColor='#0009';g.shadowBlur=22;g.fillStyle='rgba(6,15,25,.93)';
-   g.strokeStyle='#6e899f';g.lineWidth=1.6;g.beginPath();g.roundRect(x,y,W,H,22);g.fill();g.stroke();
-   g.shadowBlur=0;
-   const grad=g.createLinearGradient(x,y,x+W,y+H);grad.addColorStop(0,'#243a51');grad.addColorStop(.55,'#0c1829');grad.addColorStop(1,'#061321');
-   g.fillStyle=grad;g.beginPath();g.roundRect(x+5,y+5,W-10,H-10,18);g.fill();
-   g.textAlign='center';g.textBaseline='middle';
-   function dial(cx,cy,r,frac,title,baseColor,maxVal){
-     const start=Math.PI*.78,end=Math.PI*2.22;
-     g.strokeStyle='#ffffff26';g.lineWidth=8;g.beginPath();g.arc(cx,cy,r,start,end);g.stroke();
-     const glow=g.createLinearGradient(cx-r,cy-r,cx+r,cy+r);glow.addColorStop(0,'#4fcaff');glow.addColorStop(1,baseColor);
-     g.strokeStyle=glow;g.lineWidth=8;g.lineCap='round';g.beginPath();g.arc(cx,cy,r,start,start+(end-start)*Math.min(1,frac));g.stroke();
-     for(let k=0;k<=10;k++){
-       const a=start+(end-start)*k/10,inn=r-13,out=r-7;
-       g.strokeStyle='#c6dceb90';g.lineWidth=1;g.beginPath();
-       g.moveTo(cx+Math.cos(a)*inn,cy+Math.sin(a)*inn);g.lineTo(cx+Math.cos(a)*out,cy+Math.sin(a)*out);g.stroke();
+   const car=v.car||{},speed=Math.max(0,Math.round(Math.abs(car.speed||0)*3.6));
+   const level=Math.max(0,Math.min(1,v.fuel?.level||0)),{gear,rpm}=gearAndRpm(car,v.engineOn);
+   const R=w<680?72:98,cx=w/2,cy=h-R-34;   // embaixo, no centro (o canto direito tem os botões do menu)
+   const MAXK=8,RED=6.5,A0=Math.PI*.72,A1=Math.PI*2.28,ang=k=>A0+(A1-A0)*k/MAXK;
+   const P=(a,r)=>[cx+Math.cos(a)*r,cy+Math.sin(a)*r];
+   g.save();g.textAlign='center';g.textBaseline='middle';
+   // véu bem leve atrás (só para ler sobre o céu claro), sumindo nas bordas: sem moldura
+   const veil=g.createRadialGradient(cx,cy,R*.2,cx,cy,R*1.12);veil.addColorStop(0,'rgba(8,12,18,.38)');veil.addColorStop(.75,'rgba(8,12,18,.22)');veil.addColorStop(1,'rgba(8,12,18,0)');
+   g.fillStyle=veil;g.beginPath();g.arc(cx,cy,R*1.12,0,Math.PI*2);g.fill();
+   // anel fino
+   g.strokeStyle='rgba(235,240,245,.35)';g.lineWidth=1.2;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.stroke();
+   // traços da escala (finos a cada 0,25; maiores a cada 1)
+   for(let k=0;k<=MAXK*4;k++){
+     const v1=k/4,a=ang(v1),major=k%4===0,[x1,y1]=P(a,R-3),[x2,y2]=P(a,R-(major?11:6));
+     g.strokeStyle=v1>=RED?'rgba(255,90,80,.9)':major?'rgba(240,244,248,.85)':'rgba(220,228,236,.4)';g.lineWidth=major?2:1;
+     g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+   }
+   // números
+   g.fillStyle='rgba(240,244,248,.85)';g.font=`500 ${Math.round(R*.12)}px "Segoe UI",system-ui`;
+   for(let k=0;k<=MAXK;k++){const [x1,y1]=P(ang(k),R*.78);g.fillText(String(k),x1,y1);}
+   // arco de giro: verde → amarelo → vermelho até a rotação atual
+   const kr=Math.max(0,Math.min(MAXK,rpm/1000)),arcR=R+5;
+   if(kr>0){
+     const steps=Math.max(2,Math.round(kr*8));
+     for(let s=0;s<steps;s++){
+       const a=ang(kr*s/steps),b=ang(kr*(s+1)/steps)+.004,t=(kr*(s+.5)/steps)/MAXK;
+       g.strokeStyle=t<.55?'#5fe08a':t<.78?'#f2d34a':'#ff4d42';g.lineWidth=R*.055;
+       g.beginPath();g.arc(cx,cy,arcR,a,b);g.stroke();
      }
-     g.fillStyle='#8daaba';g.font='bold 9px system-ui';g.fillText(title,cx,cy+r*.55);
-     const a=start+(end-start)*Math.min(1,frac);
-     g.strokeStyle='#e9f7ff';g.lineWidth=2;g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+Math.cos(a)*(r-18),cy+Math.sin(a)*(r-18));g.stroke();
-     g.fillStyle='#e8faff';g.beginPath();g.arc(cx,cy,3,0,Math.PI*2);g.fill();
    }
-   if(!compact){
-     const rad=46,centerY=y+H/2+1;
-     dial(x+79,centerY,rad,Math.min(1,speed/240),'km/h','#1983ea',240);
-     dial(x+W-79,centerY,rad,Math.min(1,(speed/35+(!v.engineOn?0:1))/8),'RPM x1000','#5e9cdd',8);
-   }
-   g.fillStyle='#e6f9ff';g.shadowColor='#53ccff';g.shadowBlur=8;
-   g.font='800 '+(compact?36:44)+'px "Segoe UI",system-ui';
-   g.fillText(String(speed).padStart(2,'0'),x+W/2,y+(compact?49:63));
-   g.shadowBlur=0;g.font='600 11px system-ui';g.fillStyle='#93c7e7';
-   g.fillText('KM/H',x+W/2,y+(compact?69:86));
-   g.font='800 13px system-ui';g.fillStyle=gear==='R'?'#eea8a8':'#e7d4a1';
-   g.fillText(gear,x+W/2,y+(compact?86:105));
-   const fuelY=y+H-20,barW=compact?W*.67:W*.38,barX=x+W/2-barW/2;
-   g.fillStyle='#102c3d';g.beginPath();g.roundRect(barX,fuelY,barW,7,4);g.fill();
-   g.fillStyle=level<.15?'#f16e66':'#4be6bc';g.beginPath();g.roundRect(barX,fuelY,barW*level,7,4);g.fill();
-   g.font='600 10px system-ui';g.fillStyle='#c9e0ef';
-   g.textAlign='right';g.fillText('E',barX-7,fuelY+3);g.textAlign='left';g.fillText('F',barX+barW+8,fuelY+3);
-   g.fillStyle=v.engineOn?'#69eabc':'#ff7f75';g.font='700 10px system-ui';g.textAlign='center';
-   g.fillText(v.engineOn?'● MOTOR':'○ MOTOR',x+W/2,y+12);
-   if(v.headlights){g.fillStyle='#b8e8ff';g.fillText('☼ FARÓIS',x+W-55,y+17);}
-   g.fillStyle='#a9beca';g.font='10px system-ui';
-   g.textAlign='right';g.fillText('F sair · X motor · L faróis · H buzina',x+W-15,y+H-8);
+   // faixa vermelha (zona de corte) por dentro
+   g.strokeStyle='rgba(255,70,60,.55)';g.lineWidth=3;g.beginPath();g.arc(cx,cy,R-14,ang(RED),ang(MAXK));g.stroke();
+   // marcador de troca (losango) quando chega na zona vermelha
+   const [mx,my]=P(ang(RED),R+16);
+   g.save();g.translate(mx,my);g.rotate(Math.PI/4);g.fillStyle=kr>=RED-.3?'#ff4d42':'rgba(240,244,248,.18)';g.fillRect(-4,-4,8,8);g.restore();
+   // agulha (vermelha, com brilho), da borda dos números até fora do anel
+   const an=ang(kr),[nx1,ny1]=P(an,R*.62),[nx2,ny2]=P(an,R+9);
+   g.shadowColor='#ff2a1f';g.shadowBlur=10;g.strokeStyle='#ff3b30';g.lineWidth=3;g.lineCap='round';
+   g.beginPath();g.moveTo(nx1,ny1);g.lineTo(nx2,ny2);g.stroke();g.shadowBlur=0;
+   // combustível: arco curto por dentro, à esquerda (verde; amarelo e vermelho quando acaba)
+   const f0=Math.PI*.82,f1=Math.PI*1.18,fr=R*.6;
+   g.strokeStyle='rgba(255,255,255,.12)';g.lineWidth=4;g.beginPath();g.arc(cx,cy,fr,f0,f1);g.stroke();
+   g.strokeStyle=level<.15?'#ff4d42':level<.35?'#f2d34a':'#5fe08a';g.beginPath();g.arc(cx,cy,fr,f1-(f1-f0)*level,f1);g.stroke();
+   // marcha
+   g.fillStyle=gear==='R'?'#ff7a70':'#f4f7fa';g.font=`300 ${Math.round(R*.34)}px "Segoe UI",system-ui`;
+   g.fillText(gear,cx,cy-R*.36);
+   // indicadores
+   const ind=[['MOTOR',v.engineOn,'#5fe08a'],['FARÓIS',v.headlights,'#8fd3ff'],['COMB',level<.15,'#ff4d42']];
+   g.font=`600 ${Math.max(8,Math.round(R*.085))}px "Segoe UI",system-ui`;
+   const iw=R*.42;ind.forEach(([t,on,c],i)=>{g.fillStyle=on?c:'rgba(230,236,242,.38)';g.fillText(t,cx+(i-1)*iw,cy-R*.02);});
+   g.fillStyle='rgba(230,236,242,.3)';[-.5,.5].forEach(o=>g.fillText('·',cx+o*iw,cy-R*.02));
+   // velocidade
+   g.fillStyle='#f6f9fb';g.font=`300 ${Math.round(R*.42)}px "Segoe UI",system-ui`;
+   g.fillText(String(speed),cx,cy+R*.33);
+   g.fillStyle='rgba(230,236,242,.7)';g.font=`500 ${Math.round(R*.11)}px "Segoe UI",system-ui`;
+   g.fillText('km/h',cx,cy+R*.6);
+   // comandos (bem discretos, embaixo do mostrador)
+   g.fillStyle='rgba(225,232,238,.55)';g.font='10px system-ui';g.shadowColor='#000';g.shadowBlur=4;
+   g.fillText('F sair · X motor · L faróis · H buzina',cx,cy+R+22);
    g.restore();
  }
  function install(){
