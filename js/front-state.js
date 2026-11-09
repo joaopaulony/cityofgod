@@ -25,7 +25,7 @@
  function hasProgress(storage){const life=read(storage,'cityofgod.life.v1');return !!checkpoint(read(storage,SAVE))||!!(life?.v===1&&Number.isFinite(life.funds));}
  function backupAndReset(storage){
   const rows={};
-  for(let i=0;i<storage.length;i++){const key=storage.key(i);if(key?.startsWith('cityofgod.')&&key!==SETTINGS&&key!==BACKUP)rows[key]=storage.getItem(key);}
+  for(let i=0;i<storage.length;i++){const key=storage.key(i);if((key?.startsWith('cityofgod.')||key==='cog-social-v1')&&key!==SETTINGS&&key!==BACKUP)rows[key]=storage.getItem(key);}
   // Write and verify the backup before removing any existing progress.
   const backup=JSON.stringify({version:1,at:Date.now(),rows});storage.setItem(BACKUP,backup);
   if(storage.getItem(BACKUP)!==backup)throw Error('Não foi possível preservar uma cópia do progresso');
