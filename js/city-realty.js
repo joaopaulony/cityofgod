@@ -1,18 +1,20 @@
 // CityRealty: propriedades baseadas nas portas reais, sem índices globais de setor.
 'use strict';
 const CityRealty=(()=>{
- const KEY='cityofgod.owned-homes.v1';
+ const KEY='cityofgod.owned-homes.v1',RENT_DAYS=7,MAX_ARREARS=3;
  let owned={};let started=false,selected=null;
  const id=H=>Math.round(H.doorPt?.[0]??H.x0)+'_'+Math.round(H.doorPt?.[1]??H.y0)+'_'+Math.round(H.x1-H.x0)+'x'+Math.round(H.y1-H.y0);
  const residential=H=>!!H?.doorPt&&!H.civic&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
  function init(){
    if(started)return;started=true;
    try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(x&&typeof x==='object'&&!Array.isArray(x)) owned=x;}catch(_){}
+   // Contratos de casas anteriores continuam acessíveis. Novos contratos usam apartamentos por andar.
+   for(const v of Object.values(owned))if(v&&v.rental===true)v.rental={rate:160,nextDueDay:gameDay()+RENT_DAYS,arrears:0,autoPay:true,interval:RENT_DAYS,legacy:true};
    document.addEventListener('click',e=>{
-     const r=e.target.closest('[data-property-rent]');
-     if(r){const H=houses.find(h=>residential(h)&&id(h)===r.dataset.propertyRent);const result=rentStarter(H);window.CityUI?.notify?.(result.text);close();}
+     const rent=e.target.closest('[data-unit-rent]');
+     if(rent){const [hid,f]=rent.dataset.unitRent.split('|'),H=houses.find(h=>multi(h)&&id(h)===hid);const result=rentUnit(H,Number(f));window.CityUI?.notify?.(result.text);if(H)panel(H);return;}
      const b=e.target.closest('[data-property-buy]');
-     if(b){const H=houses.find(h=>residential(h)&&id(h)===b.dataset.propertyBuy);if(H) buy(H);close();}
+     if(b){const H=houses.find(h=>residential(h)&&id(h)===b.dataset.propertyBuy);const result=H?buy(H):{text:'Imóvel indisponível'};window.CityUI?.notify?.(result.text);close();return;}
      const toggle=e.target.closest('[data-garage-toggle]');
      if(toggle){
        const H=houses.find(h=>residential(h)&&id(h)===toggle.dataset.garageToggle);
@@ -20,7 +22,8 @@ const CityRealty=(()=>{
        window.CityUI?.notify(msg||'Garagem indisponível');close();
      }
      const u=e.target.closest('[data-unit-buy]');
-     if(u){const [hid,f]=u.dataset.unitBuy.split('|'),H=houses.find(h=>residential(h)&&id(h)===hid);if(H){const r=buyUnit(H,+f);window.CityUI?.notify(r.text);panel(H);}}
+     if(u){const [hid,f]=u.dataset.unitBuy.split('|'),H=houses.find(h=>multi(h)&&id(h)===hid);if(H){const r=buyUnit(H,+f);window.CityUI?.notify(r.text);panel(H);}return;}
+     const leaseAction=e.target.closest('[data-lease-action]');if(leaseAction){const r=leaseAction.dataset.leaseAction==='pay'?payRent():leaseAction.dataset.leaseAction==='auto'?toggleAutoPay():terminateLease();window.CityUI?.notify?.(r.text);const H=selected;if(H)panel(H);return;}
      if(e.target.closest('[data-property-close]'))close();
    });
    window.addEventListener('keydown',e=>{
@@ -34,8 +37,12 @@ const CityRealty=(()=>{
  const unitKey=(H,f)=>id(H)+'#'+f;
  const ownsUnit=(H,f)=>!!owned[id(H)]||!!owned[unitKey(H,f)];
  const ownsAnyUnit=H=>!!owned[id(H)]||Object.keys(owned).some(k=>k.startsWith(id(H)+'#'));
+ const gameDay=()=>Math.max(0,Math.floor((window.__game?.st?.clock||window.CitySim?.game?.clock||0)/1440));
+ const saveOwned=()=>{try{localStorage.setItem(KEY,JSON.stringify(owned));return true;}catch(_){return false;}};
+ function lease(){for(const [key,item] of Object.entries(owned))if(item?.rental&&typeof item.rental==='object'&&Number.isFinite(item.rental.rate))return {key,property:item,...item.rental};return null;}
+ const unitRent=(H,f)=>multi(H)?(H.architecture.kind==='projects'?160: H.architecture.kind==='deco'?270:200)+Math.max(0,Math.floor(f)-1)*(H.architecture.kind==='projects'?10:15):0;
  const unitPrice=H=>Math.max(30000,Math.round(price(H)*.85/1000)*1000);
- const units=H=>multi(H)?H.architecture.levels.slice(1).map(l=>({floor:l.floor,key:unitKey(H,l.floor),mine:ownsUnit(H,l.floor),rooms:l.rooms.filter(r=>r.id!=='hall'&&r.use!=='circulation').length,price:unitPrice(H)})):[];
+ const units=H=>multi(H)?H.architecture.levels.slice(1).map(l=>({floor:l.floor,key:unitKey(H,l.floor),mine:ownsUnit(H,l.floor),rented:!!owned[unitKey(H,l.floor)]?.rental,rooms:l.rooms.filter(r=>r.id!=='hall'&&r.use!=='circulation').length,price:unitPrice(H),rent:unitRent(H,l.floor)})):[];
  const isOwned=H=>residential(H)&&(multi(H)?ownsAnyUnit(H):!!owned[id(H)]);
  const canFurnish=H=>!residential(H)||isOwned(H)||multi(H);   // prédio: portaria aberta a todos
  // mobília por andar: no prédio, a portaria e as unidades do jogador; na casa, a casa toda se for dele
@@ -62,7 +69,8 @@ const CityRealty=(()=>{
    const tier=H.miaKind==='mansion'?620:H.miaKind==='poor'?160:H.tall?530:275;
    return Math.round(area*tier/1000)*1000+(isFarm(H)?85000:0);
  };
- const rentable=H=>residential(H)&&!multi(H)&&!isFarm(H)&&H.miaKind!=='mansion'&&!H.tall&&price(H)<=120000;
+ // Novos aluguéis usam exclusivamente apartamentos já existentes nos prédios.
+ const rentable=H=>multi(H);
  const name=H=>multi(H)?(H.architecture.kind==='deco'?'Hotel '+(H.hotelName||''):'Edifício residencial').trim():isFarm(H)?'Sítio':H.miaKind==='mansion'?'Mansão':H.tall?'Apartamento':H.miaKind==='poor'?'Casa popular':'Residência';
  function nearby(p,max=2.7){
    if(!p||typeof houses==='undefined')return null;
@@ -90,7 +98,7 @@ const CityRealty=(()=>{
      '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+(isFarm(H)?'<p>🚜 Terreno de 52 × 46 m: lavoura, galinheiro, curral, silo, galpão e caixa da cooperativa. Use o app Fazenda.</p>':'')+
      '<div class="city-property-value">'+(mine?(owned[id(H)]?.rental?'Seu imóvel alugado':'Sua propriedade'):CityLife.money(cost))+'</div>'+
      (mine?'<p>Este imóvel está disponível para você e aparece no mapa. Entre na casa e use F7 para decorar e comprar móveis.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
-       '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>'+(rentable(H)?'<button data-property-rent="'+id(H)+'" '+(CityLife.funds<160?'disabled':'')+' class="city-property-secondary">Alugar por R$ 160 (moradia física)</button>':''))+
+       '<p>Confirme a compra para usar este imóvel e decorar seu interior. Para alugar, visite a portaria de um prédio residencial.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>')+
      '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;
    document.body.classList.add('city-property-open');
@@ -99,45 +107,121 @@ const CityRealty=(()=>{
  }
  // painel do prédio: lista as unidades (uma por andar), quem é dono e o preço de cada
  function unitsPanel(H,el){
-   const list=units(H),hotel=H.architecture.kind==='deco';
-   el.innerHTML='<div class="city-property-card" style="max-width:520px;width:min(100%,520px);max-height:86vh;overflow:auto" role="dialog" aria-label="Unidades do prédio">'+
-     '<button data-property-close class="city-property-close" aria-label="Fechar">✕</button>'+
-     '<span class="city-property-eyebrow">CASACERTA · '+(hotel?'HOTEL':'EDIFÍCIO')+'</span><h2>🏢 '+name(H)+'</h2>'+
-     '<p>'+list.length+' '+(hotel?'suítes':'apartamentos')+' · um por andar. A portaria é livre; cada unidade só abre para o dono — as outras ficam trancadas e você não entra nem vê os móveis de ninguém.</p>'+
-     list.map(u=>'<div style="display:flex;align-items:center;gap:10px;margin:8px 0;padding:10px 12px;border-radius:13px;background:#ffffff10"><div style="flex:1"><strong>'+(hotel?'Suíte ':'Apto ')+u.floor+'01 · '+u.floor+'º andar</strong><br><small style="color:#9fb4c4">'+u.rooms+' cômodos · mobiliado na compra</small></div>'+
-       (u.mine?'<b style="color:#6ff5c7">Sua unidade</b>':'<button class="city-property-confirm" style="width:auto;margin:0;padding:9px 12px" data-unit-buy="'+id(H)+'|'+u.floor+'" '+(CityLife.funds<u.price?'disabled':'')+'>Comprar '+CityLife.money(u.price)+'</button>')+'</div>').join('')+
-     '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
+   const list=units(H),hotel=H.architecture.kind==='deco',currentLease=lease();
+   const money=n=>CityLife.money(n);
+   el.innerHTML='<div class="city-property-card" style="max-width:540px;width:min(100%,540px);max-height:86vh;overflow:auto" role="dialog" aria-label="Apartamentos do prédio">'+
+    '<button data-property-close class="city-property-close" aria-label="Fechar">✕</button>'+
+    '<span class="city-property-eyebrow">CASACERTA · '+(hotel?'HOTEL':'PRÉDIO RESIDENCIAL')+'</span><h2>🏢 '+name(H)+'</h2>'+
+    '<p>'+list.length+' unidades físicas · portaria pública · acesso somente ao andar adquirido ou alugado. Aluguel cobrado a cada '+RENT_DAYS+' dias de jogo.</p>'+
+    list.map(u=>'<div style="margin:9px 0;padding:12px;border:1px solid #ffffff26;border-radius:12px;background:#ffffff0a">'+
+      '<strong>'+(hotel?'Suíte ':'Apto ')+u.floor+'01 · '+u.floor+'º andar</strong> · '+u.rooms+' cômodos'+
+      '<p style="margin:5px 0 8px;color:#b9c8d0">Venda '+money(u.price)+' · Aluguel '+money(u.rent)+' / '+RENT_DAYS+' dias de jogo</p>'+
+      (u.mine?'<p style="color:#80e5b0">'+(u.rented?'🔑 Seu apartamento alugado':'✓ Seu apartamento comprado')+'</p>':
+       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="city-property-confirm" style="width:auto;margin:0;padding:9px 12px" data-unit-rent="'+id(H)+'|'+u.floor+'" '+(currentLease||CityLife.funds<u.rent?'disabled':'')+'>Alugar · '+money(u.rent)+'</button>'+
+       '<button class="city-property-confirm" style="width:auto;margin:0;padding:9px 12px" data-unit-buy="'+id(H)+'|'+u.floor+'" '+(CityLife.funds<u.price?'disabled':'')+'>Comprar · '+money(u.price)+'</button></div>')+
+      (u.rented?'<button class="city-property-secondary" style="margin-top:6px" data-unit-buy="'+id(H)+'|'+u.floor+'" '+(CityLife.funds<u.price?'disabled':'')+'>Comprar este apartamento alugado</button>':'')+
+      '</div>').join('')+
+    (currentLease&&list.some(u=>u.key===currentLease.key)?leasePanel(currentLease):'')+
+    '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;document.body.classList.add('city-property-open');return true;
  }
- function buyUnit(H,f){
-   if(!multi(H)||!(f>0)||f>=H.architecture.levels.length||ownsUnit(H,f))return {ok:false,text:'Unidade indisponível'};
-   const cost=unitPrice(H),label=(H.architecture.kind==='deco'?'Suíte ':'Apto ')+f+'01 · '+name(H);
-   if(!CityLife.debit(cost,'Compra · '+label))return {ok:false,text:'Saldo insuficiente'};
-   const k=unitKey(H,f);owned[k]={id:k,name:label,x:H.doorPt[0],y:H.doorPt[1],price:cost,at:Date.now(),floor:f,building:id(H)};
-   try{localStorage.setItem(KEY,JSON.stringify(owned));}catch(_){}
-   H.furnishOnPurchase?.();window.CityHome?.sync(H);
-   if(typeof CitySim!=='undefined'&&CitySim.data){CitySim.data.home={name:label,x:H.front?.[0]??H.doorPt[0],y:H.front?.[1]??H.doorPt[1],price:cost};CitySim.save();}
+ function leasePanel(contract){
+   const c=contract,late=c.arrears||0,rate=c.rate,days=Math.max(0,c.nextDueDay-gameDay()),money=n=>CityLife.money(n);
+   return '<div style="border:1px solid #8bd4ae77;padding:12px;border-radius:12px;margin-top:14px"><h3>🔑 Meu contrato de aluguel</h3>'+
+    '<p>Aluguel '+money(rate)+' / '+RENT_DAYS+' dias de jogo · Próximo vencimento em '+days+' dia(s)</p>'+
+    (late?'<p style="color:#ffc68e">Pendência: '+money(late)+' · regularize antes do vencimento de mais parcelas.</p>':'<p>Contrato em dia · sem pendências.</p>')+
+    '<p>Pagamento automático: '+(c.autoPay?'Ativado':'Desativado')+'</p>'+
+    '<button class="city-property-confirm" data-lease-action="pay">'+(late?'Quitar pendências':'Adiantar próximo aluguel')+'</button>'+
+    '<button class="city-property-secondary" data-lease-action="auto">Alternar pagamento automático</button>'+
+    '<button class="city-property-secondary" data-lease-action="end">Encerrar contrato</button></div>';
+ }
+ function setPrimary(H,f,pricePaid,rental=false){
+   const itemKey=f>0?unitKey(H,f):id(H);
+   if(window.CitySim?.data){
+     window.CitySim.data.home={name:(rental?'Aluguel · ':'')+(f>0?'Apto '+f+'01 · ':'')+name(H),x:H.doorPt[0],y:H.doorPt[1],price:pricePaid,propertyKey:itemKey,floor:f,rental:!!rental};
+     window.CitySim.save();
+   }
    window.dispatchEvent(new Event('city-property-change'));
-   return {ok:true,text:'🔑 '+label+' é sua! Suba pela escada até o '+f+'º andar.'};
+ }
+ function buyUnit(H,f){
+   if(!multi(H)||!units(H).some(u=>u.floor===f))return {ok:false,text:'Apartamento indisponível'};
+   const k=unitKey(H,f),existing=owned[k],buyingLease=!!existing?.rental;
+   if(ownsUnit(H,f)&&!buyingLease)return {ok:false,text:'Este apartamento já é seu'};
+   if(buyingLease&&existing.rental.arrears>0)return {ok:false,text:'Quite os aluguéis atrasados antes de comprar a unidade'};
+   const cost=unitPrice(H),label='Apto '+f+'01 · '+name(H);
+   if(!CityLife.debit(cost,'Compra · '+label))return {ok:false,text:'Saldo insuficiente'};
+   const old=existing;
+   owned[k]={id:k,name:label,x:H.doorPt[0],y:H.doorPt[1],price:cost,at:Date.now(),floor:f,building:id(H)};
+   if(!saveOwned()){if(old)owned[k]=old;else delete owned[k];CityLife.credit(cost,'Estorno · '+label);return {ok:false,text:'Falha ao salvar compra; valor devolvido'};}
+   H.furnishOnPurchase?.();window.CityHome?.sync(H);setPrimary(H,f,cost);
+   return {ok:true,text:'🔑 '+label+' comprado! Seu contrato de aluguel foi encerrado, se existia.'};
+ }
+ function rentUnit(H,f){
+   const p=window.__game?.player;
+   if(!multi(H)||!units(H).some(u=>u.floor===f)||!p||Math.hypot(p.x-H.doorPt[0],p.y-H.doorPt[1])>4)
+     return {ok:false,text:'Vá até a portaria de um prédio residencial e selecione um apartamento disponível'};
+   const k=unitKey(H,f),rate=unitRent(H,f);
+   if(ownsUnit(H,f))return {ok:false,text:'Apartamento indisponível ou já registrado para você'};
+   if(lease())return {ok:false,text:'Você já possui um aluguel ativo. Encerre-o antes de alugar outro apartamento'};
+   if(!CityLife.debit(rate,'Primeiro aluguel · Apto '+f+'01'))return {ok:false,text:'Saldo insuficiente para a primeira parcela do aluguel'};
+   owned[k]={id:k,name:'Apto '+f+'01 · '+name(H),x:H.doorPt[0],y:H.doorPt[1],price:rate,at:Date.now(),floor:f,building:id(H),
+     rental:{rate,interval:RENT_DAYS,nextDueDay:gameDay()+RENT_DAYS,arrears:0,autoPay:true}};
+   if(!saveOwned()){delete owned[k];CityLife.credit(rate,'Estorno · primeiro aluguel');return {ok:false,text:'Falha ao salvar contrato; valor devolvido'};}
+   H.furnishOnPurchase?.();window.CityHome?.sync(H);setPrimary(H,f,rate,true);
+   window.CityAdventures?.signal?.('home');
+   return {ok:true,text:'🔑 Apto '+f+'01 alugado por '+CityLife.money(rate)+'! Suba pela escada ao '+f+'º andar. Próxima cobrança em '+RENT_DAYS+' dias de jogo'};
+ }
+ function rentNearbyApartment(){
+   const p=window.__game?.player,H=nearby(p,4);
+   if(!multi(H))return {ok:false,text:'Aproxime-se da portaria de um prédio residencial e pressione F para escolher um apartamento'};
+   return {ok:false,text:'Pressione F na portaria de '+name(H)+' para escolher o andar e conferir o aluguel'};
+ }
+ function payRent(){
+   const c=lease();if(!c)return {ok:false,text:'Você não possui um contrato de aluguel ativo'};
+   const amount=c.arrears>0?c.arrears:c.rate;
+   if(!CityLife.debit(amount,'Aluguel · '+c.property.name))return {ok:false,text:'Saldo insuficiente para pagar '+CityLife.money(amount)};
+   if(c.arrears>0)c.property.rental.arrears=0;
+   else c.property.rental.nextDueDay+=RENT_DAYS;
+   saveOwned();window.dispatchEvent(new Event('city-property-change'));
+   return {ok:true,text:c.arrears>0?'Pendência de aluguel quitada':'Próximo período de aluguel pago antecipadamente'};
+ }
+ function toggleAutoPay(){
+   const c=lease();if(!c)return {ok:false,text:'Sem contrato de aluguel'};
+   c.property.rental.autoPay=!c.autoPay;saveOwned();
+   return {ok:true,text:'Pagamento automático '+(c.property.rental.autoPay?'ativado':'desativado')};
+ }
+ function clearLease(c){
+   delete owned[c.key];saveOwned();
+   if(window.CitySim?.data?.home?.propertyKey===c.key){window.CitySim.data.home=null;window.CitySim.save();}
+   window.dispatchEvent(new Event('city-property-change'));
+ }
+ function terminateLease(){
+   const c=lease();if(!c)return {ok:false,text:'Não há contrato para encerrar'};
+   if(c.arrears>0)return {ok:false,text:'Quite os pagamentos atrasados antes de entregar as chaves'};
+   const p=window.__game?.player;
+   if(p&&p.floor===c.property.floor&&p.floor>0)return {ok:false,text:'Saia do andar do apartamento antes de encerrar o contrato'};
+   clearLease(c);
+   return {ok:true,text:'Contrato encerrado. As chaves foram devolvidas e o apartamento voltou a ficar disponível'};
+ }
+ let lastRentalClock=-1;
+ function tick(clock){
+   const day=Math.floor(Number(clock)/1440);
+   if(!Number.isInteger(day)||day<0||day===lastRentalClock)return;
+   lastRentalClock=day;
+   for(const [key,v] of Object.entries(owned)){
+     const c=v?.rental;if(!c||typeof c!=='object'||!Number.isFinite(c.rate)||!Number.isFinite(c.nextDueDay))continue;
+     if(day<c.nextDueDay)continue;
+     const cycles=Math.floor((day-c.nextDueDay)/RENT_DAYS)+1;
+     c.nextDueDay+=cycles*RENT_DAYS;
+     const amount=cycles*c.rate;
+     if(c.autoPay&&c.arrears===0&&CityLife.debit(amount,'Aluguel automático · '+v.name))
+       window.CityUI?.notify?.('🏠 Aluguel do '+v.name+' pago: '+CityLife.money(amount));
+     else{c.arrears=(c.arrears||0)+amount;window.CityUI?.notify?.('⚠️ Aluguel pendente: '+CityLife.money(c.arrears)+' · CasaCerta');}
+     saveOwned();
+   }
  }
  function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;document.body.classList.remove('city-property-open');if(clear)selected=null;}
- function rentStarter(H=null){
-   const p=window.__game?.player;
-   if(!H)H=nearby(p,4);
-   if(!H||!rentable(H)||isOwned(H)||!p||Math.hypot(p.x-H.doorPt[0],p.y-H.doorPt[1])>4)
-     return {ok:false,text:'Aproxime-se da entrada de uma casa residencial disponível para alugar por R$ 160.'};
-   if(window.CitySim?.data?.home)return {ok:false,text:'Você já tem uma residência cadastrada.'};
-   if(!CityLife.debit(160,'Entrada de aluguel · '+name(H)))return {ok:false,text:'É preciso R$ 160 para alugar.'};
-   const k=id(H);
-   owned[k]={id:k,name:name(H),x:H.doorPt[0],y:H.doorPt[1],price:160,at:Date.now(),rental:true};
-   try{localStorage.setItem(KEY,JSON.stringify(owned));}catch(_){}
-   H.furnishOnPurchase?.();
-   window.CityHome?.sync(H);
-   if(window.CitySim?.data){window.CitySim.data.home={name:'Aluguel · '+name(H),x:H.doorPt[0],y:H.doorPt[1],price:160,rental:true};window.CitySim.save();}
-   window.CityAdventures?.signal?.('home');
-   window.dispatchEvent(new Event('city-property-change'));
-   return {ok:true,text:'🔑 Casa alugada! Agora você pode entrar e usar os móveis e a decoração.'};
- }
+ function rentStarter(){return rentNearbyApartment();}
  function buy(H){
    if(!residential(H)||isOwned(H))return {ok:false,text:'Imóvel indisponível'};
    const cost=price(H);
@@ -181,8 +265,8 @@ const CityRealty=(()=>{
    if(!H)return false;
    panel(H);return true;
  }
- function prompt(p){const H=nearby(p);if(H&&multi(H))return 'F · '+name(H)+' · '+units(H).filter(u=>!u.mine).length+' unidades à venda';return H?'F · '+(isOwned(H)?'Ver minha residência':'Consultar '+name(H)+(rentable(H)?' · comprar ou alugar':' à venda')+' · '+CityLife.money(price(H))):'';}
- return {init,residential,isOwned,canFurnish,canFurnishLevel,canUse,multi,units,ownsUnit,buyUnit,unitPrice,bare,claim,nearby,onInteract,prompt,buy,rentStarter,adminSetOwned,id,price,name,close,
+ function prompt(p){const H=nearby(p);if(H&&multi(H))return 'F · '+name(H)+' · apartamentos para alugar ou comprar';return H?'F · '+(isOwned(H)?'Ver minha residência':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
+ return {init,residential,isOwned,canFurnish,canFurnishLevel,canUse,multi,units,ownsUnit,buyUnit,unitPrice,bare,claim,nearby,onInteract,prompt,buy,rentStarter,rentUnit,rentNearbyApartment,unitRent,lease,payRent,toggleAutoPay,terminateLease,tick,adminSetOwned,id,price,name,close,
   get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
 })();
