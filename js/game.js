@@ -969,7 +969,7 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
-  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen){
+  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active){
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
@@ -1009,7 +1009,7 @@ function tick(dt) {
   const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
   const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
     ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
-  const vehicleMessage=interactPressed?((!window.cityVehicles?.driver&&(window.CityBus?.interact(player)||window.CityStreetFood?.interact(player)))||window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
+  const vehicleMessage=interactPressed?(window.CityAdventures?.interact(player)||(!window.cityVehicles?.driver&&(window.CityBus?.interact(player)||window.CityStreetFood?.interact(player)))||window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
@@ -1046,6 +1046,7 @@ function tick(dt) {
   for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
   window.cityCharacters?.update(dt);
   window.CityJobs?.tick(dt);   // turno do emprego (jobs.mjs)
+  window.CityAdventures?.tick(dt);
   window.CityCareers?.tick(dt);   // aulas e negócio próprio (careers.mjs)
   window.CityFarm?.tick();   // sítio do jogador (farm.mjs)
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
@@ -1088,7 +1089,7 @@ function tick(dt) {
   // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
-  const otherPrompt=(!window.cityVehicles?.driver&&(window.CityBus?.prompt(player)||window.CityStreetFood?.prompt(player)))||window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const otherPrompt=window.CityAdventures?.prompt(player)||(!window.cityVehicles?.driver&&(window.CityBus?.prompt(player)||window.CityStreetFood?.prompt(player)))||window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){
@@ -1124,6 +1125,7 @@ for (const H of houses) if (!H.architecture&&Math.hypot((H.x0 + H.x1) / 2 - play
 requestAnimationFrame(frame);
 window.__game = { player, cam, st, world, houses, input };
 CityUI.mount();
+window.CityAdventures?.mount();
 window.CityHomeUI?.mount();
 window.CityFront?.attachGame({
   release:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;player.aimHold=0;},
