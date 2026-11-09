@@ -287,6 +287,7 @@ export function installJobs(THREE, scene, bridge) {
     if (shift !== s) return; const pay = s.def.base + s.earned;
     if (typeof CityLife !== 'undefined') CityLife.credit(pay, 'Salário · ' + s.def.title);
     notify(`${s.def.icon} Turno encerrado · você recebeu ${money(pay)} (diária ${money(s.def.base)} + produção ${money(s.earned)})`);
+    window.CityAdventures?.signal?.('job');
     endShift(true);
   }
   function endShift(paid) {
