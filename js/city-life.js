@@ -19,7 +19,7 @@ const CityLife = (() => {
   const W = () => window.CityWeapons;
   const uid = () => 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const startingWeapons = () => [{ uid: uid(), id: 'rifle_ar_2', mods: [], mag: 30 }, { uid: uid(), id: 'pistol_1', mods: [], mag: 15 }, { uid: uid(), id: 'bat_1', mods: [], mag: 0 }];
-  let st = null, funds = 250, inventory = { ...starting }, history = [], equipped = 'rifle', autosave = 0;
+  let st = null, funds = 250, inventory = { ...starting }, history = [], equipped = 'unarmed', autosave = 0;
   let weapons = startingWeapons(), ammo = { '5.56': 90, '9mm': 45 }, mods = { suppressor_short: 1, flashlight: 1 }, lastBySlot = {};
   const cap = n => Math.max(0, Math.min(1, Number.isFinite(Number(n)) ? Number(n) : 0));
   const money = n => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
