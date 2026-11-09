@@ -1035,6 +1035,7 @@ function tick(dt) {
   CityLife.tick(dt,player);
   window.CityStreetFood?.tick(dt);
   CitySim.tick();
+  window.CityRealty?.tick?.(st.clock);
   ecosystemTick(dt,player,T);
   for(const n of npcs){
     const visiting=window.CityHomeVisitors?.tick(dt,n,(x,y,nx,ny)=>moveTo(x,y,nx,ny,.28,n.floor||0));
