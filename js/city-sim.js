@@ -189,9 +189,7 @@ const CitySim = (() => {
   }
   function rentApartment(){
     if(state.home)return fail('Você já tem uma residência principal');
-    if(!transact(160,'Entrada de aluguel'))return fail('R$ 160 necessários para alugar');
-    state.home={name:'Apartamento alugado (contrato virtual)',x:game.player.x,y:game.player.y,price:160};
-    commit();return ok('Contrato de aluguel criado · residência virtual vinculada à sua posição');
+    return window.CityRealty?.rentStarter?.() || fail('Imobiliária não está disponível');
   }
   function setHome(key) {
     const lot=state.ownedLots.find(x=>x.key===key);
