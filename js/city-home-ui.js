@@ -24,6 +24,7 @@ const CityHomeUI=(()=>{
    if(active||!canStart())return false;
    const p=window.__game?.player,home=inside(p);
    if(!home){message('Entre em uma propriedade sua para decorar',false);return false;}
+   if(window.CityRealty?.canUse?.(home,p.floor||0)===false){message('Este apartamento pertence a outra unidade. Acesse somente seu andar.',false);return false;}
    H=home;CityHome.sync(H);if(!CityHome.owned(H))return false;
    window.CityRealty?.close?.();
    floor=Math.max(0,Math.round(p.floor||0));oldFloor={floor:p.floor||0,floorZ:p.floorZ||0};
@@ -324,7 +325,8 @@ const CityHomeUI=(()=>{
    if(active)return;
    const p=window.__game?.player,now=typeof performance!=='undefined'?performance.now():Date.now();
    if(now-lastCheck<700)return;lastCheck=now;
-   const home=canStart()?inside(p):null;
+   const candidate=canStart()?inside(p):null;
+   const home=candidate&&window.CityRealty?.canUse?.(candidate,p.floor||0)!==false?candidate:null;
    if(home){CityHome.sync(home);window.CityHomePlus?.tick(p);}
    if(entry){entry.hidden=!home;}
  }
