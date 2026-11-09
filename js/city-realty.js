@@ -62,6 +62,7 @@ const CityRealty=(()=>{
    const tier=H.miaKind==='mansion'?620:H.miaKind==='poor'?160:H.tall?530:275;
    return Math.round(area*tier/1000)*1000+(isFarm(H)?85000:0);
  };
+ const rentable=H=>residential(H)&&!multi(H)&&!isFarm(H)&&H.miaKind!=='mansion'&&!H.tall&&price(H)<=120000;
  const name=H=>multi(H)?(H.architecture.kind==='deco'?'Hotel '+(H.hotelName||''):'Edifício residencial').trim():isFarm(H)?'Sítio':H.miaKind==='mansion'?'Mansão':H.tall?'Apartamento':H.miaKind==='poor'?'Casa popular':'Residência';
  function nearby(p,max=2.7){
    if(!p||typeof houses==='undefined')return null;
@@ -89,7 +90,7 @@ const CityRealty=(()=>{
      '<p>Área construída: '+Math.round((H.x1-H.x0)*(H.y1-H.y0))+' m²</p>'+(isFarm(H)?'<p>🚜 Terreno de 52 × 46 m: lavoura, galinheiro, curral, silo, galpão e caixa da cooperativa. Use o app Fazenda.</p>':'')+
      '<div class="city-property-value">'+(mine?(owned[id(H)]?.rental?'Seu imóvel alugado':'Sua propriedade'):CityLife.money(cost))+'</div>'+
      (mine?'<p>Este imóvel está disponível para você e aparece no mapa. Entre na casa e use F7 para decorar e comprar móveis.</p>'+(H.garage?'<button class="city-property-confirm" data-garage-toggle="'+id(H)+'">🚘 '+(H.garage.seg.doorAnim.target>.5?'Fechar':'Abrir')+' garagem</button>':''):
-       '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>'+(isFarm(H)?'':'<button data-property-rent="'+id(H)+'" '+(CityLife.funds<160?'disabled':'')+' class="city-property-secondary">Alugar por R$ 160 (moradia física)</button>'))+
+       '<p>Confirme a compra para usar este imóvel e decorar seu interior.</p><button data-property-buy="'+id(H)+'" '+(CityLife.funds<cost?'disabled':'')+' class="city-property-confirm">Comprar imóvel</button>'+(rentable(H)?'<button data-property-rent="'+id(H)+'" '+(CityLife.funds<160?'disabled':'')+' class="city-property-secondary">Alugar por R$ 160 (moradia física)</button>':''))+
      '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
    el.hidden=false;
    document.body.classList.add('city-property-open');
@@ -123,7 +124,7 @@ const CityRealty=(()=>{
  function rentStarter(H=null){
    const p=window.__game?.player;
    if(!H)H=nearby(p,4);
-   if(!H||!residential(H)||multi(H)||isFarm(H)||isOwned(H)||!p||Math.hypot(p.x-H.doorPt[0],p.y-H.doorPt[1])>4)
+   if(!H||!rentable(H)||isOwned(H)||!p||Math.hypot(p.x-H.doorPt[0],p.y-H.doorPt[1])>4)
      return {ok:false,text:'Aproxime-se da entrada de uma casa residencial disponível para alugar por R$ 160.'};
    if(window.CitySim?.data?.home)return {ok:false,text:'Você já tem uma residência cadastrada.'};
    if(!CityLife.debit(160,'Entrada de aluguel · '+name(H)))return {ok:false,text:'É preciso R$ 160 para alugar.'};
@@ -180,7 +181,7 @@ const CityRealty=(()=>{
    if(!H)return false;
    panel(H);return true;
  }
- function prompt(p){const H=nearby(p);if(H&&multi(H))return 'F · '+name(H)+' · '+units(H).filter(u=>!u.mine).length+' unidades à venda';return H?'F · '+(isOwned(H)?'Ver minha propriedade':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
+ function prompt(p){const H=nearby(p);if(H&&multi(H))return 'F · '+name(H)+' · '+units(H).filter(u=>!u.mine).length+' unidades à venda';return H?'F · '+(isOwned(H)?'Ver minha residência':'Consultar '+name(H)+(rentable(H)?' · comprar ou alugar':' à venda')+' · '+CityLife.money(price(H))):'';}
  return {init,residential,isOwned,canFurnish,canFurnishLevel,canUse,multi,units,ownsUnit,buyUnit,unitPrice,bare,claim,nearby,onInteract,prompt,buy,rentStarter,adminSetOwned,id,price,name,close,
   get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
