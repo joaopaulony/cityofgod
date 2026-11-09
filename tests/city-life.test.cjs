@@ -20,7 +20,7 @@ test('initial survival state, wallet and supplies are finite', () => {
   assert.equal(life.funds, 250);
   assert.equal(life.inventory.water, 3);
   assert.equal(st.needs.stamina, 1);
-  assert.equal(st.player.armed, true);
+  assert.equal(st.player.armed, false); // jogador inicia com as mãos livres
 });
 test('needs deplete when active and recover from consumables', () => {
   const { life,st }=boot();
@@ -98,7 +98,7 @@ test('weapon inventory: equip by slot, accessories and trade round-trip keep a v
   assert.ok(uid && life.weapons.some(w => w.uid === uid && w.mods[0] === 'suppressor_short'));
 });
 test('client modules parse as JavaScript without DOM installation', () => {
-  for(const filename of ['js/city-ui.js','js/city-life.js','js/hud.js','js/game.js','js/core.js','js/weapons.js']) {
+  for(const filename of ['js/city-ui.js','js/city-life.js','js/city-adventures.js','js/hud.js','js/game.js','js/core.js','js/weapons.js']) {
     assert.doesNotThrow(() => new vm.Script(fs.readFileSync(filename,'utf8'),{filename}));
   }
 });
