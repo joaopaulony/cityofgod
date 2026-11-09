@@ -1,42 +1,52 @@
-# City of God — Gameplay Foundation
+# City of God — vida urbana e moradia (novembro de 2026)
 
-## Jogabilidade
-- Inicie Novo jogo e crie seu personagem no CAS. O recém-chegado começa desarmado.
-- Após desembarcar no aeroporto, caminhe para completar seu primeiro objetivo.
-- Pressione J, clique no card do HUD ou acesse Vida na Cidade pelo celular (P).
-- A campanha de chegada possui 8 objetivos, com recompensas únicas e progresso salvo localmente.
-- Carreiras: no celular, candidate-se, use o GPS para ir ao emprego, pressione F para bater ponto e conclua as tarefas.
-- Moradia: aproxime-se da porta de uma casa residencial disponível, pressione F e escolha Alugar por R$ 160. O quarto virtual antigo foi substituído por acesso à casa física e seus móveis; o app CasaCerta também exige proximidade da porta.
-- Vida social: aproxime-se a pé de um NPC, pare, guarde a arma e clique para conversar.
-- Acontecimentos: durante a exploração a pé, até 12 situações narrativas podem surgir com NPC próximo. Aproxime-se e pressione F; as escolhas afetam carteira e reputação. O aviso do HUD permite tentar traçar o GPS.
-- Lazer: no painel J → Lazer, jogue basquete, pesque ou treine na academia. Clique Parar ou use Espaço durante os três desafios. Limite de três participações por atividade em cada dia de jogo. Venda os peixes capturados no painel.
+## Diretriz
+Esta entrega aproveita somente recursos do jogo que já existem: NPCs, prédios, interiores, inventário, emprego, GPS e animações. **Nenhum modelo ou animação nova foi incluído.** Os minigames de basquete, pesca e academia foram removidos, inclusive suas interfaces, recompensas e contadores.
 
-## Implementação
-- js/city-adventures.js: campanha, recompensas, eventos, lazer, painel e persistência.
-- css/city-adventures.css: interface separada do HUD e do celular.
-- js/game.js: integração do tick, prompt e interação com F; congela movimento enquanto o painel está aberto.
-- js/city-ui.js: progresso ao abrir o celular.
-- js/jobs.mjs: marca conclusão dos turnos; o bundle compilado js/vehicle-webgl.bundle.js foi reconstruído.
-- js/city-adventures.js: observa as memórias do sistema social para validar a primeira conversa.
-- js/city-realty.js + js/city-sim.js: aluguel com endereço e uso físico de imóvel.
-- LocalStorage: cityofgod.adventures.v1. Nova partida faz backup, limpa a aventura e cog-social-v1.
-- tests/city-adventures.test.cjs: testes de progresso, recompensas, reset, aluguel e catálogo de eventos.
-- .github/workflows/rebuild-runtime.yml: recompilação do runtime 3D na nuvem.
+## Campanha inicial
+1. Um novo começo — caminhar 20 metros (R$ 40).
+2. Seu primeiro contato — abrir o celular (R$ 30).
+3. Hora de trabalhar — conseguir um emprego existente (R$ 75).
+4. Primeiro salário — concluir um turno de trabalho (R$ 100).
+5. Um teto para chamar de seu — alugar ou comprar uma moradia física (R$ 100).
+6. Conhecendo os vizinhos — conversar com um NPC (R$ 80).
+7. Cuide de você — usar alimento ou bebida da mochila (R$ 60).
+8. A cidade precisa de você — resolver um acontecimento narrativo (R$ 150).
 
-## Limitações desta entrega
-- Basquete, pesca e academia são minigames de interface acessíveis pelo painel, não há ainda objetos esportivos animados em 3D ou restrição à quadra, ao rio e à academia física.
-- Os eventos usam NPCs já existentes e escolhas narrativas; não incluem novas animações, cenas exclusivas ou missões de busca com objetivos adicionais.
-- Não há multiplayer nem sincronização de saves no servidor; carteira e progresso permanecem locais.
-- Os empregos e cursos continuam sob seus controladores existentes, sem novo sistema de promoção por nível nesta etapa.
+Recompensas únicas totalizam R$ 635. Tecla J abre missões e acontecimentos; **não existe mais aba Lazer**. Dados ficam no salvamento local.
 
-## Próximas melhorias
-1. Pontos físicos de lazer (quadras, pesca, academia), animações e interação espacial.
-2. Eventos com fases, caminhos alternativos e consequências persistentes nos NPCs.
-3. Novas histórias, promoções de emprego e contratos.
-4. Teste de uso com jogadores novos e métricas de retenção.
-5. Persistência autoritativa quando o multiplayer estiver pronto.
+## Apartamentos e aluguel
+- Edifícios residenciais já existentes, com apartamentos definidos por andar, apresentam **aluguel e compra** na portaria (F). O CasaCerta permite abrir o painel de apartamentos ao se aproximar do prédio.
+- Não são criados prédios, cômodos ou personagens adicionais. Usamos os andares reais do sistema imobiliário anterior (um apartamento por andar nos prédios atuais).
+- Preço do aluguel por período de **7 dias do calendário do jogo**: conjuntos populares a partir de R$ 160, condomínios a partir de R$ 200, edifícios de padrão maior a partir de R$ 270; andares superiores acrescentam valores.
+- O primeiro período é pago no ato do contrato. A chave vale apenas para o prédio e o andar alugados; portaria continua pública e outros andares permanecem restritos.
+- Pagamento automático pela carteira CityLife; se o saldo for insuficiente, há pendência. O CasaCerta permite quitar atrasos, antecipar aluguel, mudar o pagamento automático e encerrar o contrato.
+- **Três parcelas em atraso** causam perda de acesso; não ocorre expulsão enquanto o personagem está dentro de sua unidade, evitando bloqueá-lo atrás de portas.
+- A entrega voluntária exige ausência de pendências e que o personagem saia do apartamento.
+- O inquilino pode comprar o apartamento alugado se quitar os atrasos e pagar o valor de venda. A propriedade então fica permanente, sem renovação de aluguel.
+- O editor de casa confere acesso ao andar, sem permitir decorar apartamentos alheios.
+- Contrato, vencimento, pendências e permissões são persistidos localmente; o vínculo com a residência principal e o andar também é salvo.
+- Antigas casas alugadas continuam reconhecidas para não prejudicar saves anteriores; **novos contratos se concentram nos apartamentos**.
 
-## Validação
-- Executar: node --test tests/*.test.*
-- Executar: npm run build:site
-- Roteiro manual: Novo jogo → aeroporto → celular → emprego → aluguel físico → social → J / lazer → evento F → salvar e continuar.
+## Economia da moradia
+A cobrança do aluguel é separada das contas de água, luz e manutenção. O consumo é acumulado por dia de jogo: R$ 6 para moradia alugada; R$ 14 para residência própria; terrenos acrescentam R$ 10 por dia cada. As contas de consumo são pagas pelo CasaCerta.
+
+## Sistemas existentes preservados
+- Empregos e turnos reais: ainda são os controladores existentes.
+- GPS: pode traçar rota até a portaria de um apartamento alugado.
+- Vida social: ações com NPCs existentes e memória de conversas.
+- Acontecimentos: 12 encontros narrativos curtos, sem novos cenários ou animações. As escolhas produzem dinheiro e reputação, mas não atividades físicas inéditas.
+- Inventário: uso real de alimentos e bebidas atende à missão de autocuidado.
+- Nova partida: salva backup e reinicia progresso, incluindo relacionamentos sociais.
+
+## Limitações
+Os apartamentos seguem o layout que já existe nos prédios do jogo, sem subdivisão extra por andar. O aluguel é single-player e local ao navegador; não há sincronização de contratos entre jogadores.
+
+## Testes
+- node --test tests/*.test.*
+- npm run build:site
+- tests/city-adventures.test.cjs: campanhas, inventário, reset e aluguel real.
+- tests/city-rentals.test.cjs: contratos, acesso por andar, persistência, pagamentos, atraso, despejo e compra.
+- tests/city-sim.test.cjs: economia, serviços e vínculo imobiliário.
+
+Teste manual recomendado: iniciar partida, obter emprego, chegar à portaria, alugar com F, entrar no andar correspondente, testar acesso a outros andares, usar CasaCerta para pagar ou encerrar contrato e depois salvar e retomar.
