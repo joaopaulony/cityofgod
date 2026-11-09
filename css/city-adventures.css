@@ -36,10 +36,6 @@
 #city-adventure-shade .cga-choice{text-align:left;display:flex;justify-content:space-between;gap:15px;border:1px solid #84ba9460;background:#1e3b33;border-radius:10px;padding:14px;color:#effff2}
 #city-adventure-shade .cga-choice b{font-size:13px}
 #city-adventure-shade .cga-choice small{color:#c3dcc7}
-#city-adventure-shade .cga-meter{height:24px;position:relative;background:linear-gradient(90deg,#9a4b4b,#be9d54,#8eb77e,#be9d54,#9a4b4b);border-radius:12px;margin:18px 0;border:2px solid #ffffff35}
-#city-adventure-shade .cga-meter .cga-target{display:block;position:absolute;top:-4px;bottom:-4px;width:12%;margin-left:-6%;background:#74f69b66;border:2px solid #b9ffd2;border-radius:7px}
-#city-adventure-shade .cga-meter i{display:block;position:absolute;top:-6px;bottom:-6px;width:3px;background:#fff;box-shadow:0 0 8px #fff;left:0}
-#city-adventure-shade .cga-minigame h3{margin:0 0 5px;color:#fff}
 #city-adventure-shade blockquote{border-left:3px solid #87b891;padding-left:12px;margin:12px 0;color:#e2f2e5;font-style:italic}
 body.front-open #city-adventure-hud,body.map-open #city-adventure-hud,body.city-modal #city-adventure-hud,body.city-adventure-open #city-adventure-hud{display:none}
 @media(max-width:700px){#city-adventure-hud{top:8px;right:8px;width:min(260px,calc(100vw - 16px));padding:9px}#city-adventure-shade{padding:7px}#city-adventure-shade h2{font-size:21px}#city-adventure-shade .cga-row{gap:7px;flex-wrap:wrap}#city-adventure-shade .cga-row em{font-size:10px}}
