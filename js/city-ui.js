@@ -353,6 +353,7 @@ const CityUI = (() => {
     window.addEventListener('blur', () => { if (wheelOpen) closeWheel(false); });
     window.addEventListener('city-life-change', () => { if(phoneOpen && ['status','bag','market','wallet','bank','home','jobs','business','properties','cars'].includes(app)) render(); });
     window.addEventListener('city-sim-change', () => { if(phoneOpen && app!=='social') {updatePhoneTheme();render();} });
+    window.addEventListener('city-property-change', () => {if(phoneOpen&&app==='properties')render();});
     mounted = true;
     updatePhoneTheme();
   }
