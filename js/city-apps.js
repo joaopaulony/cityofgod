@@ -17,7 +17,7 @@ const CityApps = (() => {
      ['cars','🚗','AutoShow'],['properties','🏠','CasaCerta'],['jobs','💼','VagasJá'],
      ['business','🏪','Negócios'],['services','🛎️','Serviços'],['taxi','🚕','CityTaxi']
     ].map(x=>'<button class="city-app" data-app="'+x[0]+'"><span class="city-app-icon">'+x[1]+'</span>'+x[2]+'</button>').join('')+'</div><p class="city-help">Este navegador contém portais fictícios integrados à economia do jogo, não sites externos.</p>';
-  if(app==='adventures'){const p=window.CityAdventures?.progress;return banner('<strong>Vida na Cidade</strong><small>Missões, acontecimentos e lazer</small>')+card('Sua jornada',(p?'Etapa '+Math.min(8,p.step+1)+'/8 · Reputação '+p.reputation+' · Eventos resolvidos '+p.events:'Prepare a cidade para começar.'),btn('sim:adventure-open','Abrir objetivos e atividades'),'🏙️');}
+  if(app==='adventures'){const p=window.CityAdventures?.progress;return banner('<strong>Vida na Cidade</strong><small>Missões, acontecimentos e progresso de vida</small>')+card('Sua jornada',(p?'Etapa '+Math.min(8,p.step+1)+'/8 · Reputação '+p.reputation+' · Eventos resolvidos '+p.events:'Prepare a cidade para começar.'),btn('sim:adventure-open','Abrir objetivos e atividades'),'🏙️');}
   if(app==='bank')return window.CityBank?window.CityBank.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>NexoBank</strong><small>Carregando…</small>');
   if(app==='career')return window.CityCareers?window.CityCareers.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Carreira</strong><small>Carregando…</small>');
   if(app==='farm')return window.CityFarm?window.CityFarm.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Fazenda</strong><small>Carregando…</small>');
