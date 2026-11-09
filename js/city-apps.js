@@ -61,7 +61,7 @@ const CityApps = (() => {
           btn('sim:rent-route','Traçar GPS até o prédio')+
           btn('sim:rent-end','Encerrar contrato'), '🔑');
        })():!data.home?card('Alugue um apartamento de verdade','Vá à portaria de um edifício com apartamentos. Pressione F para escolher o andar e contratar. Os valores variam por prédio.',
-         btn('sim:rent','Como alugar?'),'🏢'):'')+
+         btn('sim:rent','Consultar apartamentos próximos'),'🏢'):'')+
       (owned||'')+
       '<div class="city-phone-label">Terrenos reais com placa VENDE-SE carregados por perto</div>'+
       (CitySim.nearbyLots().length?CitySim.nearbyLots().map(l=>card(l.name,
