@@ -64,7 +64,7 @@ export function zipRead(entry) {
 }
 
 // ---------------- WAV ----------------
-export function decodeWav(buf) {
+export function decodeWav(buf, { from = 0, len = Infinity } = {}) {   // from/len em segundos: só decodifica esse trecho
   if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') throw Error('não é WAV');
   let p = 12, fmt = null, data = null;
   while (p + 8 <= buf.length) {
@@ -75,9 +75,9 @@ export function decodeWav(buf) {
     p += 8 + len + (len & 1);
   }
   if (!fmt || !data) throw Error('WAV sem fmt/data');
-  const bps = fmt.bits / 8, frames = Math.floor(data.length / (bps * fmt.ch)), chans = [];
+  const bps = fmt.bits / 8, total = Math.floor(data.length / (bps * fmt.ch)), f0 = Math.min(total, Math.max(0, from * fmt.rate | 0)), frames = Math.min(total - f0, Number.isFinite(len) ? Math.ceil(len * fmt.rate) : total), chans = [];
   for (let c = 0; c < fmt.ch; c++) chans.push(new Float32Array(frames));
-  for (let i = 0, o = 0; i < frames; i++) for (let c = 0; c < fmt.ch; c++, o += bps) {
+  for (let i = 0, o = f0 * bps * fmt.ch; i < frames; i++) for (let c = 0; c < fmt.ch; c++, o += bps) {
     let v;
     if (fmt.tag === 3) v = bps === 8 ? data.readDoubleLE(o) : data.readFloatLE(o);
     else if (bps === 2) v = data.readInt16LE(o) / 32768;
@@ -140,7 +140,7 @@ export function render(src, R) {
   let chans = src.chans;
   if (!R.stereo || chans.length === 1) { const m = new Float32Array(chans[0].length); for (const c of chans) for (let i = 0; i < m.length; i++) m[i] += c[i] / chans.length; chans = [m]; }
   else chans = chans.slice(0, 2);
-  const s = Math.floor((R.start || 0) * src.rate), e = R.dur ? Math.min(chans[0].length, s + Math.floor(R.dur * src.rate)) : chans[0].length;
+  const s = R.starts || R.split || R.dur ? 0 : Math.floor((R.start || 0) * src.rate), e = R.dur && !R.starts && !R.split ? Math.min(chans[0].length, s + Math.floor(R.dur * src.rate)) : chans[0].length;
   chans = chans.map(c => resample(c.subarray(s, e), src.rate, rate));
   if (R.loop) chans = seamless(chans, rate, R.xfade ?? 1.5); else { chans = trimTail(chans, rate); fade(chans, rate, R.fadeIn ?? .002, R.fadeOut ?? .03); }
   const target = R.loop ? (R.rms ?? .12) / Math.max(1e-6, rms(chans)) : (R.peak ?? .89) / Math.max(1e-6, peak(chans));
@@ -180,10 +180,13 @@ async function main() {
     const variants = [], want = R.variants || 1;
     for (const f of hits) {
       if (variants.length >= want) break;
-      let src; try { src = decodeWav(zipRead(f)); } catch (e) { console.warn('  falhou', f.name, e.message); continue; }
+      const win = R.starts ? { from: Math.min(...R.starts), len: Math.max(...R.starts) - Math.min(...R.starts) + (R.dur || 5) } : !R.split && R.dur ? { from: R.start || 0, len: R.dur } : {};
+      let src; try { src = decodeWav(zipRead(f), win); } catch (e) { console.warn('  falhou', f.name, e.message); continue; }
       const pieces = [];
       if (R.split) {
-        const mono = src.chans[0]; for (const [a, b] of onsets(mono, src.rate, R.split)) pieces.push({ rate: src.rate, chans: src.chans.map(c => c.subarray(a, b)) });
+        const mono = src.chans[0]; for (const [a, b] of onsets(mono, src.rate, R.split).slice(R.skip || 0)) pieces.push({ rate: src.rate, chans: src.chans.map(c => c.subarray(a, b)) });
+      } else if (R.starts) {   // vários trechos do mesmo arquivo longo (carros passando, etc.)
+        for (const st of R.starts) { const a = (st - Math.min(...R.starts)) * src.rate | 0, b = Math.min(src.chans[0].length, a + (R.dur || 5) * src.rate | 0); if (b - a > src.rate) pieces.push({ rate: src.rate, chans: src.chans.map(c => c.subarray(a, b)) }); }
       } else pieces.push(src);
       for (const pc of pieces) { if (variants.length >= want) break; if (pc.chans[0].length < src.rate * .03) continue; variants.push(render(pc, R)); }
     }

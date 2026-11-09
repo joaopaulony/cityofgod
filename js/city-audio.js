@@ -144,6 +144,8 @@ const CityAudio = (() => {
     const S = place(x, y, { ref: own ? 30 : 16, max: 420, echo: .35 }); if (!S) return;
     // gravação do tiro da arma (ou da arma mais parecida que houver)
     const alt = { revolver: ['gun_revolver', 'gun_pistol'], smg: ['gun_smg', 'gun_pistol'], rifle: ['gun_rifle', 'gun_shotgun'], shotgun: ['gun_shotgun'], pistol: ['gun_pistol', 'gun_revolver'] }[cat] || ['gun_pistol'];
+    // longe (> 110 m): tiro gravado de longe, com a cauda batendo nos prédios
+    if (S.d > 110 && has('gun_far') && play('gun_far', S.input, { rate: rnd(.95, 1.05), gain: 1.4 })) return;
     const id = alt.find(has); if (id && play(id, S.input, { rate: rnd(.96, 1.04), gain: (own ? .6 : 1) * (id === 'gun_' + cat ? 1 : .9) })) return;
     const t = now(), lvl = P.lvl * (own ? .55 : 1) * rnd(.9, 1.05), sh = shaper(6); sh.connect(S.input);
     // estalo supersônico/boca do cano
@@ -176,6 +178,7 @@ const CityAudio = (() => {
   // soco, taco, corpo caindo
   function thump(x, y, kind = 'punch') {
     if (!ready()) return; const S = place(x, y, { ref: 6, max: 50, echo: .1 }); if (!S) return; const t = now();
+    if (kind === 'punch' && play('punch', S.input, { rate: rnd(.9, 1.1), gain: .8 })) return;
     const o = ctx.createOscillator(); o.type = 'sine'; const f = kind === 'fall' ? 70 : kind === 'bat' ? 140 : 110; o.frequency.setValueAtTime(f * 1.8, t); o.frequency.exponentialRampToValueAtTime(f * .6, t + .1);
     const g = G(S.input); o.connect(g); env(g, t, .002, kind === 'fall' ? .7 : .55, kind === 'fall' ? .22 : .12);
     const n = noise(pink), l = filt('lowpass', kind === 'bat' ? 2200 : 900), g2 = G(S.input); n.connect(l); l.connect(g2); env(g2, t, .001, .45, .08);
@@ -261,7 +264,8 @@ const CityAudio = (() => {
     engine.nodes = { a, b, c, lp, g, n, wob, s, sg, amg, am, rec, skid };
     if (engine.wasOn === false) play('car_start', sfx, { gain: .7 });
   }
-  const ENGINE_REC = [['engine_idle', 900], ['engine_low', 2200], ['engine_mid', 3800], ['engine_high', 5800]];
+  // rotação de cada trecho gravado (Citroën C5, rotações constantes; medida pela frequência das explosões)
+  const ENGINE_REC = [['engine_idle', 850], ['engine_low', 1260], ['engine_mid', 1880], ['engine_high', 3270]];
   function engineStop() { const E = engine.nodes; if (!E) return; const t = now(); E.g.gain.setTargetAtTime(0, t, .15); E.sg.gain.setTargetAtTime(0, t, .1); for (const r of E.rec) r.L.g.gain.setTargetAtTime(0, t, .15); E.skid.g.gain.setTargetAtTime(0, t, .1); setTimeout(() => { for (const k of ['a', 'b', 'c', 'n', 'wob', 's', 'am']) try { E[k].stop(); } catch (_) {} E.rec.forEach(r => r.L.stop()); E.skid.stop(); }, 900); engine.nodes = null; }
   function engineTick(dt) {
     const V = window.cityVehicles, driving = V?.driver && V.engineOn;
