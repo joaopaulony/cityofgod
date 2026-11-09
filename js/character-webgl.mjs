@@ -75,7 +75,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   const result=social.interact('player',id,action,socialAPI.context(id));
   if(result.investigation)dispatchInvestigation(result.investigation);
   if(result.event&&result.accepted){const activity=activities.start(result.event,n);if(!activity.ok){social.finishEvent(result.event.id,'interrupted');result.text+=' '+activity.text;}else result.text+=' '+activity.text;}
-  if(result.ok){n.socialUntil=social.time+7;n.speed=0;n.face=Math.atan2(bridge.player.y-n.y,bridge.player.x-n.x);bridge.player.face=n.face+Math.PI; say(bridge.player,result.line,'💬');say(n,result.text,result.reaction);
+  if(result.ok){window.CityAdventures?.signal?.('social');n.socialUntil=social.time+7;n.speed=0;n.face=Math.atan2(bridge.player.y-n.y,bridge.player.x-n.x);bridge.player.face=n.face+Math.PI; say(bridge.player,result.line,'💬');say(n,result.text,result.reaction);
    const emote=result.reaction==='😄'?'cheer':action==='greet'?'wave':null;if(emote)for(const a of [bridge.player,n]){const e=entries.get(a);if(e&&!a.armed)e.emote={id:emote,end:performance.now()+2500};}
   }
   return result;
