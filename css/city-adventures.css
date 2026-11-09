@@ -1,0 +1,45 @@
+/* City of God — Vida na Cidade. Camada independente dos HUDs e do celular. */
+#city-adventure-hud{position:fixed;right:16px;top:18px;z-index:7;width:min(310px,calc(100vw - 28px));box-sizing:border-box;padding:12px 14px;border-radius:15px;border:1px solid #adbaaf42;background:linear-gradient(135deg,rgba(18,29,31,.89),rgba(12,19,22,.94));box-shadow:0 10px 32px #0008;color:#f0f1ee;font:500 12px/1.5 "Segoe UI",system-ui,sans-serif;pointer-events:auto}
+#city-adventure-hud .cga-step{display:block;letter-spacing:.16em;text-transform:uppercase;color:#b1d8bc;font-size:10px;font-weight:800}
+#city-adventure-hud .cga-title{display:block;font-size:15px;margin:3px 0;color:#fff}
+#city-adventure-hud .cga-desc{display:block;color:#ccd5cf;font-size:11px;margin-bottom:8px}
+#city-adventure-hud button{cursor:pointer;border:1px solid #658b7a77;background:#163b31;color:#e5ffea;border-radius:8px;padding:6px 10px;font:700 11px system-ui}
+#city-adventure-hud .cga-alert{display:block;width:100%;margin-top:7px;text-align:left;background:#553d21;color:#ffebbf;border-color:#aa743d}
+#city-adventure-hud .cga-alert[hidden]{display:none}
+#city-adventure-shade[hidden]{display:none!important}
+#city-adventure-shade{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;background:#04090dc9;z-index:90;box-sizing:border-box;padding:18px;font-family:"Segoe UI",system-ui,sans-serif;color:#eef5ee}
+#city-adventure-shade .cga-panel{width:min(670px,100%);max-height:88vh;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(145deg,#1a2829,#101a20);border:1px solid #9eb2a147;box-shadow:0 18px 80px #000b;border-radius:19px}
+#city-adventure-shade header{padding:18px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff20}
+#city-adventure-shade header small{font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#a3bda6;font-size:10px}
+#city-adventure-shade h2{margin:4px 0 0;font-size:26px;font-weight:800;color:#f5fff6}
+#city-adventure-shade header button{font-size:20px;background:transparent;color:#d7e5de;border:0;cursor:pointer}
+#city-adventure-shade .cga-tabs{display:flex;gap:8px;padding:10px 16px;overflow-x:auto;border-bottom:1px solid #ffffff17}
+#city-adventure-shade .cga-tabs button{padding:9px 12px;background:#ffffff0b;border:1px solid #ffffff1b;color:#c6d5cc;border-radius:8px;white-space:nowrap;font:600 12px system-ui;cursor:pointer}
+#city-adventure-shade .cga-tabs button.on{color:#f5fff5;background:#245442;border-color:#7cad90}
+#city-adventure-shade .cga-content{padding:14px 18px 20px;overflow:auto;scrollbar-width:thin;min-height:90px}
+#city-adventure-shade .cga-info{padding:14px 15px;background:#ffffff0a;border:1px solid #ffffff18;border-radius:12px;margin-bottom:12px;color:#d5dfd8}
+#city-adventure-shade .cga-info>b{font-size:16px;color:#f0fff4}
+#city-adventure-shade .cga-info p{margin:8px 0;line-height:1.55;font-size:13px}
+#city-adventure-shade .cga-info small{font-size:11px;color:#bed1bf}
+#city-adventure-shade button{font-family:inherit;cursor:pointer}
+#city-adventure-shade button:disabled{opacity:.38;cursor:not-allowed}
+#city-adventure-shade .cga-info button,#city-adventure-shade .cga-row button,#city-adventure-shade .cga-main{padding:9px 12px;border-radius:9px;background:#2c6249;border:1px solid #70ad83;color:#fff;font-size:12px;font-weight:750}
+#city-adventure-shade .cga-main{display:block;width:100%;padding:12px}
+#city-adventure-shade .cga-list{display:grid;gap:7px;margin-bottom:12px}
+#city-adventure-shade .cga-row{display:flex;align-items:center;gap:12px;background:#ffffff09;border:1px solid #ffffff12;padding:10px 12px;border-radius:11px}
+#city-adventure-shade .cga-row.done{opacity:.6}
+#city-adventure-shade .cga-row>span{font-size:23px;color:#83eab0;width:27px;text-align:center;flex-shrink:0}
+#city-adventure-shade .cga-row>div{flex:1;min-width:0}
+#city-adventure-shade .cga-row b{display:block;color:#f6fcf7;font-size:13px}
+#city-adventure-shade .cga-row small{display:block;color:#bac9c0;line-height:1.4;font-size:11px;margin-top:3px}
+#city-adventure-shade .cga-row em{font-style:normal;font-size:11px;color:#acdfad;white-space:nowrap}
+#city-adventure-shade .cga-choice{text-align:left;display:flex;justify-content:space-between;gap:15px;border:1px solid #84ba9460;background:#1e3b33;border-radius:10px;padding:14px;color:#effff2}
+#city-adventure-shade .cga-choice b{font-size:13px}
+#city-adventure-shade .cga-choice small{color:#c3dcc7}
+#city-adventure-shade .cga-meter{height:24px;position:relative;background:linear-gradient(90deg,#9a4b4b,#be9d54,#8eb77e,#be9d54,#9a4b4b);border-radius:12px;margin:18px 0;border:2px solid #ffffff35}
+#city-adventure-shade .cga-meter .cga-target{display:block;position:absolute;top:-4px;bottom:-4px;width:12%;margin-left:-6%;background:#74f69b66;border:2px solid #b9ffd2;border-radius:7px}
+#city-adventure-shade .cga-meter i{display:block;position:absolute;top:-6px;bottom:-6px;width:3px;background:#fff;box-shadow:0 0 8px #fff;left:0}
+#city-adventure-shade .cga-minigame h3{margin:0 0 5px;color:#fff}
+#city-adventure-shade blockquote{border-left:3px solid #87b891;padding-left:12px;margin:12px 0;color:#e2f2e5;font-style:italic}
+body.front-open #city-adventure-hud,body.map-open #city-adventure-hud,body.city-modal #city-adventure-hud,body.city-adventure-open #city-adventure-hud{display:none}
+@media(max-width:700px){#city-adventure-hud{top:8px;right:8px;width:min(260px,calc(100vw - 16px));padding:9px}#city-adventure-shade{padding:7px}#city-adventure-shade h2{font-size:21px}#city-adventure-shade .cga-row{gap:7px;flex-wrap:wrap}#city-adventure-shade .cga-row em{font-size:10px}}
