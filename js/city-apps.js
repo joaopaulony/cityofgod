@@ -51,7 +51,7 @@ const CityApps = (() => {
       '<div class="city-panel"><h3>Minha residência</h3><p>'+esc(data.home?.name||'Sem residência cadastrada')+'</p>'+
       '<div class="city-row"><strong>Contas pendentes</strong><strong>'+price(data.bills)+'</strong></div>'+
       btn('sim:bills','Pagar contas',!data.bills)+'</div>'+
-      (!data.home?card('Quarto alugado (virtual)','Contrato inicial de aluguel com entrada de R$ 160. Não cria uma casa 3D automaticamente.',
+      (!data.home?card('Aluguel inicial em uma casa de verdade','Aproxime-se da porta de uma residência disponível e use F para alugar e entrar no imóvel. Entrada R$ 160.',
          btn('sim:rent','Alugar',CityLife.funds<160),'🛏️'):'')+
       (owned||'')+
       '<div class="city-phone-label">Terrenos reais com placa VENDE-SE carregados por perto</div>'+
