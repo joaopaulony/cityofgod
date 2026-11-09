@@ -28,6 +28,7 @@ const GANG_RAGE = ['Mexeu com a gente, vai morrer!', 'Pega ele!', 'Vai pagar car
 export function createNPCAI(THREE, scene, ctx) {
   const { bridge, system, npcs, entries } = ctx, P = () => bridge.player, dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const fleet = createAIVehicles(THREE, scene, bridge, { people: () => [P(), ...npcs.filter(n => !n.dead && entries.has(n))] });
+  window.cityAIVehicles = fleet;   // city-audio: rádio da viatura parada por perto
   system.fleet = fleet.state;
   // trânsito civil leve: poucos carros só perto do jogador (menos no perfil gráfico baixo)
   const traffic = createTraffic(THREE, scene, bridge, { network: fleet.network, roadPoint: fleet.roadPoint, people: () => [P(), ...npcs.filter(n => !n.dead && entries.has(n))],

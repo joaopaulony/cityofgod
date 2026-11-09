@@ -341,10 +341,10 @@ function fire(J) {
     const hit = raycast(m[0], m[1], dx, dy, W.range || 45);
     // pessoas na frente da parede/chão: hitbox dos personagens 3D (sangue e morte lá em character-webgl.mjs)
     const who = window.cityCharacters?.shoot?.(m[0], m[1], dx, dy, hit.t, W.damage || 28, player);
-    if (who) { tracers.push({ a: m, b: [who.x, who.y, who.z], t: 0.09 }); continue; }
+    if (who) { tracers.push({ a: m, b: [who.x, who.y, who.z], t: 0.09 }); window.CityAudio?.fx?.('bullet_flesh', who.x, who.y, { ref: 6, max: 60, gain: .7 }); continue; }
     const hz = Math.max(0.05, m[2] - hit.t * 0.012);
     tracers.push({ a: m, b: [hit.x, hit.y, hz], t: 0.09 });
-    impact(hit, hz); window.CityAudio?.bulletHit(hit.x, hit.y, hit.kind === 'tree' || hit.kind === 'none');
+    impact(hit, hz); if (hit.glass) window.CityAudio?.fx?.('glass_break', hit.x, hit.y, { ref: 8, max: 80, gain: .45, rate: 1.2 }); else window.CityAudio?.bulletHit(hit.x, hit.y, hit.kind === 'tree' || hit.kind === 'none');
   }
   player.ammo--; player.recoilT = 0; player.flash = 0.11; st.shake = 0.12; window.CameraMotion?.shake(.14, .13);
   window.CityAudio?.gun(W.cat || 'rifle', player.x, player.y, true);

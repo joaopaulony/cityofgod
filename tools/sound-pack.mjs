@@ -204,6 +204,6 @@ async function main() {
     console.log(`${R.id.padEnd(22)} ${variants.length}/${want}  ← ${hits.slice(0, 2).map(h => path.basename(h.name)).join(' | ')}`);
   }
   fs.writeFileSync(mfPath, JSON.stringify(manifest, null, 1) + '\n');
-  if (missing.length) console.log('\nsem arquivo no pacote (o jogo usa o som sintetizado):', missing.join(', '));
+  if (missing.length) console.log('\nsem arquivo no pacote (fica em silêncio):', missing.join(', '));
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(e => { console.error(e); process.exit(1); });
