@@ -74,6 +74,9 @@ test('starter rental uses a physical home and charges only once',()=>{
  for(const file of ['js/city-life.js','js/city-sim.js','js/city-realty.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  const st={player:{x:100,y:100,armed:true,ammo:30,reserve:90,magState:'in'},hp:.9,food:.7,water:.7,clock:500};
  window.__game={player:st.player};window.CityLife.init(st);window.CitySim.init(st);window.CityRealty.init();
+ const mansion={...house,miaKind:'mansion',doorPt:[102,100]};
+ assert.equal(window.CityRealty.rentStarter(mansion).ok,false,'mansões não entram no aluguel inicial');
+ assert.equal(window.CityLife.funds,250);
  const first=window.CitySim.rentApartment();
  assert.equal(first.ok,true);
  assert.equal(window.CityLife.funds,90);
