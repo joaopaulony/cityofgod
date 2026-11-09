@@ -34,7 +34,7 @@ const CityAdventures=(()=>{
   gym:{title:'Academia · treino de resistência',desc:'Conclua três séries de exercício no ritmo correto para desenvolver condicionamento.',icon:'🏋️',pay:0}
  };
  const fresh=()=>({version:1,step:0,walk:0,flags:{},reputation:0,history:[],eventCount:{},lastEventId:null,leisure:{basket:0,fish:0,gym:0,fishStock:0,day:-1,today:{}},totalRewards:0});
- let state=fresh(),active=false,tab='missions',event=null,eventNpc=null,eventId=0,eventClock=0,nextEvent=55,activity=null,el=null,hud=null,lastPos=null,ready=false,notifyT=0;
+ let state=fresh(),active=false,tab='missions',event=null,eventNpc=null,eventId=0,eventClock=0,nextEvent=55,activity=null,el=null,hud=null,lastPos=null,ready=false,notifyT=0,socialCheckT=0;
  const money=n=>window.CityLife?.money?.(n)||('R$ '+n);
  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function read(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v?.version===1&&Number.isInteger(v.step)){state={...fresh(),...v,flags:v.flags||{},eventCount:v.eventCount||{},leisure:{...fresh().leisure,...v.leisure,today:v.leisure?.today||{}}};state.step=Math.max(0,Math.min(MAX_STEP,state.step));}}catch(_){}}
@@ -231,6 +231,12 @@ const CityAdventures=(()=>{
    if(d<3&&!(p.floor||0))state.walk+=d;
   }
   lastPos={x:p.x,y:p.y};
+  socialCheckT+=dt;
+  if(!state.flags.social&&socialCheckT>=1){
+   socialCheckT=0;
+   const rel=window.cityCharacters?.social?.relations;
+   if(rel&&[...rel].some(([key,r])=>key.split('|').includes('player')&&r.memories?.some(m=>m.actor==='player'&&m.channel==='local')))signal('social');
+  }
   if(!active)check();
   if(event){
    eventClock+=dt;
