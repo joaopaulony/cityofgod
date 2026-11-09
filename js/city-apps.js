@@ -50,10 +50,18 @@ const CityApps = (() => {
       btn('sim:home:'+l.key,data.home?.name===l.name?'Residência atual':'Mudar para cá',data.home?.name===l.name),'🏡')).join('');
     return banner('<strong>CasaCerta</strong><small>Moradia e contas</small>')+
       '<div class="city-panel"><h3>Minha residência</h3><p>'+esc(data.home?.name||'Sem residência cadastrada')+'</p>'+
-      '<div class="city-row"><strong>Contas pendentes</strong><strong>'+price(data.bills)+'</strong></div>'+
+      '<div class="city-row"><strong>Água, luz e manutenção</strong><strong>'+price(data.bills)+'</strong></div>'+
       btn('sim:bills','Pagar contas',!data.bills)+'</div>'+
-      (!data.home?card('Aluguel inicial em uma casa de verdade','Aproxime-se da porta de uma residência disponível e use F para alugar e entrar no imóvel. Entrada R$ 160.',
-         btn('sim:rent','Alugar',CityLife.funds<160),'🛏️'):'')+
+      (window.CityRealty?.lease?.()?(()=>{
+        const c=window.CityRealty.lease(),due=Math.max(0,c.nextDueDay-Math.floor((CitySim.game?.clock||0)/1440));
+        return card('Meu contrato · '+c.property.name,
+          'Andar '+(c.property.floor||'térreo')+' · '+price(c.rate)+' a cada 7 dias de jogo · próximo vencimento em '+due+' dia(s) · '+(c.arrears?'PENDÊNCIA: '+price(c.arrears):'Em dia')+' · débito automático '+(c.autoPay?'ligado':'desligado'),
+          btn('sim:rent-pay',c.arrears?'Quitar '+price(c.arrears):'Adiantar aluguel',CityLife.funds<(c.arrears||c.rate))+
+          btn('sim:rent-auto',c.autoPay?'Desativar débito automático':'Ativar débito automático')+
+          btn('sim:rent-route','Traçar GPS até o prédio')+
+          btn('sim:rent-end','Encerrar contrato'), '🔑');
+       })():!data.home?card('Alugue um apartamento de verdade','Vá à portaria de um edifício com apartamentos. Pressione F para escolher o andar e contratar. Os valores variam por prédio.',
+         btn('sim:rent','Como alugar?'),'🏢'):'')+
       (owned||'')+
       '<div class="city-phone-label">Terrenos reais com placa VENDE-SE carregados por perto</div>'+
       (CitySim.nearbyLots().length?CitySim.nearbyLots().map(l=>card(l.name,
@@ -194,6 +202,12 @@ const CityApps = (() => {
   else if(type==='business')result=CitySim.manage(id,arg);
   else if(type==='service')result=CitySim.service(id);
   else if(type==='rent')result=CitySim.rentApartment();
+  else if(type==='rent-pay')result=window.CityRealty?.payRent?.();
+  else if(type==='rent-auto')result=window.CityRealty?.toggleAutoPay?.();
+  else if(type==='rent-end')result=window.CityRealty?.terminateLease?.();
+  else if(type==='rent-route'){
+    const c=window.CityRealty?.lease?.();result=c&&window.CityGPS?.set?.({id:'leased-home',x:c.property.x,y:c.property.y,name:c.property.name})?{ok:true,text:'Rota até a portaria calculada'}:{ok:false,text:'Não há rota conectada até a residência'};
+  }
   else if(type==='home')result=CitySim.setHome(id);
   else if(type==='lot')result=CitySim.buyLot(id);
   else if(type==='lotbuild')result=window.CityLots?.build(id,arg)||{ok:false,text:'Indisponível'};
