@@ -77,7 +77,9 @@ test('physical apartment rent, per-floor access and renewal work without new 3D 
  const r=window.CityRealty,life=window.CityLife,sim=window.CitySim;
  assert.equal(r.multi(flat),true);
  assert.equal(r.unitRent(flat,1),160);
- assert.equal(r.rentStarter().ok,false,'o celular apenas orienta; escolher no painel da portaria');
+ st.player.x=200;
+ assert.equal(r.rentStarter().ok,false,'aluguel exige proximidade da portaria');
+ st.player.x=100;
  assert.equal(r.rentUnit(flat,1).ok,true);
  assert.equal(life.funds,90);
  assert.equal(sim.data.home.floor,1);
