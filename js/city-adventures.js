@@ -10,7 +10,7 @@ const CityAdventures=(()=>{
   {title:'Primeiro salário',desc:'Vá ao emprego e conclua um turno de trabalho.',reward:100,hint:'Use o GPS no app Carreiras, vá ao local e pressione F.'},
   {title:'Um teto para chamar de seu',desc:'Alugue uma casa real ou compre sua primeira residência.',reward:100,hint:'Na cidade, aproxime-se da porta de uma casa e pressione F. Aluguel inicial: R$ 160.'},
   {title:'Conhecendo os vizinhos',desc:'Converse com um morador da cidade.',reward:80,hint:'Guarde a arma, pare próximo de alguém e clique no personagem 3D.'},
-  {title:'Tempo para você',desc:'Participe de uma atividade no menu Vida na Cidade.',reward:60,hint:'Pressione J e escolha um desafio de lazer.'},
+  {title:'Cuide de você',desc:'Use um alimento ou bebida da mochila para cuidar das necessidades.',reward:60,hint:'Abra a mochila com I e utilize um alimento ou uma bebida que você já possui.'},
   {title:'A cidade precisa de você',desc:'Resolva um acontecimento espontâneo da vizinhança.',reward:150,hint:'Siga o alerta da rua, aproxime-se e pressione F.'}
  ];
  // Eventos autorais com diferentes resultados. Desfechos mudam reputação e carteira.
@@ -28,16 +28,11 @@ const CityAdventures=(()=>{
   {id:'market',title:'Feirante sem troco',desc:'O vendedor está com dificuldades para atender a fila.',line:'Hoje o movimento está grande!',choices:[['Ajudar com os pedidos',35,3],['Comprar um lanche por R$ 12',-12,1],['Seguir pela feira',0,0]]},
   {id:'neighborhood',title:'Mutirão de limpeza',desc:'Moradores estão organizando a limpeza de uma praça.',line:'Essa praça vai ficar bonita de novo!',choices:[['Participar do mutirão',50,5],['Divulgar no CitySocial',10,2],['Não participar',0,0]]}
  ];
- const LEISURE={
-  basket:{title:'Basquete · desafio de arremessos',desc:'Acerte três arremessos no momento ideal. A pontuação melhora sua habilidade esportiva.',icon:'🏀',pay:24},
-  fish:{title:'Pesca · reflexo e precisão',desc:'Acerte o tempo de três fisgadas. Os peixes capturados podem ser vendidos no painel.',icon:'🎣',pay:0},
-  gym:{title:'Academia · treino de resistência',desc:'Conclua três séries de exercício no ritmo correto para desenvolver condicionamento.',icon:'🏋️',pay:0}
- };
- const fresh=()=>({version:1,step:0,walk:0,flags:{},reputation:0,history:[],eventCount:{},lastEventId:null,leisure:{basket:0,fish:0,gym:0,fishStock:0,day:-1,today:{}},totalRewards:0});
- let state=fresh(),active=false,tab='missions',event=null,eventNpc=null,eventId=0,eventClock=0,nextEvent=55,activity=null,el=null,hud=null,lastPos=null,ready=false,notifyT=0,socialCheckT=0;
+ const fresh=()=>({version:1,step:0,walk:0,flags:{},reputation:0,history:[],eventCount:{},lastEventId:null,totalRewards:0});
+ let state=fresh(),active=false,tab='missions',event=null,eventNpc=null,eventId=0,eventClock=0,nextEvent=55,el=null,hud=null,lastPos=null,ready=false,notifyT=0,socialCheckT=0;
  const money=n=>window.CityLife?.money?.(n)||('R$ '+n);
  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function read(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v?.version===1&&Number.isInteger(v.step)){state={...fresh(),...v,flags:v.flags||{},eventCount:v.eventCount||{},leisure:{...fresh().leisure,...v.leisure,today:v.leisure?.today||{}}};state.step=Math.max(0,Math.min(MAX_STEP,state.step));}}catch(_){}}
+ function read(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v?.version===1&&Number.isInteger(v.step)){state={...fresh(),...v,flags:v.flags||{},eventCount:v.eventCount||{}};state.step=Math.max(0,Math.min(MAX_STEP,state.step));}}catch(_){}}
  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(_){}}
  const player=()=>window.__game?.player;
  const playing=()=>ready&&!window.CityFront?.blocked&&!window.CityHomeUI?.active&&!window.cityVehicles?.driver&&!window.CityRealty?.dialogOpen;
@@ -52,7 +47,7 @@ const CityAdventures=(()=>{
   if(j===3)return !!state.flags.job;
   if(j===4)return !!window.CitySim?.data?.home;
   if(j===5)return !!state.flags.social;
-  if(j===6)return !!state.flags.leisure;
+  if(j===6)return !!state.flags.needs;
   if(j===7)return !!state.flags.event;
   return false;
  }
@@ -85,49 +80,37 @@ const CityAdventures=(()=>{
   hud.addEventListener('click',e=>{if(e.target.closest('[data-cga-open]'))open('missions');if(e.target.closest('[data-cga-route]'))route();});
   el.addEventListener('click',e=>{
    if(e.target===el||e.target.closest('[data-cga-close]')){close();return;}
-   const t=e.target.closest('[data-cga-tab]');if(t){tab=t.dataset.cgaTab;activity=null;render();return;}
-   const b=e.target.closest('[data-cga-start]');if(b){startActivity(b.dataset.cgaStart);return;}
-   const hit=e.target.closest('[data-cga-hit]');if(hit){hitActivity();return;}
+   const t=e.target.closest('[data-cga-tab]');if(t){tab=t.dataset.cgaTab;render();return;}
    const choose=e.target.closest('[data-cga-choice]');if(choose){resolveEvent(Number(choose.dataset.cgaChoice));return;}
    if(e.target.closest('[data-cga-route]'))route();
-   if(e.target.closest('[data-cga-sell]'))sellFish();
    if(e.target.closest('[data-cga-gps]'))guideJob();
   });
   document.addEventListener('keydown',e=>{
    if(e.key.toLowerCase()==='j'&&!e.repeat&&document.activeElement?.tagName!=='INPUT'&&document.activeElement?.tagName!=='TEXTAREA'&&!window.CityFront?.blocked){e.preventDefault();e.stopImmediatePropagation();active?close():open('missions');}
    else if(active&&e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close();}
-   else if(active&&activity&&e.code==='Space'){e.preventDefault();e.stopImmediatePropagation();hitActivity();}
   },true);
   updateHud();check();
  }
  function open(next='missions'){
   if(!ready||window.CityFront?.blocked||window.CityHomeUI?.active)return;
-  active=true;tab=next;activity=null;el.hidden=false;document.body.classList.add('city-adventure-open');render();
+  active=true;tab=next;el.hidden=false;document.body.classList.add('city-adventure-open');render();
   window.__game?.input?.keys?.clear?.();
   window.__game?.input?.pressed?.clear?.();
   el.querySelector('[data-cga-close]')?.focus();
  }
- function close(){if(!el)return;active=false;activity=null;el.hidden=true;document.body.classList.remove('city-adventure-open');window.__game?.input?.keys?.clear?.();}
+ function close(){if(!el)return;active=false;el.hidden=true;document.body.classList.remove('city-adventure-open');window.__game?.input?.keys?.clear?.();}
  function guideJob(){const r=window.CityJobs?.route?.();message(r?.text||'Candidate-se pelo celular para receber uma rota de trabalho.');}
  function route(){if(!event)return;const ok=window.CityGPS?.set?.({id:'event:'+event.type.id,x:event.x,y:event.y,name:event.type.title});if(!ok)message('O acontecimento está perto: use o alerta de distância para encontrá-lo.');}
  function render(){
   if(!active||!el)return;
   const m=current(),panel=el.querySelector('.cga-panel');
-  const tabs=[['missions','🎯 Objetivos'],['leisure','🏀 Lazer'],['events','🌆 Acontecimentos']];
+  const tabs=[['missions','🎯 Objetivos'],['events','🌆 Acontecimentos']];
   const nav='<nav class="cga-tabs">'+tabs.map(x=>'<button type="button" data-cga-tab="'+x[0]+'" class="'+(tab===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</nav>';
   let body='';
   if(tab==='missions'){
    body='<div class="cga-info"><b>'+(m?escape(m.title):'Capítulo de chegada concluído')+'</b><p>'+(m?escape(m.desc):'Você já sabe como começar sua vida nesta cidade. Agora escolha seus próprios objetivos.')+'</p>'+(m?'<small>'+escape(m.hint)+'</small><p>Recompensa: '+money(m.reward)+'</p>':'<p>Recompensas acumuladas: '+money(state.totalRewards)+'</p>')+'</div>';
    body+='<div class="cga-list">'+MISSIONS.map((it,i)=>'<div class="cga-row '+(i<state.step?'done':'')+'"><span>'+(i<state.step?'✓':(i===state.step?'●':'○'))+'</span><div><b>'+escape(it.title)+'</b><small>'+escape(it.desc)+'</small></div><em>+'+money(it.reward)+'</em></div>').join('')+'</div>';
    if(m&&state.step===3)body+='<button class="cga-main" data-cga-gps>Traçar rota para meu emprego</button>';
-  }else if(tab==='leisure'){
-   body='<div class="cga-info"><b>Habilidades e atividades</b><p>Três tentativas por atividade a cada dia de jogo. O treino físico, os arremessos e a pesca têm pontuações persistentes.</p></div>';
-   if(activity)body+=activityHtml();
-   else{
-    const day=Math.floor((window.__game?.st?.clock||0)/1440),today=state.leisure.day===day?state.leisure.today:{};
-    body+='<div class="cga-list">'+Object.entries(LEISURE).map(([id,a])=>'<div class="cga-row"><span>'+a.icon+'</span><div><b>'+escape(a.title)+'</b><small>'+escape(a.desc)+'</small><small>Praticou '+(state.leisure[id]||0)+' vez(es) · Hoje: '+(today[id]||0)+'/3</small></div><button data-cga-start="'+id+'" '+((today[id]||0)>=3?'disabled':'')+'>Começar</button></div>').join('')+'</div>';
-    body+='<div class="cga-info"><b>Peixes guardados: '+state.leisure.fishStock+'</b><p>Venda as capturas para ganhar dinheiro com a pesca.</p><button data-cga-sell '+(state.leisure.fishStock?'':'disabled')+'>Vender todos · '+money(state.leisure.fishStock*20)+'</button></div>';
-   }
   }else{
    body='<div class="cga-info"><b>Reputação comunitária: '+state.reputation+'</b><p>A cidade oferece 12 tipos de pequenos encontros. Suas escolhas geram consequências e alteram a carteira e a reputação.</p></div>';
    if(event)body+='<div class="cga-info"><b>📍 '+escape(event.type.title)+'</b><p>'+escape(event.type.desc)+'</p><small>Distância: '+Math.round(Math.hypot((player()?.x||0)-event.x,(player()?.y||0)-event.y))+' m</small><p><button data-cga-route>Traçar GPS</button></p></div>';
@@ -135,54 +118,6 @@ const CityAdventures=(()=>{
    body+='<div class="cga-list">'+state.history.slice(0,12).map(x=>'<div class="cga-row"><span>📘</span><div><b>'+escape(x.title)+'</b><small>'+escape(x.result)+'</small></div><em>'+money(x.cash)+'</em></div>').join('')+'</div>';
   }
   panel.innerHTML='<header><div><small>City of God · Sua jornada</small><h2>Vida na Cidade</h2></div><button data-cga-close aria-label="Fechar">✕</button></header>'+nav+'<div class="cga-content">'+body+'</div>';
- }
- function activityHtml(){
-  const a=activity,d=LEISURE[a.id],t=Math.round(a.sum/(a.round||1));
-  if(a.finished)return '<div class="cga-info"><h3>'+d.icon+' Atividade concluída!</h3><p>Precisão média: '+t+' pontos.</p><p>'+escape(a.result)+'</p><button data-cga-tab="leisure">Voltar às atividades</button></div>';
-  return '<div class="cga-info cga-minigame"><h3>'+d.title+'</h3><p>Tentativa '+(a.round+1)+' de 3 · Pare o indicador perto da zona verde.</p><div class="cga-meter"><span class="cga-target" style="left:'+(a.target*100)+'%"></span><i id="cga-needle"></i></div><button class="cga-main" data-cga-hit>Parar · Espaço</button><small>Acertos melhores aumentam sua pontuação.</small></div>';
- }
- function startActivity(id){
-  const d=LEISURE[id],day=Math.floor((window.__game?.st?.clock||0)/1440);if(!d)return;
-  if(state.leisure.day!==day){state.leisure.day=day;state.leisure.today={};}
-  if((state.leisure.today[id]||0)>=3){message('Limite diário de atividade atingido.');render();return;}
-  activity={id,round:0,sum:0,target:.35+Math.random()*.35,started:performance.now(),finished:false,result:''};render();animateActivity();
- }
- function animateActivity(){
-  if(!active||!activity||activity.finished)return;
-  const needle=el?.querySelector('#cga-needle');
-  if(needle)needle.style.left=(Math.abs(Math.sin((performance.now()-activity.started)/760))*100)+'%';
-  requestAnimationFrame(animateActivity);
- }
- function hitActivity(){
-  const a=activity;if(!a||a.finished)return;
-  const position=Math.abs(Math.sin((performance.now()-a.started)/760));
-  a.sum+=Math.max(0,Math.round(100-Math.abs(position-a.target)*160));
-  a.round++;
-  if(a.round>=3){
-   const avg=Math.round(a.sum/3),day=Math.floor((window.__game?.st?.clock||0)/1440);
-   if(state.leisure.day!==day){state.leisure.day=day;state.leisure.today={};}
-   state.leisure.today[a.id]=(state.leisure.today[a.id]||0)+1;
-   state.leisure[a.id]=(state.leisure[a.id]||0)+1;
-   if(a.id==='fish'){
-    const caught=avg>=35?1+(avg>=75?2:avg>=55?1:0):0;
-    state.leisure.fishStock+=caught;a.result='Você fisgou '+caught+' peixe(s). Abra o painel para vender.';
-   }else if(a.id==='gym'){
-    const n=window.__game?.st?.needs;
-    if(n){n.energy=Math.min(1,n.energy+.12);n.stamina=Math.min(1,n.stamina+.2);window.CityLife?.save?.();}
-    a.result='Condicionamento treinado · energia e fôlego recuperados.';
-   }else{
-    const pay=Math.round(LEISURE.basket.pay*avg/60);
-    window.CityLife?.credit?.(pay,'Desafio esportivo · basquete');
-    a.result='Desafio concluído · prêmio '+money(pay)+'.';
-   }
-   a.finished=true;signal('leisure');save();render();
-  }else{a.target=.35+Math.random()*.35;a.started=performance.now();render();animateActivity();}
- }
- function sellFish(){
-  const count=state.leisure.fishStock;if(!count)return;
-  const pay=count*20;state.leisure.fishStock=0;
-  window.CityLife?.credit?.(pay,'Venda da pesca recreativa');
-  save();message('🎣 Peixes vendidos · '+money(pay));render();
  }
  function chooseSpot(p){
   const w=window.__game?.world,angle=Math.random()*Math.PI*2;
@@ -249,8 +184,8 @@ const CityAdventures=(()=>{
   notifyT+=dt;if(notifyT>1){notifyT=0;updateHud();}
  }
  const api={mount,tick,open,close,signal,interact,prompt,route,get active(){return active;},
-  get progress(){return {step:state.step,missions:MISSIONS.length,reputation:state.reputation,events:state.history.length,leisure:{...state.leisure}};},
-  MISSIONS,EVENTS,LEISURE};
+  get progress(){return {step:state.step,missions:MISSIONS.length,reputation:state.reputation,events:state.history.length};},
+  MISSIONS,EVENTS};
  return api;
 })();
 window.CityAdventures=CityAdventures;
