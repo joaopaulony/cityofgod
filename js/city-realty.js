@@ -174,7 +174,8 @@ const CityRealty=(()=>{
  function rentNearbyApartment(){
    const p=window.__game?.player,H=nearby(p,4);
    if(!multi(H))return {ok:false,text:'Aproxime-se da portaria de um prédio residencial e pressione F para escolher um apartamento'};
-   return {ok:false,text:'Pressione F na portaria de '+name(H)+' para escolher o andar e conferir o aluguel'};
+   panel(H);
+   return {ok:true,text:'Escolha o apartamento e o andar no painel da portaria de '+name(H)};
  }
  function payRent(){
    const c=lease();if(!c)return {ok:false,text:'Você não possui um contrato de aluguel ativo'};
