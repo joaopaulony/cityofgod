@@ -26,7 +26,7 @@ test('intro has eight goals and twelve meaningful neighborhood events',()=>{
  assert.equal(api.MISSIONS.length,8);
  assert.equal(api.EVENTS.length,12);
  assert.equal(new Set(api.EVENTS.map(e=>e.id)).size,12);
- assert.deepEqual(Object.keys(api.LEISURE),['basket','fish','gym']);
+ assert.equal('LEISURE' in api,false,'minigames artificiais removidos');
  for(const e of api.EVENTS){assert.equal(e.choices.length,3);for(const c of e.choices){assert.equal(c.length,3);assert.ok(Number.isFinite(c[1]));assert.ok(Number.isFinite(c[2]));}}
 });
 test('an eight-step arrival campaign advances once, persists and pays once',()=>{
@@ -38,7 +38,7 @@ test('an eight-step arrival campaign advances once, persists and pays once',()=>
  window.CitySim.data.job='courier';api.tick(.05);
  api.signal('job');
  window.CitySim.data.home={name:'Aluguel · Casa',x:122,y:100};api.tick(.05);
- api.signal('social');api.signal('leisure');api.signal('event');
+ api.signal('social');api.signal('needs');api.signal('event');
  assert.equal(api.progress.step,8);
  assert.equal(receipts.length,8);
  const balance=receipts.reduce((n,r)=>n+r.v,0);
@@ -63,28 +63,40 @@ test('a new game backs up and clears social memories and adventure progress',()=
  assert.ok(store.getItem('cityofgod.front.settings.v1'));
  assert.equal(store.getItem('other-app'),'keep');
 });
-test('starter rental uses a physical home and charges only once',()=>{
+test('physical apartment rent, per-floor access and renewal work without new 3D assets',()=>{
  const localStorage=storage();
- const house={x0:98,y0:98,x1:106,y1:105,doorPt:[101,100],miaKind:'poor',furnished:0,
+ const flat={x0:98,y0:98,x1:110,y1:108,doorPt:[101,100],miaKind:'poor',architecture:{kind:'projects',levels:[
+  {floor:0,rooms:[{id:'hall',use:'circulation'}]},{floor:1,rooms:[{id:'bedroom'}]},{floor:2,rooms:[{id:'bedroom'}]}]},furnished:0,
   furnishOnPurchase(){this.furnished++;}};
- const houses=[house],document={addEventListener(){}};
- const window={addEventListener(){},dispatchEvent(){},__game:null,CityUI:{notify(){}},
-  CityHome:{sync(){}},cityVehicles:{driver:false}};
+ const houses=[flat],document={addEventListener(){}};
+ const window={addEventListener(){},dispatchEvent(){},__game:null,CityUI:{notify(){}},CityHome:{sync(){}},cityVehicles:{driver:false}};
  const ctx=vm.createContext({window,localStorage,document,houses,Event:class{constructor(name){this.type=name;}}});
  for(const file of ['js/city-life.js','js/city-sim.js','js/city-realty.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
- const st={player:{x:100,y:100,armed:true,ammo:30,reserve:90,magState:'in'},hp:.9,food:.7,water:.7,clock:500};
- window.__game={player:st.player};window.CityLife.init(st);window.CitySim.init(st);window.CityRealty.init();
- const mansion={...house,miaKind:'mansion',doorPt:[102,100]};
- assert.equal(window.CityRealty.rentStarter(mansion).ok,false,'mansões não entram no aluguel inicial');
- assert.equal(window.CityLife.funds,250);
- const first=window.CitySim.rentApartment();
- assert.equal(first.ok,true);
- assert.equal(window.CityLife.funds,90);
- assert.equal(window.CitySim.data.home.x,101);
- assert.equal(window.CitySim.data.home.name.includes('virtual'),false);
- assert.equal(window.CityRealty.isOwned(house),true);
- assert.equal(window.CityRealty.owned[window.CityRealty.id(house)].rental,true);
- assert.equal(house.furnished,1);
- assert.equal(window.CitySim.rentApartment().ok,false);
- assert.equal(window.CityLife.funds,90);
+ const st={player:{x:100,y:100,floor:0,armed:true,ammo:30,reserve:90,magState:'in'},hp:.9,food:.7,water:.7,clock:500};
+ window.__game={player:st.player,st};window.CityLife.init(st);window.CitySim.init(st);window.CityRealty.init();
+ const r=window.CityRealty,life=window.CityLife,sim=window.CitySim;
+ assert.equal(r.multi(flat),true);
+ assert.equal(r.unitRent(flat,1),160);
+ assert.equal(r.rentStarter().ok,false,'o celular apenas orienta; escolher no painel da portaria');
+ assert.equal(r.rentUnit(flat,1).ok,true);
+ assert.equal(life.funds,90);
+ assert.equal(sim.data.home.floor,1);
+ assert.equal(sim.data.home.name.includes('virtual'),false);
+ assert.equal(r.canUse(flat,1),true);
+ assert.equal(r.canUse(flat,2),false,'unidade vizinha continua fechada');
+ assert.equal(r.rentUnit(flat,2).ok,false,'não pode manter dois aluguéis');
+ assert.equal(flat.furnished,1);
+ st.clock=8*1440;r.tick(st.clock);
+ assert.equal(r.lease().arrears,160,'sem dinheiro, acumula uma parcela');
+ r.tick(st.clock);
+ assert.equal(r.lease().arrears,160,'tick repetido não cobra novamente');
+ life.credit(160,'renda');assert.equal(r.payRent().ok,true);
+ assert.equal(r.lease().arrears,0);
+ life.credit(200,'renda');st.clock=15*1440;r.tick(st.clock);
+ assert.equal(r.lease().arrears,0,'pagamento automático sem pendência');
+ assert.equal(r.lease().nextDueDay,21);
+ st.player.floor=1;assert.equal(r.terminateLease().ok,false,'não entrega chave dentro do apartamento');
+ st.player.floor=0;assert.equal(r.terminateLease().ok,true);
+ assert.equal(r.canUse(flat,1),false);
+ assert.equal(sim.data.home,null);
 });
