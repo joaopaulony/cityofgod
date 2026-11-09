@@ -65,6 +65,7 @@ const CityUI = (() => {
     if(next)window.CityRealty?.close?.();
     if (next) { closeWheel(false); releaseControls(); app = 'home'; }
     phoneOpen = next;
+    if(next)window.CityAdventures?.signal?.('phone');
     $('city-phone-layer').hidden = !phoneOpen;
     setModal();
     if (phoneOpen) { updatePhoneTheme(); render(); $('city-phone-close')?.focus(); }
