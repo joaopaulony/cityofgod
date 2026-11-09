@@ -3,7 +3,7 @@
  'use strict';
  const S=window.CityFrontState,root=document.getElementById('city-front'),ASSET='assets/menu/v1/';
  const backgrounds=['bairro-entardecer.webp','avenida-noturna.webp','cotidiano-em-casa.webp'];
- const tips=['Entre em uma residência sua e use F7 para decorar.','F8 abre os pets. Chame um companheiro para passear pela cidade.','P abre o celular. M mostra o mapa da cidade.','Aproxime-se de um veículo e pressione F para entrar.','Use Q e E para girar a câmera e a roda do mouse para aproximar.'];
+ const tips=['Entre em uma residência sua e use F7 para decorar.','F8 abre os pets. Chame um companheiro para passear pela cidade.','J abre as missões, atividades e acontecimentos da cidade.','P abre o celular. M mostra o mapa da cidade.','Aproxime-se de um veículo e pressione F para entrar.','Use Q e E para girar a câmera e a roda do mouse para aproximar.'];
  const memory=new Map(),fallback={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k),key:i=>[...memory.keys()][i],get length(){return memory.size;}};
  let storage;try{storage=window.localStorage;}catch{storage=fallback;}
  let settings=S.settings(S.read(storage,S.SETTINGS));
