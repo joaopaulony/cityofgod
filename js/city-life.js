@@ -145,6 +145,7 @@ const CityLife = (() => {
     }
     addHistory('Usou ' + it.name);
     save(); signal();
+    if(id==='water'||id==='sandwich'||id==='burger'||id==='coffee'||id==='soda')window.CityAdventures?.signal?.('needs');
     return { ok: true, text: it.icon + ' ' + it.name + ' utilizado' };
   }
   function buy(id) {
