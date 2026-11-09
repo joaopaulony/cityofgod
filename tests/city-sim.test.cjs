@@ -27,7 +27,7 @@ test('home rental requires a physical address; wallet and services remain transa
  assert.equal(life.funds,250);
  assert.equal(sim.data.home,null);
  let calls=0;
- window.CityRealty={rentStarter(){
+ window.CityRealty={rentNearbyApartment(){
    calls++;
    if(!life.debit(160,'Aluguel físico'))return {ok:false,text:'Saldo insuficiente'};
    sim.data.home={name:'Aluguel · Casa',x:100,y:100,price:160};
