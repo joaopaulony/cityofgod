@@ -1,16 +1,17 @@
 // Title, genuine runtime loading, pause and local continuity. No online endpoints.
 (function(){
  'use strict';
- const S=window.CityFrontState,root=document.getElementById('city-front'),ASSET='assets/menu/v1/';
- const backgrounds=['bairro-entardecer.webp','avenida-noturna.webp','cotidiano-em-casa.webp'];
- const tips=['Entre em uma residência sua e use F7 para decorar.','F8 abre os pets. Chame um companheiro para passear pela cidade.','J abre as missões, atividades e acontecimentos da cidade.','P abre o celular. M mostra o mapa da cidade.','Aproxime-se de um veículo e pressione F para entrar.','Use Q e E para girar a câmera e a roda do mouse para aproximar.'];
+ const S=window.CityFrontState,root=document.getElementById('city-front');
+ const tips=['Entre em uma residência sua e use F7 para decorar.','F8 abre os pets. Chame um companheiro para passear pela cidade.','J abre as missões e acontecimentos da cidade.','P abre o celular. M mostra o mapa da cidade.','Aproxime-se de um veículo e pressione F para entrar.','Use Q e E para girar a câmera e a roda do mouse para aproximar.'];
  const memory=new Map(),fallback={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k),key:i=>[...memory.keys()][i],get length(){return memory.size;}};
  let storage;try{storage=window.localStorage;}catch{storage=fallback;}
+ // Captura o progresso ANTES de criar a vitrine. Os módulos da cidade podem persistir dados ao inicializar.
+ const hadProgressOnEntry=S.hasProgress(storage);
  let settings=S.settings(S.read(storage,S.SETTINGS));
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new',casIntroShown=false;
  // vitrine: no menu inicial o jogo carrega em silêncio por trás e, pronto, a cidade viva aparece no fundo (drone em game.js)
- let quiet=false,quietReady=false,live=false;
+ let quiet=false,quietReady=false,live=false,previewError='';
  let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null,restoring=Promise.resolve(),musicConnected=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
@@ -81,8 +82,8 @@
  function render(){
   let content='';
   if(phase==='title'||phase==='pause'){
-   const pause=phase==='pause',canContinue=started||S.hasProgress(storage);
-   content=`<main class="front-main"><img class="front-logo" src="${ASSET}logo.webp" alt="City of God"><nav class="front-nav" aria-label="${pause?'Menu de pausa':'Menu inicial'}"><button data-front-action="continue" ${canContinue?'':'disabled'}>Continuar</button>${pause?'<button data-front-action="map">Mapa da cidade</button>':'<button data-front-action="new">Novo jogo</button>'}<button data-front-action="multiplayer">Multiplayer <small>EM BREVE</small></button><button data-front-action="settings">Configurações</button><button data-front-action="credits">Créditos</button>${pause?'<button data-front-action="title">Voltar ao início</button>':''}</nav></main>`;
+   const pause=phase==='pause',canContinue=started||hadProgressOnEntry;
+   content=`<main class="front-main"><div class="front-wordmark" role="img" aria-label="City of God"><span>CITY</span><i>OF</i><span>GOD</span></div><nav class="front-nav" aria-label="${pause?'Menu de pausa':'Menu inicial'}"><button data-front-action="continue" ${canContinue?'':'disabled'}>Continuar</button>${pause?'<button data-front-action="map">Mapa da cidade</button>':'<button data-front-action="new">Novo jogo</button>'}<button data-front-action="multiplayer">Multiplayer <small>EM BREVE</small></button><button data-front-action="settings">Configurações</button><button data-front-action="credits">Créditos</button>${pause?'<button data-front-action="title">Voltar ao início</button>':''}</nav></main>`;
   }else if(phase==='multiplayer')content=panel('Multiplayer',`<span class="front-coming">EM BREVE</span><h2>A cidade também vai ser ponto de encontro.</h2><p>Estamos preparando a opção de conectar você a outros jogadores para compartilhar a cidade.</p><p>Nesta versão, a partida e o progresso são locais. Ainda não há servidores, salas ou conexão online disponíveis.</p><div class="front-actions"><button class="front-action primary" data-front-action="back">Voltar ao menu</button></div>`);
   else if(phase==='settings'){
    const tabs=[['video','Vídeo'],['audio','Áudio'],['controls','Controles'],['interface','Interface']];
@@ -98,9 +99,9 @@
    content=panel('Configurações',`<div class="front-tabs" role="tablist" aria-label="Categoria de configurações">${tabs.map(([id,label])=>`<button id="front-tab-${id}" role="tab" aria-selected="${tab===id}" aria-controls="front-setting-panel" data-front-tab="${id}">${label}</button>`).join('')}</div><div id="front-setting-panel" role="tabpanel" aria-labelledby="front-tab-${tab}">${fields}</div><p id="front-settings-message" role="status">As alterações são aplicadas agora e salvas neste navegador.</p>`);
   }else if(phase==='credits')content=panel('Créditos','<span class="front-eyebrow">CITY OF GOD</span><p>Uma cidade para dirigir, explorar, construir uma casa e viver o cotidiano.</p><h2>Identidade e abertura</h2><p>Direção visual desenvolvida para o projeto. Ilustrações e logo criadas com IA, com base nas atividades presentes no jogo. Interface, animações e trilha sintetizada originais desta abertura.</p><h2>Animais</h2><p>Quaternius — modelos CC0.<br>Shar Pei — Artsiom Savelyeu, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://sketchfab.com/3d-models/free-shar-pei-animated-dog-ed151fd59a894b3290d9eee3f716f0bf" target="_blank" rel="noopener">Fonte ↗</a><br>Benny, the Rottweiler — umask007, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a> · <a href="https://opengameart.org/content/benny-the-rottweiler" target="_blank" rel="noopener">Fonte ↗</a></p><h2>Modelos e recursos</h2><p><a href="vehicle-credits.html" target="_blank" rel="noopener">Créditos dos veículos 3D ↗</a><br><a href="character-credits.html" target="_blank" rel="noopener">Créditos dos personagens ↗</a></p>');
   else if(phase==='new-confirm')content=panel('Começar de novo?',`<p>Um novo jogo substitui o progresso local atual: dinheiro, inventário, casas, veículos e pets.</p><p>Antes de substituir, vamos guardar uma cópia do progresso neste navegador. Suas configurações serão mantidas.</p><div class="front-actions"><button class="front-action" data-front-action="back">Manter meu progresso</button><button class="front-action primary" data-front-action="confirm-new">Iniciar novo jogo</button></div><p id="front-confirm-error" class="front-error" role="alert"></p>`);
-  else if(phase==='loading')content=`<img class="front-loading-logo" src="${ASSET}logo.webp" alt="City of God"><section class="front-loading"><span class="front-eyebrow">MODO LOCAL</span><h1>A cidade está ganhando vida.</h1><div class="front-meter" role="progressbar" aria-label="Carregamento do jogo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress()}"><span style="width:${progress()}%"></span></div><div class="front-load-status"><span id="front-load-label" role="status">${esc(status)}</span><span id="front-percent">${progress()}%</span></div><p class="front-tip" id="front-tip">${tips[0]}</p></section>`;
+  else if(phase==='loading')content=`<div class="front-loading-wordmark" aria-label="City of God">CITY <i>OF</i> GOD</div><section class="front-loading"><span class="front-eyebrow">MODO LOCAL</span><h1>A cidade está ganhando vida.</h1><div class="front-meter" role="progressbar" aria-label="Carregamento do jogo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress()}"><span style="width:${progress()}%"></span></div><div class="front-load-status"><span id="front-load-label" role="status">${esc(status)}</span><span id="front-percent">${progress()}%</span></div><p class="front-tip" id="front-tip">${tips[0]}</p></section>`;
   else if(phase==='error')content=panel('A cidade ainda não abriu.',`<p class="front-error" role="alert">${esc(loadingError||'Não foi possível completar o carregamento.')}</p><p>Seu progresso salvo foi preservado. Verifique a conexão e tente carregar novamente.</p><div class="front-actions"><button class="front-action primary" data-front-action="retry">Tentar novamente</button><button class="front-action" data-front-action="title">Menu inicial</button></div>`);
-  root.innerHTML=`<div id="front-backdrop" aria-hidden="true"><img id="front-art" src="${ASSET+backgrounds[0]}" alt=""><img id="front-next" src="${ASSET+backgrounds[0]}" alt=""></div>${top()}${content}<footer class="front-foot">${phase==='loading'?'<span>Preparando os recursos da cidade</span>':`<span><kbd>${phase==='title'?'↑ ↓':'ESC'}</kbd>${phase==='title'?'Escolher · Enter confirmar':'Voltar'}</span>`}<span>${phase==='loading'?'CARREGAMENTO REAL':savingError||'MODO LOCAL · MULTIPLAYER EM BREVE'}</span></footer>`;
+  root.innerHTML=`<div id="front-backdrop" aria-hidden="true"><div class="front-horizon"></div></div>${top()}${content}<footer class="front-foot">${phase==='loading'?'<span>Preparando os recursos da cidade</span>':`<span><kbd>${phase==='title'?'↑ ↓':'ESC'}</kbd>${phase==='title'?'Escolher · Enter confirmar':'Voltar'}</span>`}<span>${phase==='loading'?'CARREGAMENTO REAL':savingError||(phase==='title'?(live?'CIDADE VIVA · MODO LOCAL':previewError?'CENÁRIO INDISPONÍVEL · INICIAR PARA TENTAR NOVAMENTE':'PREPARANDO CIDADE VIVA · MODO LOCAL'):'MODO LOCAL · MULTIPLAYER EM BREVE')}</span></footer>`;
   if(phase==='title'||phase==='pause')root.querySelector('.front-nav button:not(:disabled)')?.focus();
   else if(phase!=='loading')root.querySelector('h1')?.focus();
  }
@@ -121,9 +122,8 @@
    if(!saved)window.cityCharacters.openCreator?.();
   }
  }
- function fail(message){clearInterval(rotation);if(quiet&&phase!=='loading'){quiet=false;return;}   // vitrine falhou: fica a ilustração; Continuar recarrega normalmente
+ function fail(message){clearInterval(rotation);if(quiet&&phase!=='loading'){quiet=false;quietReady=false;previewError=String(message||'Falha ao preparar a cidade');render();return;} // falha da vitrine não substitui a tela inicial nem perde o save
   loadingError=message;change('error');render();}
- async function imageAsset(file){return new Promise(resolve=>{const image=new Image();image.onload=()=>resolve(true);image.onerror=()=>resolve(false);image.src=ASSET+file;});}
  function paintProgress(){
   const percent=progress(),meter=root.querySelector('[role=progressbar]');if(!meter)return;
   meter.setAttribute('aria-valuenow',String(percent));meter.querySelector('span').style.width=percent+'%';root.querySelector('#front-percent').textContent=percent+'%';root.querySelector('#front-load-label').textContent=status;
@@ -149,18 +149,13 @@
    if(pending.mode==='open'&&local){if(opts.quiet){pending=null;return;}url.searchParams.delete('seed');url.searchParams.delete('scene');if(sessionIntent('continue')){location.assign(url.href);return;}}
   }
   quiet=!!opts.quiet;quietReady=false;
-  runtime=true;frameReady=false;load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0};status='Carregando ilustrações';if(!quiet){change('loading');render();}
+  runtime=true;frameReady=false;load={art:1,code:0,world:0,vehicle:0,characters:0,frame:0};status='Preparando os sistemas da cidade';if(!quiet){change('loading');render();}
   const scripts=[...document.getElementById('city-runtime').content.querySelectorAll('script[src]')];
   // Download in parallel; classic globals still execute in dependency order.
   for(const source of scripts){const link=document.createElement('link');link.rel=source.type==='module'?'modulepreload':'preload';if(source.type!=='module')link.as='script';link.href=source.src;document.head.append(link);}
-  let art=0;await Promise.all(['logo.webp',...backgrounds].map(async file=>{await imageAsset(file);load.art=++art/4;paintProgress();}));
   let slide=0;rotation=setInterval(()=>{
-   if(phase!=='loading')return;const img=root.querySelector('#front-art'),next=root.querySelector('#front-next');
-   if(img&&next){next.src=ASSET+backgrounds[++slide%backgrounds.length];next.decode().catch(()=>{}).then(()=>{
-    if(phase!=='loading'||!next.isConnected)return;next.style.opacity='1';
-    setTimeout(()=>{if(!next.isConnected)return;img.src=next.src;next.style.transition='none';next.style.opacity='0';requestAnimationFrame(()=>next.style.transition='');},settings.reducedMotion?0:900);
-   });}
-   const tip=root.querySelector('#front-tip');if(tip)tip.textContent=tips[slide%tips.length];
+   if(phase!=='loading')return;
+   const tip=root.querySelector('#front-tip');if(tip)tip.textContent=tips[++slide%tips.length];
   },6500);
   try{
    for(const [i,source] of scripts.entries()){
@@ -186,21 +181,21 @@
    });
    if(pending?.vehicle&&await window.cityVehicles?.restoreCheckpoint?.(pending.vehicle,pending)===false)throw Error('Não foi possível restaurar seu veículo. O salvamento foi preservado.');
    pending=null;
-   if(quiet&&phase!=='loading'){quietReady=true;return;}   // vitrine pronta: a cidade fica viva atrás do menu até o jogador escolher
+   if(quiet&&phase!=='loading'){quietReady=true;render();return;}   // vitrine pronta: o mundo segue vivo atrás da tela de título
    enter();
   }catch(error){fail(error.message||'Não foi possível carregar a cidade.');}
  }
  const api={get phase(){return phase;},get blocked(){return blocked()||document.hidden;},get loading(){return phase==='loading'||(quiet&&!quietReady&&!!game);},get settings(){return {...settings};},get effectsVolume(){return settings.effects*settings.master;},applySettings,
   attachGame(value){game=value;restoring=Promise.resolve(pending?game.restore?.(pending):true).then(ok=>{if(ok===false)throw Error('Não foi possível restaurar sua posição. O salvamento foi preservado.');load.world=1;});restoring.catch(()=>{});applySettings();},markFrame(){if(window.cityVehicles?.ready&&(window.cityCharacters?.ready||window.cityCharacters?.status==='disabled'))frameReady=true;},
   // primeiro quadro completo da cidade: a ilustração some e o fundo do menu vira o jogo rodando
-  markLive(){if(!live&&frameReady&&game){live=true;document.body.classList.add('front-live');}},
+  markLive(){if(!live&&frameReady&&game){live=true;document.body.classList.add('front-live');if(phase==='title'&&root.querySelector('.front-foot'))render();}},
   get showcase(){return phase!=='playing'&&phase!=='loading'&&!!game&&!(quiet&&!quietReady);},
   pause(){if(phase==='playing'&&!otherModal()){parent='pause';checkpoint();open('pause');}},save:checkpoint};
  window.CityFront=api;
  root.addEventListener('pointermove',()=>document.body.classList.remove('front-keyboard'));
  root.addEventListener('click',e=>{
   const item=e.target.closest('[data-front-action]');if(!item)return;clickSound();const action=item.dataset.frontAction;
-  if(action==='continue')start(true);else if(action==='new'){if(S.hasProgress(storage)||started)open('new-confirm');else newGame();}
+  if(action==='continue')start(true);else if(action==='new'){if(hadProgressOnEntry||started)open('new-confirm');else newGame();}
   else if(action==='confirm-new'){resumeSession(false);newGame();}else if(action==='back')backPage();else if(action==='title'){checkpoint();resumeSession(false);parent='title';open('title');}
   else if(action==='retry'){if(sessionIntent(startKind==='new'?'retry-new':'continue'))location.reload();}
   else if(action==='map'){enter();game?.openMap?.();}else if(action==='sound'){settings.music=settings.music===0?.35:0;persistSettings();render();}
@@ -252,5 +247,5 @@
  else if(intent==='retry-new')start(false);
  else {let resumed=false;try{if(sessionStorage.getItem('cityofgod.front.resume')==='1'&&S.checkpoint(S.read(storage,S.SAVE))){resumed=true;start(true);}}catch{}
   // menu inicial: começa a carregar a cidade por trás (partida salva, se houver) p/ o fundo virar o jogo ao vivo
-  if(!resumed)setTimeout(()=>{if(phase==='title'&&!runtime)start(S.hasProgress(storage),{quiet:true});},400);}
+  if(!resumed)setTimeout(()=>{if(phase==='title'&&!runtime)start(hadProgressOnEntry,{quiet:true});},80);}
 })();
