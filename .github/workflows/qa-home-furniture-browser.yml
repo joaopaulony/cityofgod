@@ -1,0 +1,39 @@
+name: QA browser - F7 móveis e orientação
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-home-furniture-browser.yml'
+      - 'tools/qa-home-furniture-browser.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  editor-f7:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Preparar Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Servir mapa real
+        run: |
+          node tools/serve.mjs > /tmp/cityf7-server.log 2>&1 &
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:4322/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/cityf7-server.log
+          exit 1
+      - name: Jogar F7 com mouse, rotação, preview e salvamento
+        run: node tools/qa-home-furniture-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-f7-painel-e-resultados
+          path: artifacts/qa-home-f7/
+          if-no-files-found: warn
