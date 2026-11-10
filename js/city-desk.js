@@ -352,13 +352,13 @@ const CityDesk=(()=>{
  let W=null,wui=null,wkey='',wLast=0;
  // frente da escrivaninha: a cadeira do modelo fica em +z local (0,6 m); mundo = (−sen r, cos r) — props-3d gira por −rot
  const deskFront=d=>{const r=d.rot||0;return {x:-Math.sin(r),y:Math.cos(r)};};
- // props-3d (ramo architecture) encaixa a CAIXA do modelo — mesa + cadeira: x −0,55…0,55, z −0,31…0,84 (centro z 0,265),
- // altura 0…1,0 — no tamanho do móvel e centraliza; local (lx,lz) → mundo: ((lx)·sx, (lz−0,265)·sz) girado por −rot
- const deskScale=d=>({sx:(d.w||1.1)/1.1,sz:(d.d||.62)/1.15,sy:Math.min(1.5,Math.max(.6,(d.h||.74)/.74))});
- const deskLocal=(d,lx,lz)=>{const k=deskScale(d),r=d.rot||0,X=lx*k.sx,Z=(lz-.265)*k.sz;return {x:d.x+X*Math.cos(r)-Z*Math.sin(r),y:d.y+X*Math.sin(r)+Z*Math.cos(r)};};
+ // props-3d encaixa só a MESA (M.desk.fit: x −0,55…0,55, z −0,31…0,31) no tamanho do móvel; a cadeira do modelo fica
+ // à frente em z +0,6 (proporção real). local (lx,lz) → mundo: (lx·sx, lz·sz) girado por −rot
+ const deskScale=d=>({sx:(d.w||1.1)/1.1,sz:(d.d||.62)/.62,sy:Math.min(1.5,Math.max(.6,(d.h||.74)/.74))});
+ const deskLocal=(d,lx,lz)=>{const k=deskScale(d),r=d.rot||0,X=lx*k.sx,Z=lz*k.sz;return {x:d.x+X*Math.cos(r)-Z*Math.sin(r),y:d.y+X*Math.sin(r)+Z*Math.cos(r)};};
  function seatAt(st){
   const p=player(),d=st.desk;
-  if(d.kind==='desk'){const f=deskFront(d),seat=deskLocal(d,0,.66);return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
+  if(d.kind==='desk'){const f=deskFront(d),seat=deskLocal(d,0,.6);return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
   const seat={x:d.x+dx/n*.72,y:d.y+dy/n*.72};return {seat,face:Math.atan2(d.y-seat.y,d.x-seat.x)};
  }
  function sitDown(kind,st,extra={}){const p=player();if(!p||!st)return null;const s=seatAt(st);p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);p.homeAction={kind,t:0,duration:1e9,deskWork:true,...extra};return s;}

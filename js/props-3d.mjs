@@ -331,7 +331,7 @@ export function createProps(THREE, scene, bridge) {
     for (let y = 0; y <= 1.86; y += 0.465) { k.box(-W, y, -0.22, W, y + 0.035, 0.22, c||WOOD); if (y > 1.8) break;
       for (let x = -W + 0.08; x < W - 0.12;) { const bw = 0.03 + r() * 0.04, bh = 0.24 + r() * 0.14; if (r() < 0.12) { x += 0.15; continue; } k.box(x, y + 0.035, -0.17, x + bw, y + 0.035 + bh, 0.13, BOOK[(r() * BOOK.length) | 0]); x += bw + 0.004; } }
   } };
-  M.desk = { dims: [1.1, 0.74, 0.62], face: 'short', tinted:true, make(k,c) {
+  M.desk = { dims: [1.1, 0.74, 0.62], face: 'short', tinted:true, fit: { x: [-0.55, 0.55], z: [-0.31, 0.31] }, make(k,c) {
     k.box(-0.55, 0.7, -0.31, 0.55, 0.74, 0.31, c||WOODL, 0.01); for (const s of [-1, 1]) k.box(s * 0.53 - 0.02, 0, -0.29, s * 0.53 + 0.02, 0.7, 0.29, c||WOODL);
     k.box(0.15, 0.45, -0.29, 0.51, 0.7, 0.29, WOOD); k.box(0.2, 0.55, 0.29, 0.46, 0.65, 0.3, '#5a3e2a');
     k.box(-0.3, 0.74, -0.05, 0.1, 0.755, 0.22, '#3a3d42'); k.box(-0.3, 0.755, -0.06, 0.1, 1.0, -0.05, '#1c1f24'); k.box(-0.28, 0.77, -0.049, 0.08, 0.98, -0.045, '#3c6a8a');
@@ -622,6 +622,9 @@ export function createProps(THREE, scene, bridge) {
         const lim = b.architecture?[.1,8]:H ? [0.65, 1.5] : [0.7, 1.4]; sx = Math.min(lim[1], Math.max(lim[0], sx)); sz = Math.min(lim[1], Math.max(lim[0], sz));
         if(b.architecture){
           const size=k.bounds.getSize(new THREE.Vector3()),center=k.bounds.getCenter(new THREE.Vector3()),odd=Math.abs(Math.round((rot+(b.rot||0))/(Math.PI/2)))%2;
+          // fit: parte do modelo que ocupa o espaço do móvel (escrivaninha: só a mesa; a cadeira fica afastada à frente,
+          // em proporção real — encaixar mesa+cadeira em 0,7 m esmagava tudo e o personagem não cabia sentado)
+          if(k.def.fit){const f=k.def.fit;size.x=f.x[1]-f.x[0];size.z=f.z[1]-f.z[0];center.x=(f.x[0]+f.x[1])/2;center.z=(f.z[0]+f.z[1])/2;}
           if(b.faceW){sx=(b.along||b.w)/size.x;sz=(b.depth||b.d)/size.z;}else{sx=(odd?b.d:b.w)/size.x;sz=(odd?b.w:b.d)/size.z;}
           const ox=Math.cos(rot)*center.x*sx+Math.sin(rot)*center.z*sz,oy=-Math.sin(rot)*center.x*sx+Math.cos(rot)*center.z*sz;
           place(k,i,b.x-ox,b.y-oy,b.z||0,rot,sx,k.def.uniform?(sx+sz)/2:Math.min(1.5,Math.max(.6,(b.h||Hn)/Hn)),sz);return;

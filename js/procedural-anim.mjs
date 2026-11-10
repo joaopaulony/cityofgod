@@ -142,7 +142,7 @@ export function makeCombatClips(root, height = 1.75) {
   const carry = { RightArm: [-.22, -.78, .55], LeftArm: [.22, -.78, .55], RightForeArm: [.32, .12, .94], LeftForeArm: [-.32, .12, .94], Spine2: [0, 1, -.04] };
   add(poseClip(root, 'carry@upper', [{ t: 0, dirs: carry }, { t: 1, dirs: carry }], { upperOnly: true, height }));
   // home office (city-desk.js): sentado à mesa — digitando, no mouse, falando com a câmera; em pé, embalando
-  const desk = { RightArm: [-.2, -.82, .5], LeftArm: [.2, -.82, .5], Spine2: [0, 1, .12], Neck: [0, 1, .18] };
+  const desk = { RightArm: [-.18, -.62, .76], LeftArm: [.18, -.62, .76], Spine2: [0, 1, .2], Neck: [0, 1, .22] };   // braços à frente até o teclado
   const keysR = (u) => [-.08, u, 1], keysL = (u) => [.08, u, 1];
   add(poseClip(root, 'typing@upper', [
     { t: 0, dirs: { ...desk, RightForeArm: keysR(-.2), LeftForeArm: keysL(-.12) } },
