@@ -1066,7 +1066,7 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
-  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active){
+  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
@@ -1106,7 +1106,7 @@ function tick(dt) {
   const firstHouseAction=nearbyStair&&nearbyStair.distance+.12<houseDistance?'stair':nearbyHouse?'object':nearbyStair?'stair':null;
   const houseAction=interactPressed&&input.down('shift')&&nearbyStair&&nearbyHouse
     ?(firstHouseAction==='stair'?'object':'stair'):firstHouseAction;
-  const vehicleMessage=interactPressed?(window.CityAdventures?.interact(player)||(!window.cityVehicles?.driver&&(window.CityBus?.interact(player)||window.CityStreetFood?.interact(player)))||window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
+  const vehicleMessage=interactPressed?(window.CityAdventures?.interact(player)||(!window.cityVehicles?.driver&&(window.CityDesk?.interact(player)||window.CityCommerce?.interact(player)||window.CityBus?.interact(player)||window.CityStreetFood?.interact(player)))||window.CityCareers?.interact(player)||window.CityFarm?.interact(player)||window.CityJobs?.interact(player)||window.cityVehicles?.interact()||window.CityDealer?.interact(player)):false;   // F: carro ou vendedor da concessionária
   if(vehicleMessage){hud.msg=vehicleMessage;hud.msgT=3;}
   const garageUsed=interactPressed&&!vehicleMessage&&!window.cityVehicles?.driver&&window.CityGarage?.use(player);
   if(garageUsed){hud.msg=garageUsed;hud.msgT=2.8;}
@@ -1133,6 +1133,7 @@ function tick(dt) {
   window.CityStreetFood?.tick(dt);
   CitySim.tick();
   window.CityRealty?.tick?.(st.clock);
+  window.CityDesk?.tick?.();window.CityCommerce?.tick?.();   // prazos do home office e da loja online (relógio do jogo)
   ecosystemTick(dt,player,T);
   for(const n of npcs){
     const visiting=window.CityHomeVisitors?.tick(dt,n,(x,y,nx,ny)=>moveTo(x,y,nx,ny,.28,n.floor||0));
@@ -1187,7 +1188,7 @@ function tick(dt) {
   // Ações próximas aparecem junto aos atalhos, acima do minimapa.
   const primaryHousePrompt=firstHouseAction==='stair'?nearbyStair?.label:interactionPrompt(player);
   const secondaryHousePrompt=nearbyHouse&&nearbyStair?(firstHouseAction==='stair'?interactionPrompt(player):nearbyStair.label):'';
-  const otherPrompt=window.CityAdventures?.prompt(player)||(!window.cityVehicles?.driver&&(window.CityBus?.prompt(player)||window.CityStreetFood?.prompt(player)))||window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
+  const otherPrompt=window.CityAdventures?.prompt(player)||(!window.cityVehicles?.driver&&(window.CityDesk?.prompt(player)||window.CityCommerce?.prompt(player)||window.CityBus?.prompt(player)||window.CityStreetFood?.prompt(player)))||window.CityCareers?.prompt(player)||window.CityFarm?.prompt(player)||window.CityJobs?.prompt(player)||window.cityVehicles?.prompt()||window.CityDealer?.prompt(player)||window.CityGarage?.prompt(player)||window.CityRealty?.prompt(player);
   const prompt=otherPrompt||
     (primaryHousePrompt?'F · '+primaryHousePrompt.replace(/^F\s*·\s*/,''):'');
   if(prompt&&!player.stairTravel){

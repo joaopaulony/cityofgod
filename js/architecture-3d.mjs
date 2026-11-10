@@ -108,7 +108,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   // Vent flue has a weather cap; commercial HVAC is a detailed machine.
   const vx=hall.x0+.25,vy=hall.y1-.65;k.cyl(vx,z,vy,.07,z+.65,'#9b9f98',10,undefined,'metal');k.cyl(vx,z+.62,vy,.16,z+.68,'#b0b5ac',12,.08,'metal');
   if(['office','airport','shop','deco'].includes(A.kind)){
-   const r=last.rooms.find(r=>r.id==='rear-right'),cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
+   // plantas orgânicas não têm 'rear-right': usa o maior cômodo do último andar
+   const r=last.rooms.find(r=>r.id==='rear-right')||last.rooms.reduce((a,b)=>(b.x1-b.x0)*(b.y1-b.y0)>(a.x1-a.x0)*(a.y1-a.y0)?b:a),cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
    // Low plinth with metal louvers, twin fans and a folded sheet-metal cap.
    k.box(cx-.7,z,cy-.45,cx+.7,z+.14,cy+.45,'#b9b8b0',0,'concrete');
    k.box(cx-.65,z+.14,cy-.4,cx+.65,z+.72,cy+.4,'#a4aaa6',.035,'metal');

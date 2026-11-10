@@ -23,7 +23,9 @@
     "roster:modular": "node tools/quaternius/make-roster.mjs",
     "test:camera": "node --test tests/camera-motion.test.mjs",
     "test:organic": "node --test tests/organic-plans.test.mjs tests/furniture-orientation.test.mjs",
-    "test:careers": "node --test tests/careers.test.mjs"
+    "test:careers": "node --test tests/careers.test.mjs",
+    "test:remote": "node --test tests/remote-work.test.cjs && node --check js/city-desk.js",
+    "test:commerce": "node --test tests/city-commerce.test.cjs && node --check js/city-commerce.js"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.1",

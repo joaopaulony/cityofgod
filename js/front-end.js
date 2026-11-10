@@ -71,7 +71,7 @@
   if(menuLoadQueued||runtime||phase!=='title')return;
   menuLoadQueued=true;setTimeout(()=>{menuLoadQueued=false;if(phase==='title'&&!runtime)start(hadProgressOnEntry,{quiet:true});},80);
  }
- function otherModal(){return !!(window.CityPets?.uiOpen||window.CityHomeUI?.active||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen||window.cityCharacterEditorOpen||game?.mapOpen?.()||window.cityCharacters?.socialPie?.active||document.querySelector('dialog:modal'));}   // leque social e diálogos modais (diário Y) tratam o próprio Esc
+ function otherModal(){return !!(window.CityDesk?.open||window.CityCommerce?.open||window.CityPets?.uiOpen||window.CityHomeUI?.active||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen||window.cityCharacterEditorOpen||game?.mapOpen?.()||window.cityCharacters?.socialPie?.active||document.querySelector('dialog:modal'));}   // leque social e diálogos modais (diário Y) tratam o próprio Esc
  function progress(){return Math.round(load.art*10+load.code*55+load.world*10+load.vehicle*10+load.characters*10+load.frame*5);}
  const back=()=>'<button class="front-back" data-front-action="back">← Voltar</button>';
  const top=()=>`<div class="front-top"><span>CITY OF GOD · ${parent==='pause'||phase==='pause'?'JOGO PAUSADO':'VIDA URBANA'} <span class="front-beta-mini">BETA · EM DESENVOLVIMENTO</span></span><button data-front-action="sound" aria-label="Ativar ou silenciar a música do menu">${settings.music===0?'SOM DESLIGADO':'♫ ÁUDIO'}</button></div>`;
