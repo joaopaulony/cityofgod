@@ -19,6 +19,7 @@ function fixture(){
  ctx.CityRealty={id:()=> 'home',isOwned:x=>x===H};
  ctx.CityLife={funds:100000,debit(v){this.funds-=v;return true},credit(v){this.funds+=v;return true},money:v=>String(v)};
  ctx.addBox=b=>{boxes.push(b);if(b.solid)world.segs.push({sourceBox:b});return b};
+ vm.runInContext(fs.readFileSync('js/furniture-quaternius.js','utf8'),ctx);
  ctx.addBox({house:H,kind:'desk',x:4,y:4,z:0,w:1.3,d:.7,h:.76,rot:0,floor:0,solid:true,faceW:[0,1],along:1.3,depth:.7});
  ctx.addBox({house:H,kind:'qf_shelf_large',x:8,y:8,z:0,w:1.69,d:.378,h:2.219,rot:0,floor:0,solid:true});
  vm.runInContext(source,ctx);
