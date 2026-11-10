@@ -34,7 +34,7 @@ const CityCommerce=(()=>{
  function shelfNear(p){
   const a=addressOf(p);if(!a||!S.shop||a.key!==S.shop.addressKey)return null;const f=p.floor||0;let best=null,bd=1.9;
   for(const r of CityHome.placed(a.H))if((r.floor||0)===f&&K.shelfCap(r.kind)){const d=Math.hypot(r.x-p.x,r.y-p.y);if(d<bd){bd=d;best=r;}}
-  return best&&{id:a.key+':'+best.id,kind:best.kind,name:CityHome.catalog?.[best.kind]?.name||'Estante'};
+  return best&&{id:a.key+':'+best.id,sid:a.key+':'+best.id,kind:best.kind,x:best.x,y:best.y,floor:f,name:CityHome.catalog?.[best.kind]?.name||'Estante'};
  }
  const homeDistance=()=>{const d=depotPoint(),p=player();return d&&p?Math.hypot(d.x-p.x,d.y-p.y):800;};
  const gps=()=>{const d=depotPoint();if(!d)return {ok:false,text:'Central Logística indisponível'};window.CityGPS?.set?.({x:d.x,y:d.y,name:'Central Logística City'});return {ok:true,text:'GPS: Central Logística City'};};
@@ -66,11 +66,11 @@ const CityCommerce=(()=>{
    h='<header><b>📦 '+esc(sh.name)+' · estoque da loja</b><span>'+used+'/'+cap+' UVE</span>'+btnF('close','✕')+'</header>'+
     '<h4>Nesta estante</h4>'+(here.length?here.map(l=>'<div class="cd-row"><span>'+esc(K.CATALOG[l.sku].name)+'</span><small>'+l.qty+' un.'+(l.reserved?' · '+l.reserved+' reservadas':'')+'</small></div>').join(''):'<p class="cd-muted">Vazia.</p>')+
     '<h4>Mercadoria recebida (fora da estante)</h4>'+(loose.length?loose.map(l=>'<div class="cd-row"><span>'+esc(K.CATALOG[l.sku].name)+' · '+l.qty+' un.</span>'+btnF('deposit:'+l.id,'Guardar aqui',used>=cap)+'</div>').join(''):'<p class="cd-muted">Nada para guardar. Confira as remessas que chegaram no CitySeller (no computador).</p>')+
-    '<h4>Pedidos para separar</h4>'+(pickable.length?pickable.map(o=>'<div class="cd-row"><span>'+o.id.toUpperCase()+' · '+o.lines.map(l=>l.qty+'× '+K.CATALOG[l.sku].name).join(', ')+'</span><small>prazo '+esc(dayTime(o.dueClock))+'</small>'+btnF('pick:'+o.id,'Separar')+'</div>').join(''):'<p class="cd-muted">Nenhum pedido aguardando.</p>');
+    '<h4>Pedidos para separar</h4>'+(pickable.length?pickable.map(o=>'<div class="cd-row"><span>'+o.id.toUpperCase()+' · '+o.lines.map(l=>l.qty+'× '+K.CATALOG[l.sku].name).join(', ')+'</span><small>prazo '+esc(dayTime(o.dueClock))+'</small>'+btnF('pick:'+o.id,'Separar')+'</div>').join('')+btnF('autofill','📦 Separar e embalar tudo (automático)'):'<p class="cd-muted">Nenhum pedido aguardando.</p>');
   }else{
    const labeled=S.packages.filter(p=>p.status==='labeled'),ready=S.purchases.filter(p=>p.status==='pickup_ready');
    h='<header><b>🏤 Central Logística City · guichê</b>'+btnF('close','✕')+'</header>'+
-    '<h4>Postar pacotes da sua loja</h4>'+(labeled.length?labeled.map(p=>'<div class="cd-row"><span>'+esc(p.tracking)+'</span><small>'+p.volumes.join(' + ')+'</small></div>').join('')+btnF('post','Postar '+labeled.length+' pacote(s)'):'<p class="cd-muted">Nenhum pacote etiquetado. Separe na estante e embale na mesa do computador.</p>')+
+    '<h4>Postar pacotes da sua loja</h4>'+(labeled.length?labeled.map(p=>'<div class="cd-row"><span>'+esc(p.tracking)+'</span><small>'+p.volumes.join(' + ')+' · '+({hands:'nas mãos',car:'no porta-malas',pile:'na pilha de casa'}[p.loc||'pile'])+'</small></div>').join('')+btnF('post','Postar '+labeled.length+' pacote(s)',labeled.some(p=>(p.loc||'pile')!=='hands')):'<p class="cd-muted">Nenhum pacote etiquetado. Separe na estante e embale na mesa do computador.</p>')+
     '<h4>Retirar encomendas</h4>'+(ready.length?ready.map(p=>'<div class="cd-row"><span>'+esc(p.shopName)+' · '+p.lines.map(l=>l.qty+'× '+K.CATALOG[l.sku].name).join(', ')+'</span></div>').join('')+btnF('claim','Retirar tudo'):'<p class="cd-muted">Nada aguardando retirada.</p>');
   }
   panel.innerHTML='<div class="cd-float-in">'+h+'<p class="cd-muted">Esc ou F fecha.</p></div>';
@@ -80,23 +80,113 @@ const CityCommerce=(()=>{
   const [cmd,arg]=a.split(':');let r=null;const p=player();
   if(cmd==='close')return closePanel();
   if(cmd==='deposit'){const lot=S.lots.find(l=>l.id===arg);r=K.deposit(S,arg,lot?.qty||0,floatShelf);}
-  else if(cmd==='pick')r=K.pick(S,arg,floatShelf.id,clock());
-  else if(cmd==='post')r=K.post(S,atHub(p),clock());
+  else if(cmd==='pick'){closePanel();pickOrder(arg,floatShelf);return;}
+  else if(cmd==='autofill')return autoFulfill();
+  else if(cmd==='post'){if(pkgs('pile').length||pkgs('car').length)r={ok:false,text:'Traga todos os pacotes nas mãos: ainda há pacotes '+(pkgs('car').length?'no porta-malas':'na pilha de envio')+'.'};else{r=K.post(S,atHub(p),clock());if(r.ok)p.carry=null;}}
   else if(cmd==='claim')r=K.claim(S,atHub(p),life);
   if(r){notify(r.text);if(r.ok)window.CityAudio?.ui?.('confirm');}
   save();renderPanel();
+ }
+
+
+ // ---------- mundo físico: caixa nas mãos, embalagem animada, pilha de envio, porta-malas e separação automática ----------
+ let job=null,auto=null;
+ const DESKS=['desk','studentdesk'];
+ function keyAt(H,x,y,f){if(CityRealty.multi(H)&&f>0){const u=CityRealty.unitAt(H,x,y,f);return u==null?null:CityRealty.unitKey(H,f,u);}return CityRealty.id(H);}
+ function shopRows(){if(!S.shop||typeof houses==='undefined'||!window.CityRealty)return null;const H=houses.find(h=>h.architecture&&S.shop.addressKey.startsWith(CityRealty.id(h)));return H?{H,rows:CityHome.placed(H).filter(r=>keyAt(H,r.x,r.y,r.floor||0)===S.shop.addressKey)}:null;}
+ function shopDesk(){const s=shopRows();if(!s)return null;const ds=s.rows.filter(r=>DESKS.includes(r.kind));return ds.find(r=>s.rows.some(q=>q.kind==='screen'&&(q.floor||0)===(r.floor||0)&&Math.hypot(q.x-r.x,q.y-r.y)<=2.6))||ds[0]||null;}
+ function shelfRows(){const s=shopRows();return s?s.rows.filter(r=>K.shelfCap(r.kind)).map(r=>({...r,sid:S.shop.addressKey+':'+r.id})):[];}
+ const near=(p,r,d)=>!!(p&&r&&(p.floor||0)===(r.floor||0)&&Math.hypot(p.x-r.x,p.y-r.y)<d);
+ function standPoint(r,toward){let dx=(toward?.x??r.x+1)-r.x,dy=(toward?.y??r.y)-r.y,n=Math.hypot(dx,dy)||1;return {x:r.x+dx/n*.85,y:r.y+dy/n*.85};}
+ const pkgs=loc=>S.packages.filter(p=>p.status==='labeled'&&(p.loc||'pile')===loc);
+ function trunk(){const v=window.cityVehicles,c=v?.car;if(!v?.ready||!c||!Number.isFinite(c.x)||Math.abs(c.x)+Math.abs(c.y)<1)return null;   // sem carro no mundo, o estado fica em (0,0)
+ const a=c.a??c.angle??0,len=v.carLength||4.6;return {x:c.x-Math.cos(a)*(len/2+.7),y:c.y-Math.sin(a)*(len/2+.7)};}
+ function nearTrunk(p){const t=trunk();return !!t&&!window.cityVehicles?.driver&&!(p.floor||0)&&Math.hypot(t.x-p.x,t.y-p.y)<2.2;}
+ const faceTo=(p,q)=>q?Math.atan2(q.y-p.y,q.x-p.x):null;
+ function animate(kind,secs,face,done){const p=player();job={kind,until:performance.now()+secs*1000,face,x:p.x,y:p.y,done};if(p.armed)CityLife.equip?.('unarmed',false);p.homeAction={kind,t:0,duration:1e9,shopWork:true};if(face!=null)p.face=face;p.speed=0;}
+ function tickJob(){const p=player();if(!job||!p)return;p.x=job.x;p.y=job.y;if(job.face!=null)p.face=job.face;p.speed=0;
+  if(performance.now()>=job.until){const j=job;job=null;if(p.homeAction?.shopWork)p.homeAction=null;j.done?.();}}
+ function carrying(){const p=player();return p?.carryOrder&&S.orders.find(o=>o.id===p.carryOrder&&o.status==='picking');}
+ function pickOrder(id,shelf,then){
+  const p=player();if(carrying()){notify('Embale primeiro a caixa que está nas suas mãos.');then?.(false);return;}
+  const r=K.pick(S,id,shelf.sid,clock());if(!r.ok){notify(r.text);then?.(false);return;}
+  save();animate('shelf',1.6,faceTo(p,shelf),()=>{p.carry='package';p.carryOrder=id;notify('📦 Caixa do pedido '+id.toUpperCase()+' nas mãos · leve até a mesa da loja e aperte F para embalar');then?.(true);});
+ }
+ function packOrder(id,then){
+  const p=player(),d=shopDesk();
+  animate('pack',2.4,faceTo(p,d),()=>{
+   const r=K.pack(S,id,debit,clock());
+   if(r.ok){if(p.carryOrder===id){p.carry=null;p.carryOrder=null;}const pk=S.packages.find(x=>x.orderId===id);if(pk)pk.loc='pile';
+    const a=(d?.rot||0),side={x:Math.cos(a),y:Math.sin(a)};S.pileAt=d?null:{x:p.x+side.x*.75,y:p.y+side.y*.75,z:0,floor:p.floor||0};   // com mesa: pilha fixa ao lado dela (pilePos)
+    notify('🏷️ '+r.text.replace('Leve à Central Logística City.','Ficou na pilha de envio ao lado da mesa.'));window.CityAudio?.ui?.('confirm');}
+   else notify(r.text);
+   save();then?.(r.ok);});
+ }
+ // separar e embalar tudo no automático: o personagem anda até a estante certa, pega, leva até a mesa e embala
+ function autoFulfill(){
+  if(!S.shop)return;const queue=S.orders.filter(o=>o.status==='paid_reserved'||o.status==='picking').map(o=>o.id);
+  if(!queue.length)return notify('Nenhum pedido para separar agora.');
+  if(!window.CityAutopilot)return notify('Piloto automático indisponível.');
+  if(!shopRows())return notify('Vá até a loja (seu endereço) para separar os pedidos.');
+  window.CityDesk?.close?.();closePanel();auto={queue,waiting:false};notify('📦 Separando '+queue.length+' pedido(s) no automático · ande para assumir o controle.');nextAuto();
+ }
+ function walkTo(pt,arrive){auto.waiting=true;const r=window.CityAutopilot.walk([pt],'trabalho na loja',()=>{if(!auto)return;auto.waiting=false;setTimeout(arrive,200);});if(!r?.ok){auto=null;notify(r?.text||'Sem caminho até lá.');}}
+ function nextAuto(){
+  if(!auto)return;const p=player(),id=auto.queue[0];
+  if(!id){auto=null;notify('✅ Pedidos embalados. '+pkgs('pile').length+' pacote(s) na pilha de envio: pegue (F) e leve à Central Logística City.');gps();return;}
+  const o=S.orders.find(x=>x.id===id);
+  if(o?.status==='picking'){const d=shopDesk();if(!d){auto=null;return notify('Coloque uma mesa na loja para embalar.');}
+   return walkTo(standPoint(d,p),()=>packOrder(id,()=>{auto?.queue.shift();nextAuto();}));}
+  if(o?.status!=='paid_reserved'){auto.queue.shift();return nextAuto();}
+  const sh=shelfRows().find(r=>o.lines.every(l=>S.lots.some(x=>x.shelf===r.sid&&x.sku===l.sku&&x.reserved>=1)));
+  if(!sh){auto=null;return notify('Não achei a estante com os itens do pedido '+id.toUpperCase()+'.');}
+  walkTo(standPoint(sh,shopDesk()||p),()=>pickOrder(id,sh,ok=>{if(!ok){auto=null;return;}nextAuto();}));
+ }
+ // a cada quadro: ação animada, automático interrompido, caixa reaparece nas mãos depois de recarregar, carro
+ function tickFrame(){
+  const p=player();if(!p)return;tickJob();
+  if(auto&&auto.waiting&&!window.CityAutopilot?.active){auto=null;notify('Separação automática interrompida.');}
+  if(!p.carry&&!job){const o=S.orders.find(x=>x.status==='picking');if(o&&!p.carryOrder){p.carry='package';p.carryOrder=o.id;}else if(pkgs('hands').length)p.carry='package';}
+  if(window.cityVehicles?.driver&&pkgs('hands').length){for(const k of pkgs('hands'))k.loc='car';if(p.carry==='package'&&!carrying())p.carry=null;save();notify('📦 Pacotes guardados no porta-malas.');}
+ }
+ // pilha de envio: onde o último pacote foi deixado, ou ao lado da mesa da loja
+ function pilePos(){const d=shopDesk();if(!d)return S.pileAt||null;const r=d.rot||0;return {x:d.x+Math.cos(r)*.95-Math.sin(r)*.5,y:d.y+Math.sin(r)*.95+Math.cos(r)*.5,z:d.z||0,floor:d.floor||0};}
+ const claimsDesk=p=>!!(p&&physicalPrompt(p));   // embalar/pegar a pilha vêm antes de abrir o computador
+ function visuals(){
+  if(!S.shop)return null;const out={shelves:[],pile:null};
+  for(const r of shelfRows()){const units=S.lots.filter(l=>l.shelf===r.sid).reduce((t,l)=>t+l.qty,0);if(units)out.shelves.push({x:r.x,y:r.y,z:r.z||0,floor:r.floor||0,rot:r.rot||0,w:r.w,h:r.h,count:Math.ceil(units/2)});}
+  const n=pkgs('pile').length;if(n&&pilePos())out.pile={...pilePos(),count:n};
+  return out;
+ }
+ function physicalPrompt(p){
+  if(job||auto)return null;const o=carrying();
+  if(o&&near(p,shopDesk(),2.2))return 'F · Embalar e etiquetar o pedido '+o.id.toUpperCase();
+  if(pilePos()&&pkgs('pile').length&&near(p,pilePos(),1.6))return 'F · Pegar '+pkgs('pile').length+' pacote(s) da pilha de envio';
+  if(nearTrunk(p)&&pkgs('hands').length)return 'F · Guardar '+pkgs('hands').length+' pacote(s) no porta-malas';
+  if(nearTrunk(p)&&pkgs('car').length)return 'F · Tirar '+pkgs('car').length+' pacote(s) do porta-malas';
+  return null;
+ }
+ function physicalInteract(p){
+  if(job||auto)return null;const o=carrying();
+  if(o&&near(p,shopDesk(),2.2)){packOrder(o.id);return 'Embalando…';}
+  if(pilePos()&&pkgs('pile').length&&near(p,pilePos(),1.6)){const list=pkgs('pile');animate('shelf',1.3,faceTo(p,pilePos()),()=>{for(const k of list)k.loc='hands';p.carry='package';save();notify('📦 '+list.length+' pacote(s) nas mãos · leve ao carro (porta-malas) ou a pé até a Central Logística City');gps();});return 'Pegando os pacotes…';}
+  if(nearTrunk(p)&&pkgs('hands').length){const list=pkgs('hands');animate('shelf',1.1,faceTo(p,trunk()),()=>{for(const k of list)k.loc='car';p.carry=null;save();notify('🚗 Pacotes no porta-malas. Dirija até a Central Logística City.');});return 'Guardando…';}
+  if(nearTrunk(p)&&pkgs('car').length){const list=pkgs('car');animate('shelf',1.1,faceTo(p,trunk()),()=>{for(const k of list)k.loc='hands';p.carry='package';save();notify('📦 Pacotes nas mãos · entregue no guichê da Central (F)');});return 'Pegando…';}
+  return null;
  }
 
  // ---------- F e dica na tela ----------
  const blocked=()=>!!(window.CityFront?.blocked||window.CityUI?.blocksGameInput?.()||window.CityHomeUI?.active||window.cityVehicles?.driver||window.CityDesk?.open);
  function prompt(p){
   if(panelOpen||blocked())return null;
+  const ph=physicalPrompt(p);if(ph)return ph;if(job||auto)return null;
   const sh=shelfNear(p);if(sh)return 'F · Estoque da loja ('+esc(sh.name)+': '+K.shelfUsed(S,sh.id)+'/'+K.shelfCap(sh.kind)+' UVE)';
   if(atHub(p)&&(S.packages.some(x=>x.status==='labeled')||S.purchases.some(x=>x.status==='pickup_ready')))return 'F · Guichê da Central Logística (postar pacotes / retirar encomendas)';
   return null;
  }
  function interact(p){
   if(panelOpen||blocked())return null;
+  const ph=physicalInteract(p);if(ph)return ph;if(job||auto)return null;
   const sh=shelfNear(p);if(sh){openPanel('shelf',sh);return 'Estoque aberto';}
   if(atHub(p)&&(S.packages.some(x=>x.status==='labeled')||S.purchases.some(x=>x.status==='pickup_ready'))){openPanel('hub');return 'Guichê aberto';}
   return null;
@@ -104,6 +194,7 @@ const CityCommerce=(()=>{
 
  // ---------- tempo ----------
  function tick(){
+  if(!window.CityFront?.blocked)tickFrame();
   const now=clock();if(window.CityFront?.blocked||now-lastTick<10)return;lastTick=now;let changed=false;
   for(const sh of K.tickShipments(S,now)){notify('🚚 Remessa '+sh.id.toUpperCase()+' chegou no endereço da loja. Confira no CitySeller.');changed=true;}
   if(S.shop&&S.shop.status==='open'){const o=K.npcDemand(S,now,BUYERS);if(o.length){notify('🛒 '+o.length+' novo(s) pedido(s) na sua loja '+S.shop.brand.name+'. Separe na estante.');changed=true;}}
@@ -135,9 +226,9 @@ const CityCommerce=(()=>{
     return '<div class="cd-ad"><b>'+esc(c.name)+'</b><small>faixa sugerida '+money(c.band[0])+'–'+money(c.band[1])+' · disponível '+K.available(S,sku)+'</small><label>Qtde <input type="number" min="0" max="'+K.available(S,sku)+'" data-in="aq:'+sku+'" value="'+(ui['aq:'+sku]??l?.qty??K.available(S,sku))+'"></label><label>Preço <input type="number" min="1" data-in="ap:'+sku+'" value="'+(ui['ap:'+sku]??l?.price??c.band[0])+'"></label>'+btnD('list:'+sku,l?'Atualizar':'Publicar')+(l?'<small>'+esc(l.status==='active'?'ativo · '+l.qty+' à venda':'sem estoque')+'</small>':'')+'</div>';}).join('')||'<p class="cd-muted">Guarde mercadoria nas estantes para anunciar.</p>';
   }else{
    const orders=S.orders.slice().reverse().slice(0,20);
-   body='<h4>Pedidos de clientes NPC</h4><p class="cd-muted">Fluxo: separar na estante (F) → embalar aqui na mesa → postar no guichê da Central Logística City. O dinheiro fica retido e é liberado na entrega (comissão '+Math.round(K.CONFIG.commission*100)+'%).</p>'+
+   body=(S.orders.some(o=>['paid_reserved','picking'].includes(o.status))?'<div class="cd-actions">'+btnD('autofill','📦 Separar e embalar tudo (automático)')+'</div>':'')+'<h4>Pedidos de clientes NPC</h4><p class="cd-muted">Fluxo: separar na estante (F) → embalar aqui na mesa → postar no guichê da Central Logística City. O dinheiro fica retido e é liberado na entrega (comissão '+Math.round(K.CONFIG.commission*100)+'%).</p>'+
     (orders.length?orders.map(o=>'<div class="cd-order"><div><b>'+o.id.toUpperCase()+'</b> · '+esc(o.buyer?.name)+'<small>'+o.lines.map(l=>l.qty+'× '+K.CATALOG[l.sku].name+' a '+money(l.unit)).join(', ')+' · '+money(o.escrow)+(o.tracking?' · rastreio '+esc(o.tracking):'')+'</small></div><span class="cd-pill">'+esc(STATUS[o.status]||o.status)+'</span>'+
-     (o.status==='picking'?btnD('pack:'+o.id,'Embalar e etiquetar',!here):'')+(o.status==='labeled'?btnD('gps','GPS → Central'):'')+'</div>').join(''):'<p class="cd-muted">Sem pedidos ainda. Publique anúncios com preço dentro da faixa.</p>')+
+     (o.status==='picking'?btnD('pack:'+o.id,'Embalar e etiquetar',!here):'')+(o.status==='paid_reserved'?'<small>separar na estante</small>':'')+(o.status==='labeled'?btnD('gps','GPS → Central'):'')+'</div>').join(''):'<p class="cd-muted">Sem pedidos ainda. Publique anúncios com preço dentro da faixa.</p>')+
     '<p class="cd-muted">Material: caixas P '+S.supplies.P+' · M '+S.supplies.M+' · G '+S.supplies.G+' · fita '+S.supplies.tape+' · etiquetas '+S.supplies.label+' (o que faltar é comprado na hora).</p>';
   }
   return '<h2>CitySeller</h2>'+head+tabs+body;
@@ -166,7 +257,8 @@ const CityCommerce=(()=>{
   else if(cmd==='buy'){const sp=K.SUPPLIERS.find(x=>x.id===arg);const lines=sp.skus.map(sku=>({sku,qty:+(ui['ws:'+sp.id+':'+sku]||0)|0})).filter(l=>l.qty>0);r=K.buyWholesale(S,arg,lines,debit,clock());if(r.ok)for(const sku of sp.skus)delete ui['ws:'+sp.id+':'+sku];}
   else if(cmd==='receive')r=K.receiveShipment(S,arg,D.station?.addressKey===S.shop.addressKey);
   else if(cmd==='list'){r=K.upsertListing(S,arg,+(ui['aq:'+arg]??K.available(S,arg)),+(ui['ap:'+arg]??K.CATALOG[arg].band[0]));delete ui['aq:'+arg];delete ui['ap:'+arg];}
-  else if(cmd==='pack'){if(D.station?.addressKey!==S.shop.addressKey)r={ok:false,text:'Embale na mesa do endereço da loja.'};else r=K.pack(S,arg,debit,clock());}
+  else if(cmd==='pack'){if(D.station?.addressKey!==S.shop.addressKey)r={ok:false,text:'Embale na mesa do endereço da loja.'};else{D.close();packOrder(arg);return;}}
+  else if(cmd==='autofill'){autoFulfill();return;}
   else if(cmd==='gps')r=gps();
   if(r)D.notify(r.text,r.ok);save();
  }
@@ -222,7 +314,7 @@ const CityCommerce=(()=>{
  }
  function reset(){S=K.newState();save();}
 
- const api={get state(){return S;},get open(){return panelOpen;},prompt,interact,tick,register,renderPhone,phoneAction,reset,logo,close:closePanel};
+ const api={visuals,claimsDesk,autoFulfill,get busy(){return !!(job||auto);},get state(){return S;},get open(){return panelOpen;},prompt,interact,tick,register,renderPhone,phoneAction,reset,logo,close:closePanel};
  register();
  return api;
 })();

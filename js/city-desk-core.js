@@ -284,7 +284,48 @@
   return {gross:Math.max(0,Math.round(gross)),parts:{base,retention:ret,trust:tr,sponsor,cost},score,followers:Math.max(0,Math.round(st.audience*(st.trust/100)*.25)),interrupted};
  }
 
- const api={DAY,CONFIG,rng,hash,day,newState,sanitizeState,levelOf,levelName,nextLevel,refreshOffers,activeCount,accept,transition,expire,evaluate,payout,cancel,
+ // ---------- trabalho no automático: perguntas-relâmpago tiradas do próprio briefing (sem texto solto) ----------
+ // devolve {q, options, answer} — opções embaralhadas pela semente; answer = índice certo
+ function autoQuiz(career,brief,seed,i,{actions={},tools={}}={}){
+  const R=rng(hash('quiz',seed,i)),pick=a=>a[(R()*a.length)|0],mix=a=>a.map(v=>[R(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+  const ask=(q,right,wrong)=>{const opts=mix([right,...mix(wrong.filter(w=>w!==right)).slice(0,3)]);return {q,options:opts,answer:opts.indexOf(right)};};
+  const fmtIn=o=>Object.entries(o).map(([k,v])=>k+' = '+(v===true?'sim':v===false?'não':Array.isArray(v)?'['+v.join(', ')+']':v)).join(', ');
+  if(career==='programmer'){
+   if(brief.mech==='rules'){const c=pick(brief.cases);return ask('Teste “'+c.name+'” ('+fmtIn(c.input)+'): o que o sistema deve fazer?',c.expect,brief.actions);}
+   if(brief.mech==='sequence'){const k=(R()*(brief.steps.length-1))|0;return ask('No fluxo, o que vem logo depois de “'+brief.steps[k]+'”?',brief.steps[k+1],[...brief.steps.filter((_,j)=>j!==k+1&&j!==k),...(brief.decoys||[])]);}
+   if(brief.mech==='debug'&&i%2){const c=pick(brief.cases),show=v=>Array.isArray(v)?'['+v.join(', ')+']':String(v),right=show(c.expect);return ask('Depois da correção, o teste “'+c.name+'” deve dar:',right,[...new Set(brief.cases.map(x=>show(x.expect)).concat(brief.options.map(o=>show(o.fn(c.input)))))]);}
+   if(brief.mech==='debug'){const good=brief.options.find(o=>passRate(testFix(o.fn,brief.cases))===1);return ask('Qual correção resolve: '+brief.brief.split('.')[0]+'?',good.label,brief.options.map(o=>o.label));}
+   if(brief.mech==='ui'){const r=pick(brief.spec.required),lab=id=>(brief.data.find(d=>d[0]===id)||[id,id])[1];return ask('O componente “'+(brief.components.find(c=>c[0]===r.component)||[0,r.component])[1]+'” deve mostrar qual dado?',lab(r.bind),brief.data.map(d=>d[1]));}
+  }
+  if(career==='support'){
+   if(i%2===0){const ev=brief.evidence.find(e=>brief.out[e])||brief.evidence[0];return ask('“'+(tools[ev]||ev)+'” mostrou: '+brief.out[ev]+'. Qual é a causa?',brief.cause,brief.causes);}
+   return ask('Causa: '+brief.cause+'. Qual ação resolve sem estragar nada?',actions[brief.action]||brief.action,[...(brief.harmful||[]).map(a=>actions[a]||a),...Object.keys(actions).filter(a=>a!==brief.action).map(a=>actions[a])]);
+  }
+  if(career==='designer'){
+   if(i%2===0&&brief.shapes?.length)return ask('Qual forma o cliente pediu no briefing?',brief.shapes[0],SHAPES.filter(s=>!brief.shapes.includes(s)));
+   const bg=brief.colors[1]||'#ffffff',cands=[brief.colors[0],'#ffffff','#f2c14e','#e8e4da','#9fb0c0'].filter((v,j,a)=>a.indexOf(v)===j);
+   const best=cands.slice().sort((a,b)=>contrast(b,bg)-contrast(a,bg))[0];
+   const q=ask('Texto sobre o fundo '+bg+': qual cor fica mais legível?',best,cands);q.swatch=bg;return q;
+  }
+  return null;
+ }
+ // arte automática a partir do briefing: forma pedida no centro, textos com a cor principal sobre a de fundo
+ function autoDesign(brief){
+  const ratio=RATIOS[brief.ratio]?brief.ratio:'square',[W,H]=RATIOS[ratio],M=Math.max(W,H),c=brief.colors||['#111111','#ffffff'];
+  const bg=c[1]||'#ffffff',ink=[c[0],'#111111','#ffffff'].sort((x,y)=>contrast(y,bg)-contrast(x,bg))[0];
+  const els=[],texts=brief.texts||[],sh=brief.shapes||[];
+  const sizes=texts.map((t,i)=>Math.round(Math.max(M*(i?.075:.09),Math.min(W*.9/(Math.max(4,t.length)*.32),H*(i?.16:.24)))));
+  const block=sizes.reduce((t,v)=>t+v*1.15,0),shapeH=sh.length?Math.min(W,H)*.34:0,gap=sh.length&&texts.length?H*.04:0;
+  let y=(H-(shapeH+gap+block))/2;
+  sh.forEach((s,i)=>els.push({id:'s'+i,type:'shape',shape:s,size:Math.round(i?shapeH*.55:shapeH),x:Math.round(sh.length>1&&i?W*.75:W/2),y:Math.round(y+shapeH/2),fill:c[0]}));
+  y+=shapeH+gap;
+  texts.forEach((t,i)=>{y+=sizes[i]*.85;els.push({id:'t'+i,type:'text',text:t,size:sizes[i],font:i?'sans':'serif',weight:i?'normal':'bold',fill:ink,x:Math.round(W/2),y:Math.round(y)});y+=sizes[i]*.3;});
+  // a cor principal precisa aparecer: se o texto ficou neutro e não há forma, entra uma faixa de destaque
+  if(ink!==c[0]&&!sh.length)els.push({id:'bar',type:'shape',shape:'square',size:Math.round(Math.min(W,H)*.06),x:Math.round(W/2),y:Math.round(Math.min(H*.93,y+H*.05)),fill:c[0]});
+  return sanitizeDesign({ratio,bg,elements:els});
+ }
+
+ const api={DAY,CONFIG,rng,hash,day,newState,autoQuiz,autoDesign,sanitizeState,levelOf,levelName,nextLevel,refreshOffers,activeCount,accept,transition,expire,evaluate,payout,cancel,
   OPS,runRules,testRules,testSequence,testFix,testUI,passRate,codeScore,supportScore,SHAPES,FONTS,RATIOS,PATHS,sanitizeDesign,renderSVG,contrast,designCheck,
   streamStart,streamApply,streamReport,clamp};
  root.CityDeskCore=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;

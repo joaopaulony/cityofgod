@@ -1146,7 +1146,8 @@ function tick(dt) {
   window.cityCharacters?.update(dt);
   window.CityJobs?.tick(dt);   // turno do emprego (jobs.mjs)
   window.CityAdventures?.tick(dt);
-  window.CityCareers?.tick(dt);   // aulas e negócio próprio (careers.mjs)
+  window.CityCareers?.tick(dt);
+  window.CityWork3D?.update?.(dt);   // monitor do home office e caixas da loja (work-3d.mjs)   // aulas e negócio próprio (careers.mjs)
   window.CityFarm?.tick();   // sítio do jogador (farm.mjs)
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   player.flash = Math.max(0, (player.flash || 0) - dt);

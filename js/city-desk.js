@@ -33,7 +33,8 @@ const CityDesk=(()=>{
     // apartamento dividido: a mesa precisa estar no apartamento do jogador (nunca no do vizinho ou no corredor)
     const u=CityRealty.unitAt?.(H,d.x,d.y,f);
     if(CityRealty.multi?.(H)&&(u===null||!CityRealty.canUse(H,f,u)))continue;
-    const screen=screens.find(s=>Math.hypot(s.x-d.x,s.y-d.y)<=2.6);
+    // a escrivaninha já tem monitor e cadeira no modelo (props-3d.mjs); a mesa de estudo precisa de um Monitor perto
+    const screen=d.kind==='desk'?{...d,builtin:true}:screens.find(s=>Math.hypot(s.x-d.x,s.y-d.y)<=2.6);
     const addressKey=CityRealty.multi?.(H)&&f>0?CityRealty.unitKey(H,f,u??0):CityRealty.id(H);
     return {H,desk:d,screen,addressKey,floor:f,id:addressKey+':'+d.id};
    }
@@ -42,11 +43,11 @@ const CityDesk=(()=>{
  }
  const blocked=()=>!!(window.CityFront?.blocked||window.CityUI?.blocksGameInput?.()||window.CityHomeUI?.active||window.cityVehicles?.driver);
  function prompt(p){
-  if(openFlag||blocked())return null;const st=stationAt(p);if(!st)return null;
+  if(openFlag||W||blocked()||window.CityCommerce?.claimsDesk?.(p)||window.CityCommerce?.busy)return null;const st=stationAt(p);if(!st)return null;
   return st.screen?'F · Abrir o computador (CityDesk) · Shift+F rotina':'Mesa sem monitor · coloque um Monitor perto (F7 › Decorar) para trabalhar de casa';
  }
  function interact(p){
-  if(openFlag||blocked()||window.__game?.input?.down?.('shift'))return null;
+  if(openFlag||W||blocked()||window.__game?.input?.down?.('shift')||window.CityCommerce?.claimsDesk?.(p)||window.CityCommerce?.busy)return null;
   const st=stationAt(p);if(!st?.screen)return null;
   open('home');return 'CityDesk aberto';
  }
@@ -64,14 +65,16 @@ const CityDesk=(()=>{
  function open(a='home'){
   stationNow=stationAt(player());if(!stationNow?.screen){notify('Use o computador em casa: mesa com monitor, no seu imóvel.',false);return false;}
   ensure();openFlag=true;app=a;root.hidden=false;document.body.classList.add('city-desk-open');
+  sitDown('desk_code',stationNow);   // senta à mesa enquanto usa o computador (o braço segue o app aberto)
   window.__game?.input?.keys?.clear?.();refreshOffersAll();render();root.querySelector('[data-app="'+a+'"]')?.focus();return true;
  }
- function close(){if(!openFlag)return;openFlag=false;root.hidden=true;document.body.classList.remove('city-desk-open');save();document.getElementById('view')?.focus();}
+ function close(){if(!openFlag)return;openFlag=false;root.hidden=true;document.body.classList.remove('city-desk-open');if(!W)standUp();save();document.getElementById('view')?.focus();}
  function refreshOffersAll(){const c=clock();for(const k of ['programmer','support','designer'])C.refreshOffers(S,k,{programmer:T.PROGRAMMER,support:T.SUPPORT,designer:T.DESIGNER}[k],c,T.CLIENTS);save();}
 
  const NAV=[['home','Início','🏠'],['contracts','Contratos','📋'],['code','CodeLab','💻'],['help','HelpDesk','🛠️'],['brand','Brand Studio','🎨'],['live','CityLive','🎙️'],['folio','Portfólio','🗂️'],['money','Finanças','💳']];
  function render(){
   if(!root||!openFlag)return;
+  const ha=player()?.homeAction;if(ha?.deskWork)ha.kind={brand:'desk_design',live:'desk_stream',help:'desk_help'}[app]||'desk_code';
   const extra=[...apps.entries()].map(([id,d])=>[id,d.label,d.icon]);
   const nav=[...NAV,...extra].map(([id,l,i])=>'<button type="button" data-app="'+id+'" class="'+(app===id?'on':'')+'"><span>'+i+'</span>'+l+'</button>').join('');
   const body=app==='home'?home():app==='contracts'?contracts():app==='code'?codelab():app==='help'?helpdesk():app==='brand'?brand():app==='live'?live():app==='folio'?folio():app==='money'?finance():apps.get(app)?.render(api)||'';
@@ -93,7 +96,7 @@ const CityDesk=(()=>{
   const active=S.contracts.filter(c=>['ACCEPTED','IN_PROGRESS','REVISION_REQUIRED'].includes(c.state));
   return '<h2>Home office</h2><p class="cd-muted">Clientes, prazos e pagamentos são simulados por moradores e empresas NPC da cidade. Estação: '+esc(stationNow?.desk?.kind==='desk'?'Escrivaninha':'Mesa de estudo')+' + Monitor.</p>'+
    '<div class="cd-grid">'+['programmer','support','designer','streamer'].map(careerCard).join('')+'</div>'+
-   card('Em andamento ('+active.length+')',active.length?active.map(c=>'<div class="cd-row"><span>'+C.CONFIG.careers[c.career].icon+' '+esc(tpl(c.career,c.templateId)?.title||'Sessão')+' · '+esc(c.client?.name)+'</span><small>'+(c.state==='REVISION_REQUIRED'?'revisão pedida · ':'')+'prazo '+esc(dayTime(c.dueClock))+'</small>'+btn('work:'+c.id,'Continuar')+'</div>').join(''):'<p class="cd-muted">Nenhum trabalho aberto. Veja as propostas em Contratos.</p>')+
+   card('Em andamento ('+active.length+')',active.length?active.map(c=>'<div class="cd-row"><span>'+C.CONFIG.careers[c.career].icon+' '+esc(tpl(c.career,c.templateId)?.title||'Sessão')+' · '+esc(c.client?.name)+'</span><small>'+(c.state==='REVISION_REQUIRED'?'revisão pedida · ':'')+'prazo '+esc(dayTime(c.dueClock))+'</small>'+btn('work:'+c.id,'Continuar')+btn('auto:'+c.id,'⚙ Automático')+'</div>').join(''):'<p class="cd-muted">Nenhum trabalho aberto. Veja as propostas em Contratos.</p>')+
    card('Mensagens',S.messages.slice(-6).reverse().map(m=>'<div class="cd-msg"><b>'+esc(m.from)+'</b> '+esc(m.text)+'<small>'+esc(dayTime(m.clock))+'</small></div>').join('')||'<p class="cd-muted">Sem mensagens.</p>');
  }
  // ---------- Contratos ----------
@@ -139,7 +142,7 @@ const CityDesk=(()=>{
   }
   const tests=w.ran?codeTests(c,t):null,rate=tests?C.passRate(tests):0;
   return '<h2>CodeLab</h2>'+activeList(list,'programmer')+'<div class="cd-brief"><span class="cd-mono">'+esc(c.client.mono)+'</span><div><b>'+esc(t.title)+'</b><p>'+esc(t.brief)+'</p><small>'+esc(c.client.name)+' · '+money(c.gross)+' · prazo '+esc(dayTime(c.dueClock))+(c.state==='REVISION_REQUIRED'?' · <b>o cliente pediu revisão: corrija os testes que falharam</b>':'')+'</small></div></div>'+
-   '<div class="cd-editor">'+ed+'</div><div class="cd-actions">'+btn('runtests','▶ Testar')+btn('submitcode','Entregar','',!(w.ran&&rate>=.6))+btn('cancel:'+c.id,'Desistir','class="cd-ghost"')+'</div>'+
+   '<div class="cd-editor">'+ed+'</div><div class="cd-actions">'+btn('auto:'+c.id,'⚙ Trabalhar no automático')+btn('runtests','▶ Testar')+btn('submitcode','Entregar','',!(w.ran&&rate>=.6))+btn('cancel:'+c.id,'Desistir','class="cd-ghost"')+'</div>'+
    (tests?'<div class="cd-result"><b>'+tests.filter(x=>x.pass).length+'/'+tests.length+' testes passaram</b>'+testsHtml(tests)+'</div>':'<p class="cd-muted">Monte a solução e clique em Testar. A entrega só libera com pelo menos 60% dos testes passando.</p>');
  }
  // ---------- HelpDesk ----------
@@ -158,7 +161,7 @@ const CityDesk=(()=>{
    '<h4>Ação</h4>'+acts.map(a=>btn('act:'+a,esc(T.ACTIONS[a]),'class="cd-chip'+(w.actions.includes(a)?' used':'')+'"')).join('')+
    '<h4>Verificação</h4>'+btn('verify','Testar de novo ('+esc(T.TOOLS[t.verify])+')','',!w.actions.length)+(w.verified?'<small> ✓ teste executado</small>':'')+
    '<h4>Relatório · prevenção</h4><select data-in="prev"><option value="">— escolha —</option>'+preventions.map(x=>'<option '+(w.prev===x?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select></div></div>'+
-   '<div class="cd-actions">'+btn('closeticket','Fechar chamado','',!(w.cause&&w.actions.length&&w.verified))+btn('cancel:'+c.id,'Desistir','class="cd-ghost"')+'</div><p class="cd-muted">Cada teste consome 3 minutos do SLA. Ações sem diagnóstico ou destrutivas derrubam a nota; escalar é o certo quando o problema é físico.</p>';
+   '<div class="cd-actions">'+btn('closeticket','Fechar chamado','',!(w.cause&&w.actions.length&&w.verified))+btn('auto:'+c.id,'⚙ Atender no automático')+btn('cancel:'+c.id,'Desistir','class="cd-ghost"')+'</div><p class="cd-muted">Cada teste consome 3 minutos do SLA. Ações sem diagnóstico ou destrutivas derrubam a nota; escalar é o certo quando o problema é físico.</p>';
  }
  // ---------- Brand Studio ----------
  const NEUTRAL=['#ffffff','#f5f1e8','#111111'];
@@ -183,7 +186,7 @@ const CityDesk=(()=>{
    '<div class="cd-tools"><div><select data-in="addshape"><option value="">+ Forma…</option>'+C.SHAPES.map(s=>'<option>'+s+'</option>').join('')+'</select>'+btn('addtext','+ Texto','class="cd-mini"')+btn('undo','↶','class="cd-mini"',!w.undo?.length)+btn('redo','↷','class="cd-mini"',!w.redo?.length)+btn('guides','Guias','class="cd-mini"')+'</div>'+
    '<ol class="cd-layers">'+d.elements.map((x,i)=>'<li class="'+(i===w.sel?'on':'')+'">'+btn('selel:'+i,(x.type==='text'?'T · '+esc(x.text||'texto'):'◆ '+esc(x.shape)),'class="cd-layer"')+'</li>').join('')+'<li class="'+(w.sel==null?'on':'')+'">'+btn('selel:-1','▭ Fundo','class="cd-layer"')+'</li></ol>'+props+'</div></div>'+
    (check?'<div class="cd-result"><b>Checklist do cliente · nota '+Math.round(check.score*100)+'</b><ul class="cd-tests">'+check.checks.map(x=>'<li class="'+(x.pass?'ok':'no')+'">'+(x.pass?'✓':'✗')+' '+esc(x.name)+'</li>').join('')+'</ul></div>':'')+
-   '<div class="cd-actions">'+btn('checkdesign','Conferir requisitos')+(free?btn('savefree','Salvar no portfólio','',!d.elements.length)+btn('freeexit','Sair','class="cd-ghost"'):btn('submitdesign','Entregar ao cliente','',!w.checked)+btn('cancel:'+c.id,'Desistir','class="cd-ghost"'))+'</div>';
+   '<div class="cd-actions">'+btn('checkdesign','Conferir requisitos')+(free?btn('savefree','Salvar no portfólio','',!d.elements.length)+btn('freeexit','Sair','class="cd-ghost"'):btn('submitdesign','Entregar ao cliente','',!w.checked)+btn('auto:'+c.id,'⚙ Criar no automático')+btn('cancel:'+c.id,'Desistir','class="cd-ghost"'))+'</div>';
  }
  // ---------- CityLive ----------
  function live(){
@@ -194,7 +197,7 @@ const CityDesk=(()=>{
   const avatar=ch.avatar&&S.artifacts.find(a=>a.id===ch.avatar)?C.renderSVG(S.artifacts.find(a=>a.id===ch.avatar).design):'<span class="cd-mono">'+esc(ch.name.slice(0,2).toUpperCase())+'</span>';
   const head='<div class="cd-channel"><div class="cd-avatar">'+avatar+'</div><div><b>'+esc(ch.name)+'</b><small>'+ch.followers+' seguidores (NPC) · '+k.done+' transmissões · nível '+k.level+' · '+esc(C.levelName('streamer',k.level))+'</small></div>'+
    '<select data-in="chavatar"><option value="">Avatar: monograma</option>'+S.artifacts.filter(a=>a.kind==='design').map(a=>'<option value="'+a.id+'" '+(ch.avatar===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join('')+'</select></div>';
-  if(!st)return '<h2>CityLive Studio</h2>'+head+'<h4>Nova transmissão</h4><div class="cd-formats">'+T.FORMATS.map(f=>btn('golive:'+f.id,esc(f.name)+(f.minLevel>k.level?' · nível '+f.minLevel:''),'class="cd-chip"',f.minLevel>k.level)).join('')+'</div><p class="cd-muted">Cada sessão tem 5 momentos de decisão. O pagamento vem da retenção, da confiança e de patrocínios alinhados, com teto por nível e por dia.</p>';
+  if(!st)return '<h2>CityLive Studio</h2>'+head+'<h4>Nova transmissão</h4><div class="cd-actions">'+btn('autolive','🎙️ Transmitir no automático')+'</div><p class="cd-muted">No automático o personagem joga e conversa com o chat sozinho; de vez em quando o chat pede uma decisão sua. Ou escolha o formato e conduza cada momento:</p><div class="cd-formats">'+T.FORMATS.map(f=>btn('golive:'+f.id,esc(f.name)+(f.minLevel>k.level?' · nível '+f.minLevel:''),'class="cd-chip"',f.minLevel>k.level)).join('')+'</div><p class="cd-muted">Cada sessão tem 5 momentos de decisão. O pagamento vem da retenção, da confiança e de patrocínios alinhados, com teto por nível e por dia.</p>';
   if(st.ended)return '<h2>CityLive Studio</h2>'+head+'<div class="cd-result"><b>Relatório da transmissão</b><p>Bruto '+money(st.report.gross)+' = base '+st.report.parts.base+' + retenção '+st.report.parts.retention+' + confiança '+st.report.parts.trust+' + patrocínio '+st.report.parts.sponsor+' − desgaste '+st.report.parts.cost+(st.report.interrupted?' · <b>interrompida: paga 30%</b>':'')+'</p><p>Novos seguidores: '+st.report.followers+' · nota '+Math.round(st.report.score*100)+'</p></div>'+btn('endlive','Concluir');
   const sit=T.STREAM[st.order[st.s.round]];
   const chat=st.chat.slice(-6).map(m=>'<div><b>'+esc(m.n)+'</b> '+esc(m.t)+'</div>').join('');
@@ -232,6 +235,8 @@ const CityDesk=(()=>{
  function act(a,el){
   const [cmd,...rest]=a.split(':'),arg=rest.join(':');const c=S.contracts.find(x=>x.id===sel);
   if(cmd==='close')return close();
+  if(cmd==='auto'){const x=S.contracts.find(y=>y.id===arg);if(x)startAuto(x);return;}
+  if(cmd==='autolive'){app='live';startAuto(null);return;}
   if(cmd==='go'){app=arg;sel=null;return render();}
   if(cmd==='tab'){ui.tab=arg;return render();}
   if(cmd==='sel'){sel=arg;return render();}
@@ -338,9 +343,146 @@ const CityDesk=(()=>{
  }
  function afterRender(){}
 
+ // ---------- trabalho no automático: o personagem senta, trabalha animado e, de vez em quando, um minigame ----------
+ const DUR={programmer:150,support:90,designer:120,streamer:120};   // minutos de jogo (acelerado 10×)
+ const KINDS={programmer:'desk_code',support:'desk_help',designer:'desk_design',streamer:'desk_stream'};
+ const GAMES={programmer:['quiz','keys','quiz'],support:['quiz','meter','quiz'],designer:['quiz','meter','quiz'],streamer:['chat','meter','chat']};
+ const WORDS=['commit','deploy','teste','array','loop','fetch','merge','debug','cache','query'];
+ const NPCN=['Lia','Tico','Bia','Duda','Rafa','Nina','Caio','Mano'],NPCM=['kkkk','boa!!','🔥🔥','que jogada','salve!','primeira vez aqui','GG','👏'];
+ let W=null,wui=null,wkey='',wLast=0;
+ // frente da escrivaninha: a cadeira do modelo fica em +z local (0,6 m); mundo = (−sen r, cos r) — props-3d gira por −rot
+ const deskFront=d=>{const r=d.rot||0;return {x:-Math.sin(r),y:Math.cos(r)};};
+ function seatAt(st){
+  const p=player(),d=st.desk;
+  if(d.kind==='desk'){const f=deskFront(d),seat={x:d.x+f.x*.58,y:d.y+f.y*.58};return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
+  const seat={x:d.x+dx/n*.72,y:d.y+dy/n*.72};return {seat,face:Math.atan2(d.y-seat.y,d.x-seat.x)};
+ }
+ function sitDown(kind,st,extra={}){const p=player();if(!p||!st)return null;const s=seatAt(st);p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);p.homeAction={kind,t:0,duration:1e9,deskWork:true,...extra};return s;}
+ function standUp(){const p=player();if(p?.homeAction?.deskWork)p.homeAction=null;}
+ function startAuto(c,format){
+  const st=stationNow||stationAt(player());if(!st?.screen)return notify('Sente na mesa com monitor para trabalhar.',false);
+  if(window.CityTimeScale>1&&!W)return notify('Termine a atividade acelerada antes.',false);
+  const career=c?.career||'streamer';
+  if(career==='streamer'){if(!S.channel)return notify('Crie seu canal no CityLive primeiro.',false);act('golive:'+(format||T.FORMATS.find(f=>f.minLevel<=S.careers.streamer.level).id));}
+  else if(c.state==='ACCEPTED')C.transition(c,'IN_PROGRESS',clock());
+  close();
+  const s=sitDown(KINDS[career],st);
+  const w=c?work(c):{},done=c?(w.autoMin||0):0;
+  W={id:c?.id||null,career,st,seat:s.seat,face:s.face,dur:DUR[career],minutes:done,last:clock(),games:GAMES[career].slice(),at:[.25,.55,.85].filter(f=>f>done/DUR[career]),asked:w.autoAsked||0,correct:w.autoCorrect||0,game:null,fast:true,seed:(c?.seed||C.hash('live',clock()))+1,chat:[],talkT:0};
+  W.games=W.games.slice(3-W.at.length);
+  window.CityTimeScale=10;showWork();notify('Trabalhando no automático · ande (WASD) para parar a qualquer momento.');
+ }
+ function stopAuto(reason,keep=true){
+  if(!W)return;const w=W;W=null;window.CityTimeScale=1;standUp();hideWork();
+  const c=S.contracts.find(x=>x.id===w.id);
+  if(c&&keep){const k=work(c);k.autoMin=w.minutes;k.autoAsked=w.asked;k.autoCorrect=w.correct;save();}
+  if(w.career==='streamer'&&ui.stream&&!ui.stream.ended){endStream(true);ui.stream=null;}
+  if(reason)notify(reason);
+ }
+ function finishAuto(){
+  const w=W;W=null;window.CityTimeScale=1;standUp();hideWork();
+  const acc=w.asked?w.correct/w.asked:.5,score=Math.min(.95,.5+.45*acc);
+  if(w.career==='streamer'){const st=ui.stream;if(st&&!st.ended){while(st.s.round<5){const sit=T.STREAM[st.order[st.s.round]],o=sit.options.slice().sort((a,b)=>(b.fx.trust+b.fx.retention)-(a.fx.trust+a.fx.retention))[acc>=.5?0:1];C.streamApply(st.s,o.fx,sit.id);}endStream(false);}ui.stream=null;return;}
+  const c=S.contracts.find(x=>x.id===w.id);if(!c||!['IN_PROGRESS','REVISION_REQUIRED','ACCEPTED'].includes(c.state))return;
+  const t=tpl(c.career,c.templateId);
+  if(c.career==='designer'){const d=C.autoDesign(t),r=C.designCheck(d,t,{late:clock()>c.dueClock});return finish(c,Math.min(score,r.score),{artifact:{kind:'design',title:t.title,design:d}});}
+  if(c.career==='support')return finish(c,score,{partial:t.action==='escalate'?.7:1,artifact:{kind:'report',title:t.id+' · '+t.title,summary:'Atendimento remoto · causa: '+t.cause+' · ação: '+T.ACTIONS[t.action]+' · prevenção: '+t.prevention}});
+  return finish(c,score,{artifact:{kind:'code',title:t.title,summary:'Entrega no automático · '+w.correct+'/'+w.asked+' decisões certas'}});
+ }
+ function askGame(){
+  const w=W,type=w.games.shift()||'quiz',c=S.contracts.find(x=>x.id===w.id),t=c&&tpl(c.career,c.templateId);window.CityTimeScale=1;
+  if(type==='quiz'&&t){const q=C.autoQuiz(w.career,t,w.seed,w.asked,{actions:T.ACTIONS,tools:T.TOOLS});w.game={type,...q,time:20};}
+  else if(type==='keys'){const word=WORDS[(w.seed+w.asked)%WORDS.length];w.game={type,q:'Digite rápido o comando:',word,typed:0,time:8};}
+  else if(type==='chat'&&ui.stream){const st=ui.stream,sit=T.STREAM[st.order[st.s.round]];w.game={type,q:'Chat: '+sit.text,options:sit.options.map(o=>o.label),sit,time:15};}
+  else{const z=.2+((w.seed>>3)%50)/100;w.game={type:'meter',q:{support:'Teste o cabo: pare a agulha na zona verde (Espaço)',designer:'Alinhe ao centro: pare a agulha na zona verde (Espaço)',streamer:'Jogada ao vivo: acerte o tempo (Espaço)'}[w.career]||'Pare na zona verde (Espaço)',zone:[z,z+.22],x:0,v:.9,time:9};}
+  window.CityAudio?.ui?.('confirm');renderWork(true);
+ }
+ function answer(i){
+  const w=W,g=w?.game;if(!g)return;let ok=false;
+  if(g.type==='quiz')ok=i===g.answer;
+  else if(g.type==='keys')ok=i===1;
+  else if(g.type==='meter')ok=i===0&&g.x>=g.zone[0]&&g.x<=g.zone[1];
+  else if(g.type==='chat'){const o=g.sit.options[i>=0?i:2]||g.sit.options[0];C.streamApply(ui.stream.s,o.fx,g.sit.id);ok=i>=0&&o.fx.trust+o.fx.retention>0;w.chat.push(ok?'Chat (NPC): mandou bem 👏':'Chat (NPC): hmm…');}
+  w.asked++;if(ok)w.correct++;
+  const right=g.type==='quiz'&&!ok?' Era: '+g.options[g.answer]:'';
+  w.feedback={ok,text:ok?'✓ Mandou bem!':'✗ Não foi dessa vez.'+right,t:3};
+  w.game=null;window.CityTimeScale=w.fast?10:1;window.CityAudio?.ui?.(ok?'confirm':'back');
+  const p=player();if(w.career==='streamer'&&p?.homeAction){p.homeAction.talk=true;w.talkT=4;}
+  renderWork(true);
+ }
+ function tickWork(){
+  const w=W;if(!w)return;const p=player(),now=clock(),real=performance.now(),dt=Math.min(.1,(real-(wLast||real))/1000);wLast=real;
+  const inp=window.__game?.input;
+  if(!w.game&&inp&&['w','a','s','d'].some(k=>inp.down(k)))return stopAuto('Você parou de trabalhar; o progresso fica salvo no contrato.');
+  if(!p||p.dead||!p.homeAction?.deskWork)return stopAuto('Trabalho interrompido.');
+  const c=w.id&&S.contracts.find(x=>x.id===w.id);if(w.id&&(!c||!['IN_PROGRESS','REVISION_REQUIRED','ACCEPTED'].includes(c.state)))return stopAuto('O contrato não está mais em andamento.',false);
+  p.x=w.seat.x;p.y=w.seat.y;p.face=w.face;p.speed=0;
+  if(!w.game){const step=Math.max(0,now-w.last);w.minutes=Math.min(w.dur,w.minutes+step);
+   const need=CityLife.state?.needs;if(need)need.energy=Math.max(.04,(need.energy??1)-step*.00012);}
+  w.last=now;
+  if(w.career==='streamer'){
+   if(w.talkT>0){w.talkT-=dt;if(w.talkT<=0&&p.homeAction)p.homeAction.talk=false;}else if(Math.random()<dt*.15&&p.homeAction){p.homeAction.talk=true;w.talkT=2+Math.random()*2;}
+   if(Math.random()<dt*.6){w.chat.push(NPCN[(Math.random()*NPCN.length)|0]+': '+NPCM[(Math.random()*NPCM.length)|0]);if(w.chat.length>14)w.chat.shift();}
+  }
+  const frac=w.minutes/w.dur;
+  if(!w.game&&w.at.length&&frac>=w.at[0]){w.at.shift();askGame();}
+  const g=w.game;if(g){g.time-=dt;if(g.type==='meter'){g.x+=g.v*dt;if(g.x>1||g.x<0){g.v*=-1;g.x=C.clamp(g.x,0,1);}}if(g.time<=0)answer(-1);}
+  if(w.feedback){w.feedback.t-=dt;if(w.feedback.t<=0)w.feedback=null;}
+  if(!w.game&&frac>=1)return finishAuto();
+  renderWork();
+ }
+ function showWork(){
+  if(!wui){wui=document.createElement('section');wui.id='cd-work';wui.className='cd-workpanel';document.body.appendChild(wui);
+   wui.addEventListener('click',e=>{const b=e.target.closest('[data-w]');if(!b||!W)return;const a=b.dataset.w;
+    if(a==='fast'){W.fast=!W.fast;if(!W.game)window.CityTimeScale=W.fast?10:1;renderWork(true);}
+    else if(a==='stop')stopAuto('Você parou de trabalhar; o progresso fica salvo no contrato.');
+    else if(a==='manual'){const app0={programmer:'code',support:'help',designer:'brand'}[W.career],id=W.id;stopAuto('');sel=id;open(app0);}
+    else if(a==='meter')answer(0);else if(a.startsWith('ans:'))answer(+a.slice(4));});
+   window.addEventListener('keydown',e=>{const g=W?.game;if(!g)return;
+    if(g.type==='keys'&&e.key.length===1){e.preventDefault();e.stopImmediatePropagation();if(e.key.toLowerCase()===g.word[g.typed]){g.typed++;if(g.typed>=g.word.length)answer(1);else renderWork(true);}else window.CityAudio?.ui?.('back');}
+    else if(g.type==='meter'&&(e.code==='Space'||e.key===' ')){e.preventDefault();e.stopImmediatePropagation();answer(0);}
+    else if(['w','a','s','d'].includes(e.key.toLowerCase()))e.stopImmediatePropagation();},true);}
+  wui.hidden=false;renderWork(true);
+ }
+ function hideWork(){if(wui)wui.hidden=true;}
+ function renderWork(force=false){
+  const w=W;if(!w||!wui)return;const c=S.contracts.find(x=>x.id===w.id),t=c&&tpl(c.career,c.templateId),g=w.game,frac=Math.min(1,w.minutes/w.dur);
+  const key=(g?g.type+g.q+(g.typed||0):'-')+'|'+w.fast+'|'+w.asked+'|'+!!w.feedback;
+  if(force||key!==wkey){wkey=key;
+   let game='';
+   if(g){
+    if(g.type==='quiz'||g.type==='chat')game='<div class="cdw-q"><b>'+(g.swatch?'<i class="cd-dot" style="background:'+g.swatch+'"></i> ':'')+esc(g.q)+' <small class="cdw-t"></small></b><div class="cdw-opts">'+g.options.map((o,i)=>'<button type="button" data-w="ans:'+i+'">'+(/^#[0-9a-f]{6}$/i.test(o)?'<i class="cd-dot" style="background:'+o+'"></i> ':'')+esc(o)+'</button>').join('')+'</div></div>';
+    else if(g.type==='keys')game='<div class="cdw-q"><b>'+esc(g.q)+' <small class="cdw-t"></small></b><div class="cdw-keys">'+[...g.word].map((ch,i)=>'<span class="'+(i<g.typed?'ok':i===g.typed?'cur':'')+'">'+esc(ch)+'</span>').join('')+'</div></div>';
+    else if(g.type==='meter')game='<div class="cdw-q"><b>'+esc(g.q)+' <small class="cdw-t"></small></b><div class="cdw-meter"><i class="cdw-zone" style="left:'+g.zone[0]*100+'%;width:'+(g.zone[1]-g.zone[0])*100+'%"></i><i class="cdw-needle"></i></div><button type="button" data-w="meter">Parar agora</button></div>';
+   }
+   const title=t?.title||(ui.stream?'Transmissão ao vivo · '+(T.FORMATS.find(f=>f.id===ui.stream.s.format)?.name||''):'Trabalho');
+   wui.innerHTML='<small>'+C.CONFIG.careers[w.career].icon+' '+esc(C.CONFIG.careers[w.career].app)+' · no automático · <span class="cdw-clock"></span></small><h3>'+esc(title)+'</h3>'+
+    '<div class="cd-bar"><i class="cdw-bar"></i></div><small class="cdw-prog"></small>'+(w.feedback?'<div class="cdw-fb '+(w.feedback.ok?'ok':'no')+'">'+esc(w.feedback.text)+'</div>':'')+game+
+    '<div class="cdw-row"><button type="button" data-w="fast">'+(w.fast?'▶ Tempo real':'⏩ Acelerar')+'</button>'+(w.career!=='streamer'?'<button type="button" data-w="manual">Fazer manualmente</button>':'')+'<button type="button" data-w="stop">Parar</button></div>';
+  }
+  wui.querySelector('.cdw-clock').textContent=dayTime(clock());
+  wui.querySelector('.cdw-bar').style.width=Math.round(frac*100)+'%';
+  wui.querySelector('.cdw-prog').textContent=Math.round(w.minutes)+' de '+w.dur+' min · decisões certas '+w.correct+'/'+w.asked+(c?' · '+money(c.gross):'');
+  const tt=wui.querySelector('.cdw-t');if(tt&&g)tt.textContent=Math.ceil(g.time)+'s';
+  const nd=wui.querySelector('.cdw-needle');if(nd&&g)nd.style.left=(g.x*100)+'%';
+ }
+ // o que o monitor mostra (work-3d.mjs): o trabalho automático, ou o app aberto quando o jogador usa o computador
+ function screenInfo(){
+  const st=W?.st||(openFlag?stationNow:null);if(!st?.screen)return null;
+  const career=W?.career||{code:'programmer',help:'support',brand:'designer',live:'streamer'}[app]||'programmer';
+  const c=S.contracts.find(x=>x.id===(W?W.id:sel)),t=c&&tpl(c.career,c.templateId);
+  let screen={x:st.screen.x,y:st.screen.y,z:st.screen.z||0,floor:st.floor||0};
+  if(st.screen.builtin){const d=st.desk,r=d.rot||0,f=deskFront(d);screen={x:d.x-.1*Math.cos(r)+f.x*-.035,y:d.y-.1*Math.sin(r)+f.y*-.035,z:(d.z||0)+.875-.37,floor:st.floor||0,w:.37,h:.2,nx:f.x,ny:f.y};}
+  const info={kind:{programmer:'code',support:'help',designer:'design',streamer:'stream'}[career],screen,progress:W?W.minutes/W.dur:0,title:t?.title||''};
+  if(career==='support'&&t)info.lines=Object.entries(t.out).flatMap(([k,v])=>['> '+T.TOOLS[k],v]);
+  if(career==='designer'&&t){info.colors=t.colors;info.text=t.texts?.[0];}
+  if(career==='streamer'){info.chat=W?.chat||ui.stream?.chat?.map(m=>m.n+': '+m.t)||[];info.viewers=ui.stream?.s?.audience||0;}
+  return info;
+ }
+
  // ---------- tempo: prazos pelo relógio do jogo (título/pausa não contam) ----------
  function tick(){
-  if(window.CityFront?.blocked)return;const now=clock();if(now-lastTick<5)return;lastTick=now;
+  if(window.CityFront?.blocked)return;tickWork();const now=clock();if(now-lastTick<5)return;lastTick=now;
   const ex=C.expire(S,now);for(const c of ex){msg('Prazo perdido: '+(tpl(c.career,c.templateId)?.title||'contrato')+'. A reputação caiu.',c.client?.name||'CityDesk');notify('⏰ Prazo de um contrato do CityDesk venceu.',false);}
   if(ex.length){save();if(openFlag)render();}
   for(const a of apps.values())a.tick?.(api,now);
@@ -365,7 +507,7 @@ const CityDesk=(()=>{
  }
 
  const api={get state(){return S;},get open(){return openFlag;},show:open,close,interact,prompt,tick,stationAt,register:(id,def)=>{apps.set(id,def);},render,save,
-  renderPhone,phoneAction,renderWeb,esc,money,clock,notify,dayTime,card,btn,bar,get station(){return stationNow;},core:C};
+  renderPhone,phoneAction,renderWeb,screenInfo,startAuto,stopAuto,sitDown,standUp,get working(){return !!W;},esc,money,clock,notify,dayTime,card,btn,bar,get station(){return stationNow;},core:C};
  return api;
 })();
 window.CityDesk=CityDesk;

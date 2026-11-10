@@ -33,7 +33,8 @@ const OCCURRENCE={police:{group:'policia',count:2,label:'Polícia a caminho'},in
 // Apelidos: o socorrista ajoelhado e quem carrega caixa usam clipes reais da biblioteca no lugar dos procedurais.
 const CLIP_ALIAS=Object.freeze({kneel_aid:'fixing_kneeling','carry@upper':'walk_carry@upper'});
 // ações domésticas (city-home*.js → player.homeAction.kind) → clipe da biblioteca
-const HOME_CLIP=Object.freeze({cook:'interact',stove:'interact',wash:'interact',use:'interact',fridge:'chest_open',eat:'consume',drink:'consume',dinner:'sitting_talking',watch:'sitting_idle',toilet:'sitting_idle',chair:'sitting_idle'});
+const DESK_UPPER=Object.freeze({desk_code:'typing@upper',desk_help:'typing@upper',desk_design:'mouse@upper',desk_stream:'talk_cam@upper'});
+const HOME_CLIP=Object.freeze({shelf:'pick_up_table',cook:'interact',stove:'interact',wash:'interact',use:'interact',fridge:'chest_open',eat:'consume',drink:'consume',dinner:'sitting_talking',watch:'sitting_idle',toilet:'sitting_idle',chair:'sitting_idle'});
 const COMBAT=new WeakMap(),HALVES=new WeakMap();
 function halves(clip){if(!HALVES.has(clip))HALVES.set(clip,splitClip(clip));return HALVES.get(clip);}
 function lazyActions(mixer,clips,extra){
@@ -605,6 +606,9 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(a.carry&&!a.traversal)return {base:chooseCharacterClip({...a,armed:false,reloadT:-1,recoilT:9}),upper:'carry@upper'};   // pacote/saco/bandeja nos braços
   if(a.aiding)return {base:'kneel_aid'};   // socorrista reanimando
   if(a.homeAction&&a.homeAction.kind==='sit')return {base:'cas_sit'};
+  // home office (city-desk.js): sentado com os braços do trabalho por cima; em pé embalando pedidos (city-commerce.js)
+  if(a.homeAction&&DESK_UPPER[a.homeAction.kind])return {base:'cas_sit',upper:a.homeAction.talk?'talk_cam@upper':DESK_UPPER[a.homeAction.kind]};
+  if(a.homeAction&&a.homeAction.kind==='pack')return {base:'idle',upper:'pack@upper'};
   if(a.homeAction&&e.spec.clips['home_'+a.homeAction.kind])return {base:'home_'+a.homeAction.kind};
   if(e.emote)return {base:'cas_'+e.emote.id};
   const cat=a.weaponId?window.CityWeapons?.list[a.weaponId]?.cat:null,busy=a.traversal||a.jump;

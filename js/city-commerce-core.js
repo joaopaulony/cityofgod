@@ -42,7 +42,7 @@
  const slugify=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);
  const R=(ok,code,text,data)=>({ok,code,text,data});
 
- function newState(){return {schemaVersion:1,shop:null,shipments:[],lots:[],listings:[],orders:[],packages:[],purchases:[],ledger:[],supplies:{P:0,M:0,G:0,tape:0,label:0},seq:0,lastDemandDay:-1,reviews:[]};}
+ function newState(){return {schemaVersion:1,shop:null,shipments:[],lots:[],listings:[],orders:[],packages:[],purchases:[],ledger:[],supplies:{P:0,M:0,G:0,tape:0,label:0},seq:0,lastDemandDay:-1,reviews:[],pileAt:null};}
  function sanitize(raw){const s=newState();if(!raw||raw.schemaVersion!==1)return s;
   for(const k of Object.keys(s))if(raw[k]!==undefined)s[k]=raw[k];
   for(const k of ['shipments','lots','listings','orders','packages','purchases','ledger','reviews'])if(!Array.isArray(s[k]))s[k]=[];

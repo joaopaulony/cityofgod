@@ -91,3 +91,13 @@ test('CityLive: decisões mexem nas métricas, sessão interrompida paga menos, 
  let bad=C.streamStart({followers:0},'chat',1);for(const sit of T.STREAM.slice(0,5))C.streamApply(bad,sit.options[1].fx,sit.id);
  assert.ok(C.streamReport(bad,1).score<full.score,'escolhas ruins rendem menos');
 });
+
+test('automático: perguntas do briefing têm resposta certa entre as opções e a arte automática passa no checklist',()=>{
+ const refs={actions:T.ACTIONS,tools:T.TOOLS};
+ for(const [career,list] of [['programmer',T.PROGRAMMER],['support',T.SUPPORT],['designer',T.DESIGNER]])for(const b of list)for(let i=0;i<4;i++){
+  const q=C.autoQuiz(career,b,1234,i,refs);assert.ok(q&&q.options.length>=2&&q.answer>=0,career+' '+b.id+' '+i);
+  assert.equal(new Set(q.options).size,q.options.length,'opções repetidas em '+b.id);
+  assert.deepEqual(C.autoQuiz(career,b,1234,i,refs),q,'determinístico');
+ }
+ for(const b of T.DESIGNER){const r=C.designCheck(C.autoDesign(b),b);assert.ok(r.score>=.8,b.id+' '+r.score+' '+JSON.stringify(r.checks.filter(c=>!c.pass).map(c=>c.name)));}
+});

@@ -141,6 +141,28 @@ export function makeCombatClips(root, height = 1.75) {
   // carregando algo com as duas mãos à frente do peito (caixa, saco, bandeja)
   const carry = { RightArm: [-.22, -.78, .55], LeftArm: [.22, -.78, .55], RightForeArm: [.32, .12, .94], LeftForeArm: [-.32, .12, .94], Spine2: [0, 1, -.04] };
   add(poseClip(root, 'carry@upper', [{ t: 0, dirs: carry }, { t: 1, dirs: carry }], { upperOnly: true, height }));
+  // home office (city-desk.js): sentado à mesa — digitando, no mouse, falando com a câmera; em pé, embalando
+  const desk = { RightArm: [-.2, -.82, .5], LeftArm: [.2, -.82, .5], Spine2: [0, 1, .12], Neck: [0, 1, .18] };
+  const keysR = (u) => [-.08, u, 1], keysL = (u) => [.08, u, 1];
+  add(poseClip(root, 'typing@upper', [
+    { t: 0, dirs: { ...desk, RightForeArm: keysR(-.2), LeftForeArm: keysL(-.12) } },
+    { t: .12, dirs: { ...desk, RightForeArm: keysR(-.1), LeftForeArm: keysL(-.2) } },
+    { t: .24, dirs: { ...desk, RightForeArm: keysR(-.22), LeftForeArm: keysL(-.1) } },
+    { t: .36, dirs: { ...desk, RightForeArm: keysR(-.12), LeftForeArm: keysL(-.22) } },
+    { t: .5, dirs: { ...desk, RightForeArm: keysR(-.2), LeftForeArm: keysL(-.12) } }
+  ], { upperOnly: true, height }));
+  const mouse = (s) => ({ ...desk, RightArm: [-.42, -.8, .42], RightForeArm: [-.12 + s, -.18, 1], LeftForeArm: keysL(-.16) });
+  add(poseClip(root, 'mouse@upper', [
+    { t: 0, dirs: mouse(0) }, { t: .5, dirs: mouse(.12) }, { t: .9, dirs: mouse(-.06) }, { t: 1.4, dirs: mouse(.08) }, { t: 1.8, dirs: mouse(0) }
+  ], { upperOnly: true, height, fist: ['Right'] }));
+  const talk = (a, b) => ({ RightArm: [-.3, -.75, .55], LeftArm: [.3, -.75, .55], RightForeArm: [-.1 - a, .35 + a, .9], LeftForeArm: [.1 + b, .3 + b, .9], Spine2: [0, 1, .1], Neck: [0, 1, .12] });
+  add(poseClip(root, 'talk_cam@upper', [
+    { t: 0, dirs: talk(0, .1) }, { t: .5, dirs: talk(.25, 0) }, { t: 1, dirs: talk(.05, .3) }, { t: 1.5, dirs: talk(.3, .05) }, { t: 2, dirs: talk(0, .1) }
+  ], { upperOnly: true, height }));
+  const tape = (s) => ({ RightArm: [-.15, -.8, .55], LeftArm: [.15, -.8, .55], RightForeArm: [.2 + s, -.35, .9], LeftForeArm: [-.2 + s, -.35, .9], Spine2: [0, 1, .25], Neck: [0, .9, .4] });
+  add(poseClip(root, 'pack@upper', [
+    { t: 0, dirs: tape(0) }, { t: .35, dirs: tape(.25) }, { t: .7, dirs: tape(-.2) }, { t: 1.05, dirs: tape(0) }
+  ], { upperOnly: true, height }));
   // socorrista: ajoelhado nos dois joelhos, braços esticados sobre o peito da vítima, massagem cardíaca (laço)
   const knees = { LeftUpLeg: [.12, -1, .12], RightUpLeg: [-.12, -1, .12], LeftLeg: [.02, -.12, -1], RightLeg: [-.02, -.12, -1], LeftFoot: [0, -.25, -1], RightFoot: [0, -.25, -1] };
   const cpr = (k) => ({ ...knees, Spine1: [0, .82 - k * .1, .57 + k * .12], Spine2: [0, .7 - k * .12, .7 + k * .1], Neck: [0, .55, .85],
