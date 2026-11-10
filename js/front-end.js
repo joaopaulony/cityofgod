@@ -126,7 +126,7 @@
    if(!saved)window.cityCharacters.openCreator?.();
   }
  }
- function fail(message){clearInterval(rotation);if(quiet&&phase!=='loading'){quiet=false;quietReady=false;previewError=String(message||'Falha ao preparar a cidade');render();return;} // falha da vitrine não substitui a tela inicial nem perde o save
+ function fail(message){clearInterval(rotation);if(quiet&&phase!=='loading'){quiet=false;quietReady=false;live=false;document.body.classList.remove('front-live');previewError=String(message||'Falha ao preparar a cidade');render();return;} // falha da vitrine não substitui a tela inicial nem perde o save
   loadingError=message;change('error');render();}
  function paintProgress(){
   const percent=progress(),meter=root.querySelector('[role=progressbar]');if(!meter)return;
@@ -149,8 +149,8 @@
   pending=continuing?S.checkpoint(S.read(storage,S.SAVE)):null;
   if(pending){
    const url=new URL(location.href),local=url.searchParams.has('seed')||url.searchParams.has('scene');
-   if(pending.mode==='local'&&(!local||Number(url.searchParams.get('seed'))!==pending.seed)){if(opts.quiet){pending=null;return;}url.searchParams.delete('scene');url.searchParams.set('seed',String(pending.seed));if(sessionIntent('continue')){location.assign(url.href);return;}}
-   if(pending.mode==='open'&&local){if(opts.quiet){pending=null;return;}url.searchParams.delete('seed');url.searchParams.delete('scene');if(sessionIntent('continue')){location.assign(url.href);return;}}
+   if(pending.mode==='local'&&(!local||Number(url.searchParams.get('seed'))!==pending.seed)){if(opts.quiet){pending=null;previewError='O save usa outro mapa; clique em Continuar para carregá-lo.';render();return;}url.searchParams.delete('scene');url.searchParams.set('seed',String(pending.seed));if(sessionIntent('continue')){location.assign(url.href);return;}}
+   if(pending.mode==='open'&&local){if(opts.quiet){pending=null;previewError='O save usa outro mapa; clique em Continuar para carregá-lo.';render();return;}url.searchParams.delete('seed');url.searchParams.delete('scene');if(sessionIntent('continue')){location.assign(url.href);return;}}
   }
   quiet=!!opts.quiet;quietReady=false;
   runtime=true;frameReady=false;load={art:1,code:0,world:0,vehicle:0,characters:0,frame:0};status='Preparando os sistemas da cidade';if(!quiet){change('loading');render();}
