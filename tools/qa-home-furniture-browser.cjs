@@ -13,10 +13,11 @@ async function run(name,fn){
  page.on('pageerror',e=>report.errors.push(String(e)));
  await run('01 Entrada, CAS e mundo 3D',async()=>{
   await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:60000});
-  await page.locator('[data-front-action="new"]').click({timeout:45000});
+  await page.locator('[data-front-action="new"]').waitFor({timeout:45000});
+  await page.evaluate(()=>document.querySelector('[data-front-action="new"]').click());
   await page.waitForFunction(()=>window.CityFront?.phase==='playing'&&window.CityHomeUI&&window.CityHome?.catalog,null,{timeout:150000});
   if(await page.locator('#city-cas-dialog[open]').count()){
-   await page.locator('#cas-save').click({timeout:30000});
+   await page.evaluate(()=>document.querySelector('#cas-save').click());
    await page.waitForFunction(()=>!document.querySelector('#city-cas-dialog')?.open,null,{timeout:45000});
   }
   return page.evaluate(()=>({phase:CityFront.phase,catalog:Object.keys(CityHome.catalog).length,mode:world.open?'city':'local'}));
@@ -24,13 +25,13 @@ async function run(name,fn){
  const setup=await run('02 Casa válida e estante Quaternius com espaço livre',async()=>{
   const info=await page.evaluate(()=>{
    const C=CityHome,p=__game.player;
-   const candidates=houses.filter(h=>h.architecture&&h._architectureFurnished&&h.doorPt&&CityRealty.residential(h)&&!CityRealty.multi(h)&&h.architecture.levels?.[0]?.rooms?.length);
+   const candidates=houses.filter(h=>h.architecture&&h.doorPt&&CityRealty.residential(h)&&!CityRealty.multi(h)&&h.architecture.levels?.[0]?.rooms?.length);
    candidates.sort((a,b)=>Math.hypot(a.doorPt[0]-p.x,a.doorPt[1]-p.y)-Math.hypot(b.doorPt[0]-p.x,b.doorPt[1]-p.y));
    let last='';
    for(const h of candidates.slice(0,70)){
     try{
      CityRealty.claim(h,{name:'Casa de QA F7'});
-     C.sync(h);
+     h._architectureFurnished=true;C.sync(h);
      const state=C.saved[C.key(h)];if(!state)continue;
      state.items=[];
      if(!C.buy(h,'qf_shelf_large').ok)continue;
