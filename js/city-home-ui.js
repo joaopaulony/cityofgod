@@ -2,6 +2,7 @@
 'use strict';
 const CityHomeUI=(()=>{
  let active=false,H=null,tab='shop',shopCategory='Tudo',floor=0,grid=true,draft=null,dragging=false,pan=null,view=null,panel=null,entry=null;
+ let dragOffset=null,previewBox=null,previewBefore=null,previewAt=0;
  let oldCamera=null,oldFloor=null,lastOwner=null,lastCheck=0,selectedId=null;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const money=n=>CityLife.money(n);
@@ -12,7 +13,35 @@ const CityHomeUI=(()=>{
  };
  const inside=p=>CityHome.houseAt(p);
  const uiId=id=>encodeURIComponent(id);
- const clean=()=>{draft=null;dragging=false;selectedId=null;pan=null;};
+ // The 3D preview updates the transient world box only. Saves and collisions
+ // remain authoritative until Confirm; cancel/close always restore the original.
+ function clearPreview(){
+   if(previewBox&&previewBefore){
+     Object.assign(previewBox,previewBefore);
+     world.version=(world.version||0)+1;
+   }
+   previewBox=previewBefore=null;previewAt=0;
+ }
+ function previewMove(force=false){
+   if(!draft||draft.mode!=='move')return;
+   if(!previewBox){
+     previewBox=CityHome.nearbyItems(H,draft.floor).find(b=>b.homeId===draft.id)||null;
+     if(previewBox)previewBefore={x:previewBox.x,y:previewBox.y,z:previewBox.z,rot:previewBox.rot,
+       faceW:previewBox.faceW&&[...previewBox.faceW]};
+   }
+   if(!previewBox)return;
+   previewBox.x=draft.x;previewBox.y=draft.y;previewBox.rot=draft.rot;
+   if(previewBefore.faceW){
+     const angle=Math.atan2(previewBefore.faceW[0],previewBefore.faceW[1])-(draft.rot-previewBefore.rot);
+     previewBox.faceW=[Math.sin(angle),Math.cos(angle)];
+   }
+   const now=typeof performance!=='undefined'?performance.now():Date.now();
+   if(force||now-previewAt>=50){
+     previewAt=now;
+     world.version=(world.version||0)+1;
+   }
+ }
+ const clean=()=>{clearPreview();draft=null;dragging=false;selectedId=null;pan=null;dragOffset=null;};
  const canStart=()=>!window.cityVehicles?.driver&&!window.CityUI?.blocksGameInput?.()&&!window.cityCharacterEditorOpen&&!(typeof wmap!=='undefined'&&wmap.open);
  function current(){return H&&CityHome.owned(H)?H:null;}
  function center(){
@@ -160,11 +189,11 @@ const CityHomeUI=(()=>{
      const btn=e.target.closest('[data-home-action]');if(!btn)return;
      const action=btn.dataset.homeAction,value=decodeURIComponent(btn.dataset.value||'');
      if(action==='close'){close();return;}
-     if(action==='tab'){tab=value;renderPanel();return;}
+     if(action==='tab'){if(draft)clean();tab=value;renderPanel();return;}
      if(action==='category'){shopCategory=value;renderPanel();return;}
-     if(action==='floor'){floor=Number(value);draft=null;applyFloor();renderPanel();return;}
+     if(action==='floor'){clean();floor=Number(value);applyFloor();renderPanel();return;}
      if(action==='grid'){grid=!grid;renderPanel();return;}
-     if(action==='undo'){const r=CityHome.undo(H);renderPanel();message(r.text,r.ok);return;}
+     if(action==='undo'){clean();const r=CityHome.undo(H);renderPanel();message(r.text,r.ok);return;}
      if(action==='buy'){const r=CityHome.buy(H,value,paintOf(value));renderPanel();message(r.text,r.ok);return;}
      if(action==='variant'){chosenPaint[value]=btn.dataset.color;renderPanel();return;}
      if(action==='inspect'){inspected=inspected===value?null:value;renderPanel();return;}
@@ -194,6 +223,7 @@ const CityHomeUI=(()=>{
    return el;
  }
  function beginMove(id){
+   clearPreview();dragOffset=null;
    const row=CityHome.find(H,id);
    if(!row||row.status!=='placed')return;
    floor=row.floor;applyFloor();draft={id,kind:row.kind,mode:'move',x:row.x,y:row.y,rot:row.rot,
@@ -201,6 +231,7 @@ const CityHomeUI=(()=>{
    selectedId=id;tab='edit';renderPanel();message('Mova o objeto com o mouse, gire com R e confirme');
  }
  function beginPlace(id){
+   clearPreview();dragOffset=null;
    const row=CityHome.find(H,id);if(!row||row.status!=='stored')return;
    const p=window.__game?.player||{x:0,y:0};
    floor=Math.min(floor,(H.architecture?.levels?.length||1)-1);
@@ -213,6 +244,7 @@ const CityHomeUI=(()=>{
  const STAIR_DIRS=[['y',1],['x',1],['y',-1],['x',-1]];
  function beginStairs(){
    if(!H?.architecture||H.architecture.levels.length<2)return;
+   clearPreview();dragOffset=null;
    const cur=H.architecture.stairSpec||{x:0,y:0,axis:'y',dir:1,side:1};
    floor=0;applyFloor();draft={mode:'stair',spec:{...cur},turn:Math.max(0,STAIR_DIRS.findIndex(([a,d])=>a===cur.axis&&d===cur.dir)),z:0,top:'#70ffc7'};
    stairShape();renderPanel();message('Mova o mouse até onde quer a escada · R gira · clique p/ confirmar');
@@ -229,11 +261,13 @@ const CityHomeUI=(()=>{
    const pp=unproj(e.clientX/RS,e.clientY/RS,z);
    if(draft?.mode==='stair'){const q=H.architecture.toLocal(pp[0],pp[1]);draft.spec.x=Math.round(q[0]*4)/4;draft.spec.y=Math.round(q[1]*4)/4;stairShape();return;}
    if(draft){
-     draft.x=grid?Math.round(pp[0]*2)/2:Math.round(pp[0]*100)/100;
-     draft.y=grid?Math.round(pp[1]*2)/2:Math.round(pp[1]*100)/100;
+     const nx=pp[0]+(dragOffset?.x||0),ny=pp[1]+(dragOffset?.y||0);
+     draft.x=grid?Math.round(nx*2)/2:Math.round(nx*100)/100;
+     draft.y=grid?Math.round(ny*2)/2:Math.round(ny*100)/100;
      const magnet=CityHome.snap(H,draft,draft.mode==='move'?draft.id:null);
      draft.x=magnet.item.x;draft.y=magnet.item.y;
      draft.snapGuides=magnet.guides;
+     previewMove();
      const outcome=test(),el=document.getElementById('city-home-status');
      if(el){el.textContent=outcome?.text||'Posicionando';el.dataset.ok=outcome?.ok?'1':'0';}
    }
@@ -314,6 +348,7 @@ const CityHomeUI=(()=>{
    }
  }
  function pointerStatus(){
+   previewMove(true);
    const r=test(),el=document.getElementById('city-home-status');
    if(el){el.textContent=r?.text||'Selecione uma posição';el.dataset.ok=r?.ok?'1':'0';}
  }
