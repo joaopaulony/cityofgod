@@ -11,6 +11,12 @@ export function installWork3D(THREE, scene, bridge) {
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.06, .62), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
   screen.visible = false; screen.renderOrder = 3; screen.userData.noSnow = true; scene.add(screen);
   const glow = new THREE.PointLight(0x9fc7ff, 0, 2.6, 2); scene.add(glow);
+  // balão acima da cabeça (trabalho no automático): a mesma tela, sempre de frente para a câmera — a câmera gira e o monitor
+  // de verdade muitas vezes fica de costas
+  const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, toneMapped: false, transparent: true, depthTest: false }));
+  bubble.scale.set(.95, .55, 1); bubble.renderOrder = 10; bubble.visible = false; scene.add(bubble);
+  const frame = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: .92, depthTest: false }));
+  frame.scale.set(1.03, .63, 1); frame.renderOrder = 9; frame.visible = false; scene.add(frame);
   let t = 0, drawT = 0;
   const CODE = ['function validar(pedido) {', '  if (!pedido.itens.length)', '    return erro("vazio");', '  const total = somar(pedido);', '  cobrar(total);', '  return ok(pedido.id);', '}', '', 'teste("pedido vazio", () => {', '  esperar(validar({itens:[]}))', '    .igual("vazio");', '});', 'const regras = [', '  { qtd: "<= 5", então: "alertar" },', '];', '// TODO: revisar cupom'];
   const KW = /\b(function|return|const|if|teste|esperar)\b/g;
@@ -63,6 +69,41 @@ export function installWork3D(THREE, scene, bridge) {
   }
   function bar(k, col) { g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(0, H - 5, W, 5); g.fillStyle = col; g.fillRect(0, H - 5, W * Math.max(0, Math.min(1, k || 0)), 5); }
   const DRAW = { code: drawCode, help: drawHelp, design: drawDesign, stream: drawStream };
+  // versão "de longe": poucas formas grandes, cores fortes e movimento contínuo — lê como animação mesmo com 15 px de tela
+  const round = (x, y, w, h, r, c) => { g.fillStyle = c; g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); g.fill(); };
+  function drawSmall(info) {
+    const k = info.kind, p = info.progress || 0;
+    if (k === 'code' || k === 'help') {
+      const term = k === 'help';
+      g.fillStyle = term ? '#03130b' : '#0f1720'; g.fillRect(0, 0, W, H);
+      const pal = term ? ['#3dff8f', '#b6ffcf', '#f5d76e'] : ['#ffcc4d', '#5ad1ff', '#ff6fa8', '#8dff9a', '#ffffff'];
+      const rowH = 34, off = (t * 46) % rowH, first = Math.floor(t * 46 / rowH);
+      for (let i = -1; i < 10; i++) {
+        const n = first + i, y = i * rowH - off + 14, seed = (n * 9301 + 49297) % 233280 / 233280;
+        const indent = term ? 20 : 20 + ((n % 4 === 1 || n % 4 === 2) ? 50 : 0) + (n % 7 === 3 ? 100 : 0);
+        let x = indent; const parts = 1 + Math.floor(seed * 3);
+        for (let j = 0; j < parts; j++) { const w = 50 + ((seed * 997 * (j + 1)) % 1) * 150; round(x, y, w, 20, 8, pal[(n + j) % pal.length]); x += w + 18; }
+      }
+      // cursor grande piscando na última linha
+      if (Math.floor(t * 2.5) % 2) round(20 + (t * 70) % 280, H - 70, 26, 26, 4, term ? '#3dff8f' : '#ffffff');
+    } else if (k === 'design') {
+      const c = info.colors || ['#5b3a29', '#e8c39e'];
+      g.fillStyle = '#2a2e33'; g.fillRect(0, 0, W, H); g.fillStyle = c[1]; g.fillRect(60, 20, W - 120, H - 50);
+      const r = 60 + 20 * Math.sin(t * 2), a = t * .8;
+      g.save(); g.translate(W / 2, H / 2 - 20); g.rotate(a); round(-r, -r, r * 2, r * 2, r * .5, c[0]); g.restore();
+      round(W / 2 - 110 * Math.min(1, p * 2 + .3), H - 90, 220 * Math.min(1, p * 2 + .3), 26, 10, c[0]);
+      const mx = W / 2 + Math.sin(t * 1.6) * 150, my = H / 2 + Math.cos(t * 2.1) * 80;
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + 30, my + 44); g.lineTo(mx + 12, my + 40); g.lineTo(mx, my + 58); g.fill();
+    } else {
+      g.fillStyle = '#2f9e57'; g.fillRect(0, 0, W, H); g.fillStyle = '#41464e'; g.fillRect(0, 95, W, 120);
+      g.fillStyle = '#ffffff'; for (let x = -80 + (t * 320) % 100; x < W; x += 100) g.fillRect(x, 148, 55, 12);
+      round(110 + Math.sin(t * 3) * 60, 108, 90, 40, 10, '#ff3b30'); round(280 + Math.cos(t * 2.2) * 70, 160, 90, 40, 10, '#2f80ff');
+      if (Math.floor(t * 2) % 2) { g.fillStyle = '#ff2d2d'; g.beginPath(); g.arc(34, 34, 18, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(W - 120, 0, 120, H);
+      for (let i = 0; i < 6; i++) round(W - 108, H - 40 - i * 44 - ((t * 40) % 44), 70 + (i * 37) % 30, 20, 8, i % 2 ? '#ffd65a' : '#ffffff');
+    }
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, H - 14, W, 14); g.fillStyle = k === 'help' ? '#3dff8f' : '#ffcc4d'; g.fillRect(0, H - 14, W * Math.max(.04, Math.min(1, p)), 14);
+  }
 
   // ---------- caixas de estoque ----------
   const boxGeo = new THREE.BoxGeometry(.26, .18, .22), boxMat = new THREE.MeshStandardMaterial({ color: 0xb98a52, roughness: .85 }), tapeMat = new THREE.MeshStandardMaterial({ color: 0xd9c79a, roughness: .7 });
@@ -97,8 +138,11 @@ export function installWork3D(THREE, scene, bridge) {
       screen.scale.set((s.w || 1.06) / 1.06, (s.h || .62) / .62, 1);
       screen.lookAt(screen.position.x + hx / d, cy, screen.position.z + hy / d); screen.visible = true;
       glow.position.set(screen.position.x + hx / d * .3, cy, screen.position.z + hy / d * .3); glow.intensity = .55;
-      drawT -= dt; if (drawT <= 0) { drawT = 1 / 12; (DRAW[info.kind] || drawCode)(info); tex.needsUpdate = true; }
-    } else { screen.visible = false; glow.intensity = 0; }
+      // monitor pequeno (embutido na escrivaninha) visto de longe: animação grossa e colorida; texto fino só no monitor grande
+      drawT -= dt; if (drawT <= 0) { drawT = 1 / 20; if ((s.w || 1.06) < .6) drawSmall(info); else (DRAW[info.kind] || drawCode)(info); tex.needsUpdate = true; }
+      const show = !!info.auto, bz = cy + 1.45 + Math.sin(t * 2.2) * .03;
+      bubble.visible = frame.visible = show; if (show) { bubble.position.set(p.x, bz, p.y); frame.position.set(p.x, bz, p.y); }
+    } else { screen.visible = false; glow.intensity = 0; bubble.visible = frame.visible = false; }
     // caixas
     checkT -= dt; if (checkT <= 0) {
       checkT = .5; const v = window.CityCommerce?.visuals?.();

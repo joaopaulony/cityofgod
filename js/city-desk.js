@@ -352,9 +352,13 @@ const CityDesk=(()=>{
  let W=null,wui=null,wkey='',wLast=0;
  // frente da escrivaninha: a cadeira do modelo fica em +z local (0,6 m); mundo = (−sen r, cos r) — props-3d gira por −rot
  const deskFront=d=>{const r=d.rot||0;return {x:-Math.sin(r),y:Math.cos(r)};};
+ // props-3d (ramo architecture) encaixa a CAIXA do modelo — mesa + cadeira: x −0,55…0,55, z −0,31…0,84 (centro z 0,265),
+ // altura 0…1,0 — no tamanho do móvel e centraliza; local (lx,lz) → mundo: ((lx)·sx, (lz−0,265)·sz) girado por −rot
+ const deskScale=d=>({sx:(d.w||1.1)/1.1,sz:(d.d||.62)/1.15,sy:Math.min(1.5,Math.max(.6,(d.h||.74)/.74))});
+ const deskLocal=(d,lx,lz)=>{const k=deskScale(d),r=d.rot||0,X=lx*k.sx,Z=(lz-.265)*k.sz;return {x:d.x+X*Math.cos(r)-Z*Math.sin(r),y:d.y+X*Math.sin(r)+Z*Math.cos(r)};};
  function seatAt(st){
   const p=player(),d=st.desk;
-  if(d.kind==='desk'){const f=deskFront(d),seat={x:d.x+f.x*.58,y:d.y+f.y*.58};return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
+  if(d.kind==='desk'){const f=deskFront(d),seat=deskLocal(d,0,.66);return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
   const seat={x:d.x+dx/n*.72,y:d.y+dy/n*.72};return {seat,face:Math.atan2(d.y-seat.y,d.x-seat.x)};
  }
  function sitDown(kind,st,extra={}){const p=player();if(!p||!st)return null;const s=seatAt(st);p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);p.homeAction={kind,t:0,duration:1e9,deskWork:true,...extra};return s;}
@@ -472,8 +476,8 @@ const CityDesk=(()=>{
   const career=W?.career||{code:'programmer',help:'support',brand:'designer',live:'streamer'}[app]||'programmer';
   const c=S.contracts.find(x=>x.id===(W?W.id:sel)),t=c&&tpl(c.career,c.templateId);
   let screen={x:st.screen.x,y:st.screen.y,z:st.screen.z||0,floor:st.floor||0};
-  if(st.screen.builtin){const d=st.desk,r=d.rot||0,f=deskFront(d);screen={x:d.x-.1*Math.cos(r)+f.x*-.035,y:d.y-.1*Math.sin(r)+f.y*-.035,z:(d.z||0)+.875-.37,floor:st.floor||0,w:.37,h:.2,nx:f.x,ny:f.y};}
-  const info={kind:{programmer:'code',support:'help',designer:'design',streamer:'stream'}[career],screen,progress:W?W.minutes/W.dur:0,title:t?.title||''};
+  if(st.screen.builtin){const d=st.desk,f=deskFront(d),k=deskScale(d),c=deskLocal(d,-.1,-.04);screen={x:c.x,y:c.y,z:(d.z||0)+.875*k.sy-.37,floor:st.floor||0,w:.36*k.sx,h:.21*k.sy,nx:f.x,ny:f.y};}
+  const info={auto:!!W,kind:{programmer:'code',support:'help',designer:'design',streamer:'stream'}[career],screen,progress:W?W.minutes/W.dur:0,title:t?.title||''};
   if(career==='support'&&t)info.lines=Object.entries(t.out).flatMap(([k,v])=>['> '+T.TOOLS[k],v]);
   if(career==='designer'&&t){info.colors=t.colors;info.text=t.texts?.[0];}
   if(career==='streamer'){info.chat=W?.chat||ui.stream?.chat?.map(m=>m.n+': '+m.t)||[];info.viewers=ui.stream?.s?.audience||0;}
