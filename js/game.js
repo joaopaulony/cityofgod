@@ -950,50 +950,69 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-// ---------- vitrine do menu: um drone sobrevoa as ruas perto do jogador com a cidade viva ----------
-// O mundo anda (carros, pessoas, bichos, portas, folhas), mas o jogador fica congelado: sem relógio, necessidades,
-// aluguel ou dano enquanto o menu está aberto. Ao entrar no jogo a câmera desliza de volta até o personagem.
-const drone = { road: null, i: 0, dir: 1, x: 0, y: 0, saved: null, spin: 1, glide: 0 };
-// pontos das ruas vêm como [x, y] (mundo aberto) ou {x, y} (cidade fixa)
-const dpx = p => p ? (p.x ?? p[0]) : NaN, dpy = p => p ? (p.y ?? p[1]) : NaN;
-function droneRoads() {
-  const src = (typeof OW !== 'undefined' && world.open && OW.cw?.roads?.length) ? OW.cw.roads : (world.roads || []);
-  return src.filter(r => r.pts && r.pts.length > 12 && r.cls !== 'highway');
+// ---------- vitrine cinematográfica do menu: mesma cidade, mesmas malhas 3D e NPCs do jogo ----------
+// Em vez de sobrevoar ruas longe do jogador, a câmera enquadra um personagem em primeiro plano.
+// O estado salvo (posição, relógio, dinheiro, itens) permanece intacto; não há segunda cena ou assets.
+const drone = {saved:null,x:0,y:0,elapsed:0,glide:0};
+let menuExtra=null,menuExtraRequest=null,menuExtraNeeded=false;
+function menuStreetSpot(){
+  // Um lugar do mundo existente, próximo ao ponto salvo, sem gerar rua ou prédio novo.
+  const rds=world.roads||[];let best=null,bd=36;
+  for(const rd of rds){
+    const pts=rd.pts||[];
+    for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/60))){
+      const q=pts[i],x=q?.x??q?.[0],y=q?.y??q?.[1];
+      if(!Number.isFinite(x)||!Number.isFinite(y))continue;
+      const d=Math.hypot(x-player.x,y-player.y);
+      if(d<bd){bd=d;best={x,y};}
+    }
+  }
+  if(!best)return {x:player.x+1.8,y:player.y+1.8};
+  return {x:best.x+Math.sin(cam.ang)*(ROAD_W+SIDE*.5),y:best.y+Math.cos(cam.ang)*(ROAD_W+SIDE*.5)};
 }
-function dronePick() {
-  const rs = droneRoads(), near = rs.filter(r => r.pts.some(p => Math.hypot(dpx(p) - player.x, dpy(p) - player.y) < 95));
-  const pool = near.length ? near : rs; if (!pool.length) return false;
-  const r = pool[(Math.random() * pool.length) | 0];
-  let bi = 0, bd = 1e9; r.pts.forEach((p, i) => { const d = Math.hypot(dpx(p) - drone.x, dpy(p) - drone.y); if (d < bd) { bd = d; bi = i; } });
-  drone.road = r; drone.i = bi; drone.dir = bi > r.pts.length / 2 ? -1 : 1; drone.spin = Math.random() < .5 ? -1 : 1;
-  return true;
+function ensureMenuExtra(){
+  // Caso a partida tenha sido salva dentro de um prédio ou veículo, apresenta um civil
+  // do elenco REAL do jogo na rua. Esse figurante nunca é salvo e sai ao iniciar a partida.
+  if(menuExtra||menuExtraRequest||!window.cityCharacters?.ready||!window.cityCharacters?.spawnExtra)return;
+  if(!window.cityVehicles?.driver&&!(player.floor>0))return;
+  menuExtraNeeded=true;
+  const p=menuStreetSpot();
+  menuExtraRequest=Promise.resolve(window.cityCharacters.spawnExtra(p.x,p.y,{face:player.face||0}))
+   .then(n=>{menuExtraRequest=null;if(!n)return;
+     if(!menuExtraNeeded||!window.CityFront?.blocked){window.cityCharacters?.removeExtra?.(n);return;}
+     menuExtra=n;n.speed=0;n.walk=0;n.target=null;n.pause=99999;})
+   .catch(()=>{menuExtraRequest=null;});
 }
-function droneCam(dt) {
-  try { droneCamInner(dt); } catch (e) { window.__droneError = String(e && e.stack || e); drone.road = null; cam.update(dt); }
+function droneCam(dt){
+  if(!drone.saved){drone.saved={zoom:cam.tzoom,tilt:cam.ttilt,ang:cam.tang};drone.elapsed=0;}
+  drone.elapsed+=Math.min(dt,.05);
+  ensureMenuExtra();
+  const actor=menuExtra&&!menuExtra.dead?menuExtra:player;
+  const x=actor.x,y=actor.y;
+  drone.x=x;drone.y=y;
+  const width=cam.W||view.width||1280,height=cam.H||view.height||720;
+  const compact=width<700;
+  // O jogador fica à direita; a coluna esquerda é reservada aos botões do menu.
+  const heroX=compact?.62:.73,heroY=compact?.57:.62;
+  cam.tzoom=compact?Math.max(46,Math.min(66,drone.saved.zoom)):Math.max(68,Math.min(92,drone.saved.zoom));
+  cam.ttilt=compact?.47:.52;
+  cam.tang=drone.saved.ang+Math.sin(drone.elapsed*.10)*.09;
+  const zoom=Math.max(24,cam.tzoom);
+  const dx=(heroX-.5)*width/zoom,dy=(heroY-.5)*height/(zoom*cam.ttilt);
+  const ox=Math.cos(cam.tang)*dx+Math.sin(cam.tang)*dy;
+  const oy=-Math.sin(cam.tang)*dx+Math.cos(cam.tang)*dy;
+  cam.tx=x-ox;cam.ty=y-oy;
+  // Enquadramento suave, sem mexer na posição do personagem da partida.
+  cam.update(dt);
 }
-function droneCamInner(dt) {
-  if (!Number.isFinite(cam.x) || !Number.isFinite(cam.y)) { cam.x = cam.tx = player.x; cam.y = cam.ty = player.y; }
-  if (!Number.isFinite(drone.x) || !Number.isFinite(drone.y)) { drone.x = player.x; drone.y = player.y; drone.road = null; }
-  if (!drone.saved) { drone.saved = { zoom: cam.tzoom, tilt: cam.ttilt, ang: cam.tang }; drone.x = player.x; drone.y = player.y; drone.road = null; }
-  // o jogador mudou de lugar (save restaurado, teleporte): o drone recomeça perto dele, com a câmera junto
-  if (Math.hypot(drone.x - player.x, drone.y - player.y) > 160) { drone.x = player.x; drone.y = player.y; drone.road = null; cam.x = player.x; cam.y = player.y; }
-  if (!drone.road && !dronePick()) { cam.tx = player.x; cam.ty = player.y; cam.update(dt); return; }
-  const pts = drone.road.pts; let q = pts[drone.i], step = 5.5 * dt;   // ~20 km/h, como um drone filmando
-  while (step > 0 && q) { const dx = dpx(q) - drone.x, dy = dpy(q) - drone.y, l = Math.hypot(dx, dy); if (l <= step) { drone.x = dpx(q); drone.y = dpy(q); step -= l; drone.i += drone.dir; q = pts[drone.i]; } else { drone.x += dx / l * step; drone.y += dy / l * step; step = 0; } }
-  if (!q || Math.hypot(drone.x - player.x, drone.y - player.y) > 130) drone.road = null;   // fim da rua ou longe demais: outra rua perto
-  // um pouco ao lado da rua, câmera mais aberta e mais deitada, girando devagar
-  const ia = Math.max(0, Math.min(pts.length - 2, drone.i)), a = pts[ia], b = pts[ia + 1], tx0 = dpx(b) - dpx(a), ty0 = dpy(b) - dpy(a), tl = Math.hypot(tx0, ty0) || 1;
-  const side = -ty0 / tl * 6, sideY = tx0 / tl * 6;   // 6 m ao lado do eixo da rua
-  cam.tx = drone.x + side; cam.ty = drone.y + sideY; cam.tzoom = Math.min(drone.saved.zoom, 24); cam.ttilt = Math.max(TILT_MIN, Math.min(TILT_MAX, .44));
-  cam.tang += drone.spin * dt * .045;
-  const k = 1 - Math.exp(-dt * 1.4);   // segue o drone com suavidade de filmagem
-  cam.x = lerp(cam.x, cam.tx, k); cam.y = lerp(cam.y, cam.ty, k);
-  const tx = cam.tx, ty = cam.ty; cam.tx = cam.x; cam.ty = cam.y; cam.update(dt); cam.tx = tx; cam.ty = ty;
-}
-function droneEnd() {
-  if (!drone.saved) return;
-  cam.tzoom = drone.saved.zoom; cam.ttilt = drone.saved.tilt; cam.tang = drone.saved.ang;
-  drone.saved = null; drone.road = null; drone.glide = performance.now() + 2600;   // volta deslizando, sem corte
+function droneEnd(){
+  if(!drone.saved)return;
+  cam.tzoom=drone.saved.zoom;cam.ttilt=drone.saved.tilt;cam.tang=drone.saved.ang;
+  drone.saved=null;drone.glide=performance.now()+2600;
+  menuExtraNeeded=false;
+  if(menuExtra){window.cityCharacters?.removeExtra?.(menuExtra);menuExtra=null;}
+  // Quando a partida começa, o mesmo jogador volta ao centro da câmera.
+  cam.tx=player.x;cam.ty=player.y;
 }
 function showcaseTick(dt) {
   droneCam(dt);
