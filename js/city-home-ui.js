@@ -2,7 +2,7 @@
 'use strict';
 const CityHomeUI=(()=>{
  let active=false,H=null,tab='shop',shopCategory='Tudo',floor=0,grid=true,draft=null,dragging=false,pan=null,view=null,panel=null,entry=null;
- let dragOffset=null,previewBox=null,previewBefore=null,previewAt=0;
+ let dragOffset=null,previewBox=null,previewBefore=null,previewChildren=[],previewAt=0;
  let oldCamera=null,oldFloor=null,lastOwner=null,lastCheck=0,selectedId=null;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const money=n=>CityLife.money(n);
@@ -16,24 +16,42 @@ const CityHomeUI=(()=>{
  // The 3D preview updates the transient world box only. Saves and collisions
  // remain authoritative until Confirm; cancel/close always restore the original.
  function clearPreview(){
+   for(const {box,before} of previewChildren)Object.assign(box,before);
    if(previewBox&&previewBefore){
      Object.assign(previewBox,previewBefore);
      world.version=(world.version||0)+1;
    }
-   previewBox=previewBefore=null;previewAt=0;
+   previewBox=previewBefore=null;previewChildren=[];previewAt=0;
  }
  function previewMove(force=false){
    if(!draft||draft.mode!=='move')return;
    if(!previewBox){
-     previewBox=CityHome.nearbyItems(H,draft.floor).find(b=>b.homeId===draft.id)||null;
-     if(previewBox)previewBefore={x:previewBox.x,y:previewBox.y,z:previewBox.z,rot:previewBox.rot,
-       faceW:previewBox.faceW&&[...previewBox.faceW]};
+     const items=CityHome.nearbyItems(H,draft.floor);
+     previewBox=items.find(b=>b.homeId===draft.id)||null;
+     if(previewBox){
+       previewBefore={x:previewBox.x,y:previewBox.y,z:previewBox.z,rot:previewBox.rot,
+         faceW:previewBox.faceW&&[...previewBox.faceW]};
+       previewChildren=items.filter(b=>b.supportId===draft.id).map(box=>({box,
+         before:{x:box.x,y:box.y,z:box.z,rot:box.rot,faceW:box.faceW&&[...box.faceW]}}));
+     }
    }
    if(!previewBox)return;
    previewBox.x=draft.x;previewBox.y=draft.y;previewBox.rot=draft.rot;
+   const turn=draft.rot-previewBefore.rot,c=Math.cos(turn),s=Math.sin(turn);
    if(previewBefore.faceW){
-     const angle=Math.atan2(previewBefore.faceW[0],previewBefore.faceW[1])-(draft.rot-previewBefore.rot);
+     const angle=Math.atan2(previewBefore.faceW[0],previewBefore.faceW[1])-turn;
      previewBox.faceW=[Math.sin(angle),Math.cos(angle)];
+   }
+   // Objects on a desk/table follow its temporary translation AND rotation,
+   // just as they will when CityHome.move commits the same transform.
+   for(const {box,before} of previewChildren){
+     const dx=before.x-previewBefore.x,dy=before.y-previewBefore.y;
+     box.x=draft.x+dx*c-dy*s;box.y=draft.y+dx*s+dy*c;
+     box.rot=before.rot+turn;
+     if(before.faceW){
+       const angle=Math.atan2(before.faceW[0],before.faceW[1])-turn;
+       box.faceW=[Math.sin(angle),Math.cos(angle)];
+     }
    }
    const now=typeof performance!=='undefined'?performance.now():Date.now();
    if(force||now-previewAt>=50){
