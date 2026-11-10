@@ -11,7 +11,22 @@ const step=async(name,fn)=>{
  try{const detail=await fn();report.steps.push({name,result:'PASS',ms:Math.round(performance.now()-t),detail});console.log('QA_PASS '+name+' '+JSON.stringify(detail||{}));return true;}
  catch(e){report.steps.push({name,result:'FAIL',ms:Math.round(performance.now()-t),error:String(e.message||e)});console.log('QA_FAIL '+name+' '+String(e.stack||e));return false;}
 };
-const shot=async(name)=>{try{const p=OUT+'/'+name+'.png';await page.screenshot({path:p,timeout:12000,animations:'disabled'});report.screenshots.push(p);}catch(e){report.errors.push('screenshot '+name+': '+e.message)}};
+const shot=async(name)=>{
+ let hidden=[];
+ try{
+  // No runner sem GPU, a captura do WebGL demora muito. Depois da foto da partida,
+  // oculta temporariamente apenas canvases 3D para fotografar os menus HTML reais.
+  if(!['01-menu','02-gameplay','02-cas-inicial'].includes(name)){
+   hidden=await page.evaluate(()=>{
+    const a=[];for(const id of ['view','vehicle3d','ground-gpu']){
+     const el=document.getElementById(id);if(el){a.push({id,prior:el.style.visibility});el.style.visibility='hidden';}
+    }return a;
+   });
+  }
+  const p=OUT+'/'+name+'.png';await page.screenshot({path:p,timeout:24000,animations:'disabled'});report.screenshots.push(p);
+ }catch(e){report.errors.push('screenshot '+name+': '+e.message)}
+ finally{if(hidden.length)await page.evaluate(a=>{for(const r of a){const el=document.getElementById(r.id);if(el)el.style.visibility=r.prior}},hidden).catch(()=>{});}
+};
 (async()=>{
  browser=await chromium.launch({headless:true,args:['--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--no-sandbox','--disable-dev-shm-usage']});
  const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
@@ -110,7 +125,10 @@ const shot=async(name)=>{try{const p=OUT+'/'+name+'.png';await page.screenshot({
   });
  }
  await step('08 Compras no marketplace e dinheiro',async()=>{
-  assert.equal(await page.evaluate(()=>CityDesk.show('market')),true);
+  // Navegação de jogador: clicar o app reseta a seleção do contrato anterior.
+  // show('market') sozinho não limpa sel e pode encaminhar ações para CodeLab.
+  assert.equal(await page.evaluate(()=>CityDesk.show('home')),true);
+  await page.locator('#city-desk .cd-nav [data-app="market"]').click();
   await page.locator('#city-desk [data-do="m:view:npc-mercadinho"]').click();
   await page.locator('#city-desk [data-do="m:inc:LIFE-WATER"]').click();
   await shot('13-carrinho-marketplace');
