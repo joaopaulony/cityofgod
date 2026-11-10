@@ -130,8 +130,7 @@ export function hospitalModels(THREE, { chair }) {
   } };
   M.bigplant = { dims: [.7, 1.6, .7], face: 'any', make(k) {
     k.cyl(0, 0, 0, .26, .42, '#e9e4da', 16, .3); k.cyl(0, .4, 0, .29, .44, '#d8d1c3', 16); k.cyl(0, .43, 0, .26, .45, '#4a3a2a', 14);
-    for (let i = 0; i < 16; i++) { const a = i * 2.4, r = .06 + (i % 5) * .05, h = .7 + (i * 7 % 9) * .09, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      k.cyl(x * .5, .44, z * .5, .012, h, '#4a6a3a', 5); k.sph(x * 1.6, h, z * 1.6, .13 + (i % 3) * .03, i % 3 ? '#3f8a52' : '#5cab6a', .55, undefined, 1.4, .8); }
+    for (let i = 0; i < 6; i++) { const a = i * 1.05, x = Math.cos(a) * .07, z = Math.sin(a) * .07; k.cyl(x, .44, z, .014, .72 + (i % 3) * .1, '#4a5a32', 5); }   // galhos; folhas: vegetation-3d
   } };
   M.toiletstall = { dims: [1.1, 2.05, 1.6], face: 'short', make(k) {
     for (const x of [-.55, .53]) k.box(x, .15, -.8, x + .025, 2.0, .78, '#7fa7a6', .005); k.box(-.55, 1.95, .76, .55, 2.0, .8, STEEL);

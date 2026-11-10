@@ -941,12 +941,76 @@ function frame(now) {
     // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
     // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
     const lead = terrain.vel || [0, 0];
-    if(!window.CityFront?.blocked||window.CityFront?.loading){
-      if (world.streamTick) world.streamTick(player.x + lead[0] * 3, player.y + lead[1] * 3, clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
+    if(!window.CityFront?.blocked||window.CityFront?.loading||window.CityFront?.showcase){
+      // no menu, o mundo carrega em volta do drone (que nunca se afasta muito do jogador)
+      const sx=drone.saved?(drone.x+player.x)/2:player.x+lead[0]*3,sy=drone.saved?(drone.y+player.y)/2:player.y+lead[1]*3;
+      if (world.streamTick) world.streamTick(sx, sy, clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
       if (cost + terrain.workMs < 12) warmIdle();
     }
   }
   requestAnimationFrame(frame);
+}
+// ---------- vitrine do menu: um drone sobrevoa as ruas perto do jogador com a cidade viva ----------
+// O mundo anda (carros, pessoas, bichos, portas, folhas), mas o jogador fica congelado: sem relógio, necessidades,
+// aluguel ou dano enquanto o menu está aberto. Ao entrar no jogo a câmera desliza de volta até o personagem.
+const drone = { road: null, i: 0, dir: 1, x: 0, y: 0, saved: null, spin: 1, glide: 0 };
+// pontos das ruas vêm como [x, y] (mundo aberto) ou {x, y} (cidade fixa)
+const dpx = p => p ? (p.x ?? p[0]) : NaN, dpy = p => p ? (p.y ?? p[1]) : NaN;
+function droneRoads() {
+  const src = (typeof OW !== 'undefined' && world.open && OW.cw?.roads?.length) ? OW.cw.roads : (world.roads || []);
+  return src.filter(r => r.pts && r.pts.length > 12 && r.cls !== 'highway');
+}
+function dronePick() {
+  const rs = droneRoads(), near = rs.filter(r => r.pts.some(p => Math.hypot(dpx(p) - player.x, dpy(p) - player.y) < 95));
+  const pool = near.length ? near : rs; if (!pool.length) return false;
+  const r = pool[(Math.random() * pool.length) | 0];
+  let bi = 0, bd = 1e9; r.pts.forEach((p, i) => { const d = Math.hypot(dpx(p) - drone.x, dpy(p) - drone.y); if (d < bd) { bd = d; bi = i; } });
+  drone.road = r; drone.i = bi; drone.dir = bi > r.pts.length / 2 ? -1 : 1; drone.spin = Math.random() < .5 ? -1 : 1;
+  return true;
+}
+function droneCam(dt) {
+  try { droneCamInner(dt); } catch (e) { window.__droneError = String(e && e.stack || e); drone.road = null; cam.update(dt); }
+}
+function droneCamInner(dt) {
+  if (!Number.isFinite(cam.x) || !Number.isFinite(cam.y)) { cam.x = cam.tx = player.x; cam.y = cam.ty = player.y; }
+  if (!Number.isFinite(drone.x) || !Number.isFinite(drone.y)) { drone.x = player.x; drone.y = player.y; drone.road = null; }
+  if (!drone.saved) { drone.saved = { zoom: cam.tzoom, tilt: cam.ttilt, ang: cam.tang }; drone.x = player.x; drone.y = player.y; drone.road = null; }
+  // o jogador mudou de lugar (save restaurado, teleporte): o drone recomeça perto dele, com a câmera junto
+  if (Math.hypot(drone.x - player.x, drone.y - player.y) > 160) { drone.x = player.x; drone.y = player.y; drone.road = null; cam.x = player.x; cam.y = player.y; }
+  if (!drone.road && !dronePick()) { cam.tx = player.x; cam.ty = player.y; cam.update(dt); return; }
+  const pts = drone.road.pts; let q = pts[drone.i], step = 5.5 * dt;   // ~20 km/h, como um drone filmando
+  while (step > 0 && q) { const dx = dpx(q) - drone.x, dy = dpy(q) - drone.y, l = Math.hypot(dx, dy); if (l <= step) { drone.x = dpx(q); drone.y = dpy(q); step -= l; drone.i += drone.dir; q = pts[drone.i]; } else { drone.x += dx / l * step; drone.y += dy / l * step; step = 0; } }
+  if (!q || Math.hypot(drone.x - player.x, drone.y - player.y) > 130) drone.road = null;   // fim da rua ou longe demais: outra rua perto
+  // um pouco ao lado da rua, câmera mais aberta e mais deitada, girando devagar
+  const ia = Math.max(0, Math.min(pts.length - 2, drone.i)), a = pts[ia], b = pts[ia + 1], tx0 = dpx(b) - dpx(a), ty0 = dpy(b) - dpy(a), tl = Math.hypot(tx0, ty0) || 1;
+  const side = -ty0 / tl * 6, sideY = tx0 / tl * 6;   // 6 m ao lado do eixo da rua
+  cam.tx = drone.x + side; cam.ty = drone.y + sideY; cam.tzoom = Math.min(drone.saved.zoom, 24); cam.ttilt = Math.max(TILT_MIN, Math.min(TILT_MAX, .44));
+  cam.tang += drone.spin * dt * .045;
+  const k = 1 - Math.exp(-dt * 1.4);   // segue o drone com suavidade de filmagem
+  cam.x = lerp(cam.x, cam.tx, k); cam.y = lerp(cam.y, cam.ty, k);
+  const tx = cam.tx, ty = cam.ty; cam.tx = cam.x; cam.ty = cam.y; cam.update(dt); cam.tx = tx; cam.ty = ty;
+}
+function droneEnd() {
+  if (!drone.saved) return;
+  cam.tzoom = drone.saved.zoom; cam.ttilt = drone.saved.tilt; cam.tang = drone.saved.ang;
+  drone.saved = null; drone.road = null; drone.glide = performance.now() + 2600;   // volta deslizando, sem corte
+}
+function showcaseTick(dt) {
+  droneCam(dt);
+  T += dt; envTick(dt, st.clock);
+  if (st.night !== ENV.night) st.night = world.night = ENV.night;
+  const hp = st.hp, dead = player.dead, busted = player.busted;
+  window.cityVehicles?.update(dt);
+  ecosystemTick(dt, player, T);
+  for (const n of npcs) updateNPC(n, dt);
+  updateHouseOpenings(dt, actors, st.night);
+  for (const a of actors) { a.clock = T; a.pose = animate(a, dt); a.J = solveSkeleton(a, a.pose); }
+  window.cityCharacters?.update(dt);
+  for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
+  spawnAmbientLeaves(dt); updateParts(dt);
+  st.hp = hp; player.dead = dead; player.busted = busted; player.hurtT = 0;   // nada acontece com o jogador no menu
+  render(); window.cityVehicles?.render(); h.clearRect(0, 0, hudC.width, hudC.height);
+  window.CityFront.markFrame(); window.CityFront.markLive?.();
 }
 function tick(dt) {
   failScreen.tick(dt / (window.__timeScale || 1));
@@ -954,10 +1018,11 @@ function tick(dt) {
   if(window.CityFront?.blocked){
     if(window.CityFront.loading){
       for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}
-      window.cityCharacters?.update(0);cam.update(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();
-    }
+      window.cityCharacters?.update(0);droneCam(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();
+    }else if(window.CityFront.showcase)showcaseTick(dt);
     input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;input.endFrame();return;
   }
+  if(drone.saved)droneEnd();
   if(window.cityCharacterEditorOpen||window.CityPets?.uiOpen){input.keys.clear();input.lmb=input.rmb=false;input.endFrame();return;}
   // Build/Buy mode: freeze character, physics and game clock while showing the live interior.
   if(window.CityHomeUI?.active){
@@ -1066,7 +1131,7 @@ function tick(dt) {
     // antecipa a direção do movimento e compensa o atraso do seguimento (camera-motion.js)
     const [ax,ay]=window.CameraMotion?.followLead?.(player.x,player.y,dt,{aiming:player.aimV>.3,indoors:houses.some(H=>H.inside)})||[0,0];
     cam.tx = player.x + lx + ax-Math.sin(cam.ang)*floorFocus;cam.ty=player.y+ly+ay-Math.cos(cam.ang)*floorFocus;
-    if(Math.hypot(cam.x-cam.tx,cam.y-cam.ty)>30){cam.x=cam.tx;cam.y=cam.ty;}   // teleporte/renascer: encaixa, sem atravessar a cidade
+    if(Math.hypot(cam.x-cam.tx,cam.y-cam.ty)>30&&performance.now()>drone.glide){cam.x=cam.tx;cam.y=cam.ty;}   // teleporte/renascer: encaixa, sem atravessar a cidade (saindo do menu, desliza)
     if(window.cityPropertyReviewFocus){cam.tx=window.cityPropertyReviewFocus.x;cam.ty=window.cityPropertyReviewFocus.y;}
   }
   window.CameraMotion?.pre(dt);   // acompanha a direção, zoom pela velocidade (camera-motion.js)
@@ -1099,9 +1164,10 @@ function tick(dt) {
     const entry=document.getElementById('city-home-entry');
     const hasHomeEntry=entry&&!entry.hidden&&!document.body.classList.contains('city-home-open');
     const maxWidth=Math.min(hudC.width-mx-12,compact?hudC.width-mx-12:460);
-    const y=Math.max(38,my-(hasHomeEntry?(alternate?103:88):(alternate?70:55)));
-    drawHudHeadline(h,prompt,mx,y,compact?16:18,maxWidth);
-    if(alternate)drawHudHeadline(h,alternate,mx,y+22,compact?14:16,maxWidth);
+    void maxWidth;
+    const W=hudC.width,H=hudC.height,y=H-(hasHomeEntry?(alternate?150:112):(alternate?112:74));
+    drawHudPrompt(h,prompt,W/2,y,compact);
+    if(alternate)drawHudPrompt(h,alternate,W/2,y+42,compact);
   }
   input.endFrame();
 }

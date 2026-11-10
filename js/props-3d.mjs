@@ -29,10 +29,8 @@ export function createProps(THREE, scene, bridge) {
   M.chair={dims:[.5,.85,.55],tinted:true,make(k,c){chair(k,0,0,0,c);}};
   M.plant={dims:[.44,.74,.44],tinted:true,make(k,c){
     k.cyl(0,0,0,.15,.27,c||'#a07853',14);
-    k.cyl(0,.27,0,.035,.59,'#386d48',8);
-    for(let i=0;i<7;i++){const a=i*Math.PI*2/7;
-      k.sph(Math.cos(a)*.12,.51+Math.sin(i*17)*.1,Math.sin(a)*.12,.16,
-       i%2?'#357b53':'#5ca77a');}
+    k.cyl(0,.25,0,.13,.27,'#4a3a2a',14);   // terra; as folhas vêm da vegetação (vegetation-3d.mjs)
+    for(let i=0;i<3;i++)k.cyl(Math.cos(i*2.1)*.04,.27,Math.sin(i*2.1)*.04,.01,.42,'#4a5a32',5);
   }};
   M.bookstack={dims:[.34,.2,.26],tinted:true,make(k,c){
     for(let i=0;i<4;i++){
@@ -208,10 +206,7 @@ export function createProps(THREE, scene, bridge) {
   M.planter = { dims: [1.4, 0.55, 1.4], make(k) {
     k.box(-0.7, 0, -0.7, 0.7, 0.5, 0.7, '#a59f93', 0.04); k.box(-0.74, 0.47, -0.74, 0.74, 0.55, 0.74, '#b9b3a6', 0.025);
     k.box(-0.62, 0.5, -0.62, 0.62, 0.53, 0.62, '#4a3524'); k.box(-0.7, 0, -0.7, 0.7, 0.04, 0.7, '#9a9488', 0.01);
-    const G = ['#3f6e2c', '#4b7e33', '#365f27', '#5a8c3a', '#447530', '#2f5523'];
-    let n = 0; const rnd = () => { n = (n * 9301 + 49297) % 233280; return n / 233280; };
-    for (let i = 0; i < 34; i++) { const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.56, y = 0.66 + rnd() * 0.32 + (0.56 - r) * 0.45; k.sph(Math.cos(a) * r, y, Math.sin(a) * r, 0.2 + rnd() * 0.15, G[i % G.length], 0.85); }
-    for (let i = 0; i < 12; i++) { const a = rnd() * Math.PI * 2, r = 0.25 + rnd() * 0.32; k.sph(Math.cos(a) * r, 0.98 + rnd() * 0.32, Math.sin(a) * r, 0.04, i % 3 ? '#e5649a' : '#f6f1e8'); }
+    // a folhagem (hibisco com flor) é desenhada pela vegetação, igual aos arbustos da rua (vegetation-3d.mjs)
   } };
   M.couch = { dims: [2.0, 0.75, 0.9], tinted: true, make(k, c) { sofaModel(k, c || '#7a5a48', 2.0, 0.9, true); } };
   // ---------- lixo dos bairros pobres ----------
@@ -614,8 +609,10 @@ export function createProps(THREE, scene, bridge) {
       const [W, Hn, D] = k.def.dims;
       k.list.forEach((b, i) => {
         let rot = (b.face ? Math.atan2(b.face[0], b.face[1]) : -(b.rot || 0)) + (b.turn || 0), sx = b.w / W, sz = b.d / D;   // turn: giro extra da planta (mesas em pares, plateia)
+        // planta com frente definida (architecture-plan.js · orientFurniture): costas na parede, frente p/ o cômodo
+        if (b.faceW) { rot = Math.atan2(b.faceW[0], b.faceW[1]); sx = (b.along || b.w) / W; sz = (b.depth || b.d) / D; }
         const H = b.house, face = k.def.face;
-        if (H && face && !b.homeManaged) {   // vira a frente (+z) p/ o centro do cômodo
+        if (H && face && !b.homeManaged && !b.faceW) {   // sem frente definida: vira a frente (+z) p/ o centro do cômodo
           const hx = (b.roomCenter?.[0]??(H.x0 + H.x1) / 2) - b.x, hy = (b.roomCenter?.[1]??(H.y0 + H.y1) / 2) - b.y, c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);
           const cand = [[0, -s, c], [1, -c, -s], [2, s, -c], [3, c, s]].filter(([qq]) => face === 'any' ? true : face === 'short' ? (b.w >= b.d ? qq % 2 === 0 : qq % 2 === 1) : (b.w >= b.d ? qq % 2 === 1 : qq % 2 === 0));
           let best = cand[0], bd = -Infinity; for (const cd of cand) { const d = cd[1] * hx + cd[2] * hy; if (d > bd) { bd = d; best = cd; } }
@@ -625,7 +622,7 @@ export function createProps(THREE, scene, bridge) {
         const lim = b.architecture?[.1,8]:H ? [0.65, 1.5] : [0.7, 1.4]; sx = Math.min(lim[1], Math.max(lim[0], sx)); sz = Math.min(lim[1], Math.max(lim[0], sz));
         if(b.architecture){
           const size=k.bounds.getSize(new THREE.Vector3()),center=k.bounds.getCenter(new THREE.Vector3()),odd=Math.abs(Math.round((rot+(b.rot||0))/(Math.PI/2)))%2;
-          sx=(odd?b.d:b.w)/size.x;sz=(odd?b.w:b.d)/size.z;
+          if(b.faceW){sx=(b.along||b.w)/size.x;sz=(b.depth||b.d)/size.z;}else{sx=(odd?b.d:b.w)/size.x;sz=(odd?b.w:b.d)/size.z;}
           const ox=Math.cos(rot)*center.x*sx+Math.sin(rot)*center.z*sz,oy=-Math.sin(rot)*center.x*sx+Math.cos(rot)*center.z*sz;
           place(k,i,b.x-ox,b.y-oy,b.z||0,rot,sx,k.def.uniform?(sx+sz)/2:Math.min(1.5,Math.max(.6,(b.h||Hn)/Hn)),sz);return;
         }

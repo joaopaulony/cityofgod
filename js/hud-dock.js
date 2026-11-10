@@ -26,7 +26,10 @@
   function sheet() {
     let l = document.getElementById('hud-system-css');
     if (!l) { l = document.createElement('link'); l.id = 'hud-system-css'; l.rel = 'stylesheet'; l.href = 'css/hud-system.css'; }
-    if (document.head.lastElementChild !== l) document.head.appendChild(l);
+    // e o tema da interface (css/ui-theme.css) logo depois dela: é ele que dá a cara final
+    let t = document.getElementById('ui-theme-css');
+    if (!t) { t = document.createElement('link'); t.id = 'ui-theme-css'; t.rel = 'stylesheet'; t.href = 'css/ui-theme.css'; }
+    if (document.head.lastElementChild !== t || t.previousElementSibling !== l) { document.head.appendChild(l); document.head.appendChild(t); }
   }
   // celular, mochila, mapa, conversa ou outra janela aberta: o dock some p/ não cobrir a interface
   const uiOpen = () => document.getElementById('city-phone-layer')?.hidden === false || !!window.CityUI?.blocksGameInput?.() || document.body.classList.contains('city-modal')

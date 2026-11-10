@@ -176,7 +176,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   for(const sx of [-dw/2-.03,dw/2-.012])dk.box(sx,-dh,-.4,sx+.042,0,-.03,'#8c9296',0,'metal');
   groups(dk,door);e.exterior.add(door);e.garageDoor={object:door,g};
  }
- function wings(level){const hall=level.rooms.find(r=>r.id==='hall'),left=level.rooms.filter(r=>r.x1<=hall.x0+.01),right=level.rooms.filter(r=>r.x0>=hall.x1-.01);return[left,right,[hall]].map(list=>({x0:Math.min(...list.map(r=>r.x0)),y0:Math.min(...list.map(r=>r.y0)),x1:Math.max(...list.map(r=>r.x1)),y1:Math.max(...list.map(r=>r.y1))}));}
+ function wings(level){if(level.masses)return level.masses.map(m=>({...m}));const hall=level.rooms.find(r=>r.id==='hall'),left=level.rooms.filter(r=>r.x1<=hall.x0+.01),right=level.rooms.filter(r=>r.x0>=hall.x1-.01);return[left,right,[hall]].map(list=>({x0:Math.min(...list.map(r=>r.x0)),y0:Math.min(...list.map(r=>r.y0)),x1:Math.max(...list.map(r=>r.x1)),y1:Math.max(...list.map(r=>r.y1))}));}
  function sign(H,e){
   const A=H.architecture,level=A.levels[0],r=level.rooms.find(r=>r.id==='front-left'),commercial=H.civic||['shop','office','warehouse','airport','deco'].includes(A.kind);if(!commercial)return;
   const c=document.createElement('canvas');c.width=512;c.height=96;const g=c.getContext('2d');g.fillStyle=['#36554f','#314854','#795b46'][A.palette%3];g.fillRect(0,0,512,96);g.fillStyle='#faf2df';g.font='600 42px sans-serif';g.textAlign='center';g.textBaseline='middle';
@@ -200,8 +200,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    yield;
   }
   const last=A.levels.at(-1),flat=H.civic||['office','shop','airport','deco','projects'].includes(A.kind)||A.kind==='house'&&A.palette===3;
-  for(const [i,r] of wings(last).entries())roofWing(roofKit,r,A.levels.length*A.floorHeight,H.style?.roofCol||'#ae7153',flat||i===2||A.family==='garden-wing'&&i===1&&A.kind!=='warehouse',A.family==='cross-gable'||A.kind==='warehouse');
-  if(A.kind==='deco'){const r=last.rooms.find(r=>r.id==='front-left'),cx=(r.x0+r.x1)/2,z=A.levels.length*A.floorHeight;for(let i=0;i<3;i++)roofKit.box(cx-1.4+i*.3,z+.2,r.y1-.1,cx+1.4-i*.3,z+.55+i*.26,r.y1+.08,i===2?accent:base,0,'trim');}
+  const organic=A.family==='organic';   // gerador novo: massa principal com quatro águas, anexos (L, cozinha avançada) com empena
+  for(const [i,r] of wings(last).entries())roofWing(roofKit,r,A.levels.length*A.floorHeight,H.style?.roofCol||'#ae7153',flat||!organic&&(i===2||A.family==='garden-wing'&&i===1&&A.kind!=='warehouse'),organic?i>0:A.family==='cross-gable'||A.kind==='warehouse');
+  if(A.kind==='deco'){const r=last.rooms.find(r=>r.id==='front-left')||last.rooms.filter(r=>r.id!=='hall').sort((a,b)=>b.y1-a.y1)[0],cx=(r.x0+r.x1)/2,z=A.levels.length*A.floorHeight;for(let i=0;i<3;i++)roofKit.box(cx-1.4+i*.3,z+.2,r.y1-.1,cx+1.4-i*.3,z+.55+i*.26,r.y1+.08,i===2?accent:base,0,'trim');}
   roofServices(roofKit,A,last,base);
   if(H.civic){
    const cx=A.levels[0].entry[0],front=A.depth,grand=A.kind==='cityhall';

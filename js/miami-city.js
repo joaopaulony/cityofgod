@@ -332,11 +332,20 @@ function drawFountain(g, b) {
   g.fillStyle = 'rgba(230,245,250,0.8)'; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; g.beginPath(); g.moveTo(p.x, p.y); g.quadraticCurveTo(p.x + Math.cos(a) * r * 0.5, p.y - Z * 0.2, p.x + Math.cos(a) * r * 0.7, c1.y + Math.sin(a) * r * 0.7 * TILT); g.lineTo(p.x + Math.cos(a) * r * 0.66, c1.y + Math.sin(a) * r * 0.66 * TILT); g.quadraticCurveTo(p.x + Math.cos(a) * r * 0.45, p.y - Z * 0.15, p.x, p.y + 1); g.fill(); }
 }
 // ---------- bangalô pastel (bairro) e casa pobre (favela) ----------
+// casas do bairro: metade das vezes um modelo antigo, metade uma planta do gerador novo (architecture-organic.js);
+// se a escolhida não couber no espaço entre as vizinhas, tenta as plantas novas mais estreitas antes de desistir
+const MIA_ORGANIC = ['O_integrada', 'O_varanda', 'O_emL', 'O_ampla', 'O_sobrado', 'O_vila', 'O_estreita'], MIA_ORGANIC_POOR = ['O_estreita', 'O_vila', 'O_integrada'];
 function miaHouse(S, c, rects, poor) {
-  const key = poor ? (rng() < 0.6 ? 'B' : 'D') : ['A', 'B', 'D', 'C'][(rng() * 4) | 0];
-  const T = TPL[key]; if (!T) return null;
-  const was = T.yard; T.yard = false;   // a cerca é nossa (alambrado/mureta), não a de madeira
-  let H; try { H = owTryHouse(S, key, c, rects); } finally { T.yard = was; }
+  const organic = TPL.O_estreita && rng() < 0.5;
+  const first = organic ? (poor ? MIA_ORGANIC_POOR : MIA_ORGANIC)[(rng() * (poor ? MIA_ORGANIC_POOR.length : MIA_ORGANIC.length)) | 0] : poor ? (rng() < 0.6 ? 'B' : 'D') : ['A', 'B', 'D', 'C'][(rng() * 4) | 0];
+  let H = null;
+  const small = rng() < 0.5 ? ['O_vila', 'O_estreita'] : ['O_estreita', 'O_vila'];
+  for (const key of [first, ...(TPL.O_estreita ? ['O_integrada', ...small] : [])].filter((k, i, a) => a.indexOf(k) === i)) {
+    const T = TPL[key]; if (!T) continue;
+    const was = T.yard; T.yard = false;   // a cerca é nossa (alambrado/mureta), não a de madeira
+    try { H = owTryHouse(S, key, c, rects); } finally { T.yard = was; }
+    if (H) break;
+  }
   if (!H) return null;
   const r = mulberry(H.seed + 21), St = H.style, pal = (poor ? MIA_POOR : MIA_BUNGALOW)[(r() * (poor ? MIA_POOR : MIA_BUNGALOW).length) | 0];
   St.plaster = pal[0]; St.trim = poor ? '#d9d2c2' : '#fbf8f0'; St.aging = poor ? 0.8 + r() * 0.2 : 0.25 + r() * 0.2;
@@ -562,7 +571,7 @@ function miaBush(x, y, kind) {
 function miaShrubs(H, kinds, n, r) {
   for (let i = 0, tries = 0; i < n && tries < 40; tries++) {
     const k = ['N', 'S', 'W', 'E'][(r() * 4) | 0], sd = H.sides[k], u = 0.8 + r() * (sd.len - 1.6);
-    const x = sd.a[0] + sd.dir[0] * u + sd.n[0] * 1.0, y = sd.a[1] + sd.dir[1] * u + sd.n[1] * 1.0;
+    const x = sd.a[0] + sd.dir[0] * u + sd.n[0] * 1.6, y = sd.a[1] + sd.dir[1] * u + sd.n[1] * 1.6;
     if (Math.hypot(x - H.doorPt[0], y - H.doorPt[1]) < 2 || onRoad(x, y) || miaBlocked(x, y, 0.5)) continue;
     miaBush(x, y, kinds[(r() * kinds.length) | 0]); i++;
   }
@@ -883,9 +892,36 @@ function miaLotsForSale(S, zoneAt, rects) {
 
 // casa que o jogador mandou construir no terreno: o modelo escolhido (com o modelo compacto de reserva se não couber),
 // gramado no lote todo e alguns arbustos; o CityLots registra o imóvel como dele
+// planta nova no terreno comprado: encaixa dentro do próprio lote (centrada, ~2 m atrás da frente, virada p/ a rua).
+// O encaixe genérico (owTryHouse) deixa folga em volta da casa e recusava lotes estreitos.
+function miaPlaceInLot(S, key, q, n, rects) {
+  const T0 = TPL[key]; if (!T0) return null;
+  // modelos antigos usam a mesma ampliação do encaixe genérico (owTryHouse); os novos já estão em metros
+  const T = T0.noScale ? T0 : { ...T0, w: Math.round(T0.w * OW_HOUSE_SCALE), d: Math.round(T0.d * OW_HOUSE_SCALE) };
+  let k = 0, best = -9;
+  for (let r = 0; r < 4; r++) { const dn = [-Math.round(Math.sin(r * Math.PI / 2)), Math.round(Math.cos(r * Math.PI / 2))], d = -(dn[0] * n[0] + dn[1] * n[1]); if (d > best) { best = d; k = r; } }
+  const W = k % 2 ? T.d : T.w, Dp = k % 2 ? T.w : T.d;
+  const front = [(q[0][0] + q[1][0]) / 2, (q[0][1] + q[1][1]) / 2], back = [(q[2][0] + q[3][0]) / 2, (q[2][1] + q[3][1]) / 2];
+  const lotD = Math.hypot(back[0] - front[0], back[1] - front[1]), depth = k % 2 ? W : Dp;
+  const along = Math.min(2.2, Math.max(0.6, lotD - T.d - 0.4)) + T.d / 2;   // recuo da frente até o meio da casa
+  const cx = front[0] + n[0] * along, cy = front[1] + n[1] * along, x0 = Math.round(cx - W / 2), y0 = Math.round(cy - Dp / 2);
+  void depth;
+  if (x0 < S.bounds[0] + 1 || y0 < S.bounds[1] + 1 || x0 + W > S.bounds[2] - 1 || y0 + Dp > S.bounds[3] - 1) return null;
+  for (let y = y0; y <= y0 + Dp; y += 1) for (let x = x0; x <= x0 + W; x += 1) if (roadDist(x, y) < ROAD_W + SIDE + 0.6 || pondVal(x, y) < 1.4) return null;
+  const box = [x0 - 0.5, y0 - 0.5, x0 + W + 0.5, y0 + Dp + 0.5];
+  if (rects.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) return null;
+  rects.push(box);
+  const pal = SIDINGS[(rng() * SIDINGS.length) | 0];
+  const rr = rng(), roofKind = T0.noScale ? (T.def.storeys ? 'hip' : 'gable') : key === 'C' ? (rr < 0.55 ? 'hip' : 'gable') : key === 'D' ? (rr < 0.62 ? 'gable' : 'flat') : key === 'A' ? (rr < 0.5 ? 'gable' : 'hip') : (rr < 0.3 ? 'flat' : rr < 0.65 ? 'hip' : 'gable');
+  const H = placeTemplate(T, x0, y0, k, { ext: pal[0], roof: pal[1], roofKind, seed: owSeed(S, 'h' + x0 + ',' + y0) });
+  H.templateKey = key; owIndexOwnedLive(S);
+  return H;
+}
 function miaLotHouse(S, rects, rd, p, s, q, build, lid) {
   let H = null;
-  for (const key of [build.tpl, 'B']) {
+  // primeiro dentro do próprio lote (qualquer modelo); se não couber, o encaixe genérico de antes
+  H = miaPlaceInLot(S, build.tpl, q, [p.nx * s, p.ny * s], rects) || (TPL[build.tpl]?.organic ? miaPlaceInLot(S, 'O_estreita', q, [p.nx * s, p.ny * s], rects) : null);
+  if (!H) for (const key of TPL[build.tpl]?.organic ? [build.tpl, 'O_estreita', 'B'] : [build.tpl, 'B']) {
     const T = TPL[key]; if (!T) continue;
     const was = T.yard; T.yard = false;
     try { H = owTryHouse(S, key, { p, s, off: rd.off || 0 }, rects); } finally { T.yard = was; }
@@ -1290,7 +1326,7 @@ function* miaGenSector(S, rects) {
   for (const rd of S.roads) { if (rd.cls === 'highway') continue; for (let i = 8; i < rd.pts.length - 8; i += 4) for (const s of [1, -1]) cands.push({ p: rd.pts[i], s, off: rd.off, cls: rd.cls, rd, i, r: rng() }); }
   cands.sort((a, b) => a.r - b.r);
   let placed = 0, tries = 0;
-  const cap = 46;
+  const cap = 54;   // as plantas novas mais estreitas ocupam espaços onde as antigas não cabiam
   for (const c of cands) {
     if (placed >= cap || tries > 1600) break;
     const ox = c.p.x + c.p.nx * c.s * (ROAD_W + c.off + SIDE + 7), oy = c.p.y + c.p.ny * c.s * (ROAD_W + c.off + SIDE + 7), z = zoneAt(ox, oy);

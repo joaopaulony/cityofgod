@@ -1,0 +1,241 @@
+/* ui-theme.css — padrão visual único da interface (carregado por último).
+   Simulador social contemporâneo: vidro leve com desfoque, tipografia do menu principal (títulos em Impact, rótulos
+   pequenos em caixa alta espaçada, texto em Segoe UI), poucos elementos fixos na tela e o mundo sempre em primeiro plano.
+   Dois modos: claro (padrão) e escuro — html[data-ui-theme] é definido pelas Configurações (front-end.js).
+   O resto do CSS antigo continua valendo para layout; aqui só mudam cor, vidro, fonte, raio e sombra. */
+
+:root,html[data-ui-theme=light]{
+  --ui-font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --ui-display:Impact,Haettenschweiler,"Arial Narrow Bold","Arial Narrow",sans-serif;
+  --ui-glass:rgba(251,249,245,.76);--ui-glass-strong:rgba(252,251,248,.93);--ui-glass-soft:rgba(251,249,245,.55);
+  --ui-surface:rgba(255,255,255,.62);--ui-surface-2:rgba(24,34,38,.05);
+  --ui-text:#1d2427;--ui-muted:#5c676a;--ui-faint:#8c9598;
+  --ui-line:rgba(24,34,38,.11);--ui-line-strong:rgba(24,34,38,.2);--ui-hover:rgba(24,34,38,.06);
+  --ui-accent:#d8973a;--ui-accent-ink:#241603;--ui-accent-soft:rgba(216,151,58,.16);
+  --ui-good:#2d8a66;--ui-warn:#c48615;--ui-bad:#c94a42;
+  --ui-shadow:0 22px 60px rgba(18,28,32,.18),0 2px 8px rgba(18,28,32,.08);--ui-shadow-sm:0 6px 18px rgba(18,28,32,.14);
+  --ui-blur:blur(22px) saturate(1.35);
+  --ui-r-lg:22px;--ui-r:16px;--ui-r-sm:11px;--ui-pill:999px;
+  --ui-scrim:rgba(240,236,228,.38);
+  color-scheme:light;
+}
+html[data-ui-theme=dark]{
+  --ui-glass:rgba(15,21,25,.66);--ui-glass-strong:rgba(17,23,27,.9);--ui-glass-soft:rgba(15,21,25,.45);
+  --ui-surface:rgba(255,255,255,.06);--ui-surface-2:rgba(255,255,255,.05);
+  --ui-text:#f6efe0;--ui-muted:#b6c0bd;--ui-faint:#7f8b88;
+  --ui-line:rgba(255,255,255,.11);--ui-line-strong:rgba(255,255,255,.22);--ui-hover:rgba(255,255,255,.07);
+  --ui-accent:#f5bf60;--ui-accent-ink:#1f1606;--ui-accent-soft:rgba(245,191,96,.16);
+  --ui-good:#7ed3a7;--ui-warn:#f0c35a;--ui-bad:#ef766a;
+  --ui-shadow:0 22px 60px rgba(0,0,0,.42),0 2px 8px rgba(0,0,0,.25);--ui-shadow-sm:0 6px 18px rgba(0,0,0,.3);
+  --ui-scrim:rgba(4,10,14,.45);
+  color-scheme:dark;
+}
+/* tokens antigos da HUD (hud-system.css) passam a seguir o tema */
+html[data-ui-theme]{
+  --hud-font:var(--ui-font);--hud-text:var(--ui-text);--hud-dim:var(--ui-muted);--hud-accent:var(--ui-accent);
+  --hud-bg:var(--ui-glass);--hud-bg-hover:var(--ui-glass-strong);--hud-line:var(--ui-line);--hud-radius:var(--ui-r);--hud-shadow:var(--ui-shadow-sm);
+  --front-gold:var(--ui-accent);
+}
+html[data-ui-theme] body{font-family:var(--ui-font)}
+
+/* ---------- peças reutilizáveis ---------- */
+html[data-ui-theme] :is(.city-property-card,.cr-panel,#city-autopilot,#city-adventure-hud,#social-conversation,#social-incoming,#social-feedback,
+  #city-job-menu,#city-job-hud,#city-emotes,#city-home-builder,#city-toast,#city-pets,#social-panel,#city-dealer){
+  background:var(--ui-glass)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;
+  -webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);box-shadow:var(--ui-shadow)!important;font-family:var(--ui-font)!important}
+html[data-ui-theme] :is(.city-property-card,.cr-panel,#city-job-menu,#city-home-builder,#city-pets,#social-panel,#city-dealer){border-radius:var(--ui-r-lg)!important}
+/* títulos: a mesma voz do menu principal */
+html[data-ui-theme] :is(.city-property-card h2,.cr-panel h3,#city-job-menu h2,#city-job-menu h3,#city-home-builder h2,#city-pets h2,#social-panel h2,#city-dealer h2,.front-panel h1,.cga-title,.city-page-banner strong,.city-home-hero strong){
+  font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.06em!important;text-transform:uppercase;color:var(--ui-text)!important}
+/* rótulos pequenos: caixa alta espaçada */
+html[data-ui-theme] :is(.city-property-eyebrow,.cr-panel>small:first-child,.cga-step,.city-phone-label,.city-hero-eyebrow,.front-eyebrow,.front-top,.hud-eyebrow){
+  font:700 10px/1.4 var(--ui-font)!important;letter-spacing:.2em!important;text-transform:uppercase;color:var(--ui-muted)!important}
+/* botões: primário dourado em pílula, secundário em vidro */
+html[data-ui-theme] :is(.city-property-confirm,.cr-panel button.cr-main,.city-primary,.front-action.primary){
+  background:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;border:0!important;border-radius:var(--ui-pill)!important;
+  font:700 13px/1 var(--ui-font)!important;letter-spacing:.04em;box-shadow:none!important;text-shadow:none!important}
+html[data-ui-theme] :is(.city-property-secondary,.cr-panel button:not(.cr-main),.front-action:not(.primary),.city-property-close){
+  background:var(--ui-surface)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-pill)!important;
+  font:600 13px/1.2 var(--ui-font)!important;box-shadow:none!important;text-shadow:none!important}
+html[data-ui-theme] :is(.city-property-confirm,.city-property-secondary,.cr-panel button,.front-action,.city-primary):hover:not(:disabled){filter:brightness(1.05);background-color:var(--ui-hover)}
+html[data-ui-theme] :is(.city-property-confirm,.city-primary,.cr-panel button.cr-main,.front-action.primary):hover:not(:disabled){background:var(--ui-accent)!important;filter:brightness(1.07)}
+html[data-ui-theme] :is(button,input,select,textarea):focus-visible{outline:2px solid var(--ui-accent)!important;outline-offset:2px}
+html[data-ui-theme] :is(.city-property-card,.cr-panel,#city-pets,#social-panel,#city-home-builder) :is(p,small,label){color:var(--ui-muted)}
+html[data-ui-theme] :is(.city-property-card,.cr-panel,#city-pets,#social-panel,#city-home-builder) :is(strong,b,h3,h4){color:var(--ui-text)}
+
+/* ---------- HUD: dock de atalhos vira uma coluna de ícones redondos com o nome ao passar o mouse ---------- */
+html[data-ui-theme]{--dock-w:46px;--dock-h:46px;--dock-gap:10px;--dock-edge:22px}
+html[data-ui-theme] :is(#city-controls button,#social-entry,#city-pets-entry,#city-cas-open){
+  justify-content:center!important;padding:0!important;border-radius:50%!important;overflow:visible!important;
+  background:var(--ui-glass)!important;border:1px solid var(--ui-line)!important;color:var(--ui-text)!important;box-shadow:var(--ui-shadow-sm)!important;
+  -webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);opacity:.82;transition:opacity .2s,transform .2s,background .2s!important}
+html[data-ui-theme] :is(#city-controls button,#social-entry,#city-pets-entry,#city-cas-open):hover{opacity:1;transform:translateX(-2px)!important;background:var(--ui-glass-strong)!important;border-color:var(--ui-line-strong)!important}
+html[data-ui-theme] :is(#city-controls,#social-entry,#city-pets-entry,#city-cas-open) .hud-dock-label{
+  position:absolute;right:calc(100% + 10px);top:50%;transform:translate(6px,-50%);flex:none;padding:7px 12px;border-radius:var(--ui-pill);
+  background:var(--ui-glass-strong);border:1px solid var(--ui-line);color:var(--ui-text);font:600 12px/1 var(--ui-font);letter-spacing:.03em;
+  box-shadow:var(--ui-shadow-sm);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;white-space:nowrap}
+html[data-ui-theme] :is(#city-controls button,#social-entry,#city-pets-entry,#city-cas-open):is(:hover,:focus-visible) .hud-dock-label{opacity:1;transform:translate(0,-50%)}
+html[data-ui-theme] :is(#city-controls,#social-entry,#city-pets-entry,#city-cas-open) kbd{
+  position:absolute;right:-4px;bottom:-4px;min-width:17px!important;height:17px!important;padding:0 4px!important;font:700 9px/1 var(--ui-font)!important;
+  border-radius:var(--ui-pill)!important;background:var(--ui-glass-strong)!important;color:var(--ui-muted)!important;border:1px solid var(--ui-line)!important}
+html[data-ui-theme] :is(#city-controls .city-svg-icon,.hud-dock-icon){color:var(--ui-text);stroke:currentColor}
+html[data-ui-theme] #city-home-entry{border-radius:var(--ui-pill)!important;background:var(--ui-glass)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;font:600 13px/1 var(--ui-font)!important}
+
+/* avisos: pílula de vidro no alto */
+html[data-ui-theme] #city-toast{border-radius:var(--ui-pill)!important;font:600 14px/1.3 var(--ui-font)!important;padding:10px 20px!important;top:22px!important}
+/* chat discreto: some quando ninguém fala */
+html[data-ui-theme] #chat{background:transparent!important;border:0!important;box-shadow:none!important;bottom:236px!important;left:22px!important}
+html[data-ui-theme] #chat .tabs{display:none}
+html[data-ui-theme] #chat .log{font:500 13px/1.45 var(--ui-font)!important;color:#fff!important;text-shadow:0 1px 3px rgba(0,0,0,.65)!important}
+html[data-ui-theme] #chat .log b{color:var(--ui-accent)!important}
+html[data-ui-theme] #chat input{background:var(--ui-glass)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-pill)!important;
+  -webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);opacity:.0;transition:opacity .2s}
+html[data-ui-theme] #chat input:focus{opacity:1}
+
+/* objetivo do capítulo: cartão compacto abaixo do relógio */
+html[data-ui-theme] #city-adventure-hud{top:118px!important;right:22px!important;left:auto!important;width:min(268px,70vw)!important;padding:12px 14px!important;border-radius:var(--ui-r)!important;gap:3px!important}
+html[data-ui-theme] #city-adventure-hud .cga-title{font-size:17px!important;line-height:1.15}
+html[data-ui-theme] #city-adventure-hud .cga-desc{font:500 12px/1.4 var(--ui-font)!important;color:var(--ui-muted)!important}
+html[data-ui-theme] #city-adventure-hud button{background:transparent!important;border:0!important;padding:4px 0 0!important;color:var(--ui-accent)!important;
+  font:700 11px/1.3 var(--ui-font)!important;letter-spacing:.06em;text-align:left;box-shadow:none!important;cursor:pointer}
+html[data-ui-theme=light] #city-adventure-hud button{color:#a8691a!important}
+html[data-ui-theme] #city-adventure-hud .cga-alert[hidden]{display:none!important}
+html[data-ui-theme] #city-adventure-hud .cga-alert{display:block;margin-top:4px;padding:7px 10px!important;border-radius:var(--ui-r-sm)!important;background:var(--ui-accent-soft)!important;color:var(--ui-text)!important;font-weight:600!important;letter-spacing:0}
+
+/* piloto automático: pílula no alto */
+html[data-ui-theme] #city-autopilot{border-radius:var(--ui-pill)!important;padding:8px 10px 8px 16px!important}
+html[data-ui-theme] #city-autopilot *{color:var(--ui-text)!important;font-family:var(--ui-font)!important}
+html[data-ui-theme] #city-autopilot button{background:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;border:0!important;border-radius:var(--ui-pill)!important}
+
+/* ---------- celular ---------- */
+html[data-ui-theme] #city-phone{background:var(--ui-glass-strong)!important;border:1px solid var(--ui-line-strong)!important;
+  box-shadow:var(--ui-shadow),inset 0 0 0 6px rgba(0,0,0,.04)!important;-webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);color:var(--ui-text)!important;font-family:var(--ui-font)!important}
+html[data-ui-theme] #city-phone::before{background:radial-gradient(120% 60% at 50% 0%,var(--ui-wall,rgba(216,151,58,.18)),transparent 70%)!important;opacity:1!important}
+html[data-ui-theme] #city-phone.city-wallpaper-ocean{--ui-wall:rgba(70,150,170,.22)}
+html[data-ui-theme] #city-phone.city-wallpaper-rose{--ui-wall:rgba(220,120,150,.22)}
+html[data-ui-theme] #city-phone.city-wallpaper-midnight{--ui-wall:rgba(90,100,170,.24)}
+html[data-ui-theme] #city-phone.city-wallpaper-sunset{--ui-wall:rgba(235,150,80,.24)}
+html[data-ui-theme] #city-phone :is(.city-phone-status,.city-phone-top,.city-phone-top strong,.city-phone-footer,.city-phone-footer small){color:var(--ui-text)!important}
+html[data-ui-theme] #city-phone .city-phone-top strong{font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.08em;text-transform:uppercase;font-size:17px!important}
+html[data-ui-theme] #city-phone :is(.city-phone-top button,.city-phone-footer button){background:var(--ui-surface)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;box-shadow:none!important}
+html[data-ui-theme] #city-phone .city-dynamic-island{background:#0d1012!important}
+html[data-ui-theme] #city-phone .city-home-indicator{background:var(--ui-line-strong)!important}
+html[data-ui-theme] .city-phone-screen{color:var(--ui-text)!important}
+html[data-ui-theme] .city-phone-screen :is(.city-home-hero,.city-panel,.city-page-banner,.city-home-dock,.city-gun,.city-swatches button,.city-rich-icon,.city-social-post){
+  background:var(--ui-surface)!important;border:1px solid var(--ui-line)!important;box-shadow:none!important;color:var(--ui-text)!important}
+html[data-ui-theme] .city-phone-screen :is(.city-home-hero>span:not(.city-hero-eyebrow),.city-panel p,.city-page-banner small,.city-help,.city-row small,.city-gun-info small,.city-home-dock button small,.city-social-post p){color:var(--ui-muted)!important}
+html[data-ui-theme] .city-phone-screen :is(.city-panel h3,.city-row,.city-row strong,.city-gun-info strong,label){color:var(--ui-text)!important}
+html[data-ui-theme] #city-phone :is(.city-phone-top,.city-phone-status,.city-phone-footer){background:transparent!important;border-color:var(--ui-line)!important;box-shadow:none!important}
+html[data-ui-theme] .city-phone-screen .city-hero-stats :is(span,b){color:var(--ui-text)!important}
+html[data-ui-theme] .city-phone-screen .city-hero-stats b{background:var(--ui-accent-soft)!important;color:var(--ui-text)!important;border:0!important}
+html[data-ui-theme] .city-app{color:var(--ui-text)!important;font:600 10px/1.2 var(--ui-font)!important}
+html[data-ui-theme] .city-app .city-app-icon{border-radius:17px!important;border:1px solid var(--ui-line)!important;box-shadow:0 4px 12px rgba(0,0,0,.12)!important;text-shadow:none!important}
+html[data-ui-theme] .city-app:nth-child(6n + 1) .city-app-icon{background:linear-gradient(150deg,#e9b77a,#c9853a)!important}
+html[data-ui-theme] .city-app:nth-child(6n + 2) .city-app-icon{background:linear-gradient(150deg,#8fc7b5,#4d9785)!important}
+html[data-ui-theme] .city-app:nth-child(6n + 3) .city-app-icon{background:linear-gradient(150deg,#d9a59a,#b46a5d)!important}
+html[data-ui-theme] .city-app:nth-child(6n + 4) .city-app-icon{background:linear-gradient(150deg,#a9b6d6,#6e7fb0)!important}
+html[data-ui-theme] .city-app:nth-child(6n + 5) .city-app-icon{background:linear-gradient(150deg,#c3b59a,#8e7f63)!important}
+html[data-ui-theme] .city-app:nth-child(6n) .city-app-icon{background:linear-gradient(150deg,#b9c4c2,#7b8b89)!important}
+html[data-ui-theme] .city-app:is(:hover,:focus-visible) .city-app-icon{outline:2px solid var(--ui-accent)!important;transform:translateY(-2px)}
+html[data-ui-theme] .city-phone-screen :is(.city-row button,.city-primary){background:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;border:0!important;
+  border-radius:var(--ui-pill)!important;font:700 11px/1.15 var(--ui-font)!important;box-shadow:none!important;padding:8px 13px!important}
+html[data-ui-theme] .city-phone-screen .city-row button:disabled{background:var(--ui-surface-2)!important;color:var(--ui-faint)!important;filter:none!important;opacity:1!important}
+html[data-ui-theme] .city-phone-screen :is(input,textarea,select){background:var(--ui-surface)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line-strong)!important;border-radius:var(--ui-r-sm)!important}
+html[data-ui-theme] .city-phone-screen :is(.city-track){background:var(--ui-surface-2)!important}
+html[data-ui-theme] .city-phone-screen .city-fill{background:var(--ui-good)!important}
+html[data-ui-theme] .city-phone-screen :is(.city-message){background:var(--ui-surface)!important;color:var(--ui-text)!important}
+html[data-ui-theme] .city-phone-screen .city-message.sent{background:var(--ui-accent-soft)!important}
+html[data-ui-theme] .city-phone-screen .city-ammo-chip,html[data-ui-theme] .city-phone-screen .city-gun-mod{background:var(--ui-surface)!important;color:var(--ui-text)!important;border-color:var(--ui-line)!important}
+
+/* ---------- roda de armas ---------- */
+html[data-ui-theme] #city-wheel-layer{background:var(--ui-scrim)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+html[data-ui-theme] #city-wheel{background:radial-gradient(circle at center,var(--ui-glass-strong) 0 24%,transparent 25%),var(--ui-glass)!important;border:1px solid var(--ui-line-strong)!important;
+  box-shadow:var(--ui-shadow)!important;-webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur)}
+html[data-ui-theme] .city-wheel-slot{background:var(--ui-surface)!important;border:1px solid var(--ui-line)!important;color:var(--ui-text)!important;box-shadow:none!important;font-family:var(--ui-font)!important}
+html[data-ui-theme] .city-wheel-slot.active{background:var(--ui-accent-soft)!important;border-color:var(--ui-accent)!important;box-shadow:0 0 0 3px var(--ui-accent-soft)!important}
+html[data-ui-theme] #city-wheel .wheel-center{background:var(--ui-glass-strong)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important}
+
+/* ---------- janelas do jogo ---------- */
+html[data-ui-theme] #city-property-dialog{background:var(--ui-scrim)!important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+html[data-ui-theme] .city-property-card{padding:26px 26px 20px!important}
+html[data-ui-theme] .city-property-card .city-property-value{font-family:var(--ui-display)!important;letter-spacing:.04em;color:var(--ui-text)!important}
+html[data-ui-theme] .city-property-card [style*="background:#ffffff0a"]{background:var(--ui-surface)!important;border-color:var(--ui-line)!important}
+/* carreira (careers.mjs): aula, cliente e minigame */
+html[data-ui-theme] .cr-panel :is(.cr-q,.cr-ask,.cr-meter,.cr-bar){background:var(--ui-surface-2)!important;color:var(--ui-text)!important}
+html[data-ui-theme] .cr-panel .cr-bar i{background:var(--ui-accent)!important}
+html[data-ui-theme] .cr-panel .cr-zone{background:var(--ui-accent-soft)!important;border-color:var(--ui-accent)!important}
+/* emotes, empregos, construção, concessionária, pets e social: mesmo vidro e mesmas letras */
+html[data-ui-theme] #city-emotes{border-radius:var(--ui-r-lg)!important}
+html[data-ui-theme] #city-job-hud{border-radius:var(--ui-pill)!important;padding:10px 18px!important}
+html[data-ui-theme] :is(#city-job-menu,#city-job-hud,#city-emotes,#city-dealer) :is(p,small,span){color:inherit}
+/* editor de personagem: estúdio, campos, segmentos, cartões, animações e rodapé no tema */
+html[data-ui-theme] #city-cas-dialog .cas-stage{background:radial-gradient(ellipse at 50% 60%,var(--ui-glass-strong) 0%,var(--ui-surface-2) 75%),var(--ui-glass)!important}
+html[data-ui-theme=dark] #city-cas-dialog .cas-stage{background:radial-gradient(ellipse at 50% 58%,#2b343a 0%,#161c20 72%,#0f1417 100%)!important}
+html[data-ui-theme] #city-cas-dialog :is(.cas-loading,.cas-icon,.cas-slots button,select,.cas-card,.cas-anims button,.cas-footer button,.cas-top input[name=name]){background:var(--ui-surface)!important;color:var(--ui-text)!important;border-color:var(--ui-line)!important}
+html[data-ui-theme] #city-cas-dialog .cas-seg label:has(input:checked){background:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;box-shadow:none!important}
+html[data-ui-theme] #city-cas-dialog :is(.cas-anims button[aria-pressed=true],.cas-footer .cas-save){background:var(--ui-accent)!important;border-color:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;border-radius:var(--ui-pill)!important}
+html[data-ui-theme] #city-cas-dialog .cas-footer button{border-radius:var(--ui-pill)!important}
+html[data-ui-theme] #city-cas-dialog .cas-views{background:var(--ui-glass-strong)!important;border:1px solid var(--ui-line)!important;box-shadow:var(--ui-shadow-sm)!important;-webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur)}
+html[data-ui-theme] #city-cas-dialog .cas-views button{color:var(--ui-muted)!important;background:none!important}
+html[data-ui-theme] #city-cas-dialog .cas-views button:hover{color:var(--ui-text)!important}
+html[data-ui-theme] #city-cas-dialog .cas-stage strong{font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.05em;text-transform:uppercase;color:var(--ui-text)!important}
+html[data-ui-theme] #city-cas-dialog .cas-swatch{border-color:var(--ui-glass-strong)!important}
+html[data-ui-theme] #city-cas-dialog :is(h1,h2){font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.05em!important;text-transform:uppercase;color:var(--ui-text)!important}
+html[data-ui-theme] #city-cas-dialog{--ink:var(--ui-text);--ink2:var(--ui-muted);--ink3:var(--ui-faint);--line:var(--ui-line);--soft:var(--ui-surface-2);--card:var(--ui-glass-strong);--accent:var(--ui-text);--hi:var(--ui-accent)}
+/* diário social (Y): cabeçalho, lateral, rodapé e cartões no vidro do tema */
+html[data-ui-theme] #social-panel :is(.social-header,.social-sidebar,footer){background:transparent!important;border-color:var(--ui-line)!important;color:var(--ui-text)!important}
+html[data-ui-theme] #social-panel .social-sidebar{background:var(--ui-surface-2)!important}
+html[data-ui-theme] #social-panel :is(.social-bond,.social-close,.social-contact:hover){background:var(--ui-surface)!important;border:1px solid var(--ui-line)!important;color:var(--ui-text)!important;box-shadow:none!important}
+html[data-ui-theme] #social-panel :is(.social-meter){background:var(--ui-surface-2)!important}
+html[data-ui-theme] #social-panel .social-status{background:var(--ui-accent-soft)!important;color:var(--ui-text)!important}
+html[data-ui-theme] #social-panel :is(h1,h2,h3,strong,b,.social-header *){color:var(--ui-text)!important}
+html[data-ui-theme] #social-panel :is(p,small,span,footer,footer *){color:var(--ui-muted)}
+/* pets (F8): cartões, botões e campos */
+html[data-ui-theme] #city-pets :is(h1,h2){font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.05em!important;text-transform:uppercase;color:var(--ui-text)!important}
+html[data-ui-theme] #city-pets .pet-card{background:var(--ui-surface)!important;border:1px solid var(--ui-line)!important;box-shadow:none!important;color:var(--ui-text)!important}
+html[data-ui-theme] #city-pets .pet-card :is(h3,h4,strong,b,.pet-name){color:var(--ui-text)!important;font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.05em}
+html[data-ui-theme] #city-pets .pet-card > :first-child{background:var(--ui-surface-2)!important}
+html[data-ui-theme] #city-pets button:not(.pet-adopt){background:var(--ui-surface)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-pill)!important;box-shadow:none!important}
+html[data-ui-theme] #city-pets .pet-adopt{background:var(--ui-accent)!important;color:var(--ui-accent-ink)!important;border:0!important;border-radius:var(--ui-pill)!important}
+/* campos de formulário em qualquer janela do jogo */
+html[data-ui-theme] :is(#city-pets,#social-panel,#city-dealer,#city-job-menu,#city-home-builder,.city-property-card,.cr-panel) :is(select,input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea){
+  background:var(--ui-surface)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line-strong)!important;border-radius:var(--ui-r-sm)!important;font-family:var(--ui-font)!important}
+html[data-ui-theme] :is(#city-pets,#social-panel,#city-dealer,#city-job-menu,#city-home-builder) [style*="dashed"]{border-color:var(--ui-line-strong)!important}
+/* leque social (conversa): pílulas de vidro */
+html[data-ui-theme] :is(.pie-pill,.pie-back,.pie-close){background:var(--ui-glass-strong)!important;border:1px solid var(--ui-line)!important;color:var(--ui-text)!important;box-shadow:var(--ui-shadow-sm)!important;
+  -webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);font-family:var(--ui-font)!important}
+html[data-ui-theme] .pie-pill:hover{border-color:var(--ui-accent)!important}
+html[data-ui-theme] .pie-hint{background:var(--ui-glass-strong)!important;color:var(--ui-text)!important}
+html[data-ui-theme] .conversation-track{background:var(--ui-surface-2)!important}
+/* cartões sociais (conversa, convite, retorno) */
+html[data-ui-theme] :is(#social-conversation,#social-incoming,#social-feedback){border-radius:var(--ui-r)!important;color:var(--ui-text)!important}
+html[data-ui-theme] :is(#social-conversation,#social-incoming,#social-feedback) *{color:inherit}
+/* camadas de fundo (história, quiosque, capítulo) */
+html[data-ui-theme] :is(#city-story-overlay,#city-kiosk-dialog,#city-adventure-shade){background:var(--ui-scrim)!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html[data-ui-theme] :is(#city-story-overlay,#city-kiosk-dialog,#city-adventure-shade)>*{background:var(--ui-glass-strong)!important;color:var(--ui-text)!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-r-lg)!important;box-shadow:var(--ui-shadow)!important}
+
+/* ---------- menu, configurações e carregamento: o estilo de origem, com o vidro do tema nos painéis ---------- */
+html[data-ui-theme] #city-front .front-panel{background:var(--ui-glass);border:1px solid var(--ui-line);border-radius:var(--ui-r-lg);padding:26px 30px 28px;
+  -webkit-backdrop-filter:var(--ui-blur);backdrop-filter:var(--ui-blur);box-shadow:var(--ui-shadow);color:var(--ui-text)}
+html[data-ui-theme] #city-front .front-panel :is(p,small,.front-setting small){color:var(--ui-muted)!important}
+html[data-ui-theme] #city-front .front-panel :is(h1,h2,label,.front-controls span){color:var(--ui-text)!important}
+html[data-ui-theme] #city-front .front-back{color:var(--ui-muted)!important;text-shadow:none!important;font-size:16px!important;padding-left:0!important}
+html[data-ui-theme] #city-front .front-tabs button{font:400 18px/1.2 var(--ui-display)!important;letter-spacing:.08em;text-transform:uppercase;color:var(--ui-faint)!important;background:none;border:0;border-bottom:2px solid transparent;padding:6px 0}
+html[data-ui-theme] #city-front .front-tabs button[aria-selected=true]{color:var(--ui-text)!important;border-bottom-color:var(--ui-accent)}
+html[data-ui-theme] #city-front .front-setting{border-bottom:1px solid var(--ui-line)!important}
+html[data-ui-theme] #city-front .front-controls kbd{background:var(--ui-surface);color:var(--ui-text);border:1px solid var(--ui-line);border-radius:8px}
+html[data-ui-theme] #city-front :is(select,input[type=range]){accent-color:var(--ui-accent)}
+html[data-ui-theme] #city-front select{background:var(--ui-surface);color:var(--ui-text);border:1px solid var(--ui-line-strong);border-radius:var(--ui-pill);padding:7px 12px;font:600 13px var(--ui-font)}
+html[data-ui-theme] .front-choice{display:inline-flex;gap:4px;padding:4px;border-radius:var(--ui-pill);background:var(--ui-surface-2);border:1px solid var(--ui-line)}
+html[data-ui-theme] .front-choice button{border:0;background:none;color:var(--ui-muted);font:600 13px/1 var(--ui-font);padding:8px 14px;border-radius:var(--ui-pill);cursor:pointer}
+html[data-ui-theme] .front-choice button[aria-checked=true]{background:var(--ui-accent);color:var(--ui-accent-ink)}
+/* tela de carregamento: arte de fundo, logo, título no estilo do menu e barra fina dourada */
+html[data-ui-theme] #city-front .front-loading h1{font-family:var(--ui-display)!important;font-weight:400!important;letter-spacing:.04em;text-transform:uppercase}
+html[data-ui-theme] #city-front .front-meter{height:3px!important;background:rgba(255,255,255,.22)!important;border-radius:var(--ui-pill)!important;overflow:hidden}
+html[data-ui-theme] #city-front .front-meter span{background:var(--ui-accent)!important;box-shadow:0 0 12px var(--ui-accent)}
+
+/* janela aberta: HUD fixa recua para o mundo aparecer */
+html[data-ui-theme] :is(body.city-modal,body.city-property-open,body.city-home-open,body.map-open,body:has(dialog[open]),body:has(#city-cas-dialog[open])) #city-adventure-hud{opacity:0;pointer-events:none}
+@media (max-width:740px){html[data-ui-theme]{--dock-w:42px;--dock-h:42px;--dock-gap:8px;--dock-edge:12px}
+  html[data-ui-theme] #city-adventure-hud{top:96px!important;right:12px!important;width:min(230px,62vw)!important}}
+@media (prefers-reduced-motion:reduce){html[data-ui-theme] *{transition:none!important}}

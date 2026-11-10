@@ -333,11 +333,14 @@ export function createVegetation(THREE, scene, bridge) {
     reeds: () => grassClump(302, { cards: 6, w: 1.0, h: 1.3, base: '#3e6230', tip: '#9cb862' }),
     flowerY: () => flowerClump(401, '#f2cc3a'), flowerW: () => flowerClump(402, '#f4f0e4'), flowerP: () => flowerClump(403, '#e6a0b4'),
     flowerL: () => flowerClump(404, '#b49ad8'), flowerO: () => flowerClump(405, '#ec9a5a'),
+    // planta de vaso (móveis 'plant' e 'bigplant'): as mesmas folhas dos arbustos da rua, em miniatura
+    potted: () => bush(206, { h: 0.62, w: 0.36, nClusters: 7, clusterR: 0.2, cards: 16, cardSize: 0.3, leaf: 'broad', dark: '#1d3a18', light: '#6e9c42', warm: '#98ae50' }),
+    pottedTall: () => bush(207, { h: 1.2, w: 0.46, nClusters: 10, clusterR: 0.26, cards: 18, cardSize: 0.4, leaf: 'broad', dark: '#1a3616', light: '#5f9038', warm: '#88a648' }),
     seagrape: () => bush(205, { h: 1.8, w: 1.5, nClusters: 10, clusterR: 0.7, cards: 16, cardSize: 0.95, leaf: 'round', dark: '#3a4a1e', light: '#a2b04e', warm: '#c0b456' }),
   };
 
   // ======================= malhas instanciadas =======================
-  const CAP = { grass: 9000, reeds: 3000, flowerY: 800, flowerW: 800, flowerP: 800, flowerL: 800, flowerO: 800, liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, washington: 1500, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500 };
+  const CAP = { grass: 9000, reeds: 3000, flowerY: 800, flowerW: 800, flowerP: 800, flowerL: 800, flowerO: 800, liveoak: 900, mahogany: 900, blackolive: 900, yard: 900, poinciana: 600, pine: 2500, coconut: 1500, royal: 1200, washington: 1500, shrub: 2500, hibiscus: 1200, bougainvillea: 1200, croton: 1200, seagrape: 1500, potted: 700, pottedTall: 700 };
   const kinds = {};
   for (const [name, make] of Object.entries(SPECIES)) {
     const parts = make().map(part => {
@@ -402,6 +405,20 @@ export function createVegetation(THREE, scene, bridge) {
       const kind = FL[it.c] || 'flowerY', k = kinds[kind];
       for (let j = 0; j < Math.min(3, Math.ceil(it.k / 3)); j++) if (k.list.length < k.parts[0].mesh.instanceMatrix.count) { const a = it.phase + j * 2.4, d = it.radius * (j ? 0.8 : 0); k.list.push({ type: 'flower', kind, x: it.x + Math.cos(a) * d, y: it.y + Math.sin(a) * d }); }
     }
+    // folhagem das plantas de vaso: aparece junto com a mobília (só com o jogador dentro do imóvel e no mesmo andar)
+    const floorNow = bridge.player?.stairTravel?.to ?? bridge.player?.floor ?? 0;
+    for (const b of bridge.boxes || []) {
+      if (b.kind === 'planter') {   // floreira da calçada: hibisco
+        const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
+        const k = kinds.hibiscus; if (k.list.length < k.parts[0].mesh.instanceMatrix.count) k.list.push({ type: 'potted', x: b.x, y: b.y, z: (b.z || 0) + 0.5, scale: 0.72 });
+        continue;
+      }
+      if (b.kind !== 'plant' && b.kind !== 'bigplant') continue;
+      const dx = b.x - cx, dy = b.y - cy; if (dx * dx + dy * dy > R * R) continue;
+      const H = b.house; if (H && !b.exteriorFixture && (!H.inside || (H.architecture ? (b.floor || 0) !== floorNow : false))) continue;
+      const tall = b.kind === 'bigplant', k = kinds[tall ? 'pottedTall' : 'potted'];
+      if (k.list.length < k.parts[0].mesh.instanceMatrix.count) k.list.push({ type: 'potted', x: b.x, y: b.y, z: (b.z || 0) + (tall ? 0.42 : 0.24) * Math.max(.6, Math.min(1.4, (b.h || (tall ? 1.6 : .74)) / (tall ? 1.6 : .74))), scale: Math.max(.7, Math.min(1.3, (b.h || (tall ? 1.6 : .74)) / (tall ? 1.6 : .74))) });
+    }
     active = [];
     let trees = 0, bushes = 0, small = 0;
     for (const [name, k] of Object.entries(kinds)) {
@@ -410,13 +427,14 @@ export function createVegetation(THREE, scene, bridge) {
         let s = (p.scale || 1) * (0.86 + 0.28 * h1);
         if (p.type === 'bush') s = Math.min(1.35, Math.max(0.7, (p.sp?.r || 0.8) / 0.8)) * (0.9 + 0.2 * h1);
         else if (p.type === 'tuft' || p.type === 'flower') s = 0.8 + 0.45 * h1;
-        q.setFromAxisAngle(up, h2 * TAU); ps.set(p.x, 0, p.y); sc.set(s, s, s); mat.compose(ps, q, sc);
+        else if (p.type === 'potted') s = p.scale * (0.92 + 0.16 * h1);
+        q.setFromAxisAngle(up, h2 * TAU); ps.set(p.x, p.z || 0, p.y); sc.set(s, s, s); mat.compose(ps, q, sc);
         tint.setRGB(0.92 + 0.16 * h1, 0.92 + 0.16 * h2, 0.92 + 0.12 * (1 - h1));
         for (const part of k.parts) { part.mesh.setMatrixAt(i, mat); part.mesh.setColorAt(i, tint); }
         active.push({ p, k, i, s });
       });
       for (const part of k.parts) { part.mesh.count = k.list.length; part.mesh.instanceMatrix.needsUpdate = true; if (part.mesh.instanceColor) part.mesh.instanceColor.needsUpdate = true; }
-      if (/^(grass|reeds|flower)/.test(name)) small += k.list.length; else if (name in { shrub: 1, hibiscus: 1, bougainvillea: 1, croton: 1, seagrape: 1 }) bushes += k.list.length; else trees += k.list.length;
+      if (/^(grass|reeds|flower|potted)/.test(name)) small += k.list.length; else if (name in { shrub: 1, hibiscus: 1, bougainvillea: 1, croton: 1, seagrape: 1 }) bushes += k.list.length; else trees += k.list.length;
     }
     Object.assign(state, { trees, bushes, small, ms: +(performance.now() - t0).toFixed(1) });
   }
@@ -447,10 +465,11 @@ export function createVegetation(THREE, scene, bridge) {
       time.value = now; windStr.value = E ? Math.min(3.2, 0.25 + E.windNow * 2.3) : 1 + 0.35 * Math.sin(now * 0.21) + 0.2 * Math.sin(now * 0.53);
       const halfW = c.W / (2 * c.zoom), halfH = c.H / (2 * c.zoom) / (c.tilt || 0.5);
       const R = Math.min(150, Math.hypot(halfW, halfH) + 36);
-      const n = (w.props || []).length;
+      const n = (w.props || []).length, nb = (bridge.boxes || []).length;
+      const inside = (bridge.houses || []).filter(H => H.inside).map(H => (H.seed || 0) + ':' + (bridge.player?.stairTravel?.to ?? bridge.player?.floor ?? 0)).join(',');
       if (n !== sync.n && !changedNear(w.props || [], sync.n || 0, sync.x ?? c.x, sync.y ?? c.y, R)) sync.n = n;
-      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
-        Object.assign(sync, { x: c.x, y: c.y, n, v: w.version, zoom: c.zoom }); rebuild(c.x, c.y, R);
+      if (Math.hypot(c.x - sync.x, c.y - sync.y) > 14 || n !== sync.n || nb !== sync.nb || inside !== sync.inside || w.version !== sync.v || Math.abs(c.zoom - sync.zoom) / c.zoom > 0.25) {
+        Object.assign(sync, { x: c.x, y: c.y, n, nb, inside, v: w.version, zoom: c.zoom }); rebuild(c.x, c.y, R);
       }
       updateSeeThrough(camera, renderer, target);
       const G = Math.min(160, R * 2.2); ground.scale.set(G, G, 1); ground.position.set(c.x, 0.01, c.y);

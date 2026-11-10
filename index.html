@@ -58,6 +58,12 @@
 <link rel="stylesheet" href="css/hud-refresh.css">
 <link rel="stylesheet" href="css/front-end.css">
 <link rel="stylesheet" href="css/cas-creator.css">
+<link rel="stylesheet" id="ui-theme-css" href="css/ui-theme.css">
+<script>
+  // aparência salva (Configurações › Interface) aplicada antes do primeiro quadro: claro, escuro ou do sistema
+  (function(){try{var s=JSON.parse(localStorage.getItem('cityofgod.front.settings.v1')||'{}'),t=s.theme==='dark'||s.theme==='light'?s.theme:s.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+   document.documentElement.dataset.uiTheme=t;document.documentElement.dataset.hud=s.hud==='full'?'full':'minimal';}catch(e){document.documentElement.dataset.uiTheme='light';}})();
+</script>
 <script src="js/city-audio.js" defer></script>
 <script src="js/front-state.js" defer></script>
 <script src="js/front-end.js" defer></script>
@@ -121,6 +127,7 @@
 <script src="js/terrain.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/architecture-plan.js"></script>
+<script src="js/architecture-organic.js"></script>
 <script src="js/houses.js"></script>
 <script src="js/rural-paths.js"></script>
 <script src="js/roofs.js"></script>

@@ -29,7 +29,7 @@ const CityStairs=(()=>{
    for(const L of [plan.levels[f],plan.levels[f+1]]){
     const room=L.rooms.find(r=>inRect(r,b[0],b[1],b[2],b[3],.04));
     if(!room)return {ok:false,text:'A escada precisa caber inteira num cômodo, sem atravessar parede'};
-    for(const w of L.walls)for(const o of w.openings)if(o.kind==='door'){const len=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),px=w.a[0]+(w.b[0]-w.a[0])*o.at/len,py=w.a[1]+(w.b[1]-w.a[1])*o.at/len;
+    for(const w of L.walls)for(const o of w.openings)if(o.kind==='door'||o.kind==='passage'){const len=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),px=w.a[0]+(w.b[0]-w.a[0])*o.at/len,py=w.a[1]+(w.b[1]-w.a[1])*o.at/len;
      if(px>b[0]-.9&&px<b[2]+.9&&py>b[1]-.9&&py<b[3]+.9)return {ok:false,text:'Não pode bloquear uma porta'};}
    }
    const inside=(L,p)=>L.rooms.some(r=>p[0]>r.x0+.25&&p[0]<r.x1-.25&&p[1]>r.y0+.25&&p[1]<r.y1-.25);
@@ -40,6 +40,7 @@ const CityStairs=(()=>{
  }
  // padrão: encostada numa parede do corredor, do lado sem portas na frente, perto do meio
  function auto(plan){
+  if(plan.stairSpec&&check(plan,plan.stairSpec).ok)return {...plan.stairSpec};   // gerador novo: escada já planejada
   const L0=plan.levels[0],hall=L0.rooms.find(r=>r.id==='hall'),D=plan.depth;
   for(const y of [D*.45,D*.35,D*.55,D*.25,D*.65])for(const [x,side] of [[hall.x0+.56,1],[hall.x1-.56,-1],[(hall.x0+hall.x1)/2-.45,1]]){
    const spec={x,y,axis:'y',dir:1,side};if(check(plan,spec).ok)return spec;
@@ -72,6 +73,8 @@ const CityStairs=(()=>{
  return {layout,check:(H,spec)=>check(H.architecture,spec),save,flightOf,box,pt,RUN,get spec(){return null;}};
 })();
 globalThis.CityStairs=CityStairs;
+// modelos de casa do gerador novo (architecture-organic.js) entram ao lado dos antigos: O_estreita, O_integrada, O_sobrado...
+if(globalThis.CityOrganic&&typeof TPL!=='undefined')Object.assign(TPL,CityOrganic.templates());
 if(typeof addEventListener==='function'&&new URLSearchParams(location.search).has('architectureTest')){
  globalThis.cityArchitectureErrors=[];
  addEventListener('error',e=>globalThis.cityArchitectureErrors.push(e.message+' at '+e.filename+':'+e.lineno));
@@ -91,7 +94,8 @@ function remodelProperty(H){
  if(W<6||D<6)return H;
  const kind=H.terminal||H.templateKey==='TERMINAL'?'airport':H.miaKind||(H.rural?'rural':H.brick||H.templateKey==='SHOP'?'shop':'house');
  const count=H.nFloors||H.storeys||1,height=kind==='warehouse'?Math.min(H.h,5.6):H.floorHeight||Math.min(3.3,Math.max(2.85,H.h/count));
- const plan=CityArchitecture.makePlan({width:W,depth:D,kind,seed:H.seed,floors:count,height});
+ const organic=globalThis.CityOrganic&&(H.organic||(typeof TPL!=='undefined'&&TPL[H.templateKey]?.organic));
+ const plan=organic?CityOrganic.makePlan({width:W,depth:D,layout:organic,kind,seed:H.seed,floors:count,height}):CityArchitecture.makePlan({width:W,depth:D,kind,seed:H.seed,floors:count,height});
  if(!plan.audit.passed)throw Error('Invalid architectural plan: '+plan.audit.problems.join(', '));
  const base=(u,v)=>fk==='S'?[H.x0+u,H.y0+v]:fk==='N'?[H.x1-u,H.y1-v]:fk==='E'?[H.x0+v,H.y1-u]:[H.x1-v,H.y0+u];
  const P=(u,v)=>{const p=base(u,v);return H.toWorld?H.toWorld(...p):p;};
@@ -99,6 +103,11 @@ function remodelProperty(H){
  const local=(x,y)=>[(x-origin[0])*ex[0]+(y-origin[1])*ex[1],(x-origin[0])*ey[0]+(y-origin[1])*ey[1]];
  plan.toWorld=P;plan.toLocal=local;plan.angle=Math.atan2(ex[1],ex[0]);
  const furnishLevel=f=>typeof CityRealty==='undefined'||(CityRealty.canFurnishLevel?CityRealty.canFurnishLevel(H,f):CityRealty.canFurnish(H)&&!CityRealty.bare?.(H));
+ // grupo de mobília: andar inteiro ("f:all") ou, no andar dividido, cada apartamento ("f:0", "f:1"...) e o corredor ("f:c")
+ const groupOf=(level,f)=>level.units?level.floor+':'+(f.unit??'c'):level.floor+':all';
+ const furnishGroups=level=>[...new Set(level.furniture.map(f=>groupOf(level,f)))];
+ const furnishGroup=(floor,u)=>u===undefined||typeof CityRealty==='undefined'||!CityRealty.canFurnishUnit?furnishLevel(floor):CityRealty.canFurnishUnit(H,floor,u);
+ const groupUnit=key=>{const u=key.split(':')[1];return u==='all'?undefined:u==='c'?null:+u;};
  const erase=arr=>{let j=0;for(const o of arr||[])if(o.house!==H)arr[j++]=o;if(arr)arr.length=j;};
  erase(world.segs);erase(world.upperSegs);erase(boxes);
  H.architecture=plan;H.segs=[];H.floors=[];H.upper=null;H.stair=null;H.interactables=[];H.indoorLights=[];H.switches=[];
@@ -107,11 +116,17 @@ function remodelProperty(H){
  H.solidFootprints=plan.levels[0].rooms.map(r=>[[r.x0,r.y0],[r.x1,r.y0],[r.x1,r.y1],[r.x0,r.y1]].map(p=>P(...p)));
  // carro de exposição (concessionária): GLB de verdade, comprimento ao longo do eixo pedido, sobre a plataforma, sem dar p/ dirigir
  const showCar=(f,level)=>f.kind!=='parkedcar'?{}:{w:Math.max(f.w,f.d),d:Math.min(f.w,f.d),rot:f.carAlong==='y'?Math.atan2(ey[1],ey[0]):plan.angle,z:level.z+(f.lift||0),solid:true,display:true,draw:typeof drawParkedCar==='function'?drawParkedCar:undefined,vehicleKey:'show:'+H.seed+':'+Math.round(f.x*10)+':'+Math.round(f.y*10)};
+ // apartamento de cada cômodo (prédios divididos): portas, paredes e móveis levam a unidade
+ // frente do móvel (planta) → direção no mundo; o 3D usa isso em vez de "virar para o centro do cômodo"
+ const faceOf=f=>f.face?{faceW:[ex[0]*f.face[0]+ey[0]*f.face[1],ex[1]*f.face[0]+ey[1]*f.face[1]],along:f.along,depth:f.depth}:{};
+ const unitOf=(level,id)=>level.units?.find(u=>u.rooms.includes(id))?.id;
+ const wallUnit=(level,wall,o)=>{if(o?.unit!=null)return o.unit;if(!wall.rooms?.length)return null;const us=wall.rooms.map(id=>unitOf(level,id));return us.length&&us.every(u=>u!=null&&u===us[0])?us[0]:null;};
  const putSegment=(level,wall,from,to,opening=null)=>{
   const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);
   const p=t=>P(wall.a[0]+(wall.b[0]-wall.a[0])*t/L,wall.a[1]+(wall.b[1]-wall.a[1])*t/L);
   const a=p(from),b=p(to),normal=[ex[0]*wall.normal[0]+ey[0]*wall.normal[1],ex[1]*wall.normal[0]+ey[1]*wall.normal[1]];
   const s={x1:a[0],y1:a[1],x2:b[0],y2:b[1],nx:normal[0],ny:normal[1],h:level.z+height,z:level.z,ext:wall.ext,house:H,floor:level.floor,architecture:true,side:normal[1]>.5?'S':normal[1]<-.5?'N':normal[0]<-.5?'W':'E',idx:0,door:opening?.kind==='door',window:opening?.kind==='window'};
+  if(level.units)s.unit=wallUnit(level,wall,opening);
   if(s.door){s.doorAnim={open:0,target:0};opening.segment=s;}
   if(s.window){s.windowAnim={open:0,target:0,manual:true};opening.segment=s;}
   if(level.floor)(world.upperSegs||(world.upperSegs=[])).push(s);else{world.segs.push(s);H.segs.push(s);}level.segments.push(s);
@@ -119,7 +134,7 @@ function remodelProperty(H){
  for(const level of plan.levels){
   level.segments=[];
   for(const wall of level.walls){const L=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);let cursor=0;
-   for(const o of wall.openings){const a=o.at-o.width/2,b=o.at+o.width/2;if(a>cursor)putSegment(level,wall,cursor,a);putSegment(level,wall,a,b,o);cursor=b;}
+   for(const o of wall.openings){const a=o.at-o.width/2,b=o.at+o.width/2;if(a>cursor)putSegment(level,wall,cursor,a);if(o.kind!=='passage')putSegment(level,wall,a,b,o);cursor=b;}
    if(cursor<L-.001)putSegment(level,wall,cursor,L);
   }
   // Balcony perimeter is solid on the occupied floor; its doorway uses the
@@ -131,10 +146,13 @@ function remodelProperty(H){
   }
   // Em imóveis privados, instanciar apenas quando o jogador adquirir a propriedade.
   // mobília por andar: casa só do dono; prédio de apartamentos, a portaria e as unidades do jogador (city-realty.js)
-  if(furnishLevel(level.floor)){
-    (H._levelsFurnished||(H._levelsFurnished=new Set())).add(level.floor);
-    for(const f of level.furniture){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});H.interactables.push(b);
+  // (andar dividido em apartamentos: cada unidade separada; o corredor comum sempre)
+  for(const f of level.furniture)if(level.units)f.unit=unitOf(level,f.room)??null;
+  for(const key of furnishGroups(level)){
+    if(!furnishGroup(level.floor,groupUnit(key)))continue;
+    (H._levelsFurnished||(H._levelsFurnished=new Set())).add(key);
+    for(const f of level.furniture.filter(f=>groupOf(level,f)===key)){const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room),center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level),face:undefined,...faceOf(f)});H.interactables.push(b);
     }
   }
   const hall=level.rooms.find(r=>r.id==='hall'),center=P((hall.x0+hall.x1)/2,(hall.y0+hall.y1)/2);
@@ -148,10 +166,12 @@ function remodelProperty(H){
    H._architectureFurnished=true;
    if(typeof CityRealty!=='undefined'&&CityRealty.bare?.(H))return;
    const newBoxes=[];
-   for(const level of plan.levels){if(done.has(level.floor)||!furnishLevel(level.floor))continue;done.add(level.floor);for(const f of level.furniture){
+   for(const level of plan.levels)for(const key of furnishGroups(level)){
+     if(done.has(key)||!furnishGroup(level.floor,groupUnit(key)))continue;done.add(key);
+     for(const f of level.furniture.filter(f=>groupOf(level,f)===key)){
      const p=P(f.x,f.y),room=level.rooms.find(r=>r.id===f.room);
      const center=P((room.x0+room.x1)/2,(room.y0+room.y1)/2);
-     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level)});
+     const b=addBox({...f,x:p[0],y:p[1],z:level.z,rot:plan.angle,house:H,floor:level.floor,architecture:true,roomCenter:center,solid:!f.overlay,...showCar(f,level),face:undefined,...faceOf(f)});
      H.interactables.push(b);newBoxes.push(b);
    }}
    if(typeof OW!=='undefined'&&OW.sectors)for(const sector of OW.sectors.values())

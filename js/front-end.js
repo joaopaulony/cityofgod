@@ -9,6 +9,8 @@
  let settings=S.settings(S.read(storage,S.SETTINGS));
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new',casIntroShown=false;
+ // vitrine: no menu inicial o jogo carrega em silêncio por trás e, pronto, a cidade viva aparece no fundo (drone em game.js)
+ let quiet=false,quietReady=false,live=false;
  let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null,restoring=Promise.resolve(),musicConnected=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
@@ -46,7 +48,16 @@
   gain.gain.setValueAtTime(settings.master*settings.effects*.035,now);gain.gain.exponentialRampToValueAtTime(.0001,now+.07);
   oscillator.connect(gain);gain.connect(audio.destination);oscillator.start();oscillator.stop(now+.075);oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
  }
+ // aparência da interface: claro, escuro ou seguindo o sistema; HUD discreta (só o essencial) ou completa
+ const darkQuery=window.matchMedia?.('(prefers-color-scheme: dark)');
+ function applyTheme(){
+  const html=document.documentElement,theme=settings.theme==='auto'?(darkQuery?.matches?'dark':'light'):settings.theme;
+  html.dataset.uiTheme=theme;html.dataset.hud=settings.hud;
+  window.dispatchEvent(new CustomEvent('city-ui-theme',{detail:{theme,hud:settings.hud}}));
+ }
+ darkQuery?.addEventListener?.('change',()=>{if(settings.theme==='auto')applyTheme();});
  function applySettings(){
+  applyTheme();
   document.documentElement.style.setProperty('--city-brightness',String(settings.brightness));
   document.body.classList.toggle('front-reduced-motion',settings.reducedMotion);updateVolume();
   window.cityVehicles?.applyQuality?.(settings.quality);
@@ -61,6 +72,7 @@
  const top=()=>`<div class="front-top"><span>CITY OF GOD · ${parent==='pause'||phase==='pause'?'JOGO PAUSADO':'VIDA URBANA'}</span><button data-front-action="sound" aria-label="Ativar ou silenciar a música do menu">${settings.music===0?'SOM DESLIGADO':'♫ ÁUDIO'}</button></div>`;
  function panel(title,content){return `<section class="front-panel">${back()}<h1 tabindex="-1">${title}</h1>${content}</section>`;}
  function setting(key,label,help,type='range'){
+  if(Array.isArray(type))return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><div class="front-choice" role="radiogroup" aria-label="${label}">${type.map(([value,text])=>`<button type="button" role="radio" aria-checked="${settings[key]===value}" data-front-choice="${key}" data-value="${value}">${text}</button>`).join('')}</div></div>`;
   if(type==='select')return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><select id="front-${key}" data-front-setting="${key}">${[['low','Desempenho'],['balanced','Equilibrada'],['high','Alta']].map(([value,text])=>`<option value="${value}" ${settings[key]===value?'selected':''}>${text}</option>`).join('')}</select></div>`;
   if(type==='checkbox')return `<div class="front-setting"><div><label for="front-${key}">${label}</label><small>${help}</small></div><input id="front-${key}" data-front-setting="${key}" type="checkbox" ${settings[key]?'checked':''}></div>`;
   const listen=type==='audio'?`<button type="button" class="front-listen" data-front-preview="${key}" aria-label="Ouvir ${label}">▶ Ouvir</button>`:'';
@@ -77,7 +89,9 @@
    let fields=tab==='video'?setting('quality','Qualidade 3D','Desempenho: 75% da resolução, sem sombras · Equilibrada: resolução da tela, sombras · Alta: imagem 1,5× mais nítida, sombras finas. Se a placa de vídeo não der conta, a resolução baixa sozinha e volta quando sobrar folga.','select')+setting('brightness','Brilho','Ajusta a imagem da cidade sem alterar a arte do menu.'):
     tab==='audio'?setting('master','Volume geral','Todos os sons do jogo de uma vez.','audio')+setting('music','Música','Trilha do menu e o baile funk que toca ao longe na favela.','audio')+setting('ambient','Ambiente','Trânsito, vento, pássaros, grilos, cães e sirenes ao redor.','audio')+setting('effects','Efeitos','Tiros, batidas, motor e buzina do carro, passos e golpes.','audio')+setting('voices','Vozes','Conversas e gritos das pessoas na rua.','audio')+setting('interface','Interface','Cliques do menu, do celular e avisos.','audio')+
      `<div class="front-actions"><button type="button" class="front-action" data-front-audio="mute">${settings.master>0?'Silenciar tudo':'Reativar o som'}</button><button type="button" class="front-action" data-front-audio="reset">Restaurar padrão</button></div>`:
-    tab==='interface'?setting('reducedMotion','Reduzir movimento','Desativa o movimento de fundo e transições do menu e deixa o tremor da câmera bem mais fraco.','checkbox')+
+    tab==='interface'?setting('theme','Aparência','Claro: vidro leve e texto escuro. Escuro: vidro fumê e texto claro. Automático segue o tema do sistema.',[['light','Claro'],['dark','Escuro'],['auto','Automático']])+
+     setting('hud','HUD','Discreta mostra só o essencial (minimapa, hora, dinheiro e necessidades que estão baixas). Completa mostra todas as barras sempre.',[['minimal','Discreta'],['full','Completa']])+
+     setting('reducedMotion','Reduzir movimento','Desativa o movimento de fundo e transições do menu e deixa o tremor da câmera bem mais fraco.','checkbox')+
      setting('cameraFollow','Câmera acompanha a direção','Dirigindo, a câmera gira devagar para trás do carro (nunca em ré). A pé ela fica fixa e segue você, como no Zomboid. Girar na mão (Q/E) pausa por 4 s.','checkbox')+
      setting('cameraShake','Tremor da câmera','Batidas, tiros e dano. 0% desliga.'):
     `<div class="front-controls">${[['Andar','W A S D'],['Correr','Shift'],['Interagir / veículo','F'],['Mapa','M'],['Celular','P'],['Mochila','I'],['Câmera','Q / E'],['Zoom','Roda do mouse'],['Agachar','C'],['Saltar','Espaço'],['Decorar casa','F7'],['Pets','F8'],['Pausar / continuar','Esc']].map(([label,key])=>`<div><span>${label}</span><kbd>${key}</kbd></div>`).join('')}</div><p>Os atalhos exibidos correspondem aos controles atuais do jogo.</p>`;
@@ -100,14 +114,15 @@
   try{game.save?.();}catch{savingError='Parte do progresso não pôde ser salva neste navegador';}
  }
  function resumeSession(active){try{if(active)sessionStorage.setItem('cityofgod.front.resume','1');else sessionStorage.removeItem('cityofgod.front.resume');}catch{}}
- function enter(){clearInterval(rotation);parent='title';change('playing');started=true;resumeSession(true);release();document.getElementById('view')?.focus();checkpoint();
+ function enter(){clearInterval(rotation);quiet=false;parent='title';change('playing');started=true;resumeSession(true);release();document.getElementById('view')?.focus();checkpoint();
   // Open the CAS once, after the loading screen has released inert controls.
   if(!casIntroShown&&window.cityCharacters?.provider==='cas'){
    casIntroShown=true;let saved=false;try{saved=!!storage.getItem('cityofgod.cas.v1');}catch{}
    if(!saved)window.cityCharacters.openCreator?.();
   }
  }
- function fail(message){clearInterval(rotation);loadingError=message;change('error');render();}
+ function fail(message){clearInterval(rotation);if(quiet&&phase!=='loading'){quiet=false;return;}   // vitrine falhou: fica a ilustração; Continuar recarrega normalmente
+  loadingError=message;change('error');render();}
  async function imageAsset(file){return new Promise(resolve=>{const image=new Image();image.onload=()=>resolve(true);image.onerror=()=>resolve(false);image.src=ASSET+file;});}
  function paintProgress(){
   const percent=progress(),meter=root.querySelector('[role=progressbar]');if(!meter)return;
@@ -115,21 +130,26 @@
  }
  function sessionIntent(value){try{sessionStorage.setItem('cityofgod.front.intent',value);return true;}catch{return false;}}
  function newGame(){
+  // vitrine carregando/carregada sem progresso salvo: o jogo novo já é este
+  if(runtime&&quiet&&startKind==='new'){quiet=false;if(quietReady)enter();else{change('loading');render();paintProgress();}return;}
   if(runtime){if(!sessionIntent('new')){root.querySelector('#front-confirm-error').textContent='O navegador não permitiu preparar a nova partida. O progresso atual foi mantido.';return;}location.reload();return;}
   try{if(S.hasProgress(storage))S.backupAndReset(storage);}catch{const el=root.querySelector('#front-confirm-error');if(el)el.textContent='Não foi possível guardar a cópia de segurança. O progresso atual foi mantido.';return;}
   start(false);
  }
- async function start(continuing){
+ async function start(continuing,opts={}){
   if(started&&runtime){enter();return;}
+  // vitrine já carregando o mesmo tipo de partida: só mostra o progresso (ou entra, se já terminou)
+  if(runtime&&quiet&&startKind===(continuing?'continue':'new')){quiet=false;if(quietReady)enter();else{change('loading');render();paintProgress();}return;}
   if(runtime){if(sessionIntent(continuing?'continue':'new'))location.reload();return;}
   startKind=continuing?'continue':'new';
   pending=continuing?S.checkpoint(S.read(storage,S.SAVE)):null;
   if(pending){
    const url=new URL(location.href),local=url.searchParams.has('seed')||url.searchParams.has('scene');
-   if(pending.mode==='local'&&(!local||Number(url.searchParams.get('seed'))!==pending.seed)){url.searchParams.delete('scene');url.searchParams.set('seed',String(pending.seed));if(sessionIntent('continue')){location.assign(url.href);return;}}
-   if(pending.mode==='open'&&local){url.searchParams.delete('seed');url.searchParams.delete('scene');if(sessionIntent('continue')){location.assign(url.href);return;}}
+   if(pending.mode==='local'&&(!local||Number(url.searchParams.get('seed'))!==pending.seed)){if(opts.quiet){pending=null;return;}url.searchParams.delete('scene');url.searchParams.set('seed',String(pending.seed));if(sessionIntent('continue')){location.assign(url.href);return;}}
+   if(pending.mode==='open'&&local){if(opts.quiet){pending=null;return;}url.searchParams.delete('seed');url.searchParams.delete('scene');if(sessionIntent('continue')){location.assign(url.href);return;}}
   }
-  runtime=true;frameReady=false;load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0};status='Carregando ilustrações';change('loading');render();
+  quiet=!!opts.quiet;quietReady=false;
+  runtime=true;frameReady=false;load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0};status='Carregando ilustrações';if(!quiet){change('loading');render();}
   const scripts=[...document.getElementById('city-runtime').content.querySelectorAll('script[src]')];
   // Download in parallel; classic globals still execute in dependency order.
   for(const source of scripts){const link=document.createElement('link');link.rel=source.type==='module'?'modulepreload':'preload';if(source.type!=='module')link.as='script';link.href=source.src;document.head.append(link);}
@@ -165,11 +185,16 @@
     };poll();
    });
    if(pending?.vehicle&&await window.cityVehicles?.restoreCheckpoint?.(pending.vehicle,pending)===false)throw Error('Não foi possível restaurar seu veículo. O salvamento foi preservado.');
-   pending=null;enter();
+   pending=null;
+   if(quiet&&phase!=='loading'){quietReady=true;return;}   // vitrine pronta: a cidade fica viva atrás do menu até o jogador escolher
+   enter();
   }catch(error){fail(error.message||'Não foi possível carregar a cidade.');}
  }
- const api={get phase(){return phase;},get blocked(){return blocked()||document.hidden;},get loading(){return phase==='loading';},get settings(){return {...settings};},get effectsVolume(){return settings.effects*settings.master;},applySettings,
+ const api={get phase(){return phase;},get blocked(){return blocked()||document.hidden;},get loading(){return phase==='loading'||(quiet&&!quietReady&&!!game);},get settings(){return {...settings};},get effectsVolume(){return settings.effects*settings.master;},applySettings,
   attachGame(value){game=value;restoring=Promise.resolve(pending?game.restore?.(pending):true).then(ok=>{if(ok===false)throw Error('Não foi possível restaurar sua posição. O salvamento foi preservado.');load.world=1;});restoring.catch(()=>{});applySettings();},markFrame(){if(window.cityVehicles?.ready&&(window.cityCharacters?.ready||window.cityCharacters?.status==='disabled'))frameReady=true;},
+  // primeiro quadro completo da cidade: a ilustração some e o fundo do menu vira o jogo rodando
+  markLive(){if(!live&&frameReady&&game){live=true;document.body.classList.add('front-live');}},
+  get showcase(){return phase!=='playing'&&phase!=='loading'&&!!game&&!(quiet&&!quietReady);},
   pause(){if(phase==='playing'&&!otherModal()){parent='pause';checkpoint();open('pause');}},save:checkpoint};
  window.CityFront=api;
  root.addEventListener('pointermove',()=>document.body.classList.remove('front-keyboard'));
@@ -193,6 +218,8 @@
  function persistSettings(){settings=S.settings(settings);try{storage.setItem(S.SETTINGS,JSON.stringify(settings));}catch{const el=root.querySelector('#front-settings-message');if(el)el.textContent='As alterações foram aplicadas, mas o navegador não permitiu salvá-las.';}applySettings();}
  root.addEventListener('input',e=>{const key=e.target.dataset.frontSetting;if(!key||key==='quality')return;settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value)/100;const out=root.querySelector(`[data-setting-output="${key}"]`);if(out)out.textContent=Math.round(settings[key]*100)+'%';persistSettings();});
  root.addEventListener('change',e=>{if(e.target.dataset.frontSetting==='quality'){settings.quality=e.target.value;persistSettings();}});
+ root.addEventListener('click',e=>{const b=e.target.closest('[data-front-choice]');if(!b)return;const key=b.dataset.frontChoice;settings[key]=b.dataset.value;
+  for(const x of root.querySelectorAll('[data-front-choice="'+key+'"]'))x.setAttribute('aria-checked',String(x===b));clickSound();persistSettings();});
  window.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey)return;
   if(['ArrowDown','ArrowUp','Tab','Enter','Escape'].includes(e.key))document.body.classList.add('front-keyboard');
@@ -223,5 +250,7 @@
  if(intent==='new'){try{if(S.hasProgress(storage))S.backupAndReset(storage);start(false);}catch{fail('Não foi possível guardar a cópia de segurança do progresso.');}}
  else if(intent==='continue')start(true);
  else if(intent==='retry-new')start(false);
- else {try{if(sessionStorage.getItem('cityofgod.front.resume')==='1'&&S.checkpoint(S.read(storage,S.SAVE)))start(true);}catch{}}
+ else {let resumed=false;try{if(sessionStorage.getItem('cityofgod.front.resume')==='1'&&S.checkpoint(S.read(storage,S.SAVE))){resumed=true;start(true);}}catch{}
+  // menu inicial: começa a carregar a cidade por trás (partida salva, se houver) p/ o fundo virar o jogo ao vivo
+  if(!resumed)setTimeout(()=>{if(phase==='title'&&!runtime)start(S.hasProgress(storage),{quiet:true});},400);}
 })();

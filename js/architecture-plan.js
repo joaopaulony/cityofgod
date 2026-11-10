@@ -333,6 +333,12 @@
    else if(['condo','projects'].includes(kind))uses=['laundry','bathroom','reception','lounge'];
    else uses=floor>0?['bedroom','bathroom','living','kitchen']:palette%3===0?['storage','bathroom','dining','kitchen']:palette%3===1?['storage','bathroom','sales','checkout']:['staff','bathroom','salon','reception'];
    let rooms=[rect('rear-left',uses[0],0,0,left,rear),rect('rear-right',uses[1],right,0,w,rear),rect('front-left',uses[2],0,rear,left,leftEnd),rect('front-right',uses[3],right,rear,w,rightEnd),rect('hall','circulation',left,0,right,entry)];
+   // prédio residencial: cada andar de cima vira 2 (ou 4) apartamentos com porta própria no corredor (architecture-organic.js)
+   let unitLinks=null,unitList=null;
+   if(['condo','projects','deco'].includes(kind)&&floor>0&&root.CityOrganic){
+    const U=root.CityOrganic.apartmentFloor({w,d,left,right,dl:leftEnd,dr:rightEnd});
+    if(U.units.length){rooms=[...U.rooms,rect('hall','circulation',left,0,right,entry)];unitLinks=U.links.map(L=>L.pos?{...L,pos:[L.pos[0]+ox,L.pos[1]+oy]}:L);unitList=U.units;}
+   }
    if(kind==='mansion'&&w>=14){const bath=rooms[1];const split=round(rear*.57);bath.y1=split;rooms.push(rect('laundry','laundry',right,split,w,rear));}
    // hospital: corredor central largo e alas com vários cômodos de verdade (cada um com porta p/ o corredor)
    let hospital=null;
@@ -358,8 +364,9 @@
    for(const r of rooms){r.x0=round(r.x0+ox);r.x1=round(r.x1+ox);r.y0=round(r.y0+oy);r.y1=round(r.y1+oy);}
    const level={floor,kind,wingRecess,z:floor*height,rooms,walls:[],furniture:[],entry:hospital?[ox+(hospital.hl+hospital.hr)/2,oy+hospital.he]:[ox+(left+right)/2,oy+entry],setback,
     outdoor:floor>0?[hospital?rect("balcony","balcony",ox+hospital.hl,oy+hospital.he,ox+hospital.hr,oy+d):rect("balcony","balcony",ox+left,oy+entry,ox+right,oy+d)]:[]};
+   if(unitLinks){level.links=unitLinks;level.units=unitList;level.entryStyle='glazed';}
    if(kind==='mansion'&&floor>0)level.outdoor.push({...rect('rear-balcony','balcony',1.3,-2.7,W-1.3,0),rear:true});
-   makeWalls(level,seed+floor);furnish(level,seed+floor*71);
+   makeWalls(level,seed+floor);(level.links&&root.CityOrganic?root.CityOrganic.furnishLevel:furnish)(level,seed+floor*71);orientFurniture(level);
    plan.levels.push(level);
   }
   plan.signature=JSON.stringify(plan.levels[0].rooms.map(r=>[r.use,r.x0,r.y0,r.x1,r.y1]));
@@ -374,6 +381,7 @@
    const key=[...a,...b].map(round).join(',');if(seen.has(key))return;seen.add(key);
    const ext=!left||!right,owner=left||right,len=Math.hypot(b[0]-a[0],b[1]-a[1]);
    const wall={a,b,ext,normal:ext?(left?n:n.map(v=>-v)):n,rooms:[left?.id,right?.id].filter(Boolean),openings:[]};
+   if(level.links){linkOpenings(level,wall,owner,len);level.walls.push(wall);return;}   // planta com ligações explícitas (gerador orgânico, apartamentos)
    if(!ext&&[left.id,right.id].includes('hall')&&len>=1.12)wall.openings.push({kind:'door',style:[left.use,right.use].includes('holding')?'bars':undefined,at:len/2,width:1.02,height:2.16});
    if(ext&&owner.id==='hall'&&n[1]!==0&&Math.abs((a[1]+b[1])/2-level.entry[1])<.01)wall.openings.push({kind:'door',style:level.floor?'glazed':undefined,at:len/2,width:Math.min(1.15,len-.16),height:2.25});
    else if(ext&&owner.id==='hall'&&wall.normal[1]<-.5&&level.outdoor.some(r=>r.rear))wall.openings.push({kind:'door',style:'glazed',at:len/2,width:1.15,height:2.25});
@@ -401,12 +409,38 @@
   for(const item of raw){const prev=merged.at(-1);if(prev&&prev[2]===item[2]&&prev[3]===item[3]&&prev[4][0]===item[4][0]&&prev[0][0]===item[0][0]&&prev[1][0]===item[0][0]&&prev[1][1]===item[0][1])prev[1]=item[1];else if(prev&&prev[2]===item[2]&&prev[3]===item[3]&&prev[4][1]===item[4][1]&&prev[0][1]===item[0][1]&&prev[1][0]===item[0][0]&&prev[1][1]===item[0][1])prev[1]=item[1];else merged.push(item);}
   for(const a of merged)add(...a);
  }
+ // Ligações explícitas: {a,b} = porta/vão entre dois cômodos; {a,ext:[nx,ny]} = porta numa parede externa do cômodo a.
+ // kind 'door' (folha que abre) ou 'passage' (vão aberto, sem folha: cozinha americana, entrada do corredor).
+ // pos = ponto da planta onde a abertura deve ficar (é projetado na parede); sem pos, perto do canto da parede.
+ // A entrada da casa é a porta externa do 'hall' na fachada (normal +y) que contém level.entry.
+ function linkOpenings(level,wall,owner,len){
+  const dx=(wall.b[0]-wall.a[0])/len,dy=(wall.b[1]-wall.a[1])/len;
+  const project=p=>(p[0]-wall.a[0])*dx+(p[1]-wall.a[1])*dy;
+  const place=(L,width,pos)=>Math.max(width/2+.12,Math.min(len-width/2-.12,pos==null?width/2+.35:project(pos)));
+  const open=(L)=>{const passage=L.kind==='passage',width=passage?Math.min(L.width||1.6,len-.3):Math.min(L.width||.92,len-.24);if(width<.8)return;
+   wall.openings.push(passage?{kind:'passage',at:place(L,width,L.pos),width,height:2.25,sill:0}:{kind:'door',style:L.style,at:place(L,width,L.pos),width,height:2.16,...(L.unit!=null?{unit:L.unit}:{})});};
+  if(!wall.ext){const [r0,r1]=wall.rooms;for(const L of level.links)if(!L.ext&&(L.a===r0&&L.b===r1||L.a===r1&&L.b===r0))open(L);}
+  else{
+   const e=level.entry,horiz=Math.abs(dy)<1e-6;
+   if(owner.id==='hall'&&wall.normal[1]>.5&&horiz&&Math.abs(wall.a[1]-e[1])<.02&&e[0]>Math.min(wall.a[0],wall.b[0])+.5&&e[0]<Math.max(wall.a[0],wall.b[0])-.5)
+    wall.openings.push({kind:'door',style:level.entryStyle,at:project(e),width:Math.min(1.15,len-.3),height:2.25});
+   for(const L of level.links)if(L.ext&&L.a===owner.id&&Math.abs(L.ext[0]-wall.normal[0])<.01&&Math.abs(L.ext[1]-wall.normal[1])<.01)open(L);
+  }
+  // janelas nas paredes externas (não no corredor), sem encostar nas portas
+  if(wall.ext&&owner.use!=='circulation'&&len>=1.6){
+   const privacy=owner.use==='bathroom'||owner.use==='laundry',count=Math.max(1,Math.floor(len/(privacy?3.4:2.6)));
+   for(let i=0;i<count;i++){const at=len*(i+1)/(count+1),width=privacy?.65:Math.min(1.35,len/(count+1)-.35);
+    if(width<.5||wall.openings.some(o=>Math.abs(o.at-at)<(o.width+width)/2+.3))continue;
+    wall.openings.push({kind:'window',at,width,sill:privacy?1.6:.85,height:privacy?.55:1.35});}
+  }
+  wall.openings.sort((a,b)=>a.at-b.at);
+ }
  function furnish(level,seed){
   const random=rng(seed);
   for(const r of level.rooms){
    if(r.use==='circulation'&&!['hospital','police','dealer','depot','university','campuslib'].includes(level.kind))continue;
    const W=r.x1-r.x0,D=r.y1-r.y0,cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2;
-   const portals=level.walls.filter(w=>w.rooms.includes(r.id)).flatMap(w=>w.openings.filter(o=>o.kind==='door').map(o=>{const L=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),x=w.a[0]+(w.b[0]-w.a[0])*o.at/L,y=w.a[1]+(w.b[1]-w.a[1])*o.at/L;return{x,y};}));
+   const portals=level.walls.filter(w=>w.rooms.includes(r.id)).flatMap(w=>w.openings.filter(o=>o.kind==='door'||o.kind==='passage').map(o=>{const L=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]),x=w.a[0]+(w.b[0]-w.a[0])*o.at/L,y=w.a[1]+(w.b[1]-w.a[1])*o.at/L;return{x,y};}));
    const items=[];
    const put=(kind,w,d,h,preferred,extra={})=>{
     const fit=(v,a,b,s)=>Math.max(a+.17+s/2,Math.min(b-.17-s/2,v));   // posição exata: encosta na parede sem sair do cômodo
@@ -451,11 +485,49 @@
    level.furniture.push(...items);
   }
  }
+ // ---------- orientação dos móveis (vale p/ toda planta, antiga e nova) ----------
+ // Todo modelo 3D tem a frente em +z (cabeceira, encosto, fundo da geladeira e da TV em -z). Peça encostada numa
+ // parede fica de costas para ela e de frente para o cômodo; cadeira fica de frente para a mesa/escrivaninha mais
+ // próxima. face = direção da frente na planta; along/depth = medidas paralela/perpendicular à parede.
+ // Proporção largura/fundo de cada modelo (decide qual lado encosta quando a peça está num canto).
+ const MODEL_WD={bed:[1.6,2.1],sofa:[2.1,.85],couch:[2,.9],tv:[1.1,.45],wardrobe:[1.43,.62],desk:[1.1,.62],counter:[2.8,.6],shelf:[2.5,.45],
+  fridge:[.72,.7],stove:[.75,.62],sink:[.8,.58],toilet:[.45,.7],shower:[.85,.85],cabinet:[1.05,.48],bookshelf:[1,.35],execdesk:[1.8,.9],
+  medcabinet:[1,.45],sinkrow:[2.4,.6],locker:[1.2,.5],coffeestation:[1.4,.6],vending:[.95,.8],infoboard:[1.6,.08],mirror:[.85,.1],screen:[3,.12],
+  hospitalbed:[1.15,2.05],exambed:[.8,1.9],studentdesk:[1.2,.65],policedesk:[1.5,1.3],toolchest:[1.2,.6],workbench:[2,.8],labbench:[2.4,.75],medshelf:[2.2,.45]};
+ const SEATS=new Set(['chair','stool','qf_chair_1','qf_chair_2','qf_chair_3','qf_chair_4','qf_stool','armchair']);
+ const TABLES=/^(table|desk|studentdesk|execdesk|cafetable|policedesk|counter|nursedesk|receptiondesk|salesdesk|qf_table_roundsmall|qf_table_roundsmall2|qf_table_roundlarge|labbench|lectern)$/;
+ function orientFurniture(level){
+  for(const f of level.furniture){
+   if(f.turn!=null||f.face)continue;
+   const r=level.rooms.find(r=>r.id===f.room);if(!r)continue;
+   if(SEATS.has(f.kind)){
+    let best=null,bd=1.4;
+    for(const t of level.furniture)if(t!==f&&t.room===f.room&&TABLES.test(t.kind)){const d=Math.hypot(t.x-f.x,t.y-f.y);if(d<bd){bd=d;best=t;}}
+    if(best){const dx=best.x-f.x,dy=best.y-f.y;f.face=Math.abs(dx)>Math.abs(dy)?[Math.sign(dx),0]:[0,Math.sign(dy)||1];f.along=Math.abs(f.face[0])?f.d:f.w;f.depth=Math.abs(f.face[0])?f.w:f.d;}
+    continue;
+   }
+   const gaps={rear:f.y-f.d/2-r.y0,front:r.y1-(f.y+f.d/2),left:f.x-f.w/2-r.x0,right:r.x1-(f.x+f.w/2)};
+   const wd=MODEL_WD[f.kind],ratio=wd?wd[0]/wd[1]:null;
+   let pick=null,score=1e9;
+   for(const [s,g] of Object.entries(gaps)){
+    if(g>.45)continue;
+    const horiz=s==='rear'||s==='front',along=horiz?f.w:f.d,depth=horiz?f.d:f.w;
+    // sem proporção conhecida: o lado comprido encosta na parede
+    const fit=ratio?Math.abs(Math.log(Math.max(.05,along)/Math.max(.05,depth)/ratio)):(along>=depth-.01?0:1);
+    // empate (peça quadrada no canto): de frente para o lado com mais espaço livre
+    const room=horiz?r.y1-r.y0:r.x1-r.x0,sc=fit+g*1.5-room*.01;
+    if(sc<score){score=sc;pick=s;}
+   }
+   if(!pick)continue;
+   f.face={rear:[0,1],front:[0,-1],left:[1,0],right:[-1,0]}[pick];
+   const horiz=pick==='rear'||pick==='front';f.along=horiz?f.w:f.d;f.depth=horiz?f.d:f.w;
+  }
+ }
  function auditPlan(plan){
   const problems=[],required=new Set(['bedroom','bathroom','living','kitchen']);
   for(const level of plan.levels){
    const reachable=new Set(['hall']);let changes=true;
-   while(changes){changes=false;for(const w of level.walls)if(!w.ext&&w.openings.some(o=>o.kind==='door')&&w.rooms.some(id=>reachable.has(id)))for(const id of w.rooms)if(!reachable.has(id)){reachable.add(id);changes=true;}}
+   while(changes){changes=false;for(const w of level.walls)if(!w.ext&&w.openings.some(o=>o.kind==='door'||o.kind==='passage')&&w.rooms.some(id=>reachable.has(id)))for(const id of w.rooms)if(!reachable.has(id)){reachable.add(id);changes=true;}}
    for(const r of level.rooms){if(!reachable.has(r.id))problems.push(`floor ${level.floor}: inaccessible ${r.id}`);if((r.x1-r.x0)*(r.y1-r.y0)<2.5)problems.push('room too small');}
    for(const b of level.furniture){const r=level.rooms.find(r=>r.id===b.room);if(!inside(r,b.x-b.w/2,b.y-b.d/2,.1)||!inside(r,b.x+b.w/2,b.y+b.d/2,.1))problems.push('furniture outside room');}
   }
@@ -468,5 +540,5 @@
   for(const level of plan.levels)for(const room of level.rooms)for(const kind of neededFor(room.use))if(!level.furniture.some(f=>f.room===room.id&&f.kind===kind))problems.push(`floor ${level.floor}: ${room.use} missing ${kind}`);
   return{passed:!problems.length,problems};
  }
- const api={makePlan,auditPlan,inside,residential};root.CityArchitecture=api;if(typeof module!=='undefined')module.exports=api;
+ const api={makePlan,auditPlan,inside,residential,_kit:{rect,round,rng,makeWalls,auditPlan,inside,furnish,orientFurniture}};root.CityArchitecture=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

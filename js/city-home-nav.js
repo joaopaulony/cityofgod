@@ -18,7 +18,7 @@ const CityHomeNav=(()=>{
          along=((x-w.a[0])*dx+(y-w.a[1])*dy)/length,
          perpendicular=Math.abs((x-w.a[0])*dy-(y-w.a[1])*dx)/length;
        if(perpendicular>GRID*.64)continue;
-       if((w.openings||[]).some(o=>o.kind==='door'&&
+       if((w.openings||[]).some(o=>(o.kind==='door'||o.kind==='passage')&&
          Math.abs(along-o.at)<Math.max(.15,o.width/2-ACTOR_RADIUS*.4)))return true;
      }
      return false;
@@ -52,7 +52,7 @@ const CityHomeNav=(()=>{
      if(u===null)continue;
      const len=Math.hypot(wall.b[0]-wall.a[0],wall.b[1]-wall.a[1]);
      const at=u*len;
-     if(!(wall.openings||[]).some(o=>o.kind==='door'&&Math.abs(at-o.at)<=o.width/2-ACTOR_RADIUS*.6))return false;
+     if(!(wall.openings||[]).some(o=>(o.kind==='door'||o.kind==='passage')&&Math.abs(at-o.at)<=o.width/2-ACTOR_RADIUS*.6))return false;
    }
    return true;
  }

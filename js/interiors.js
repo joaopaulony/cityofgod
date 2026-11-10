@@ -113,7 +113,8 @@ function findHouseInteraction(p){
 }
 function interactionPrompt(p){
   const o=findHouseInteraction(p);
-  if(o&&typeof CityRealty!=='undefined'&&CityRealty.multi?.(o.house)&&!CityRealty.canUse(o.house,o.obj.floor??o.obj.seg?.floor??p.floor??0))return '🔒 Unidade de outro morador';
+  // andar dividido em apartamentos: a porta/objeto leva o apto (seg.unit / unit); null = corredor comum
+  if(o&&typeof CityRealty!=='undefined'&&CityRealty.multi?.(o.house)&&!CityRealty.canUse(o.house,o.obj.floor??o.obj.seg?.floor??p.floor??0,o.obj.seg?o.obj.seg.unit:o.obj.unit))return '🔒 Apartamento de outro morador';
   if(o&&(o.kind==='door'||o.kind==='window')){const a=o.obj.seg[o.kind==='door'?'doorAnim':'windowAnim'];return 'F · '+(a?.target>.5?'Fechar ':'Abrir ')+(o.kind==='door'?'porta':'janela');}
   return o?'F  ·  '+(INTERIOR_LABELS[o.kind]||o.kind):'';
 }
@@ -123,8 +124,8 @@ function useHouseInteraction(p,st,time){
   const {obj,kind,house:H}=found;
   // Portas fechadas de residências privadas não podem ser abertas por transeuntes.
   // prédio de apartamentos: vale o andar do objeto (portaria livre, unidade só p/ o dono)
-  if(typeof CityRealty!=='undefined'&&!CityRealty.canUse(H,obj.floor??obj.seg?.floor??p.floor??0)){
-    st._interactionMessage=CityRealty.multi?.(H)?'Unidade de outro morador · trancada':'Imóvel privado · acesso restrito';
+  if(typeof CityRealty!=='undefined'&&!CityRealty.canUse(H,obj.floor??obj.seg?.floor??p.floor??0,obj.seg?obj.seg.unit:obj.unit)){
+    st._interactionMessage=CityRealty.multi?.(H)?'Apartamento de outro morador · trancado':'Imóvel privado · acesso restrito';
     return true;
   }
   let message='';

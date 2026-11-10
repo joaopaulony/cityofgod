@@ -489,7 +489,7 @@ function withSeed(S, n, fn) { return fn(); }
 const OW_HOUSE_SCALE = 1.3;
 function owTryHouse(S, key, c, rects) {
   const T0 = TPL[key]; if (!T0) return null;
-  const T = key === 'TERMINAL' ? T0 : { ...T0, w: Math.round(T0.w * OW_HOUSE_SCALE), d: Math.round(T0.d * OW_HOUSE_SCALE) };
+  const T = key === 'TERMINAL' || T0.noScale ? T0 : { ...T0, w: Math.round(T0.w * OW_HOUSE_SCALE), d: Math.round(T0.d * OW_HOUSE_SCALE) };
   if(c.rd&&!CityStreetLayout.alignedFront(c.rd,c.i,T.w))return null;
   const p = c.p, o = [p.nx * c.s, p.ny * c.s], [sx0, sy0, sx1, sy1] = S.bounds;
   let k = 0, best = -9;
@@ -581,8 +581,16 @@ function owCleanStreetSector(S) {
     g.bb[2] + 20 > b0[0] && g.bb[0] - 20 < b0[2] && g.bb[3] + 20 > b0[1] && g.bb[1] - 20 < b0[3]) : [];
   const onDriveway = (o, pad) => garages.some(g => inGarageZone(g, o.x, o.y, pad));
   const lots = world.farmLots || [];
+  // copa de árvore/arbusto não pode entrar em casa nenhuma (nem passar por cima das paredes): mede a copa real
+  // contra o retângulo do imóvel. Vale para árvores plantadas antes de a casa nascer e arbustos de canteiro.
+  const homes = houses.filter(H => H.x1 > b0[0] - 12 && H.x0 < b0[2] + 12 && H.y1 > b0[1] - 12 && H.y0 < b0[3] + 12);
+  const crownOf = (kind, o) => kind === 'props' ? (o.type === 'tree' ? Math.max(2.2, (o.sp?.r || 0) * (o.scale || 1)) : o.type === 'bush' ? Math.max(.7, o.sp?.r || .9) : o.type === 'tuft' ? .35 : 0)
+    : o.kind === 'tree' ? Math.max(2.2, (o.ref?.sp?.r || 0) * (o.ref?.scale || 1)) : o.kind === 'bush' ? Math.max(.7, (o.r || .5) / .6) : 0;
+  const intoHouse = (kind, o) => { const r = crownOf(kind, o); if (!r) return false;
+    return homes.some(H => { const dx = Math.max(H.x0 - o.x, 0, o.x - H.x1), dy = Math.max(H.y0 - o.y, 0, o.y - H.y1); return dx * dx + dy * dy < (r * .85) ** 2; }); };
   const bad = (kind, o) => {
     if (!Number.isFinite(o?.x) || !Number.isFinite(o?.y)) return false;
+    if ((kind === 'props' || kind === 'circles') && ['tree', 'bush', 'tuft'].includes(o.type || o.kind) && intoHouse(kind, o)) return true;
     // terreno de sítio do jogador (farm.mjs): a geração não replanta mata nem pedras lá dentro
     if (lots.length && (kind === 'props' || kind === 'circles') && ['tree', 'bush', 'rock', 'tuft'].includes(o.type || o.kind) && lots.some(r => o.x > r[0] && o.x < r[2] && o.y > r[1] && o.y < r[3])) return true;
     if (garages.length && (kind === 'props' && ['tree', 'bush', 'rock', 'tuft'].includes(o.type) && onDriveway(o, o.type === 'tree' ? .8 : .4) ||

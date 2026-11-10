@@ -2,8 +2,40 @@
 'use strict';
 
 const hud = { portrait: null, msg: '', msgT: 0 };
-// mesma fonte da HUD em DOM (css/hud-system.css --hud-font)
-const HUD_FONT = '"Bahnschrift SemiCondensed","Arial Narrow","Segoe UI",system-ui,sans-serif';
+// mesmas fontes da interface (css/ui-theme.css): texto em Segoe UI, números e títulos na fonte do menu principal
+const HUD_FONT = '"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+const HUD_DISPLAY = 'Impact,Haettenschweiler,"Arial Narrow Bold","Arial Narrow",sans-serif';
+const hudStart = performance.now();
+// cores do tema claro/escuro lidas do CSS (uma vez por troca de tema)
+let hudThemeKey = '', hudT = null;
+function hudTheme() {
+  const key = (document.documentElement.dataset.uiTheme || 'light') + (document.documentElement.dataset.hud || '');
+  if (key !== hudThemeKey || !hudT) {
+    hudThemeKey = key; const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+    hudT = { glass: v('--ui-glass') || 'rgba(251,249,245,.76)', strong: v('--ui-glass-strong') || '#fff', text: v('--ui-text') || '#1d2427', muted: v('--ui-muted') || '#5c676a',
+      line: v('--ui-line') || 'rgba(24,34,38,.11)', accent: v('--ui-accent') || '#d8973a', ink: v('--ui-accent-ink') || '#241603', dark: document.documentElement.dataset.uiTheme === 'dark',
+      full: document.documentElement.dataset.hud === 'full' };
+  }
+  return hudT;
+}
+// texto sobre o mundo: branco com sombra suave (sem contorno grosso), legível em qualquer chão
+function hudText(g, text, x, y, font, color = '#fff', align = 'left', maxWidth) {
+  g.save(); g.font = font; g.textAlign = align; g.textBaseline = 'alphabetic'; g.fillStyle = color;
+  g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 8; g.shadowOffsetY = 1; g.fillText(text, x, y, maxWidth); g.restore();
+}
+// pílula de vidro com tecla (ex.: "F · Abrir porta" → [F] Abrir porta)
+function drawHudPrompt(g, text, cx, y, compact) {
+  const T = hudTheme(), m = /^([^·]{1,12}?)\s*·\s*(.+)$/.exec(text), key = m ? m[1].trim() : '', label = m ? m[2] : text;
+  g.save(); g.font = (compact ? '600 13px ' : '600 14px ') + HUD_FONT;
+  const kw = key ? Math.max(24, g.measureText(key).width + 14) : 0, lw = Math.min(g.measureText(label).width, 520), w = kw + lw + (key ? 30 : 24), h = compact ? 32 : 36, x = cx - w / 2;
+  g.shadowColor = 'rgba(0,0,0,.22)'; g.shadowBlur = 16; g.shadowOffsetY = 4;
+  g.beginPath(); g.roundRect(x, y - h / 2, w, h, h / 2); g.fillStyle = T.strong; g.fill(); g.shadowColor = 'transparent';
+  g.strokeStyle = T.line; g.lineWidth = 1; g.stroke();
+  let tx = x + 12;
+  if (key) { g.beginPath(); g.roundRect(tx - 4, y - 11, kw, 22, 11); g.fillStyle = T.accent; g.fill(); g.fillStyle = T.ink; g.font = '700 12px ' + HUD_FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(key, tx - 4 + kw / 2, y + 1); tx += kw + 6; }
+  g.fillStyle = T.text; g.font = (compact ? '600 13px ' : '600 14px ') + HUD_FONT; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(label, tx, y + 1, 520);
+  g.restore();
+}
 // ícones das armas p/ o HUD (carregados uma vez)
 const hudIcons = new Map();
 function hudIcon(id) {
@@ -12,8 +44,8 @@ function hudIcon(id) {
 }
 
 function hudMapLayout(W,H) {
-  const compact=W<740,ms=compact?Math.min(118,Math.max(90,W*.29)):164;
-  return {compact,ms,mx:compact?10:18,my:Math.max(102,H-ms-(compact?14:18))};
+  const compact=W<740,ms=compact?Math.min(104,Math.max(84,W*.26)):148;
+  return {compact,ms,mx:compact?12:22,my:Math.max(102,H-ms-(compact?14:22))};
 }
 
 function roundRect(g, x, y, w, h, r, fill, stroke) {
@@ -22,13 +54,14 @@ function roundRect(g, x, y, w, h, r, fill, stroke) {
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); }
 }
 
+// manchete sobre o mundo (avisos): fonte do menu, caixa alta espaçada, branca com sombra suave
 function drawHudHeadline(g, text, x, y, size, maxWidth, align='left') {
   g.save();
-  g.font=`900 ${size}px ${HUD_FONT}`;
-  g.textAlign=align;g.textBaseline='alphabetic';g.lineJoin='round';
-  g.lineWidth=Math.max(3,size*.18);g.strokeStyle='#080c0e';g.fillStyle='#fff';
-  g.shadowColor='#000';g.shadowBlur=Math.max(5,size*.3);
-  g.strokeText(text,x,y,maxWidth);g.fillText(text,x,y,maxWidth);
+  g.font=`400 ${Math.round(size*1.05)}px ${HUD_DISPLAY}`;
+  g.textAlign=align;g.textBaseline='alphabetic';
+  if('letterSpacing' in g)g.letterSpacing=Math.max(1,size*.06)+'px';
+  g.fillStyle='#fff';g.shadowColor='rgba(0,0,0,.6)';g.shadowBlur=Math.max(8,size*.5);g.shadowOffsetY=2;
+  g.fillText(String(text).toUpperCase(),x,y,maxWidth);
   g.restore();
 }
 
@@ -61,19 +94,23 @@ function drawHUD(h, W, H, st) {
 
   // Radar inferior esquerdo. Mantém os dados reais do worldmap.js, com NPCs e direção atual.
   wmapTick();
+  const T=hudTheme(),R=ms/2,mcx=mx+R,mcy=my+R;
+  h.save();h.shadowColor='rgba(0,0,0,.28)';h.shadowBlur=18;h.shadowOffsetY=4;h.beginPath();h.arc(mcx,mcy,R+4,0,TAU);h.fillStyle=T.glass;h.fill();h.restore();
   h.save();
-  h.beginPath(); h.rect(mx,my,ms,ms); h.clip();
+  h.beginPath(); h.arc(mcx,mcy,R,0,TAU); h.clip();
   drawMiniMap(h,mx,my,ms,p,st);
-  h.restore();
   window.CityGPS?.drawMini(h,mx,my,ms,p);
+  h.restore();
+  h.beginPath();h.arc(mcx,mcy,R+.5,0,TAU);h.strokeStyle=T.strong;h.lineWidth=3;h.stroke();
+  h.beginPath();h.arc(mcx,mcy,R+4,0,TAU);h.strokeStyle=T.line;h.lineWidth=1;h.stroke();
   h.save(); h.translate(mx+ms/2,my+ms/2); h.rotate(p.face+cam.ang);
   h.fillStyle='#fff';h.strokeStyle='#091119';h.lineWidth=2;
   h.beginPath();h.moveTo(11,0);h.lineTo(-7,-6);h.lineTo(-3,0);h.lineTo(-7,6);h.closePath();h.fill();h.stroke();h.restore();
   const north=screenDirOf(0,-1);
-  h.fillStyle='#f8fcff';h.strokeStyle='#0b1720';h.lineWidth=3;
-  h.textAlign='center';h.font='800 12px '+HUD_FONT;
-  const nmx=mx+ms/2+north[0]*(ms/2-13), nmy=my+ms/2+north[1]*(ms/2-13)+4;
-  h.strokeText('N',nmx,nmy);h.fillText('N',nmx,nmy);
+  // norte: pastilha na borda do radar
+  const nmx=mcx+north[0]*(R+4), nmy=mcy+north[1]*(R+4);
+  h.beginPath();h.arc(nmx,nmy,9,0,TAU);h.fillStyle=T.strong;h.fill();h.strokeStyle=T.line;h.lineWidth=1;h.stroke();
+  h.fillStyle=T.text;h.textAlign='center';h.textBaseline='middle';h.font='700 10px '+HUD_FONT;h.fillText('N',nmx,nmy+.5);h.textBaseline='alphabetic';
 
   // Vida, fôlego e necessidades vão cair/subir no loop real e são atualizadas aqui.
   const conditions=[
@@ -85,61 +122,54 @@ function drawHUD(h, W, H, st) {
     ['mood',needs.hygiene??1,'#8cce8c'],
     ['group',1-(needs.bladder??0),'#c5d3e1']
   ];
-  const nx=mx+ms+11, barX=nx+26;
-  const barW=compact?Math.max(34,Math.min(115,W-barX-9)):140;
-  const lineH=compact?17:23, barH=compact?9:12;
-  const ny=my+(ms-conditions.length*lineH)/2;
-  for(let i=0;i<conditions.length;i++){
-    const [icon,value,color]=conditions[i], v=clamp(value,0,1), y=ny+i*lineH;
-    drawNeedIcon(h,icon,nx+10,y+barH/2+1,compact?.72:.88);
-    round(barX,y,barW,barH,barH/2,'rgba(66,68,72,.43)','rgba(255,255,255,.39)');
-    if(v>.005){
-      h.save();h.shadowColor=color;h.shadowBlur=compact?3:5;
-      round(barX+3,y+3,Math.max(1,(barW-6)*v),barH-6,(barH-6)/2,v<.16?'#f07069':color);
-      h.restore();
-    }
+  const shown=conditions.filter(([icon,value])=>T.full||clamp(value,0,1)<(icon==='heart'?.98:.55));
+  const nx=mx+ms+16, barX=nx+22;
+  const barW=compact?Math.max(34,Math.min(96,W-barX-9)):112;
+  const lineH=compact?18:22, barH=4;
+  const ny=my+ms-shown.length*lineH-2;
+  if(shown.length){
+    // cartão de vidro atrás das barras
+    h.save();h.shadowColor='rgba(0,0,0,.2)';h.shadowBlur=14;h.shadowOffsetY=3;
+    round(nx-10,ny-9,barW+44,shown.length*lineH+8,14,T.glass,null);h.restore();
+    round(nx-10,ny-9,barW+44,shown.length*lineH+8,14,null,T.line);
+  }
+  for(let i=0;i<shown.length;i++){
+    const [icon,value,color]=shown[i], v=clamp(value,0,1), y=ny+i*lineH;
+    drawNeedIcon(h,icon,nx+6,y+3,compact?.62:.7);
+    round(barX,y+1,barW,barH,barH/2,T.dark?'rgba(255,255,255,.16)':'rgba(24,34,38,.12)',null);
+    if(v>.005)round(barX,y+1,Math.max(barH,barW*v),barH,barH/2,v<.2?'#e0655c':color,null);
   }
 
   // Identidade, horário dinâmico e dinheiro do jogador.
   const minute = ((Math.floor(st.clock)%1440)+1440)%1440;
   const clock = String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
-  const tx=W-(compact?13:24), ty=compact?17:23;
-  h.textAlign='right';h.textBaseline='alphabetic';h.font='800 11px '+HUD_FONT;h.fillStyle='#f0f5ee';
-  h.shadowColor='#06100f';h.shadowBlur=8;
-  h.fillText('CITY OF GOD  ·  LIVE',tx,ty);
-  h.textAlign='right';h.textBaseline='alphabetic';
-  h.fillStyle='#f7f9f2';h.font=(compact?'800 25px':'800 34px')+' '+HUD_FONT;
-  h.fillText(clock,tx,ty+32);
-  h.fillStyle='#9de0ae';h.font=(compact?'800 15px':'800 19px')+' '+HUD_FONT;
-  h.fillText(CityLife.money(CityLife.funds),tx,ty+54);
-  const driving=!!window.cityVehicles?.driver;
-  if(!driving){
-    h.fillStyle='#f5f7f5';h.font=(compact?'800 12px':'800 15px')+' '+HUD_FONT;
-    const label=p.armed?(p.weapon?.name||'Fuzil').toUpperCase()+'  ·  '+p.ammo+' / '+p.reserve:'MÃOS LIVRES  ·  SEM ARMA';
-    h.fillText(label,tx,ty+75);
-    // ícone da arma em mãos ao lado do nome (assets/weapons/icons)
-    const icon=p.armed&&p.weaponId?hudIcon(p.weaponId):null;
-    if(icon?.complete&&icon.naturalWidth){const w=compact?54:72,hh=w*icon.naturalHeight/icon.naturalWidth;h.drawImage(icon,tx+h.measureText(label).width+10,ty+75-hh*.78,w,hh);}
-  }
-  if(!compact) {
-    h.fillStyle='#e0e9df';h.font='700 12px '+HUD_FONT;
-    const weather=typeof envWeather==='function' ? envWeather().name : 'Tempo';
-    const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES
-     ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
-    h.fillText((window.CityDistrictsLocation?.()?.neighborhood||district)+' · '+weather,tx,ty+94);
-  }
-
+  const tx=W-(compact?14:26), ty=compact?16:22;
+  if('letterSpacing' in h)h.letterSpacing='1.5px';
+  hudText(h,clock,tx,ty+(compact?26:36),'400 '+(compact?28:40)+'px '+HUD_DISPLAY,'#fff','right');
+  if('letterSpacing' in h)h.letterSpacing='0px';
+  hudText(h,CityLife.money(CityLife.funds),tx,ty+(compact?46:62),'600 '+(compact?13:15)+'px '+HUD_FONT,'#fff','right');
   const loc=window.CityDistrictsLocation?.();
-  if(loc && !compact){
-    const subY=ty+112;
-    h.textAlign='right';h.font='800 11px '+HUD_FONT;h.fillStyle='#f7f6ed';
-    h.fillText(loc.street||'Explorando a cidade',tx,subY);
-    if(loc.gang){h.fillStyle=loc.gang.color;h.fillText('● TERRITÓRIO · '+loc.gang.name,tx,subY+16);}
+  const district=typeof OW!=='undefined' && OW.geo && typeof COG!=='undefined' && COG.D_NAMES ? COG.D_NAMES[OW.geo.districtAt(p.x,p.y)] : 'Cidade';
+  if(!compact){
+    if('letterSpacing' in h)h.letterSpacing='2px';
+    hudText(h,String(loc?.neighborhood||district).toUpperCase(),tx,ty+82,'700 10px '+HUD_FONT,'rgba(255,255,255,.85)','right');
+    if('letterSpacing' in h)h.letterSpacing='0px';
+    if(loc?.gang)hudText(h,'● '+loc.gang.name,tx,ty+98,'600 11px '+HUD_FONT,loc.gang.color,'right');
   }
-  // Atalhos ficam acima do radar, com a mesma tipografia dos avisos.
-  if(!window.CityUI?.blocksGameInput()){
-    const keys=compact?'I Mochila  ·  U Armas':'I Mochila  ·  TAB/U Armas';
-    drawHudHeadline(h,keys,mx,my-14,compact?14:16,Math.min(W-mx-12,350));
+  const driving=!!window.cityVehicles?.driver;
+  // arma: só aparece com ela em mãos (canto inferior direito, ao lado do dock)
+  if(!driving&&p.armed){
+    const label=(p.weapon?.name||'Fuzil')+'  ·  '+p.ammo+' / '+p.reserve, by=H-(compact?18:26);
+    hudText(h,label,W-(compact?66:84),by,'600 '+(compact?12:14)+'px '+HUD_FONT,'#fff','right');
+    const icon=p.weaponId?hudIcon(p.weaponId):null;
+    if(icon?.complete&&icon.naturalWidth){const w=compact?50:64,hh=w*icon.naturalHeight/icon.naturalWidth;h.drawImage(icon,W-(compact?66:84)-h.measureText(label).width-w-8,by-hh*.8,w,hh);}
+  }
+  // dicas de teclado só no começo da sessão (depois somem: a tela fica do mundo)
+  const since=(performance.now()-hudStart)/1000;
+  if(since<75&&!window.CityUI?.blocksGameInput()){
+    h.save();h.globalAlpha=Math.min(1,(75-since)/6);
+    hudText(h,(compact?'I Mochila · U Armas · P Celular':'I Mochila  ·  TAB Armas  ·  P Celular  ·  M Mapa'),mx,my-16,'600 12px '+HUD_FONT,'rgba(255,255,255,.92)','left');
+    h.restore();
   }
 
   // Mira só aparece armado e fora das interfaces.

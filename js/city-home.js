@@ -83,7 +83,9 @@ const CityHome=(()=>{
    return {id,kind:b.kind,status,x:finite(b.x),y:finite(b.y),z:finite(b.z),
     rot:finite(b.rot),w:finite(b.w,.8),d:finite(b.d,.8),h:finite(b.h,.8),
     floor:Math.max(0,Math.round(b.floor||0)),top:b.top||defs[b.kind].top,side:b.side||defs[b.kind].side,
-    solid:b.solid!==false,supportId:b.supportId||null};
+    solid:b.solid!==false,supportId:b.supportId||null,
+    // frente do móvel (planta): costas na parede, frente p/ o cômodo (architecture-plan.js · orientFurniture)
+    ...(b.faceW?{faceW:[finite(b.faceW[0]),finite(b.faceW[1])],along:finite(b.along,b.w),depth:finite(b.depth,b.d)}:{})};
  }
  function normalize(H){
    const parts=boxes.filter(b=>b.house===H&&eligible(b)&&!b.homeManaged);
@@ -110,6 +112,13 @@ const CityHome=(()=>{
    // Beds already include a blanket in their 3D mesh; remove legacy duplicate overlays
    // so an old loose blanket is not left hovering when the bed is moved.
    const original=boxes.filter(b=>b.house===H&&(eligible(b)||b.kind==='blanket'&&!b.exteriorFixture));
+   // saves antigos não tinham a frente dos móveis: peça ainda no lugar original herda a frente da planta
+   let migrated=false;
+   for(const r of data.items)if(!r.faceW&&r.status==='placed'){
+     const src=original.find(b=>b.faceW&&!b.homeManaged&&b.kind===r.kind&&(b.floor||0)===(r.floor||0)&&Math.hypot(b.x-r.x,b.y-r.y)<.06);
+     if(src){r.faceW=[src.faceW[0],src.faceW[1]];r.along=src.along;r.depth=src.depth;migrated=true;}
+   }
+   if(migrated)persist();
    for(const b of original)removeBox(b);
    const S=sector(H);
    for(const r of data.items)if(r.status==='placed'){
@@ -216,7 +225,7 @@ const CityHome=(()=>{
      // their true width and orientation instead of a large radial exclusion.
      for(const wall of level.walls||[]){
        const wx=wall.b[0]-wall.a[0],wy=wall.b[1]-wall.a[1],len=Math.hypot(wx,wy)||1;
-       for(const door of wall.openings||[])if(door.kind==='door'){
+       for(const door of wall.openings||[])if(door.kind==='door'||door.kind==='passage'){
          const v=door.at/len,u=H.architecture.toWorld(wall.a[0]+wx*v,wall.a[1]+wy*v);
          const dir=H.architecture.toWorld(wall.a[0]+wx/len,wall.a[1]+wy/len);
          const origin=H.architecture.toWorld(wall.a[0],wall.a[1]);
@@ -322,7 +331,9 @@ const CityHome=(()=>{
       rot:finite(next.rot,old.rot)};
    const validation=check(H,proposed,id);if(!validation.ok)return validation;
    return commit(H,items=>{
-     Object.assign(items.find(i=>i.id===id),{x:proposed.x,y:proposed.y,rot:proposed.rot});
+     const row=items.find(i=>i.id===id);Object.assign(row,{x:proposed.x,y:proposed.y,rot:proposed.rot});
+     // girou no modo decoração: a frente gira junto (o 3D usa -rot, então a frente gira no sentido oposto)
+     if(row.faceW&&proposed.rot!==old.rot){const t=Math.atan2(row.faceW[0],row.faceW[1])-(proposed.rot-old.rot);row.faceW=[Math.sin(t),Math.cos(t)];}
      const dx=proposed.x-old.x,dy=proposed.y-old.y;
      for(const child of items.filter(i=>i.supportId===id&&i.status==='placed')){
        child.x+=dx;child.y+=dy;child.rot+=proposed.rot-old.rot;
