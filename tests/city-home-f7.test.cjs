@@ -70,3 +70,31 @@ test('F7 pointer capture, 3D preview, full furniture silhouette and cancel work 
    "CityHome.move(H,draft.id,draft)"
  ])assert.ok(ui.includes(term),'F7 missing '+term);
 });
+
+test('every catalog furniture model can be bought, placed, translated, rotated and stored',()=>{
+ const {C,H}=fixture();
+ const entries=Object.entries(C.catalog);
+ const failures=[];
+ for(const [kind,d] of entries){
+  const bought=C.buy(H,kind);
+  if(!bought.ok){failures.push(kind+': buy '+bought.text);continue;}
+  const item=C.inventory(H).at(-1);
+  let placed=false;
+  for(const [x,y] of [[4,9.3],[4,8],[5,10],[6,9.6],[2.8,9.5]]){
+   const attempt=C.place(H,item.id,{x,y,rot:0,floor:0});
+   if(attempt.ok){placed=true;break;}
+  }
+  if(!placed){failures.push(kind+': no valid placement');continue;}
+  const old=C.find(H,item.id);
+  let moved=false;
+  for(const [dx,dy,rot] of [[.25,0,.08],[0,.25,.08],[-.25,0,.08],[0,-.25,.08]]){
+   const next=C.move(H,item.id,{x:old.x+dx,y:old.y+dy,rot});
+   if(next.ok){moved=true;break;}
+  }
+  if(!moved){failures.push(kind+': could not translate/rotate');continue;}
+  const stored=C.store(H,item.id);
+  if(!stored.ok)failures.push(kind+': '+stored.text);
+ }
+ assert.deepEqual(failures,[],failures.join('\n'));
+ assert.ok(entries.length>=100,'expected classic and complete Quaternius catalog');
+});
