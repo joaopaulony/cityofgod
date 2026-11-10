@@ -55,6 +55,8 @@
 </style>
 <link rel="stylesheet" href="css/hud-refresh.css">
 <link rel="stylesheet" href="css/front-end.css">
+<link rel="preload" as="image" href="assets/menu/v1/logo.webp">
+<link rel="preload" as="image" href="assets/menu/v1/avenida-noturna.webp">
 <link rel="stylesheet" href="css/cas-creator.css">
 <link rel="stylesheet" id="ui-theme-css" href="css/ui-theme.css">
 <script>
@@ -67,7 +69,7 @@
 <script src="js/front-end.js" defer></script>
 </head>
 <body class="front-open">
-<section id="city-front" role="dialog" aria-modal="true" aria-label="City of God — menu inicial"><div class="front-wordmark" role="img" aria-label="City of God"><span>CITY</span><i>OF</i><span>GOD</span></div><noscript>Ative o JavaScript para abrir a cidade.</noscript></section>
+<section id="city-front" role="dialog" aria-modal="true" aria-label="City of God — menu inicial"><img class="front-logo" src="assets/menu/v1/logo.webp" alt="City of God"><noscript>Ative o JavaScript para abrir a cidade.</noscript></section>
 <canvas id="view" tabindex="-1" aria-label="Cidade — área de jogo"></canvas>
 <!-- Three.js renderiza modelos GLB verdadeiros em 3D, quadro a quadro -->
 <canvas id="vehicle3d" aria-label="Carros 3D em tempo real"></canvas>

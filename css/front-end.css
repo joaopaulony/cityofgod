@@ -1,10 +1,13 @@
 :root{--front-gold:#f5bf60;--front-ivory:#f8efd9;--city-brightness:1}
 #city-front,#city-front *{box-sizing:border-box}
-#front-backdrop{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:-3;background:radial-gradient(ellipse at 76% 38%,#9c796765 0%,transparent 48%),linear-gradient(155deg,#07141d 18%,#162b34 56%,#503d3c 100%);transition:opacity 1.2s ease}
-/* Silhueta arquitetônica CSS enquanto os setores reais ainda carregam. Nunca usa PNG ou wallpaper. */
-#front-backdrop::before{content:"";position:absolute;bottom:-2px;left:14%;width:100%;height:44%;background:linear-gradient(0deg,#06141cc7,#2530397d);clip-path:polygon(0 85%,5% 85%,5% 66%,9% 66%,9% 76%,13% 76%,13% 49%,17% 49%,17% 69%,21% 69%,21% 43%,26% 43%,26% 59%,30% 59%,30% 37%,34% 37%,34% 62%,39% 62%,39% 26%,44% 26%,44% 53%,49% 53%,49% 44%,53% 44%,53% 66%,58% 66%,58% 32%,62% 32%,62% 56%,67% 56%,67% 15%,72% 15%,72% 51%,78% 51%,78% 41%,83% 41%,83% 63%,89% 63%,89% 34%,94% 34%,94% 55%,100% 55%,100% 100%,0 100%)}
-#front-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#061016b8 0%,transparent 42%);pointer-events:none}
-#front-backdrop .front-horizon{position:absolute;top:22%;left:38%;width:48%;height:1px;background:linear-gradient(90deg,transparent,#cfb69d50,transparent);box-shadow:0 120px 110px 40px #a9805430}
+#front-backdrop{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:-3;background:#07151d;opacity:1;transition:opacity 1.25s ease}
+#front-backdrop .front-preview-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;filter:brightness(.63) saturate(.86)}
+#front-backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#04131de8 0%,#04131d80 37%,transparent 70%),linear-gradient(0deg,#04131de0,transparent 50%);pointer-events:none}
+#front-backdrop .front-preview-brand{position:absolute;z-index:1;top:35%;right:7vw;width:min(46vw,660px);transform:translateY(-16%);display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;color:#f7f1e6;text-shadow:0 2px 24px #000b}
+#front-backdrop .front-preview-logo{width:100%;height:auto;max-height:35vh;object-fit:contain;filter:drop-shadow(0 12px 35px #000a)}
+#front-backdrop .front-beta-chip{font:800 12px/1.1 "Segoe UI",sans-serif;letter-spacing:.3em;border:1px solid #f5bf60a0;background:#1b1c1bc2;color:#f8d095;padding:9px 19px;border-radius:3px}
+#front-backdrop .front-preview-brand p{font:700 clamp(12px,1.1vw,17px)/1.3 "Segoe UI",system-ui,sans-serif;letter-spacing:.17em;margin:0}
+#front-backdrop .front-preview-brand small{font:500 12px/1.3 "Segoe UI",system-ui,sans-serif;color:#d9dad5;letter-spacing:.06em}
 body.front-reduced-motion #front-backdrop{transition:none}
 #city-front .front-main{justify-content:flex-start}
 #city-front .front-panel~.front-foot{position:relative;bottom:auto;left:auto;right:auto;margin:0 6vw 25px}
@@ -29,14 +32,13 @@ body.front-live #city-front::after{box-shadow:inset 0 0 180px #00131f55}
 /* menu aberto sobre a cidade ao vivo: nenhum cartão do jogo (convites, avisos, capítulo, piloto, atalhos) por cima */
 body.front-open>:is(#social-incoming,#social-conversation,#social-feedback,#city-adventure-hud,#city-toast,#city-autopilot,#city-job-hud,#city-bus-banner,#city-controls,#social-entry,#city-cas-open,#city-pets-entry,#city-emotes,#cr-lesson,#cr-client,#cr-game){visibility:hidden!important}
 
-/* MARCA do menu: tipografia cinematográfica, sem arquivo de imagem ou fonte externa */
-#city-front .front-wordmark{display:flex;align-items:baseline;gap:clamp(8px,1.25vw,21px);margin:0 0 27px;color:#f4ede3;font:400 clamp(44px,5.5vw,78px)/1.03 Georgia,"Times New Roman",serif;letter-spacing:.12em;white-space:nowrap;text-shadow:0 3px 24px #0008;user-select:none}
-#city-front .front-wordmark i{align-self:center;font:400 clamp(14px,1.45vw,21px)/1.1 Georgia,serif;letter-spacing:.28em;border-top:1px solid #ebcaa5b8;border-bottom:1px solid #ebcaa5b8;padding:7px 2px 5px;margin-right:.1em;color:#e8d5b8}
-#city-front .front-wordmark span:last-child{color:#e5c7ae}
-#city-front .front-loading-wordmark{position:absolute;top:7.5vh;left:6vw;color:#f4eee1;font:400 clamp(28px,3.5vw,52px)/1.2 Georgia,"Times New Roman",serif;letter-spacing:.15em;text-shadow:0 3px 18px #0008}
-#city-front .front-loading-wordmark i{font-size:.4em;letter-spacing:.22em;font-style:normal;color:#e7b880}
 body.front-live #front-backdrop{opacity:0;pointer-events:none}
-/* Entre o primeiro paint do HTML e o início do WebGL, o menu continua clicável e sem wallpaper. */
-body.front-open:not(.front-live) #city-front{background:#081821}
-@media(max-width:900px){#city-front .front-wordmark{font-size:clamp(30px,7.6vw,58px);gap:clamp(5px,1.4vw,12px);letter-spacing:.07em}#city-front .front-wordmark i{font-size:clamp(10px,2.3vw,15px);letter-spacing:.16em}}
-@media(max-width:650px){#city-front .front-wordmark{font-size:clamp(29px,8.6vw,42px);margin-bottom:25px}#city-front .front-loading-wordmark{left:7vw;top:7vh}}
+/* A imagem BETA é provisória: desaparece quando o setor real estiver pronto. */
+body.front-open:not(.front-live) #city-front{background:#07151d}
+
+#city-front .front-beta-mini{display:inline-block;margin-left:12px;color:#f6ca84;font-size:9px;font-weight:800;letter-spacing:1.1px}
+body.front-open:not(.front-live) #city-front .front-main>.front-logo{visibility:hidden}
+body.front-live #city-front .front-main>.front-logo{visibility:visible}
+@media(max-width:900px){#front-backdrop .front-preview-brand{right:4vw;width:50vw}}
+@media(max-width:650px){#front-backdrop .front-preview-brand{top:13vh;right:7vw;width:86vw;transform:none;gap:8px}#front-backdrop .front-preview-logo{max-height:21vh}#city-front .front-main{justify-content:flex-end;padding-bottom:92px}#city-front .front-beta-mini{display:block;margin:4px 0 0;font-size:8px}}
+@media(prefers-reduced-motion:reduce){#front-backdrop{transition:none!important}}

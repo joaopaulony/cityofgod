@@ -942,77 +942,85 @@ function frame(now) {
     // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
     const lead = terrain.vel || [0, 0];
     if(!window.CityFront?.blocked||window.CityFront?.loading||window.CityFront?.showcase){
-      // no menu, o mundo carrega em volta do drone (que nunca se afasta muito do jogador)
-      const sx=drone.saved?(drone.x+player.x)/2:player.x+lead[0]*3,sy=drone.saved?(drone.y+player.y)/2:player.y+lead[1]*3;
+      // no menu, o mundo carrega em torno do drone; ao entrar, primeiro carrega a região do personagem
+      const sx=drone.saved&&!preparePlayerRegion?drone.x:player.x+lead[0]*3,sy=drone.saved&&!preparePlayerRegion?drone.y:player.y+lead[1]*3;
       if (world.streamTick) world.streamTick(sx, sy, clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
       if (cost + terrain.workMs < 12) warmIdle();
     }
   }
   requestAnimationFrame(frame);
 }
-// ---------- vitrine cinematográfica do menu: mesma cidade, mesmas malhas 3D e NPCs do jogo ----------
-// Em vez de sobrevoar ruas longe do jogador, a câmera enquadra um personagem em primeiro plano.
-// O estado salvo (posição, relógio, dinheiro, itens) permanece intacto; não há segunda cena ou assets.
-const drone = {saved:null,x:0,y:0,elapsed:0,glide:0};
-let menuExtra=null,menuExtraRequest=null,menuExtraNeeded=false,menuExtraTryAt=0;
-function menuStreetSpot(){
-  // Um lugar do mundo existente, próximo ao ponto salvo, sem gerar rua ou prédio novo.
-  const rds=world.roads||[];let best=null,bd=36;
-  for(const rd of rds){
-    const pts=rd.pts||[];
-    for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/60))){
-      const q=pts[i],x=q?.x??q?.[0],y=q?.y??q?.[1];
-      if(!Number.isFinite(x)||!Number.isFinite(y))continue;
-      const d=Math.hypot(x-player.x,y-player.y);
-      if(d<bd){bd=d;best={x,y};}
+// ---------- vitrine de drone: sobrevoo do mapa REAL, sem enquadrar personagens ----------
+const drone={saved:null,x:0,y:0,elapsed:0,glide:0,points:null};
+let preparePlayerRegion=false;
+function dronePoints(){
+  if(drone.points)return drone.points;
+  const city=world.open&&typeof OW!=='undefined'?OW.geo?.anchors?.downtown:null;
+  if(!city){drone.points=[{x:player.x,y:player.y}];return drone.points;}
+  const center={x:city.x,y:city.y},pts=[center],roads=OW.cw?.roads||[];
+  // Seleciona vias reais perto do centro, evitando saltos entre regiões distantes.
+  for(const road of roads){
+    if(road.cls==='rail')continue;
+    const arr=road.pts||[],step=Math.max(1,Math.floor(arr.length/18));
+    for(let i=0;i<arr.length;i+=step){
+      const p=arr[i],x=p?.x??p?.[0],y=p?.y??p?.[1],dist=Math.hypot(x-center.x,y-center.y);
+      if(!Number.isFinite(dist)||dist<28||dist>85||pts.some(q=>Math.hypot(x-q.x,y-q.y)<28))continue;
+      pts.push({x,y});if(pts.length>=5)break;
     }
+    if(pts.length>=5)break;
   }
-  if(!best)return {x:player.x+1.8,y:player.y+1.8};
-  return {x:best.x+Math.sin(cam.ang)*(ROAD_W+SIDE*.5),y:best.y+Math.cos(cam.ang)*(ROAD_W+SIDE*.5)};
-}
-function ensureMenuExtra(){
-  // Caso a partida tenha sido salva dentro de um prédio ou veículo, apresenta um civil
-  // do elenco REAL do jogo na rua. Esse figurante nunca é salvo e sai ao iniciar a partida.
-  if(menuExtra||menuExtraRequest||performance.now()<menuExtraTryAt||!window.cityCharacters?.ready||!window.cityCharacters?.spawnExtra)return;
-  if(!window.cityVehicles?.driver&&!(player.floor>0))return;
-  menuExtraNeeded=true;menuExtraTryAt=performance.now()+5000;
-  const p=menuStreetSpot();
-  menuExtraRequest=Promise.resolve(window.cityCharacters.spawnExtra(p.x,p.y,{face:player.face||0}))
-   .then(n=>{menuExtraRequest=null;if(!n)return;
-     if(!menuExtraNeeded||!window.CityFront?.blocked){window.cityCharacters?.removeExtra?.(n);return;}
-     menuExtra=n;n.speed=0;n.walk=0;n.target=null;n.pause=99999;})
-   .catch(()=>{menuExtraRequest=null;});
+  drone.points=pts;return pts;
 }
 function droneCam(dt){
-  if(!drone.saved){drone.saved={zoom:cam.tzoom,tilt:cam.ttilt,ang:cam.tang};drone.elapsed=0;}
+  if(!drone.saved){
+    drone.saved={zoom:cam.tzoom,tilt:cam.ttilt,ang:cam.tang};
+    drone.points=null;drone.elapsed=0;
+    const anchor=dronePoints()[0];drone.x=anchor.x;drone.y=anchor.y;
+  }
   drone.elapsed+=Math.min(dt,.05);
-  ensureMenuExtra();
-  const actor=menuExtra&&!menuExtra.dead?menuExtra:player;
-  const x=actor.x,y=actor.y;
-  drone.x=x;drone.y=y;
-  const width=cam.W||view.width||1280,height=cam.H||view.height||720;
-  const compact=width<700;
-  // O jogador fica à direita; a coluna esquerda é reservada aos botões do menu.
-  const heroX=compact?.62:.73,heroY=compact?.57:.62;
-  cam.tzoom=compact?Math.max(68,Math.min(110,drone.saved.zoom*1.22)):Math.max(104,Math.min(148,drone.saved.zoom*1.45));
-  cam.ttilt=compact?.47:.52;
-  cam.tang=drone.saved.ang+Math.sin(drone.elapsed*.10)*.09;
-  const zoom=Math.max(24,cam.tzoom);
-  const dx=(heroX-.5)*width/zoom,dy=(heroY-.5)*height/(zoom*cam.ttilt);
-  const ox=Math.cos(cam.tang)*dx+Math.sin(cam.tang)*dy;
-  const oy=-Math.sin(cam.tang)*dx+Math.cos(cam.tang)*dy;
-  cam.tx=x-ox;cam.ty=y-oy;
-  // Enquadramento suave, sem mexer na posição do personagem da partida.
+  const points=dronePoints(),target=points[Math.floor(drone.elapsed/25)%points.length];
+  const k=1-Math.exp(-dt*.15);
+  drone.x=lerp(drone.x,target.x,k);drone.y=lerp(drone.y,target.y,k);
+  const t=drone.elapsed,orbitX=Math.sin(t*.13)*12,orbitY=Math.cos(t*.11)*9;
+  const width=cam.W||view.width||1280,compact=width<700;
+  // Zoom distante + quase vertical, em rotação suave para mostrar os quarteirões.
+  cam.ttilt=compact?.81:.84;cam.tzoom=compact?15:18;
+  cam.tang=drone.saved.ang+t*.013;
+  const sceneX=drone.x+orbitX,sceneY=drone.y+orbitY;
+  const dx=(compact?.06:.12)*width/Math.max(1,cam.tzoom);
+  cam.tx=sceneX-Math.cos(cam.tang)*dx;
+  cam.ty=sceneY+Math.sin(cam.tang)*dx;
   cam.update(dt);
 }
 function droneEnd(){
   if(!drone.saved)return;
   cam.tzoom=drone.saved.zoom;cam.ttilt=drone.saved.tilt;cam.tang=drone.saved.ang;
-  drone.saved=null;drone.glide=performance.now()+2600;
-  menuExtraNeeded=false;
-  if(menuExtra){window.cityCharacters?.removeExtra?.(menuExtra);menuExtra=null;}
-  // Quando a partida começa, o mesmo jogador volta ao centro da câmera.
-  cam.tx=player.x;cam.ty=player.y;
+  drone.saved=null;drone.points=null;drone.glide=0;
+  // Sem voo entre centro e aeroporto quando o jogo começa: retorna ao personagem real.
+  cam.x=cam.tx=player.x;cam.y=cam.ty=player.y;
+  cam.zoom=cam.tzoom;cam.tilt=cam.ttilt;
+}
+function dronePreviewReady(){
+  if(!drone.saved||!world.open)return !!drone.saved;
+  if(typeof OW==='undefined'||!OW.sectors)return false;
+  const sx=Math.floor(drone.x/OW.SP),sy=Math.floor(drone.y/OW.SP);
+  return OW.sectors.get(sx+','+sy)?.state==='done';
+}
+function needsPlayerSector(){
+  return !!(world.open&&world.chunkReady&&!world.chunkReady(Math.floor(player.x/CH),Math.floor(player.y/CH)));
+}
+async function preparePlay(){
+  if(!needsPlayerSector())return true;
+  preparePlayerRegion=true;
+  try{
+    const started=performance.now();
+    while(needsPlayerSector()){
+      if(performance.now()-started>60000)throw Error('O setor da partida demorou a carregar. Seu progresso foi preservado.');
+      world.streamTick?.(player.x,player.y,8);
+      await new Promise(requestAnimationFrame);
+    }
+    return true;
+  }finally{preparePlayerRegion=false;}
 }
 function showcaseTick(dt) {
   droneCam(dt);
@@ -1220,6 +1228,7 @@ window.CityAdventures?.mount();
 window.CityHomeUI?.mount();
 window.CityFront?.attachGame({
   release:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;player.aimHold=0;},
+  previewReady:dronePreviewReady,needsPlayerSector,preparePlay,
   mapOpen:()=>wmap.open,openMap:()=>{if(!wmap.open)wmapToggle();},
   save:()=>{CityLife.save();CitySim.save();window.CityPets?.controller.save();},
   capture:()=>player.stairTravel?null:{version:1,mode:world.open?'open':'local',seed:world.seed??SEED,x:player.x,y:player.y,floor:player.floor||0,clock:st.clock,at:Date.now(),vehicle:window.cityVehicles?.captureCheckpoint?.()},
