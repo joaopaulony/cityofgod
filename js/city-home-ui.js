@@ -281,23 +281,45 @@ const CityHomeUI=(()=>{
    if(r.ok){clean();renderPanel();}
    message(r.text,r.ok);
  }
+ // Select from the whole projected 3D footprint, including tall furniture.
+ // The previous point-only hit test missed wardrobes, shelves, fridges and beds.
  function closest(e){
    const x=e.clientX/RS,y=e.clientY/RS;
    let result=null,score=Infinity;
    for(const b of CityHome.nearbyItems(H,floor)){
-     const p=proj(b.x,b.y,(b.z||0)+Math.min(b.h,1)*.3);
-     const d=Math.hypot(x-p.x,y-p.y)/Math.max(1,cam.zoom);
-     if(d<Math.max(.55,Math.max(b.w,b.d)*.75)&&d<score){score=d;result=b;}
+     const corners=boxCorners(b);
+     const pts=corners.flatMap(([px,py])=>
+       [proj(px,py,b.z||0),proj(px,py,(b.z||0)+b.h)]);
+     const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+     const lx=Math.min(...xs),hx=Math.max(...xs),ly=Math.min(...ys),hy=Math.max(...ys);
+     const pad=Math.max(7,cam.zoom*.10);
+     if(x<lx-pad||x>hx+pad||y<ly-pad||y>hy+pad)continue;
+     const dist=Math.hypot((x-(lx+hx)/2)/Math.max(10,hx-lx),
+                           (y-(ly+hy)/2)/Math.max(10,hy-ly));
+     const depth=depthOf(b.x,b.y);
+     const scoreNow=dist+(hx-lx)*(hy-ly)/Math.max(1,cam.zoom*cam.zoom)*.002-depth*.0001;
+     if(scoreNow<score){score=scoreNow;result=b;}
    }
    return result;
  }
  function onDown(e){
    if(!active||e.target!==view)return;
    e.stopImmediatePropagation();e.preventDefault();
-   if(e.button===2){pan=[e.clientX,e.clientY];return;}
+   if(e.button===2){pan=[e.clientX,e.clientY];view.setPointerCapture?.(e.pointerId);return;}
    if(e.button!==0)return;
-   if(!draft){const b=closest(e);if(b)beginMove(b.homeId);}
-   if(draft){pointerPosition(e);dragging=true;}
+   if(!draft){
+     const b=closest(e);
+     if(b){
+       beginMove(b.homeId);
+       // Grabbing the top/edge should not instantly teleport the model.
+       const p=unproj(e.clientX/RS,e.clientY/RS,b.z||0);
+       dragOffset={x:b.x-p[0],y:b.y-p[1]};
+     }
+   }else dragOffset=null;
+   if(draft){
+     pointerPosition(e);dragging=true;
+     view.setPointerCapture?.(e.pointerId);
+   }
  }
  function onMove(e){
    if(!active)return;
@@ -305,14 +327,24 @@ const CityHomeUI=(()=>{
      const ax=(e.clientX-pan[0])/RS,ay=(e.clientY-pan[1])/RS;
      const v=screenDirToWorld(ax/cam.zoom,ay/(cam.zoom*TILT));
      cam.tx-=v[0];cam.ty-=v[1];pan=[e.clientX,e.clientY];
-   }else if(draft&&e.target===view)pointerPosition(e);
+   }else if(draft&&(e.target===view||dragging))pointerPosition(e);
    if(e.target===view){e.stopImmediatePropagation();e.preventDefault();}
  }
  function onUp(e){
    if(!active)return;
-   if(pan&&e.button===2){pan=null;return;}
-   if(e.button===0&&dragging&&e.target===view){dragging=false;confirm();}
+   if(pan&&e.button===2){pan=null;view.releasePointerCapture?.(e.pointerId);return;}
+   if(e.button===0&&dragging){
+     dragging=false;pointerPosition(e);previewMove(true);
+     confirm();dragOffset=null;
+     view.releasePointerCapture?.(e.pointerId);
+   }
    if(e.target===view){e.stopImmediatePropagation();e.preventDefault();}
+ }
+ function onCancel(e){
+   if(!active)return;
+   dragging=false;pan=null;dragOffset=null;
+   view.releasePointerCapture?.(e.pointerId);
+   clean();renderPanel();
  }
  function onKey(e){
    const typing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
@@ -419,13 +451,14 @@ const CityHomeUI=(()=>{
    entry.addEventListener('click',open);document.body.appendChild(entry);
    ensure();
    // Capture input on the play canvas before shooting/aiming listeners.
-   view.addEventListener('mousedown',onDown,true);
-   view.addEventListener('mousemove',onMove,true);
-   view.addEventListener('mouseup',onUp,true);
-   window.addEventListener('mouseup',e=>{if(active&&e.target!==view){dragging=false;pan=null;}},true);
+   view.addEventListener('pointerdown',onDown,true);
+   view.addEventListener('pointermove',onMove,true);
+   view.addEventListener('pointerup',onUp,true);
+   view.addEventListener('pointercancel',onCancel,true);
+   window.addEventListener('pointerup',e=>{if(active&&e.target!==view){dragging=false;pan=null;dragOffset=null;}},true);
    view.addEventListener('wheel',onWheel,{capture:true,passive:false});
    window.addEventListener('keydown',onKey,true);
-   window.addEventListener('blur',()=>{dragging=false;pan=null;});
+   window.addEventListener('blur',()=>{dragging=false;pan=null;dragOffset=null;});
    window.addEventListener('pagehide',()=>{if(active)close();});
  }
  return {mount,open,close,tick,draw,frame,get active(){return active;},get property(){return H;},get draft(){return draft;}};
