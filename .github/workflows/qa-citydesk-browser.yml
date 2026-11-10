@@ -1,0 +1,41 @@
+name: QA browser - CityDesk e CitySeller
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-citydesk-browser.yml'
+      - 'tools/qa-citydesk-browser.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install QA browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Start local game
+        run: |
+          node tools/serve.mjs > /tmp/city-qa-server.log 2>&1 &
+          for i in $(seq 1 35); do curl -fsS http://127.0.0.1:4322/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/city-qa-server.log
+          exit 1
+      - name: Play in Chromium and capture screenshots
+        run: node tools/qa-citydesk-browser.cjs
+        env:
+          CITY_TEST_URL: http://127.0.0.1:4322
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-citydesk-capturas-e-relatorio
+          path: artifacts/qa-home-office/
+          if-no-files-found: warn
