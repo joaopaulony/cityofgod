@@ -134,7 +134,10 @@ async function run(name,fn){
   return {before,draft,after};
  });
  await run('06 Tela F7, inventário, cancelamento e saída',async()=>{
-  await page.locator('#city-home-builder').screenshot({path:folder+'/painel-f7.png',timeout:16000});
+  // Software WebGL can stall screenshots even when mouse/3D model tests pass.
+  // Keep image capture best-effort and never classify a GPU screenshot timeout as a gameplay failure.
+  try{await page.locator('#city-home-builder').screenshot({path:folder+'/painel-f7.png',timeout:7000});}
+  catch(e){console.log('F7_CAPTURE_WARNING',String(e.message||e).slice(0,280));}
   const info=await page.evaluate(()=>{
    const q=__qaF7,id=q.id,c=CityHome;
    return {placed:c.placed(q.H).filter(x=>x.id===id).length,original:c.find(q.H,id),panel:!!document.querySelector('#city-home-builder:not([hidden])'),
