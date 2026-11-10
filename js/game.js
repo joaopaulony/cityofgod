@@ -954,7 +954,7 @@ function frame(now) {
 // Em vez de sobrevoar ruas longe do jogador, a câmera enquadra um personagem em primeiro plano.
 // O estado salvo (posição, relógio, dinheiro, itens) permanece intacto; não há segunda cena ou assets.
 const drone = {saved:null,x:0,y:0,elapsed:0,glide:0};
-let menuExtra=null,menuExtraRequest=null,menuExtraNeeded=false;
+let menuExtra=null,menuExtraRequest=null,menuExtraNeeded=false,menuExtraTryAt=0;
 function menuStreetSpot(){
   // Um lugar do mundo existente, próximo ao ponto salvo, sem gerar rua ou prédio novo.
   const rds=world.roads||[];let best=null,bd=36;
@@ -973,9 +973,9 @@ function menuStreetSpot(){
 function ensureMenuExtra(){
   // Caso a partida tenha sido salva dentro de um prédio ou veículo, apresenta um civil
   // do elenco REAL do jogo na rua. Esse figurante nunca é salvo e sai ao iniciar a partida.
-  if(menuExtra||menuExtraRequest||!window.cityCharacters?.ready||!window.cityCharacters?.spawnExtra)return;
+  if(menuExtra||menuExtraRequest||performance.now()<menuExtraTryAt||!window.cityCharacters?.ready||!window.cityCharacters?.spawnExtra)return;
   if(!window.cityVehicles?.driver&&!(player.floor>0))return;
-  menuExtraNeeded=true;
+  menuExtraNeeded=true;menuExtraTryAt=performance.now()+5000;
   const p=menuStreetSpot();
   menuExtraRequest=Promise.resolve(window.cityCharacters.spawnExtra(p.x,p.y,{face:player.face||0}))
    .then(n=>{menuExtraRequest=null;if(!n)return;
@@ -994,7 +994,7 @@ function droneCam(dt){
   const compact=width<700;
   // O jogador fica à direita; a coluna esquerda é reservada aos botões do menu.
   const heroX=compact?.62:.73,heroY=compact?.57:.62;
-  cam.tzoom=compact?Math.max(46,Math.min(66,drone.saved.zoom)):Math.max(68,Math.min(92,drone.saved.zoom));
+  cam.tzoom=compact?Math.max(68,Math.min(110,drone.saved.zoom*1.22)):Math.max(104,Math.min(148,drone.saved.zoom*1.45));
   cam.ttilt=compact?.47:.52;
   cam.tang=drone.saved.ang+Math.sin(drone.elapsed*.10)*.09;
   const zoom=Math.max(24,cam.tzoom);
@@ -1031,6 +1031,7 @@ function showcaseTick(dt) {
   render(); window.cityVehicles?.render(); h.clearRect(0, 0, hudC.width, hudC.height);
   window.CityFront.markFrame(); window.CityFront.markLive?.();
 }
+let frontFrameDebt=0;
 function tick(dt) {
   failScreen.tick(dt / (window.__timeScale || 1));
   if(window.cityCharacters?.socialInputBlocked){input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;}
@@ -1038,7 +1039,11 @@ function tick(dt) {
     if(window.CityFront.loading){
       for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}
       window.cityCharacters?.update(0);droneCam(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();
-    }else if(window.CityFront.showcase)showcaseTick(dt);
+    }else if(window.CityFront.showcase){
+      // 30 Hz no fundo do menu evita gastar potência para renderizar uma tela atrás de botões.
+      frontFrameDebt=Math.min(.1,frontFrameDebt+dt);
+      if(frontFrameDebt>=1/30){showcaseTick(frontFrameDebt);frontFrameDebt=0;}
+    }
     input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;input.endFrame();return;
   }
   if(drone.saved)droneEnd();
