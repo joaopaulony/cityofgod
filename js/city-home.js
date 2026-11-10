@@ -327,16 +327,29 @@ const CityHome=(()=>{
    if(!owned(H))return {ok:false,text:'Acesso negado'};
    sync(H);const old=find(H,id);
    if(!old||old.status!=='placed')return {ok:false,text:'Móvel não encontrado'};
+   // Preserve original values before commit mutates the very same saved object.
+   const before={x:old.x,y:old.y,rot:old.rot,faceW:old.faceW&&[...old.faceW]};
    const proposed={...old,x:Math.round(finite(next.x,NaN)*100)/100,y:Math.round(finite(next.y,NaN)*100)/100,
       rot:finite(next.rot,old.rot)};
    const validation=check(H,proposed,id);if(!validation.ok)return validation;
+   const dx=proposed.x-before.x,dy=proposed.y-before.y,turn=proposed.rot-before.rot;
    return commit(H,items=>{
      const row=items.find(i=>i.id===id);Object.assign(row,{x:proposed.x,y:proposed.y,rot:proposed.rot});
-     // girou no modo decoração: a frente gira junto (o 3D usa -rot, então a frente gira no sentido oposto)
-     if(row.faceW&&proposed.rot!==old.rot){const t=Math.atan2(row.faceW[0],row.faceW[1])-(proposed.rot-old.rot);row.faceW=[Math.sin(t),Math.cos(t)];}
-     const dx=proposed.x-old.x,dy=proposed.y-old.y;
+     // Both the old procedural models and the Quaternius pack use -rot for facing.
+     if(before.faceW&&turn){
+       const a=Math.atan2(before.faceW[0],before.faceW[1])-turn;
+       row.faceW=[Math.sin(a),Math.cos(a)];
+     }
+     const c=Math.cos(turn),s=Math.sin(turn);
      for(const child of items.filter(i=>i.supportId===id&&i.status==='placed')){
-       child.x+=dx;child.y+=dy;child.rot+=proposed.rot-old.rot;
+       const rx=child.x-before.x,ry=child.y-before.y;
+       child.x=proposed.x+rx*c-ry*s;
+       child.y=proposed.y+rx*s+ry*c;
+       child.rot+=turn;
+       if(child.faceW&&turn){
+         const a=Math.atan2(child.faceW[0],child.faceW[1])-turn;
+         child.faceW=[Math.sin(a),Math.cos(a)];
+       }
      }
    });
  }
