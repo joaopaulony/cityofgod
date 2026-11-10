@@ -239,3 +239,147 @@ html[data-ui-theme] :is(body.city-modal,body.city-property-open,body.city-home-o
 @media (max-width:740px){html[data-ui-theme]{--dock-w:42px;--dock-h:42px;--dock-gap:8px;--dock-edge:12px}
   html[data-ui-theme] #city-adventure-hud{top:96px!important;right:12px!important;width:min(230px,62vw)!important}}
 @media (prefers-reduced-motion:reduce){html[data-ui-theme] *{transition:none!important}}
+
+
+/* ---------- Vida na Cidade (J): cores corretas para fundo claro e escuro ---------- */
+/* Antes o tema alterava só o fundo do modal; textos internos herdavam branco do CSS legado. */
+html[data-ui-theme] #city-adventure-shade{
+  background:rgba(7,13,17,.64)!important;
+  color:var(--ui-text)!important;
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+}
+html[data-ui-theme] #city-adventure-shade>.cga-panel{
+  background:var(--ui-glass-strong)!important;
+  color:var(--ui-text)!important;
+  border:1px solid var(--ui-line-strong)!important;
+  box-shadow:0 22px 85px rgba(0,0,0,.37)!important;
+  max-height:min(88dvh,850px);
+  font-family:var(--ui-font)!important;
+}
+html[data-ui-theme=light] #city-adventure-shade>.cga-panel{
+  background:rgba(250,249,246,.98)!important;
+}
+html[data-ui-theme=dark] #city-adventure-shade>.cga-panel{
+  background:rgba(18,25,29,.97)!important;
+}
+html[data-ui-theme] #city-adventure-shade header{
+  background:var(--ui-surface-2);
+  border-bottom:1px solid var(--ui-line)!important;
+  color:var(--ui-text)!important;
+  gap:16px;
+}
+html[data-ui-theme] #city-adventure-shade header small{
+  color:var(--ui-muted)!important;
+  font:800 10px/1.5 var(--ui-font);
+  letter-spacing:.13em;
+}
+html[data-ui-theme] #city-adventure-shade h2{
+  color:var(--ui-text)!important;
+  font:400 clamp(23px,3vw,32px)/1.12 var(--ui-display)!important;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+html[data-ui-theme] #city-adventure-shade header button{
+  color:var(--ui-text)!important;
+  background:var(--ui-surface)!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:10px;
+  width:38px;height:38px;flex:none;
+  display:grid;place-items:center;
+}
+html[data-ui-theme] #city-adventure-shade header button:hover{
+  background:var(--ui-accent-soft)!important;
+  border-color:var(--ui-accent)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-tabs{
+  border-bottom:1px solid var(--ui-line)!important;
+  background:var(--ui-surface-2);
+  gap:8px;
+}
+html[data-ui-theme] #city-adventure-shade .cga-tabs button{
+  background:transparent!important;
+  color:var(--ui-muted)!important;
+  border:1px solid transparent!important;
+  font:700 12px/1.25 var(--ui-font)!important;
+  padding:9px 13px;
+}
+html[data-ui-theme] #city-adventure-shade .cga-tabs button:is(:hover,:focus-visible){
+  background:var(--ui-accent-soft)!important;
+  color:var(--ui-text)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-tabs button.on{
+  background:var(--ui-accent-soft)!important;
+  color:var(--ui-text)!important;
+  border-color:var(--ui-accent)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-content{
+  color:var(--ui-text)!important;
+  overscroll-behavior:contain;
+  scrollbar-color:var(--ui-line-strong) transparent;
+}
+html[data-ui-theme] #city-adventure-shade :is(.cga-info,.cga-row){
+  background:var(--ui-surface-2)!important;
+  border:1px solid var(--ui-line)!important;
+  color:var(--ui-text)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-info{
+  border-left:3px solid var(--ui-accent)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-info :is(b,strong),
+html[data-ui-theme] #city-adventure-shade .cga-row b,
+html[data-ui-theme] #city-adventure-shade .cga-choice b{
+  color:var(--ui-text)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-info :is(p,small),
+html[data-ui-theme] #city-adventure-shade .cga-row small{
+  color:var(--ui-muted)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-row{
+  min-height:59px;
+  border-radius:11px;
+}
+html[data-ui-theme] #city-adventure-shade .cga-row.done{
+  opacity:1!important;
+  border-left:3px solid var(--ui-good)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-row>span{
+  color:var(--ui-good)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-row em{
+  color:var(--ui-good)!important;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+}
+html[data-ui-theme] #city-adventure-shade .cga-row :is(small,em,b){
+  line-height:1.45;
+}
+html[data-ui-theme] #city-adventure-shade .cga-choice{
+  background:var(--ui-surface-2)!important;
+  border:1px solid var(--ui-line-strong)!important;
+  color:var(--ui-text)!important;
+  transition:background .15s,border-color .15s;
+}
+html[data-ui-theme] #city-adventure-shade .cga-choice small{
+  color:var(--ui-muted)!important;
+}
+html[data-ui-theme] #city-adventure-shade .cga-choice:hover{
+  background:var(--ui-accent-soft)!important;
+  border-color:var(--ui-accent)!important;
+}
+html[data-ui-theme] #city-adventure-shade :is(.cga-main,.cga-info button,.cga-row button){
+  background:var(--ui-accent)!important;
+  color:var(--ui-accent-ink)!important;
+  border:1px solid var(--ui-accent)!important;
+  border-radius:9px;
+}
+html[data-ui-theme] #city-adventure-shade blockquote{
+  color:var(--ui-text)!important;
+  border-color:var(--ui-accent)!important;
+}
+@media(max-width:700px){
+  html[data-ui-theme] #city-adventure-shade>.cga-panel{max-height:calc(100dvh - 14px)}
+  html[data-ui-theme] #city-adventure-shade header{padding:14px 16px}
+  html[data-ui-theme] #city-adventure-shade .cga-content{padding:12px}
+  html[data-ui-theme] #city-adventure-shade .cga-row{align-items:flex-start}
+  html[data-ui-theme] #city-adventure-shade .cga-row em{margin-left:34px}
+}
