@@ -28,7 +28,13 @@ const shot=async(name)=>{try{const p=OUT+'/'+name+'.png';await page.screenshot({
  const ready=await step('02 Começar partida e carregar 3D',async()=>{
   await page.locator('[data-front-action="new"]').click({timeout:15000});
   await page.waitForFunction(()=>window.CityFront?.phase==='playing'&&window.__game&&window.CityDesk?.state,null,{timeout:150000});
-  await page.waitForTimeout(1800);await shot('02-gameplay');
+  await page.waitForTimeout(1400);
+  if(await page.locator('#city-cas-dialog[open]').count()){
+   await shot('02-cas-inicial');
+   await page.locator('#cas-save').click({timeout:30000});
+   await page.waitForFunction(()=>!document.querySelector('#city-cas-dialog')?.open,null,{timeout:45000});
+  }
+  await shot('02-gameplay');
   return page.evaluate(()=>({phase:CityFront.phase,player:{x:__game.player.x,y:__game.player.y},houses:houses.length,characters:!!window.cityCharacters?.ready,work3D:!!window.CityWork3D}));
  });
  if(!ready)return;
@@ -75,6 +81,15 @@ const shot=async(name)=>{try{const p=OUT+'/'+name+'.png';await page.screenshot({
    assert.ok(q.text?.length>20);return q;
   });
  }
+ await step('05b Abrir uma loja pela UI do CitySeller',async()=>{
+  assert.equal(await page.evaluate(()=>CityDesk.show('seller')),true);
+  await page.locator('#city-desk [data-in="bname"]').fill('Loja QA Bairro');
+  const before=await page.evaluate(()=>CityLife.funds);
+  await page.locator('#city-desk [data-do="c:create"]').click();
+  const after=await page.evaluate(()=>({shop:CityCommerce.state.shop?.brand?.name,money:CityLife.funds,save:!!localStorage.getItem('cityofgod.commerce.v1')}));
+  assert.equal(after.shop,'Loja QA Bairro',JSON.stringify(after));assert.ok(after.money<before);assert.ok(after.save);
+  await shot('11-loja-criada');return {before,after};
+ });
  const contract=await step('06 Aceitar contrato no menu',async()=>{
   assert.equal(await page.evaluate(()=>CityDesk.show('contracts')),true);
   await page.locator('#city-desk [data-do^="accept:"]').first().click({timeout:15000});
@@ -95,12 +110,15 @@ const shot=async(name)=>{try{const p=OUT+'/'+name+'.png';await page.screenshot({
   });
  }
  await step('08 Compras no marketplace e dinheiro',async()=>{
-  const q=await page.evaluate(()=>{
-   const shop=CityCommerceCore.NPC_SHOPS[0],sku=Object.keys(shop.skus)[0],before=CityLife.funds;
-   const bought=CityCommerceCore.checkout(CityCommerce.state,shop.id,[{sku,qty:1}],'standard',400,(n,s)=>CityLife.debit(n,s),__game.st.clock);
-   return {bought,sku,before,after:CityLife.funds,purchases:CityCommerce.state.purchases.length};
-  });
-  assert.ok(q.bought.ok,JSON.stringify(q));assert.ok(q.after<q.before);return q;
+  assert.equal(await page.evaluate(()=>CityDesk.show('market')),true);
+  await page.locator('#city-desk [data-do="m:view:npc-mercadinho"]').click();
+  await page.locator('#city-desk [data-do="m:inc:LIFE-WATER"]').click();
+  await shot('13-carrinho-marketplace');
+  const before=await page.evaluate(()=>CityLife.funds);
+  await page.locator('#city-desk [data-do="m:checkout:npc-mercadinho"]').click();
+  const q=await page.evaluate(()=>({sku:'LIFE-WATER',before:0,after:CityLife.funds,purchases:CityCommerce.state.purchases.length,save:!!localStorage.getItem('cityofgod.commerce.v1')}));
+  q.before=before;
+  assert.ok(q.after<before,JSON.stringify(q));assert.ok(q.purchases>=1);assert.ok(q.save);return q;
  });
  await step('09 Salvamento local das profissões e do comércio',async()=>{
   const q=await page.evaluate(()=>{CityDesk.save();return {desk:!!localStorage.getItem('cityofgod.remote-work.v1'),commerce:!!localStorage.getItem('cityofgod.commerce.v1'),balance:CityLife.funds}});
