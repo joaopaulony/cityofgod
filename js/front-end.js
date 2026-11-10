@@ -11,7 +11,7 @@
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new',casIntroShown=false;
  // vitrine: no menu inicial o jogo carrega em silêncio por trás e, pronto, a cidade viva aparece no fundo (drone em game.js)
- let quiet=false,quietReady=false,live=false,previewError='';
+ let quiet=false,quietReady=false,live=false,previewError='',menuLoadQueued=false;
  let load={art:0,code:0,world:0,vehicle:0,characters:0,frame:0},status='Preparando a cidade',savingError='',audio=null,restoring=Promise.resolve(),musicConnected=false;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blocked=()=>phase!=='playing';
@@ -66,7 +66,11 @@
  }
  function release(){game?.release?.();window.cityVehicleBridge?.releaseControls?.();if(window.__game?.player){window.__game.player.wantShot=false;window.__game.player.aiming=false;}}
  function inert(){for(const el of document.body.children)if(el!==root&&!['SCRIPT','TEMPLATE','STYLE'].includes(el.tagName))el.inert=blocked();}
- function change(next){phase=next;document.body.classList.toggle('front-open',blocked());document.body.classList.toggle('city-modal',!!(window.CityUI?.phoneOpen||window.CityUI?.wheelOpen));root.hidden=!blocked();root.setAttribute('aria-busy',String(next==='loading'));inert();release();updateVolume();}
+ function change(next){phase=next;document.body.classList.toggle('front-open',blocked());document.body.classList.toggle('city-modal',!!(window.CityUI?.phoneOpen||window.CityUI?.wheelOpen));root.hidden=!blocked();root.setAttribute('aria-busy',String(next==='loading'));inert();release();updateVolume();if(next==='title')queueMenuWorld();}
+ function queueMenuWorld(){
+  if(menuLoadQueued||runtime||phase!=='title')return;
+  menuLoadQueued=true;setTimeout(()=>{menuLoadQueued=false;if(phase==='title'&&!runtime)start(hadProgressOnEntry,{quiet:true});},80);
+ }
  function otherModal(){return !!(window.CityPets?.uiOpen||window.CityHomeUI?.active||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityUI?.phoneOpen||window.CityUI?.wheelOpen||window.cityCharacterEditorOpen||game?.mapOpen?.()||window.cityCharacters?.socialPie?.active||document.querySelector('dialog:modal'));}   // leque social e diálogos modais (diário Y) tratam o próprio Esc
  function progress(){return Math.round(load.art*10+load.code*55+load.world*10+load.vehicle*10+load.characters*10+load.frame*5);}
  const back=()=>'<button class="front-back" data-front-action="back">← Voltar</button>';
@@ -247,5 +251,5 @@
  else if(intent==='retry-new')start(false);
  else {let resumed=false;try{if(sessionStorage.getItem('cityofgod.front.resume')==='1'&&S.checkpoint(S.read(storage,S.SAVE))){resumed=true;start(true);}}catch{}
   // menu inicial: começa a carregar a cidade por trás (partida salva, se houver) p/ o fundo virar o jogo ao vivo
-  if(!resumed)setTimeout(()=>{if(phase==='title'&&!runtime)start(hadProgressOnEntry,{quiet:true});},80);}
+  if(!resumed)queueMenuWorld();}
 })();
