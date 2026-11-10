@@ -115,7 +115,7 @@ test('controls, CSS, entry-point and build scripts wire the editor without break
  assert.match(game,/CityHomeUI\?\.active/);
  assert.match(game,/CityHomeUI\?\.mount/);
  const ui=fs.readFileSync('js/city-home-ui.js','utf8');
- for(const k of ['mousedown','mousemove','mouseup','wheel','keydown','delete','escape','enter','undo','city-home-open'])
+ for(const k of ['pointerdown','pointermove','pointerup','pointercancel','wheel','keydown','delete','escape','enter','undo','city-home-open'])
    assert.ok(ui.includes(k),'missing interaction '+k);
  const css=fs.readFileSync('css/city-home.css','utf8');
  assert.match(css,/body\.city-home-open #city-controls/);
