@@ -66,6 +66,9 @@ test('F7 pointer capture, 3D preview, full furniture silhouette and cancel work 
    "const corners=boxCorners(b)",
    "proj(px,py,(b.z||0)+b.h)",
    "previewBox.x=draft.x;previewBox.y=draft.y",
+   "previewChildren=items.filter(b=>b.supportId===draft.id)",
+   "box.x=draft.x+dx*c-dy*s;box.y=draft.y+dx*s+dy*c",
+   "for(const {box,before} of previewChildren)Object.assign(box,before)",
    "const clean=()=>{clearPreview()",
    "CityHome.move(H,draft.id,draft)"
  ])assert.ok(ui.includes(term),'F7 missing '+term);
