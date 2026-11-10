@@ -80,7 +80,7 @@ const CityAdventures=(()=>{
   hud.addEventListener('click',e=>{if(e.target.closest('[data-cga-open]'))open('missions');if(e.target.closest('[data-cga-route]'))route();});
   el.addEventListener('click',e=>{
    if(e.target===el||e.target.closest('[data-cga-close]')){close();return;}
-   const t=e.target.closest('[data-cga-tab]');if(t){tab=t.dataset.cgaTab;render();return;}
+   const t=e.target.closest('[data-cga-tab]');if(t){tab=t.dataset.cgaTab;render();el.querySelector('[data-cga-tab="'+tab+'"]')?.focus({preventScroll:true});return;}
    const choose=e.target.closest('[data-cga-choice]');if(choose){resolveEvent(Number(choose.dataset.cgaChoice));return;}
    if(e.target.closest('[data-cga-route]'))route();
    if(e.target.closest('[data-cga-gps]'))guideJob();
@@ -104,8 +104,12 @@ const CityAdventures=(()=>{
  function render(){
   if(!active||!el)return;
   const m=current(),panel=el.querySelector('.cga-panel');
-  const tabs=[['missions','🎯 Objetivos'],['events','🌆 Acontecimentos']];
-  const nav='<nav class="cga-tabs">'+tabs.map(x=>'<button type="button" data-cga-tab="'+x[0]+'" class="'+(tab===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</nav>';
+  const icons={
+   missions:'<svg class="cga-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none"/></svg>',
+   events:'<svg class="cga-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 21h20M4 21V9h6v12M10 21V13h4v8M14 21V5h6v16M6 12h2M6 15h2M16 9h2M16 12h2M16 15h2"/></svg>'
+  };
+  const tabs=[['missions','Objetivos'],['events','Acontecimentos']];
+  const nav='<nav class="cga-tabs" aria-label="Seções de Vida na Cidade">'+tabs.map(([key,label])=>'<button type="button" data-cga-tab="'+key+'" aria-pressed="'+(tab===key)+'" class="'+(tab===key?'on':'')+'">'+icons[key]+'<span class="cga-tab-label">'+label+'</span></button>').join('')+'</nav>';
   let body='';
   if(tab==='missions'){
    body='<div class="cga-info"><b>'+(m?escape(m.title):'Capítulo de chegada concluído')+'</b><p>'+(m?escape(m.desc):'Você já sabe como começar sua vida nesta cidade. Agora escolha seus próprios objetivos.')+'</p>'+(m?'<small>'+escape(m.hint)+'</small><p>Recompensa: '+money(m.reward)+'</p>':'<p>Recompensas acumuladas: '+money(state.totalRewards)+'</p>')+'</div>';

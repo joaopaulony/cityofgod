@@ -26,3 +26,16 @@ test('cores de primeiro plano do tema são legíveis no painel J',()=>{
  assert.ok(ratio('#5c676a','#faf9f6')>=4.5);
  assert.ok(ratio('#b6c0bd','#12191d')>=4.5);
 });
+
+test('abas do menu J não têm scrollbar, emojis desalinhados nem perda de foco ao trocar de seção',()=>{
+ const js=fs.readFileSync('js/city-adventures.js','utf8');
+ assert.ok(js.includes('class="cga-tab-icon"'), 'ícones SVG padronizados');
+ assert.ok(js.includes("['missions','Objetivos'],['events','Acontecimentos']"), 'rótulos sem emojis');
+ assert.ok(js.includes('aria-pressed'), 'estado da aba acessível');
+ assert.ok(js.includes('aria-label="Seções de Vida na Cidade"'), 'navegação identificável');
+ assert.ok(js.includes("?.focus({preventScroll:true})"), 'foco preservado após atualização');
+ assert.match(adventure,/#city-adventure-shade \.cga-tabs\{[^}]*flex-wrap:wrap;[^}]*overflow:visible/);
+ assert.match(adventure,/#city-adventure-shade \.cga-tabs button\{[^}]*display:inline-flex;align-items:center/);
+ assert.match(adventure,/#city-adventure-shade \.cga-tab-icon\{[^}]*width:17px;height:17px/);
+ assert.match(css,/html\[data-ui-theme\] #city-adventure-shade \.cga-tabs\{[^}]*overflow:visible!important/);
+});
