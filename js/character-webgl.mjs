@@ -254,6 +254,7 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
   if(!COMBAT.has(anims))COMBAT.set(anims,makeCombatClips(root,spec.height).filter(c=>!CLIP_ALIAS[c.name]));
   const actions=lazyActions(mixer,anims,COMBAT.get(anims));
   const gun=new THREE.Group(),muzzle=new THREE.Object3D();muzzle.position.set(0,.01,.7);gun.add(muzzle);gun.visible=false;
+  root.userData.inkHuman=true;   // URBAN INK (urban-ink.mjs): pessoas ficam fora do toon e do contorno — só esta marca, nada no modelo muda
   root.userData.noSnow=gun.userData.noSnow=true;   // neve pousada (ambience-3d.mjs) não cobre gente nem o que ela carrega
   scene.add(root);scene.add(gun);
   const entry={root,mixer,actions,spec,id:item.key,clip:null,action:null,emote:null,gun,muzzle,grip:new THREE.Vector3(),support:new THREE.Vector3(),

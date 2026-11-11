@@ -25,7 +25,7 @@ const GroundGPU = (() => {
 in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
   const FS = `#version 300 es
 precision highp float;
-uniform vec2 uRes, uCam, uRot; uniform float uZoom, uTilt, uRoadW, uSide;
+uniform vec2 uRes, uCam, uRot; uniform float uZoom, uTilt, uRoadW, uSide, uInk;
 uniform sampler2D uFine, uCoarse, uLawn, uWeeds, uSand, uDirt, uWalk, uConc;
 uniform vec3 aLawn, aWeeds, aSand, aDirt, aWalk, aConc;   // cor média de cada textura (a textura só dá o detalhe)
 uniform vec4 mA, mB;                                      // metros de cada textura: lawn weeds sand dirt | walk conc
@@ -84,6 +84,13 @@ void main(){
     r = mix(r, walk, smoothstep(uRoadW + 0.2 - aa, uRoadW + 0.2 + aa, d));
     col = mix(r, col, smoothstep(uRoadW + uSide - aa, uRoadW + uSide + aa, d));
   }
+  // URBAN INK: o mesmo traço do chão 2D (meio-fio, borda da calçada, margem da água)
+  if (uInk > 0.0) {
+    float aw = max(fwidth(d), 0.02), ap = max(fwidth(pv), 0.002);
+    float il = max(1.0 - smoothstep(0.03, 0.03 + aw * 1.5, abs(d - uRoadW - 0.02)), d < uRoadW + uSide + 0.2 ? 1.0 - smoothstep(0.03, 0.03 + aw * 1.5, abs(d - uRoadW - uSide)) : 0.0);
+    il = max(il, (1.0 - smoothstep(0.003, 0.003 + ap * 1.5, abs(pv - 1.0))) * step(pv, 1.3));
+    col = mix(col, vec3(0.09, 0.102, 0.125), il * uInk);
+  }
   o = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -109,7 +116,7 @@ void main(){
       gl.useProgram(prog);
       const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
       const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      for (const n of ['uRes', 'uCam', 'uRot', 'uZoom', 'uTilt', 'uRoadW', 'uSide', 'uFine', 'uCoarse', 'uLawn', 'uWeeds', 'uSand', 'uDirt', 'uWalk', 'uConc', 'aLawn', 'aWeeds', 'aSand', 'aDirt', 'aWalk', 'aConc', 'mA', 'mB', 'cAsph', 'cPatch', 'cGutter', 'cCurbF', 'cCurbT', 'cWalk', 'cDirt', 'dA', 'dB', 'uCrop'])
+      for (const n of ['uRes', 'uCam', 'uRot', 'uZoom', 'uTilt', 'uRoadW', 'uSide', 'uInk', 'uFine', 'uCoarse', 'uLawn', 'uWeeds', 'uSand', 'uDirt', 'uWalk', 'uConc', 'aLawn', 'aWeeds', 'aSand', 'aDirt', 'aWalk', 'aConc', 'mA', 'mB', 'cAsph', 'cPatch', 'cGutter', 'cCurbF', 'cCurbT', 'cWalk', 'cDirt', 'dA', 'dB', 'uCrop'])
         uni[n] = gl.getUniformLocation(prog, n);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       fineTex = dataTexture(gl.RGBA8, gl.RGBA, WIN / FINE);
@@ -203,13 +210,16 @@ void main(){
     for (const k in tex) { gl.activeTexture(gl.TEXTURE0 + tex[k].unit); gl.bindTexture(gl.TEXTURE_2D, tex[k].t); gl.uniform1i(uni[U[k]], tex[k].unit); gl.uniform3fv(uni[A[k]], avg[k]); }
     gl.uniform4f(uni.mA, meters.lawn, meters.weeds, meters.sand, meters.dirt); gl.uniform4f(uni.mB, meters.walk, meters.conc, 0, 0);
     gl.uniform2f(uni.uRes, W, H); gl.uniform2f(uni.uCam, cam.x, cam.y); gl.uniform2f(uni.uRot, cam.cos, cam.sin);
-    gl.uniform1f(uni.uZoom, cam.zoom); gl.uniform1f(uni.uTilt, TILT);
+    gl.uniform1f(uni.uZoom, cam.zoom); gl.uniform1f(uni.uTilt, TILT); gl.uniform1f(uni.uInk, ink ? ink.outline : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     stats.frames++;
     return true;
   }
   // dados do mundo mudaram (ex.: terreno de sítio virou pasto): a janela é refeita nos próximos quadros
   function invalidate() { slot.fill(null); }
-  return { draw, invalidate, get active() { return ready && !failed; }, stats };
+  // URBAN INK (urban-ink.mjs): parâmetros do traço ou null p/ o estilo original; o chão 2D (terrain.js) acompanha
+  let ink = null;
+  function setInk(p) { ink = p && p.enabled ? p : null; window.CityTerrainInk?.(!!ink); }
+  return { draw, invalidate, setInk, get active() { return ready && !failed; }, stats };
 })();
 window.GroundGPU = GroundGPU;

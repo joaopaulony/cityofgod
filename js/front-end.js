@@ -62,6 +62,7 @@
   document.documentElement.style.setProperty('--city-brightness',String(settings.brightness));
   document.body.classList.toggle('front-reduced-motion',settings.reducedMotion);updateVolume();
   window.cityVehicles?.applyQuality?.(settings.quality);
+  window.cityVehicles?.applyInk?.(settings);   // URBAN INK — CARTOON ou estilo original (urban-ink.mjs)
   window.dispatchEvent(new CustomEvent('city-front-settings',{detail:{...settings}}));
  }
  function release(){game?.release?.();window.cityVehicleBridge?.releaseControls?.();if(window.__game?.player){window.__game.player.wantShot=false;window.__game.player.aiming=false;}}
@@ -91,7 +92,11 @@
   }else if(phase==='multiplayer')content=panel('Multiplayer',`<span class="front-coming">EM BREVE</span><h2>A cidade também vai ser ponto de encontro.</h2><p>Estamos preparando a opção de conectar você a outros jogadores para compartilhar a cidade.</p><p>Nesta versão, a partida e o progresso são locais. Ainda não há servidores, salas ou conexão online disponíveis.</p><div class="front-actions"><button class="front-action primary" data-front-action="back">Voltar ao menu</button></div>`);
   else if(phase==='settings'){
    const tabs=[['video','Vídeo'],['audio','Áudio'],['controls','Controles'],['interface','Interface']];
-   let fields=tab==='video'?setting('quality','Qualidade 3D','Desempenho: 75% da resolução, sem sombras · Equilibrada: resolução da tela, sombras · Alta: imagem 1,5× mais nítida, sombras finas. Se a placa de vídeo não der conta, a resolução baixa sozinha e volta quando sobrar folga.','select')+setting('brightness','Brilho','Ajusta a imagem da cidade sem alterar a arte do menu.'):
+   let fields=tab==='video'?setting('quality','Qualidade 3D','Desempenho: 75% da resolução, sem sombras · Equilibrada: resolução da tela, sombras · Alta: imagem 1,5× mais nítida, sombras finas. Se a placa de vídeo não der conta, a resolução baixa sozinha e volta quando sobrar folga.','select')+setting('brightness','Brilho','Ajusta a imagem da cidade sem alterar a arte do menu.')+
+     setting('ink','URBAN INK — CARTOON','Estilo gráfico da cidade: contorno preto, luz em faixas e cores chapadas. Desligado volta ao estilo original, para comparar. Personagens não mudam.','checkbox')+
+     (settings.ink?setting('inkOutline','Contorno','Força do traço preto nas silhuetas e quinas.')+setting('inkThickness','Espessura do traço','De fino (1 px) a grosso (3 px).')+
+      setting('inkToon','Toon','Quanto a luz é separada em faixas chapadas (0 = luz suave original).')+setting('inkSaturation','Saturação','Cores mais vivas.')+setting('inkContrast','Contraste','Separação entre luz e sombra.')+
+      setting('inkQuality','Qualidade do contorno','Desempenho: traço simples, sem suavização. Equilibrada: suavização 4× e contorno das copas. Qualidade: também as diagonais.',[['performance','Desempenho'],['balanced','Equilibrada'],['quality','Qualidade']]):''):
     tab==='audio'?setting('master','Volume geral','Todos os sons do jogo de uma vez.','audio')+setting('music','Música','Trilha do menu e o baile funk que toca ao longe na favela.','audio')+setting('ambient','Ambiente','Trânsito, vento, pássaros, grilos, cães e sirenes ao redor.','audio')+setting('effects','Efeitos','Tiros, batidas, motor e buzina do carro, passos e golpes.','audio')+setting('voices','Vozes','Conversas e gritos das pessoas na rua.','audio')+setting('interface','Interface','Cliques do menu, do celular e avisos.','audio')+
      `<div class="front-actions"><button type="button" class="front-action" data-front-audio="mute">${settings.master>0?'Silenciar tudo':'Reativar o som'}</button><button type="button" class="front-action" data-front-audio="reset">Restaurar padrão</button></div>`:
     tab==='interface'?setting('theme','Aparência','Claro: vidro leve e texto escuro. Escuro: vidro fumê e texto claro. Automático segue o tema do sistema.',[['light','Claro'],['dark','Escuro'],['auto','Automático']])+
@@ -229,7 +234,7 @@
  });
  root.addEventListener('click',e=>{const item=e.target.closest('[data-front-tab]');if(item){clickSound();tab=item.dataset.frontTab;render();root.querySelector('#front-tab-'+tab)?.focus();}});
  function persistSettings(){settings=S.settings(settings);try{storage.setItem(S.SETTINGS,JSON.stringify(settings));}catch{const el=root.querySelector('#front-settings-message');if(el)el.textContent='As alterações foram aplicadas, mas o navegador não permitiu salvá-las.';}applySettings();}
- root.addEventListener('input',e=>{const key=e.target.dataset.frontSetting;if(!key||key==='quality')return;settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value)/100;const out=root.querySelector(`[data-setting-output="${key}"]`);if(out)out.textContent=Math.round(settings[key]*100)+'%';persistSettings();});
+ root.addEventListener('input',e=>{const key=e.target.dataset.frontSetting;if(!key||key==='quality')return;settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value)/100;const out=root.querySelector(`[data-setting-output="${key}"]`);if(out)out.textContent=Math.round(settings[key]*100)+'%';persistSettings();if(key==='ink'){render();root.querySelector('#front-ink')?.focus();}});
  root.addEventListener('change',e=>{if(e.target.dataset.frontSetting==='quality'){settings.quality=e.target.value;persistSettings();}});
  root.addEventListener('click',e=>{const b=e.target.closest('[data-front-choice]');if(!b)return;const key=b.dataset.frontChoice;settings[key]=b.dataset.value;
   for(const x of root.querySelectorAll('[data-front-choice="'+key+'"]'))x.setAttribute('aria-checked',String(x===b));clickSound();persistSettings();});

@@ -10,6 +10,11 @@ const CH = 16, TP = 56, CPX = CH * TP, PAD = 2, CSZ = CPX + PAD * 2;
 const GSTEP = 0.25, GN = CH / GSTEP + 3;          // grade de campos com 1 nó de margem
 const MINI = 6;                                    // px/m do minimapa / fallback
 const terrain = { chunks: new Map(), maxChunks: 20, noise: null, frame: 0 };
+// faixa de traço do Urban Ink: 1 no centro, some suave até a meia largura w
+const inkBand = (x, w) => 1 - Math.min(1, Math.max(0, (Math.abs(x) - w * 0.35) / (w * 0.65)));
+// liga/desliga o traço do Urban Ink: os blocos já pintados são refeitos aos poucos
+function setTerrainInk(on) { on = !!on; if (terrain.ink === on) return; terrain.ink = on; terrain.chunks.clear(); }
+if (typeof window !== 'undefined') window.CityTerrainInk = setTerrainInk;
 
 // ---------- ruído tileável 256² (ancorado no mundo) ----------
 function tileNoise(rnd, octaves) {
@@ -385,6 +390,11 @@ function paintRows(ch, rows, L = ch) {
           const aw = 1 - sstep(ROAD_W - 0.01, ROAD_W + 0.015, rd);
           r = lerp(r, ar, aw); gg = lerp(gg, ag, aw); b = lerp(b, ab, aw);
         }
+      }
+      // URBAN INK (urban-ink.mjs): traço preto no meio-fio, na borda da calçada e na margem da água
+      if (terrain.ink) {
+        const il = Math.max(inkBand(rd - ROAD_W - 0.02, 0.07), rd < s1 + 0.2 ? inkBand(rd - s1, 0.07) : 0, inkBand(pv - 1.0, 0.006) * (pv < 1.3 ? 1 : 0));
+        if (il > 0) { r = lerp(r, 23, il); gg = lerp(gg, 26, il); b = lerp(b, 32, il); }
       }
       const o = (py * SZ + px) * 4;
       data[o] = r; data[o + 1] = gg; data[o + 2] = b; data[o + 3] = 255;

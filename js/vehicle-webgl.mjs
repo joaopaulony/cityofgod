@@ -32,6 +32,9 @@ import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
 import {createVehicleDamageEffects,smokeIntensityForIntegrity,hoodSmokeEmitters} from './vehicle-damage-effects.mjs';
+import {installInkShaders,createUrbanInk,inkParamsFrom} from './urban-ink.mjs';
+// URBAN INK: os shaders de luz ganham o toon em faixas antes de qualquer material compilar (desligado = idêntico)
+installInkShaders(THREE);
 
 const bridge=window.cityVehicleBridge;
 if(!bridge)throw Error('Missing City of God live 3D vehicle bridge');
@@ -327,6 +330,9 @@ function initRenderer(){
  shadowGround.position.y=.008;
  shadowGround.receiveShadow=true;scene.add(shadowGround);
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
+ // URBAN INK (urban-ink.mjs): toon + contorno preto em pós-processo; desligado, o quadro sai pelo caminho original
+ urbanInk=createUrbanInk(THREE,renderer,scene,viewCamera,{settings:window.CityFront?.settings});
+ system.urbanInk=urbanInk.state;renderer.info.autoReset=false;
  makeOccluders();
  createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
  installJobs(THREE,scene,bridge);
@@ -401,6 +407,23 @@ function dynamicResolution(now){
  dyn.slow=dyn.ema>20&&cpu<dyn.ema*.6?dyn.slow+d:0;dyn.fast=dyn.ema<17.6?dyn.fast+d:0;
  if(dyn.slow>700&&dyn.scale>q.min+.001){dyn.scale=Math.max(q.min,+(dyn.scale-.1).toFixed(2));dyn.slow=0;applyRatio();}
  else if(dyn.fast>3000&&dyn.scale<1){dyn.scale=Math.min(1,+(dyn.scale+.05).toFixed(2));dyn.fast=0;applyRatio();}
+}
+let urbanInk=null;
+// iluminação do Urban Ink: menos luz de preenchimento (céu) e mais sol, p/ as faixas do toon separarem luz e sombra;
+// exposição menor contra paredes e pisos estourados em branco nos interiores
+const INK_LIGHT={hemi:.78,sun:1.15,bounce:.6,exposure:1.3};
+system.applyInk=settings=>{
+ if(!urbanInk)return;
+ urbanInk.setSettings(settings||{});
+ const on=urbanInk.enabled;
+ renderer.toneMappingExposure=on?INK_LIGHT.exposure:1.38;
+ document.body?.classList.toggle('urban-ink',on);
+ window.GroundGPU?.setInk?.(on?inkParamsFrom(settings):null);
+};
+function inkLights(){
+ if(!urbanInk?.enabled)return;
+ const [[hemi],[sun],[bounce]]=scene.userData.lights;
+ hemi.intensity*=INK_LIGHT.hemi;sun.intensity*=INK_LIGHT.sun;bounce.intensity*=INK_LIGHT.bounce;
 }
 let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
@@ -666,12 +689,13 @@ system.render=()=>{
  // tempo de cada camada neste quadro (ms): system.layerMs, lido pelo medidor de desempenho
  const lm=system.layerMs||(system.layerMs={});let lt=performance.now();const lap=k=>{const n=performance.now();lm[k]=n-lt;lt=n;};
  const c=bridge.cam;
+ renderer.info.reset();   // contagem do quadro inteiro (mundo + contorno do Urban Ink)
  setCamera();
  if(body){body.visible=!!activeKey;body.position.set(state.x,0,state.y);
  body.rotation.set(system.driver?-state.steer*Math.min(.1,Math.abs(state.speed)*.004):0,-state.angle,0);}
  system.lightState=lighting?.apply(lightFlags(),lightingClock)||null;
  // noite: as luzes da cena acompanham o escurecimento do jogo 2D
- if(ambience)ambience.update(viewCamera);   // sol/luar na direção do astro, céu do horário, vento e neve
+ if(ambience){ambience.update(viewCamera);inkLights();}   // sol/luar na direção do astro, céu do horário, vento e neve
  else{
   const night=bridge.world.night?.15:1;
   for(const [l,k] of scene.userData.lights)l.intensity=k*night;
@@ -709,7 +733,7 @@ system.render=()=>{
  lap('occlusion');
  warmGPU();
  dynamicResolution(performance.now());
- renderer.render(scene,viewCamera);lap('draw');
+ if(!urbanInk?.render())renderer.render(scene,viewCamera);lap('draw');
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={
   // GLB em tempo real usa exatamente a mesma projecao ortografica.
