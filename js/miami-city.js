@@ -896,8 +896,8 @@ function miaLotsForSale(S, zoneAt, rects, infill = false) {
       catch (_) {}
       const previouslyOwned = [...(window.CitySim?.data?.ownedLots || []), ...(Array.isArray(savedLots) ? savedLots : [])]
         .some(l => l.id === lotId || l.key === ownerKey);
-      const makeHome = !infill && !previouslyOwned && ['bungalow','town','poor'].includes(z) &&
-        (owSeed(S,'home-parcel-' + made) % 10 < 7);
+      const makeHome = !previouslyOwned && ['bungalow','town','poor'].includes(z) &&
+        (owSeed(S,'home-parcel-' + (infill ? lotId : made)) % 10 < (infill ? 3 : 7));
       if (makeHome) {
         // Isolate the global generator RNG so houses generated in the original pass
         // retain their established world positions and property IDs.
