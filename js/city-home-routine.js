@@ -52,9 +52,11 @@ const CityHomeRoutine=(()=>{
        player.y=t.poseOrigin.y+(t.poseTarget.y-t.poseOrigin.y)*w;
      }
      if(['fridge','eat'].includes(t.kind)&&furniture.kind==='fridge'){
-       const u=clamp(Math.min((t.elapsed-.35)/.7,(t.duration-t.elapsed-.35)/.7),0,1),w=u*u*(3-2*u),rot=furniture.rot||0;
-       player.x=t.poseOrigin.x-(Math.sin(rot)*.34+Math.cos(rot)*.50)*w;
-       player.y=t.poseOrigin.y+(Math.cos(rot)*.34-Math.sin(rot)*.50)*w;
+       const u=clamp(Math.min((t.elapsed-.35)/.7,(t.duration-t.elapsed-.35)/.7),0,1),w=u*u*(3-2*u);
+       // Lean toward the fridge handle from the accessible side; never sweep
+       // diagonally into the back wall just because the house is rotated.
+       const front=CityHomeNav.facing(furniture),x=t.poseOrigin.x-front.x*.13*w,y=t.poseOrigin.y-front.y*.13*w;
+       if(CityHomeNav.safeSpot(t.H,furniture,x,y,furniture.id)){player.x=x;player.y=y;}
      }
      player.face+=ANG(t.face,player.face)*clamp(dt*8,0,1);
      if(t.elapsed>=t.duration){
@@ -89,8 +91,10 @@ const CityHomeRoutine=(()=>{
          {x:furniture.x+facing.x*.06,y:furniture.y+facing.y*.06}:
          {x:furniture.x,y:furniture.y};
        // Face the mixer/head from inside the shower, never toward the wall.
-       t.face=shower?Math.atan2(-facing.y,-facing.x):
-         (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):furniture.kind==='chair'?-Math.PI/2:Math.PI/2);
+       // Every seated pose faces the model's backrest/desk side, not the
+       // procedural building rotation. Important for sofas, toilets and chairs.
+       t.face=(shower||seated)?Math.atan2(-facing.y,-facing.x):
+         (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):Math.PI/2);
      }
      player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,
        itemId:t.itemId,item:furniture,house:t.H,surface:sleep?furniture.h*1.05:furniture.h*.55};return true;}
