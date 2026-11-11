@@ -706,6 +706,9 @@ function behindHouse(H, px, py) {
 }
 function drawBox(g,b) {
   if (b.draw) return b.draw(g, b);   // objetos com desenho próprio (miami-city.js)
+  // Some 3D-only props (e.g. aircraft body, sale sign) have no 2D paint material.
+  // Keep the fallback renderer usable instead of throwing inside tone()/mix().
+  if(!b.top||!b.side)b={...b,top:b.top||'#b1b5b7',side:b.side||'#737a80'};
   const c = boxCorners(b), z0 = b.z, z1 = b.z + b.h;
   const faces = [];
   for (let i = 0; i < 4; i++) {
