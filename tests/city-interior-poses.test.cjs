@@ -137,3 +137,27 @@ for(const [kind,furniture] of [
     'character finished '+kind+' in a wall, outdoors or inside furniture');
  });
 }
+
+test('all seated poses face the actual +Z front of the 3D furniture even in rotated homes',()=>{
+ for(const kind of ['chair','sofa','couch','toilet']){
+  const f=room({itemKind:kind,deskY:6,front:[-1,0]});
+  f.item.x=6;f.item.y=6;f.item.w=1.2;f.item.d=.75;f.item.h=.8;
+  f.player.x=3;f.player.y=3;
+  const result=f.window.CityHomeRoutine.start(f.H,f.item,kind==='toilet'?'toilet':'sit');
+  assert.equal(result.ok,true,kind+': '+result.text);
+  let pose=false;
+  for(let i=0;i<300&&f.window.CityHomeRoutine.active;i++){
+   f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+   if(f.window.CityHomeRoutine.stage==='pose'){
+    pose=true;
+    const expected=Math.atan2(0,1);
+    for(let j=0;j<25;j++)f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+    assert.ok(Math.abs(f.player.face-expected)<.5,kind+': face '+f.player.face);
+    break;
+   }
+  }
+  assert.ok(pose,kind+' did not start pose');
+  f.window.CityHomeRoutine.cancel('',true);
+  assert.ok(f.H.contains(f.player.x,f.player.y,0),kind+' exited into an exterior wall');
+ }
+});
