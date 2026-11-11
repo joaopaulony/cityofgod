@@ -122,16 +122,19 @@ const CityHomeNav=(()=>{
    return {points:points.map(([x,y])=>({x,y})),distance:cost[eid],visited,cells:n,goal:toWorld(H,...point(eid))};
  }
  function approach(H,p,item){
-   const f=item.floor||0,ang=item.rot||0,c=Math.cos(ang),s=Math.sin(ang);
-   const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet'].includes(item.kind);
-   const clearance=item.kind==='stove'?.30:.42;
+   const f=item.floor||0,front=facing(item),side={x:front.y,y:-front.x};
+   // Use the actual +Z direction of the rendered GLB/procedural model.
+   // 'rot' is often the house angle, while faceW is the chair/shower's real front.
+   const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet',
+     'desk','studentdesk','shower'].includes(item.kind);
+   const clearance=item.kind==='stove'?.30:item.kind==='shower'?.38:.42;
    const offsets=item.kind==='fridge'?[[.15,item.d/2+.31],[.05,item.d/2+.31],[.25,item.d/2+.31]]:frontOnly?[[0,item.d/2+clearance],[.22,item.d/2+clearance],[-.22,item.d/2+clearance]]:[
      [0,item.d/2+.62],[0,-item.d/2-.62],
      [item.w/2+.62,0],[-item.w/2-.62,0],
      [.25,item.d/2+.58],[-.25,item.d/2+.58]];
    let best=null;
    for(const [u,v] of offsets){
-     const x=item.x+u*c-v*s,y=item.y+u*s+v*c;
+     const x=item.x+u*side.x+v*front.x,y=item.y+u*side.y+v*front.y;
      const attempt=route(H,p,{x,y},f,null);
      if(!attempt)continue;
      const goal=attempt.points.at(-1);

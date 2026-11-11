@@ -364,9 +364,19 @@ const CityDesk=(()=>{
      y:d.y+side.y*lx*k.sx+f.y*lz*k.sz};
  };
  function seatAt(st){
-   const d=st.desk,f=deskFront(d),seat=deskLocal(d,0,d.kind==='desk'?.60:.72);
-   if(!window.CityHomeNav?.safeSpot?.(st.H,d,seat.x,seat.y,d.id))return null;
-   return {seat,face:Math.atan2(-f.y,-f.x)};
+   const p=player(),d=st.desk,f=deskFront(d);
+   // The built-in chair is +Z, at 0.60 m in the exact procedural mesh.
+   // Never put a player in the wall-side of a desk or another apartment.
+   const seat=deskLocal(d,0,d.kind==='desk'?.60:.72);
+   const nav=window.CityHomeNav;
+   if(!nav?.safeSpot?.(st.H,d,seat.x,seat.y,d.id))return null;
+   if(!p||!nav.safeSpot(st.H,d,p.x,p.y,d.id))return null;
+   // A short walkable indoor route excludes teleporting through a partition.
+   const path=nav.route(st.H,{x:p.x,y:p.y},seat,st.floor,d.id);
+   if(!path||path.distance>7.5)return null;
+   const leave=nav.exitSpot(st.H,d,{x:p.x,y:p.y});
+   if(!leave)return null;
+   return {seat,face:Math.atan2(-f.y,-f.x),leave};
  }
  function sitDown(kind,st,extra={}){
    const p=player();if(!p||!st)return null;
@@ -374,7 +384,7 @@ const CityDesk=(()=>{
    if(!s){notify('A cadeira da escrivaninha está encostada na parede ou bloqueada. Vire a mesa com R no F7.',false);return null;}
    // Persist the safe approach point in transient pose data. A seated actor
    // must never walk out of a wall when the UI closes.
-   const standOrigin={x:p.x,y:p.y,floor:p.floor||0};
+   const standOrigin={x:s.leave.x,y:s.leave.y,floor:p.floor||0};
    p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;
    if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);
    p.homeAction={kind,t:0,duration:1e9,deskWork:true,standOrigin,deskId:st.desk.id,
@@ -388,6 +398,10 @@ const CityDesk=(()=>{
    const origin=action.standOrigin;
    const safe=desk&&window.CityHomeNav?.exitSpot?.(H,desk,origin);
    if(safe){p.x=safe.x;p.y=safe.y;}
+   else if(desk&&window.CityHomeNav?.safeSpot?.(H,desk,p.x,p.y,desk.id)){
+     // If furniture moved while working, remain at the safe seat rather than
+     // making up a point outside the house or past an apartment boundary.
+   }
    if(origin){p.floor=origin.floor;p.floorZ=H?.architecture?.levels?.[origin.floor]?.z||0;}
    p.homeAction=null;p.speed=0;
  }

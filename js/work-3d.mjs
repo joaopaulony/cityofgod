@@ -107,7 +107,7 @@ export function installWork3D(THREE, scene, bridge) {
 
   // ---------- shower: procedural falling water and warm vapor ----------
   // Reuses existing home_wash/interact clip; no GLB, image or new animation asset.
-  const dropCount=46,waterCoords=new Float32Array(dropCount*6),waterGeo=new THREE.BufferGeometry();
+  const dropCount=70,waterCoords=new Float32Array(dropCount*6),waterGeo=new THREE.BufferGeometry();
   waterGeo.setAttribute('position',new THREE.BufferAttribute(waterCoords,3));
   const showerWater=new THREE.LineSegments(waterGeo,
     new THREE.LineBasicMaterial({color:0x9fe4fb,transparent:true,opacity:.81,depthWrite:false}));
@@ -129,8 +129,8 @@ export function installWork3D(THREE, scene, bridge) {
       x:item.x+side.x*.1-f.x*.25,y:item.y+side.y*.1-f.y*.25};
     const z=item.z||0;
     for(let i=0;i<dropCount;i++){
-      const a=i*2.399963+t*.41,r=.07+(i%8)*.022;
-      const phase=(t*2.5+i*.137)%1,top=z+1.87-phase*1.4;
+      const a=i*2.399963+t*.41,r=.035+(i%9)*.016;
+      const phase=(t*2.7+i*.137)%1,top=z+1.88-phase*1.57;
       const x=head.x+Math.cos(a)*r,y=head.y+Math.sin(a)*r;
       waterCoords.set([x,top,y,x+Math.sin(a)*.025,top-.25-Math.cos(t*4+i)*.045,y+Math.cos(a)*.025],i*6);
     }
@@ -139,7 +139,7 @@ export function installWork3D(THREE, scene, bridge) {
     steam.children.forEach((p,i)=>{
       const phase=(t*.22+i*.139)%1,angle=i*2.31+t*.12,rad=.17+.20*phase;
       p.position.set(item.x+Math.cos(angle)*rad,z+.38+phase*1.43,item.y+Math.sin(angle)*rad);
-      const scale=.75+phase*2.7;p.scale.set(scale*1.15,scale*.65,scale*1.15);
+      const scale=.65+phase*2.5;p.scale.set(scale*1.12,scale*.55,scale*1.12);
     });
   }
 
