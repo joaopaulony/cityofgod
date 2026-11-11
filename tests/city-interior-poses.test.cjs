@@ -114,3 +114,26 @@ test('shower uses lightweight procedural falling water, steam and no generated a
  assert.ok(source.includes("action?.kind==='wash'"));
  assert.ok(source.includes('shower:showerWater.visible'));
 });
+
+for(const [kind,furniture] of [
+ ['sit','sofa'],['sleep','bed'],['toilet','toilet'],['cook','stove'],
+ ['eat','fridge'],['watch','tv'],['work','desk'],['drink','sink'],
+ ['fridge','fridge'],['wash','shower']
+]){
+ test('domestic interaction '+kind+' completes once and exits inside with no collision',()=>{
+  const f=room({itemKind:furniture,deskY:6,front:[0,1]});
+  f.item.x=6;f.item.y=6;f.item.w=furniture==='bed'?1.65:.85;
+  f.item.d=furniture==='bed'?2:.85;f.item.h=furniture==='shower'?1.95:.85;
+  f.player.x=2;f.player.y=2;
+  let calls=0;f.window.CityHomePlus={completeActivity(){calls++;return {ok:true,text:'Atividade concluída'}}};
+  const r=f.window.CityHomeRoutine.start(f.H,f.item,kind);
+  assert.equal(r.ok,true,r.text);
+  for(let i=0;i<360&&f.window.CityHomeRoutine.active;i++)
+   f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+  assert.equal(f.window.CityHomeRoutine.active,false,'activity did not end');
+  assert.equal(calls,1,'activity reward should trigger exactly once');
+  assert.equal(f.player.homeAction,null,'pose did not reset');
+  assert.ok(f.window.CityHomeNav.safeSpot(f.H,f.item,f.player.x,f.player.y),
+    'character finished '+kind+' in a wall, outdoors or inside furniture');
+ });
+}
