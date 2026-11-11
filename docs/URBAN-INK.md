@@ -49,6 +49,23 @@ pixel a pixel pela CPU (`terrain.js`). No modo Urban Ink:
 Com o jogo parado, o quadro continua dominado pelo desenho 3D: 24,4 ms no original contra 26,7 ms no Urban Ink (o
 passe do traço). O ganho do chão aparece ao entrar no jogo, ao teleportar e ao andar/dirigir para áreas novas.
 
+### Sombra do sol em cadência
+
+O passe de sombra redesenha ~300 objetos por quadro (mais da metade de todos os desenhos) e custava ~4,3 ms — o
+tamanho do mapa não importa (2048 ou 1024 dão o mesmo tempo). No Urban Ink, a pé, a sombra é refeita **um quadro sim,
+um não** (qualidade "Desempenho": 1 a cada 3). O mapa guardado continua preso ao mundo, então casas, árvores e postes
+não mudam; só o que se move atrasa 1 quadro (centímetros a pé). Dirigindo, volta a ser todo quadro.
+
+| Mesma cena, mesmo instante | Original | Urban Ink (equilibrada) |
+|---|---|---|
+| Quadro (média) | 24,8 ms (densidade 0,7) | **23,0 ms** (densidade 0,9) |
+| Quadro com espera da GPU | 28,6 ms | **27,1 ms** |
+| Draw calls por quadro (média) | 450 | **283** |
+| Programas de shader | 89 | 89 |
+
+O Urban Ink ficou mais leve que o original mesmo desenhando com mais resolução (a resolução dinâmica baixou o original
+para 0,7 e manteve o Urban Ink em 0,9).
+
 ## Métricas (cena `house`, mesma câmera, 807×734, densidade 0,9)
 
 | | Original | Ink — Equilibrada | Ink — Desempenho |

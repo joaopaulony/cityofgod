@@ -420,6 +420,17 @@ system.applyInk=settings=>{
  document.body?.classList.toggle('urban-ink',on);
  window.GroundGPU?.setInk?.(on?inkParamsFrom(settings):null);
 };
+// sombra do sol no Urban Ink: o passe de sombra redesenha ~300 objetos (mais da metade dos desenhos do quadro).
+// O mapa guardado continua preso ao mundo, então casas, árvores e postes não mudam se ele for refeito um quadro sim,
+// um não; só o que se move atrasa 1 quadro (a pé: centímetros). Dirigindo, a sombra é refeita todo quadro.
+let shadowTick=0;
+function inkShadowCadence(){
+ const sm=renderer.shadowMap;
+ if(!urbanInk?.enabled){sm.autoUpdate=true;return;}
+ const every=system.driver?1:urbanInk.params().quality==='performance'?3:2;
+ sm.autoUpdate=false;sm.needsUpdate=(++shadowTick%every)===0;
+ system.shadowEvery=every;
+}
 function inkLights(){
  if(!urbanInk?.enabled)return;
  const [[hemi],[sun],[bounce]]=scene.userData.lights;
@@ -733,6 +744,7 @@ system.render=()=>{
  lap('occlusion');
  warmGPU();
  dynamicResolution(performance.now());
+ inkShadowCadence();
  if(!urbanInk?.render())renderer.render(scene,viewCamera);lap('draw');
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={

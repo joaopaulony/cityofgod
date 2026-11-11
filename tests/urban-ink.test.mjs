@@ -53,6 +53,9 @@ test('integração: renderizador usa o Urban Ink sem duplicar a cena', async () 
   const { readFile } = await import('node:fs/promises');
   const src = await readFile(new URL('../js/vehicle-webgl.mjs', import.meta.url), 'utf8');
   assert.match(src, /if\(!urbanInk\?\.render\(\)\)renderer\.render\(scene,viewCamera\)/);
+  // sombra refeita um quadro sim, um não só no Urban Ink a pé; estilo original e direção: todo quadro
+  assert.match(src, /if\(!urbanInk\?\.enabled\)\{sm\.autoUpdate=true;return;\}/);
+  assert.match(src, /const every=system\.driver\?1:/);
   const ch = await readFile(new URL('../js/character-webgl.mjs', import.meta.url), 'utf8');
   assert.match(ch, /root\.userData\.inkHuman=true/);
 });
