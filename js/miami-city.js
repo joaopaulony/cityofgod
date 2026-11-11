@@ -334,10 +334,12 @@ function drawFountain(g, b) {
 // ---------- bangalô pastel (bairro) e casa pobre (favela) ----------
 // casas do bairro: metade das vezes um modelo antigo, metade uma planta do gerador novo (architecture-organic.js);
 // se a escolhida não couber no espaço entre as vizinhas, tenta as plantas novas mais estreitas antes de desistir
+// Compact 8×8 m starter house: original B geometry/interior at native scale, no new rig/assets.
+if (!TPL.INFILL) TPL.INFILL = {...TPL.B, noScale:true, yard:false, setback:.6};
 const MIA_ORGANIC = ['O_integrada', 'O_varanda', 'O_emL', 'O_ampla', 'O_sobrado', 'O_vila', 'O_estreita'], MIA_ORGANIC_POOR = ['O_estreita', 'O_vila', 'O_integrada'];
 function miaHouse(S, c, rects, poor) {
   const organic = TPL.O_estreita && rng() < 0.5;
-  const first = organic ? (poor ? MIA_ORGANIC_POOR : MIA_ORGANIC)[(rng() * (poor ? MIA_ORGANIC_POOR.length : MIA_ORGANIC.length)) | 0] : poor ? (rng() < 0.6 ? 'B' : 'D') : ['A', 'B', 'D', 'C'][(rng() * 4) | 0];
+  const first = c.infill ? 'INFILL' : organic ? (poor ? MIA_ORGANIC_POOR : MIA_ORGANIC)[(rng() * (poor ? MIA_ORGANIC_POOR.length : MIA_ORGANIC.length)) | 0] : poor ? (rng() < 0.6 ? 'B' : 'D') : ['A', 'B', 'D', 'C'][(rng() * 4) | 0];
   let H = null;
   const small = rng() < 0.5 ? ['O_vila', 'O_estreita'] : ['O_estreita', 'O_vila'];
   for (const key of [first, ...(TPL.O_estreita ? ['O_integrada', ...small] : [])].filter((k, i, a) => a.indexOf(k) === i)) {
@@ -354,12 +356,12 @@ function miaHouse(S, c, rects, poor) {
   H.miaKind = poor ? 'poor' : 'bungalow';
   if(H.architecture)H.architecture.kind=H.miaKind;
   // garagem anexa (cerca de 60% dos bangalôs), na mesma arquitetura da casa, com entrada de carro até a rua (garages.js)
-  const G = !poor && typeof planGarage === 'function' && r() < 0.62 ? planGarage(H, { cars: 1, bounds: S.bounds, rects, deferDecals: true }) : null;
+  const G = !c.infill && !poor && typeof planGarage === 'function' && r() < 0.62 ? planGarage(H, { cars: 1, bounds: S.bounds, rects, deferDecals: true }) : null;
   // lote: quintal da frente até a calçada
-  const n = H.doorN, t = [-n[1], n[0]], hw = (Math.abs(n[0]) ? H.y1 - H.y0 : H.x1 - H.x0) / 2 + 1.5;
-  let ext = 0; while (ext < 8 && roadDist(H.doorPt[0] + n[0] * ext, H.doorPt[1] + n[1] * ext) > ROAD_W + SIDE - 0.1) ext += 0.5;
+  const n = H.doorN, t = [-n[1], n[0]], hw = (Math.abs(n[0]) ? H.y1 - H.y0 : H.x1 - H.x0) / 2 + (c.infill ? .6 : 1.5);
+  let ext = 0; while (ext < (c.infill ? 5 : 8) && roadDist(H.doorPt[0] + n[0] * ext, H.doorPt[1] + n[1] * ext) > ROAD_W + SIDE - 0.1) ext += 0.5;
   ext=Math.min(ext,CityStreetLayout.safeFrontDepth(H.doorPt[0],H.doorPt[1],n,hw,ext,roadDist,ROAD_W,SIDE));
-  const back = (Math.abs(n[0]) ? H.x1 - H.x0 : H.y1 - H.y0) + 2.5;
+  const back = (Math.abs(n[0]) ? H.x1 - H.x0 : H.y1 - H.y0) + (c.infill ? .7 : 2.5);
   let hwL = hw, hwR = hw;
   if (G) for (const c of G.corners) { const s = (c[0] - H.doorPt[0]) * t[0] + (c[1] - H.doorPt[1]) * t[1]; hwL = Math.max(hwL, -s + 0.6); hwR = Math.max(hwR, s + 0.6); }
   const f0 = [H.doorPt[0] - n[0] * back, H.doorPt[1] - n[1] * back], fl = back + ext - 0.3;
@@ -881,6 +883,40 @@ function miaLotsForSale(S, zoneAt, rects, infill = false) {
       // Existing owned lots keep their old IDs and locations.
       { const lid = lotId, build = window.CityLots?.buildOf(lid);
         if (build && miaLotHouse(S, rects, rd, p, s, q, build, lid)) { made++; continue; } }
+      // Build on a deterministic subset of previously unowned, undeveloped parcels.
+      // Keep all the legacy lot number slots and reserved bounds to preserve original
+      // building placement and protect already purchased empty land.
+      const [saleX,saleY] = P(W / 2 - 2.4, 1.1);
+      const ownerKey = Math.round(saleX) + '-' + Math.round(saleY);
+      const previouslyOwned = (window.CitySim?.data?.ownedLots || []).some(l => l.id === lotId || l.key === ownerKey);
+      const makeHome = !infill && !previouslyOwned && ['bungalow','town','poor'].includes(z) &&
+        (owSeed(S,'home-parcel-' + made) % 10 < 7);
+      if (makeHome) {
+        // Isolate the global generator RNG so houses generated in the original pass
+        // retain their established world positions and property IDs.
+        const originalRng = rngCur;
+        let H = null;
+        try { rngCur = mulberry(owSeed(S,'parcel-house-' + made)); H = miaPlaceInLot(S,'O_estreita',q,n,rects); }
+        finally { rngCur = originalRng; }
+        if (H) {
+          H.miaKind = z === 'poor' ? 'poor' : 'bungalow';
+          if (H.architecture) H.architecture.kind = H.miaKind;
+          const decor = mulberry(H.seed + 21);
+          const pal = (z === 'poor' ? MIA_POOR : MIA_BUNGALOW)[Math.floor(decor() * (z === 'poor' ? MIA_POOR : MIA_BUNGALOW).length)];
+          H.style.plaster = pal[0]; H.style.roofCol = pal[1];
+          // Consume exactly the same lot-decal random sequence as before, without
+          // leaving a construction-site texture underneath the occupied garden.
+          const nDecals = world.decals.length;
+          miaDecal(q,'lot',R,{ax:n,origin:P(0,0),w:W,len:D});
+          world.decals.length = nDecals;
+          rects.push(bb); world.yards.push(bb);
+          miaDecal(q,z === 'poor' ? 'dirtyard' : 'lawn',decor,{dir:Math.abs(n[0]) > Math.abs(n[1]) ? 1 : 0});
+          owWalk(H); owIndexOwnedLive(S);
+          S.parcelHomes = (S.parcelHomes || 0) + 1;
+          made++;
+          continue;
+        }
+      }
       rects.push(bb); world.yards.push(bb);
       miaDecal(q, 'lot', R, { ax: n, origin: P(0, 0), w: W, len: D });   // terra limpa, cascalho, marcas de trator
       const [gx, gy] = P(0, 0.1), gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.7;
@@ -1365,7 +1401,7 @@ function* miaGenSector(S, rects) {
       const zone = zoneAt(x, y);
       if (!['bungalow', 'town', 'poor'].includes(zone)) continue;
       if (!CityStreetLayout.alignedFront(rd, i, 8, .20)) continue;
-      infillCandidates.push({p,s:side,off,cls:rd.cls,rd,i,zone,r:infillR()});
+      infillCandidates.push({p,s:side,off,cls:rd.cls,rd,i,zone,infill:true,r:infillR()});
     }
   }
   infillCandidates.sort((a,b)=>a.r-b.r);
