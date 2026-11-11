@@ -122,16 +122,26 @@ const CityHomeNav=(()=>{
    return {points:points.map(([x,y])=>({x,y})),distance:cost[eid],visited,cells:n,goal:toWorld(H,...point(eid))};
  }
  function approach(H,p,item){
-   const f=item.floor||0,ang=item.rot||0,c=Math.cos(ang),s=Math.sin(ang);
-   const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet'].includes(item.kind);
-   const clearance=item.kind==='stove'?.30:.42;
-   const offsets=item.kind==='fridge'?[[.15,item.d/2+.31],[.05,item.d/2+.31],[.25,item.d/2+.31]]:frontOnly?[[0,item.d/2+clearance],[.22,item.d/2+clearance],[-.22,item.d/2+clearance]]:[
-     [0,item.d/2+.62],[0,-item.d/2-.62],
-     [item.w/2+.62,0],[-item.w/2-.62,0],
-     [.25,item.d/2+.58],[-.25,item.d/2+.58]];
+   const f=item.floor||0,front=facing(item),side={x:front.y,y:-front.x};
+   // The 3D model can face a different direction than the procedural house.
+   // Project collision extents onto the ACTUAL model-facing axis: using d/2
+   // for a face parallel to the long edge selected a point inside a sofa.
+   const angle=item.rot||0,axis={x:Math.cos(angle),y:Math.sin(angle)},
+     perp={x:-axis.y,y:axis.x};
+   const halfExtent=dir=>Math.abs(dir.x*axis.x+dir.y*axis.y)*(item.w||0)/2+
+     Math.abs(dir.x*perp.x+dir.y*perp.y)*(item.d||0)/2;
+   const frontEdge=halfExtent(front),sideEdge=halfExtent(side);
+   const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet',
+     'desk','studentdesk','shower'].includes(item.kind);
+   const clearance=item.kind==='stove'?.30:item.kind==='shower'?.38:.42;
+   const offsets=item.kind==='fridge'?[[.15,frontEdge+.35],[.05,frontEdge+.35],[.25,frontEdge+.35]]:
+     frontOnly?[[0,frontEdge+clearance],[.22,frontEdge+clearance],[-.22,frontEdge+clearance]]:[
+       [0,frontEdge+.62],[0,-frontEdge-.62],
+       [sideEdge+.62,0],[-sideEdge-.62,0],
+       [.25,frontEdge+.58],[-.25,frontEdge+.58]];
    let best=null;
    for(const [u,v] of offsets){
-     const x=item.x+u*c-v*s,y=item.y+u*s+v*c;
+     const x=item.x+u*side.x+v*front.x,y=item.y+u*side.y+v*front.y;
      const attempt=route(H,p,{x,y},f,null);
      if(!attempt)continue;
      const goal=attempt.points.at(-1);
@@ -148,6 +158,41 @@ const CityHomeNav=(()=>{
    }
    return best;
  }
- return {route,approach,grid,doorway,inside,furnitureBlocked,version:'1.0'};
+ // Match the exact +Z direction rendered by props-3d.mjs. A furnished
+ // architecture item can use faceW even when its original rot points elsewhere.
+ function facing(item){
+   const v=item?.faceW;
+   if(Array.isArray(v)&&v.length===2&&Number.isFinite(v[0])&&Number.isFinite(v[1])){
+     const length=Math.hypot(v[0],v[1]);if(length>0.001)return {x:v[0]/length,y:v[1]/length};
+   }
+   const a=item?.rot||0;return {x:-Math.sin(a),y:Math.cos(a)};
+ }
+ function safeSpot(H,item,x,y,ignoreId=null){
+   if(!H||!item||!Number.isFinite(x)||!Number.isFinite(y))return false;
+   const f=item.floor||0,[u,v]=toLocal(H,x,y);
+   if(!inside(H,f,u,v)||furnitureBlocked(H,f,u,v,ignoreId))return false;
+   if(H.contains&&!H.contains(x,y,f))return false;
+   // Only use the apartment owned/rented by this character, never the corridor
+   // or the unit across a thin interior wall.
+   const realty=window.CityRealty;
+   if(realty?.multi?.(H)){
+     const unit=realty.unitAt?.(H,x,y,f);
+     if(unit==null||realty.canUse?.(H,f,unit)===false)return false;
+   }
+   return true;
+ }
+ function exitSpot(H,item,origin){
+   if(origin&&Math.hypot(origin.x-item.x,origin.y-item.y)<=3.25&&
+      safeSpot(H,item,origin.x,origin.y))return {x:origin.x,y:origin.y};
+   const f=facing(item),side={x:f.y,y:-f.x};
+   // Approach from the same usable side of the furniture; every candidate
+   // is validated against the room footprint, all furniture and unit ownership.
+   for(const r of [.82,1.06,1.35,1.7,2.1,2.7])for(const v of [0,.36,-.36,.72,-.72]){
+     const x=item.x+f.x*r+side.x*v,y=item.y+f.y*r+side.y*v;
+     if(safeSpot(H,item,x,y))return {x,y};
+   }
+   return null; // Never invent an unsafe point outside the building.
+ }
+ return {route,approach,grid,doorway,inside,furnitureBlocked,facing,safeSpot,exitSpot,version:'1.1'};
 })();
 window.CityHomeNav=CityHomeNav;

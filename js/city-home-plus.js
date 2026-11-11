@@ -111,9 +111,19 @@ const CityHomePlus=(()=>{
   save();H.homeFinishVersion=(H.homeFinishVersion||0)+1;
   return {ok:true,text:'Iluminação atualizada'};
  }
+ function powerOn(H){
+  if(!H)return false;
+  const powered=data(H).power!==false;
+  // The old interaction switch, the window glow and the indoor 3D fixtures
+  // now use the same persisted electrical state.
+  H.lightOn=powered;return powered;
+ }
  function togglePower(H){
   if(!own(H))return {ok:false,text:'Acesso negado'};
-  data(H).power=!data(H).power;save();return {ok:true,text:data(H).power?'Luzes ligadas':'Luzes desligadas'};
+  const d=data(H),before=d.power;d.power=!before;H.lightOn=d.power;
+  if(!save()){d.power=before;H.lightOn=before;return {ok:false,text:'Falha ao salvar interruptor'};}
+  H.homeFinishVersion=(H.homeFinishVersion||0)+1;
+  return {ok:true,text:d.power?'Luzes ligadas':'Luzes desligadas'};
  }
  function setGuestMode(H,mode){
   if(!own(H)||!['private','friends'].includes(mode))return {ok:false,text:'Sem autorização'};
@@ -265,7 +275,7 @@ const CityHomePlus=(()=>{
   lastTick=day;upkeep(H,clk);
  }
  return {load,data,save,rooms,roomAt,finishes,trim,lightModes,color,decor,supports,finish,surface,decorate,
-  installLight,light,togglePower,setGuestMode,invite,removeGuest,capture,projects,apply,appraisal,repair,upkeep,listing,withdrawListing,activity,completeActivity,tick,
+  installLight,light,powerOn,togglePower,setGuestMode,invite,removeGuest,capture,projects,apply,appraisal,repair,upkeep,listing,withdrawListing,activity,completeActivity,tick,
   get changes(){return changes}};
 })();
 window.CityHomePlus=CityHomePlus;

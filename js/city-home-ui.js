@@ -2,6 +2,7 @@
 'use strict';
 const CityHomeUI=(()=>{
  let active=false,H=null,tab='shop',shopCategory='Tudo',floor=0,grid=true,draft=null,dragging=false,pan=null,view=null,panel=null,entry=null;
+ let dragOffset=null,previewBox=null,previewBefore=null,previewChildren=[],previewAt=0;
  let oldCamera=null,oldFloor=null,lastOwner=null,lastCheck=0,selectedId=null;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const money=n=>CityLife.money(n);
@@ -12,7 +13,53 @@ const CityHomeUI=(()=>{
  };
  const inside=p=>CityHome.houseAt(p);
  const uiId=id=>encodeURIComponent(id);
- const clean=()=>{draft=null;dragging=false;selectedId=null;pan=null;};
+ // The 3D preview updates the transient world box only. Saves and collisions
+ // remain authoritative until Confirm; cancel/close always restore the original.
+ function clearPreview(){
+   for(const {box,before} of previewChildren)Object.assign(box,before);
+   if(previewBox&&previewBefore){
+     Object.assign(previewBox,previewBefore);
+     world.version=(world.version||0)+1;
+   }
+   previewBox=previewBefore=null;previewChildren=[];previewAt=0;
+ }
+ function previewMove(force=false){
+   if(!draft||draft.mode!=='move')return;
+   if(!previewBox){
+     const items=CityHome.nearbyItems(H,draft.floor);
+     previewBox=items.find(b=>b.homeId===draft.id)||null;
+     if(previewBox){
+       previewBefore={x:previewBox.x,y:previewBox.y,z:previewBox.z,rot:previewBox.rot,
+         faceW:previewBox.faceW&&[...previewBox.faceW]};
+       previewChildren=items.filter(b=>b.supportId===draft.id).map(box=>({box,
+         before:{x:box.x,y:box.y,z:box.z,rot:box.rot,faceW:box.faceW&&[...box.faceW]}}));
+     }
+   }
+   if(!previewBox)return;
+   previewBox.x=draft.x;previewBox.y=draft.y;previewBox.rot=draft.rot;
+   const turn=draft.rot-previewBefore.rot,c=Math.cos(turn),s=Math.sin(turn);
+   if(previewBefore.faceW){
+     const angle=Math.atan2(previewBefore.faceW[0],previewBefore.faceW[1])-turn;
+     previewBox.faceW=[Math.sin(angle),Math.cos(angle)];
+   }
+   // Objects on a desk/table follow its temporary translation AND rotation,
+   // just as they will when CityHome.move commits the same transform.
+   for(const {box,before} of previewChildren){
+     const dx=before.x-previewBefore.x,dy=before.y-previewBefore.y;
+     box.x=draft.x+dx*c-dy*s;box.y=draft.y+dx*s+dy*c;
+     box.rot=before.rot+turn;
+     if(before.faceW){
+       const angle=Math.atan2(before.faceW[0],before.faceW[1])-turn;
+       box.faceW=[Math.sin(angle),Math.cos(angle)];
+     }
+   }
+   const now=typeof performance!=='undefined'?performance.now():Date.now();
+   if(force||now-previewAt>=50){
+     previewAt=now;
+     world.version=(world.version||0)+1;
+   }
+ }
+ const clean=()=>{clearPreview();draft=null;dragging=false;selectedId=null;pan=null;dragOffset=null;};
  const canStart=()=>!window.cityVehicles?.driver&&!window.CityUI?.blocksGameInput?.()&&!window.cityCharacterEditorOpen&&!(typeof wmap!=='undefined'&&wmap.open);
  function current(){return H&&CityHome.owned(H)?H:null;}
  function center(){
@@ -160,11 +207,11 @@ const CityHomeUI=(()=>{
      const btn=e.target.closest('[data-home-action]');if(!btn)return;
      const action=btn.dataset.homeAction,value=decodeURIComponent(btn.dataset.value||'');
      if(action==='close'){close();return;}
-     if(action==='tab'){tab=value;renderPanel();return;}
+     if(action==='tab'){if(draft)clean();tab=value;renderPanel();return;}
      if(action==='category'){shopCategory=value;renderPanel();return;}
-     if(action==='floor'){floor=Number(value);draft=null;applyFloor();renderPanel();return;}
+     if(action==='floor'){clean();floor=Number(value);applyFloor();renderPanel();return;}
      if(action==='grid'){grid=!grid;renderPanel();return;}
-     if(action==='undo'){const r=CityHome.undo(H);renderPanel();message(r.text,r.ok);return;}
+     if(action==='undo'){clean();const r=CityHome.undo(H);renderPanel();message(r.text,r.ok);return;}
      if(action==='buy'){const r=CityHome.buy(H,value,paintOf(value));renderPanel();message(r.text,r.ok);return;}
      if(action==='variant'){chosenPaint[value]=btn.dataset.color;renderPanel();return;}
      if(action==='inspect'){inspected=inspected===value?null:value;renderPanel();return;}
@@ -194,6 +241,7 @@ const CityHomeUI=(()=>{
    return el;
  }
  function beginMove(id){
+   clearPreview();dragOffset=null;
    const row=CityHome.find(H,id);
    if(!row||row.status!=='placed')return;
    floor=row.floor;applyFloor();draft={id,kind:row.kind,mode:'move',x:row.x,y:row.y,rot:row.rot,
@@ -201,6 +249,7 @@ const CityHomeUI=(()=>{
    selectedId=id;tab='edit';renderPanel();message('Mova o objeto com o mouse, gire com R e confirme');
  }
  function beginPlace(id){
+   clearPreview();dragOffset=null;
    const row=CityHome.find(H,id);if(!row||row.status!=='stored')return;
    const p=window.__game?.player||{x:0,y:0};
    floor=Math.min(floor,(H.architecture?.levels?.length||1)-1);
@@ -213,6 +262,7 @@ const CityHomeUI=(()=>{
  const STAIR_DIRS=[['y',1],['x',1],['y',-1],['x',-1]];
  function beginStairs(){
    if(!H?.architecture||H.architecture.levels.length<2)return;
+   clearPreview();dragOffset=null;
    const cur=H.architecture.stairSpec||{x:0,y:0,axis:'y',dir:1,side:1};
    floor=0;applyFloor();draft={mode:'stair',spec:{...cur},turn:Math.max(0,STAIR_DIRS.findIndex(([a,d])=>a===cur.axis&&d===cur.dir)),z:0,top:'#70ffc7'};
    stairShape();renderPanel();message('Mova o mouse até onde quer a escada · R gira · clique p/ confirmar');
@@ -229,11 +279,13 @@ const CityHomeUI=(()=>{
    const pp=unproj(e.clientX/RS,e.clientY/RS,z);
    if(draft?.mode==='stair'){const q=H.architecture.toLocal(pp[0],pp[1]);draft.spec.x=Math.round(q[0]*4)/4;draft.spec.y=Math.round(q[1]*4)/4;stairShape();return;}
    if(draft){
-     draft.x=grid?Math.round(pp[0]*2)/2:Math.round(pp[0]*100)/100;
-     draft.y=grid?Math.round(pp[1]*2)/2:Math.round(pp[1]*100)/100;
+     const nx=pp[0]+(dragOffset?.x||0),ny=pp[1]+(dragOffset?.y||0);
+     draft.x=grid?Math.round(nx*2)/2:Math.round(nx*100)/100;
+     draft.y=grid?Math.round(ny*2)/2:Math.round(ny*100)/100;
      const magnet=CityHome.snap(H,draft,draft.mode==='move'?draft.id:null);
      draft.x=magnet.item.x;draft.y=magnet.item.y;
      draft.snapGuides=magnet.guides;
+     previewMove();
      const outcome=test(),el=document.getElementById('city-home-status');
      if(el){el.textContent=outcome?.text||'Posicionando';el.dataset.ok=outcome?.ok?'1':'0';}
    }
@@ -247,23 +299,45 @@ const CityHomeUI=(()=>{
    if(r.ok){clean();renderPanel();}
    message(r.text,r.ok);
  }
+ // Select from the whole projected 3D footprint, including tall furniture.
+ // The previous point-only hit test missed wardrobes, shelves, fridges and beds.
  function closest(e){
    const x=e.clientX/RS,y=e.clientY/RS;
    let result=null,score=Infinity;
    for(const b of CityHome.nearbyItems(H,floor)){
-     const p=proj(b.x,b.y,(b.z||0)+Math.min(b.h,1)*.3);
-     const d=Math.hypot(x-p.x,y-p.y)/Math.max(1,cam.zoom);
-     if(d<Math.max(.55,Math.max(b.w,b.d)*.75)&&d<score){score=d;result=b;}
+     const corners=boxCorners(b);
+     const pts=corners.flatMap(([px,py])=>
+       [proj(px,py,b.z||0),proj(px,py,(b.z||0)+b.h)]);
+     const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+     const lx=Math.min(...xs),hx=Math.max(...xs),ly=Math.min(...ys),hy=Math.max(...ys);
+     const pad=Math.max(7,cam.zoom*.10);
+     if(x<lx-pad||x>hx+pad||y<ly-pad||y>hy+pad)continue;
+     const dist=Math.hypot((x-(lx+hx)/2)/Math.max(10,hx-lx),
+                           (y-(ly+hy)/2)/Math.max(10,hy-ly));
+     const depth=depthOf(b.x,b.y);
+     const scoreNow=dist+(hx-lx)*(hy-ly)/Math.max(1,cam.zoom*cam.zoom)*.002-depth*.0001;
+     if(scoreNow<score){score=scoreNow;result=b;}
    }
    return result;
  }
  function onDown(e){
    if(!active||e.target!==view)return;
    e.stopImmediatePropagation();e.preventDefault();
-   if(e.button===2){pan=[e.clientX,e.clientY];return;}
+   if(e.button===2){pan=[e.clientX,e.clientY];view.setPointerCapture?.(e.pointerId);return;}
    if(e.button!==0)return;
-   if(!draft){const b=closest(e);if(b)beginMove(b.homeId);}
-   if(draft){pointerPosition(e);dragging=true;}
+   if(!draft){
+     const b=closest(e);
+     if(b){
+       beginMove(b.homeId);
+       // Grabbing the top/edge should not instantly teleport the model.
+       const p=unproj(e.clientX/RS,e.clientY/RS,b.z||0);
+       dragOffset={x:b.x-p[0],y:b.y-p[1]};
+     }
+   }else dragOffset=null;
+   if(draft){
+     pointerPosition(e);dragging=true;
+     view.setPointerCapture?.(e.pointerId);
+   }
  }
  function onMove(e){
    if(!active)return;
@@ -271,14 +345,24 @@ const CityHomeUI=(()=>{
      const ax=(e.clientX-pan[0])/RS,ay=(e.clientY-pan[1])/RS;
      const v=screenDirToWorld(ax/cam.zoom,ay/(cam.zoom*TILT));
      cam.tx-=v[0];cam.ty-=v[1];pan=[e.clientX,e.clientY];
-   }else if(draft&&e.target===view)pointerPosition(e);
+   }else if(draft&&(e.target===view||dragging))pointerPosition(e);
    if(e.target===view){e.stopImmediatePropagation();e.preventDefault();}
  }
  function onUp(e){
    if(!active)return;
-   if(pan&&e.button===2){pan=null;return;}
-   if(e.button===0&&dragging&&e.target===view){dragging=false;confirm();}
+   if(pan&&e.button===2){pan=null;view.releasePointerCapture?.(e.pointerId);return;}
+   if(e.button===0&&dragging){
+     dragging=false;pointerPosition(e);previewMove(true);
+     confirm();dragOffset=null;
+     view.releasePointerCapture?.(e.pointerId);
+   }
    if(e.target===view){e.stopImmediatePropagation();e.preventDefault();}
+ }
+ function onCancel(e){
+   if(!active)return;
+   dragging=false;pan=null;dragOffset=null;
+   view.releasePointerCapture?.(e.pointerId);
+   clean();renderPanel();
  }
  function onKey(e){
    const typing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
@@ -314,6 +398,7 @@ const CityHomeUI=(()=>{
    }
  }
  function pointerStatus(){
+   previewMove(true);
    const r=test(),el=document.getElementById('city-home-status');
    if(el){el.textContent=r?.text||'Selecione uma posição';el.dataset.ok=r?.ok?'1':'0';}
  }
@@ -384,13 +469,14 @@ const CityHomeUI=(()=>{
    entry.addEventListener('click',open);document.body.appendChild(entry);
    ensure();
    // Capture input on the play canvas before shooting/aiming listeners.
-   view.addEventListener('mousedown',onDown,true);
-   view.addEventListener('mousemove',onMove,true);
-   view.addEventListener('mouseup',onUp,true);
-   window.addEventListener('mouseup',e=>{if(active&&e.target!==view){dragging=false;pan=null;}},true);
+   view.addEventListener('pointerdown',onDown,true);
+   view.addEventListener('pointermove',onMove,true);
+   view.addEventListener('pointerup',onUp,true);
+   view.addEventListener('pointercancel',onCancel,true);
+   window.addEventListener('pointerup',e=>{if(active&&e.target!==view){dragging=false;pan=null;dragOffset=null;}},true);
    view.addEventListener('wheel',onWheel,{capture:true,passive:false});
    window.addEventListener('keydown',onKey,true);
-   window.addEventListener('blur',()=>{dragging=false;pan=null;});
+   window.addEventListener('blur',()=>{dragging=false;pan=null;dragOffset=null;});
    window.addEventListener('pagehide',()=>{if(active)close();});
  }
  return {mount,open,close,tick,draw,frame,get active(){return active;},get property(){return H;},get draft(){return draft;}};

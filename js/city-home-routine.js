@@ -5,7 +5,14 @@ const CityHomeRoutine=(()=>{
  const ANG=(to,from)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
  function cancel(message='',silent=false){
    if(task?.player){
-     if(task.poseOrigin){task.player.x=task.poseOrigin.x;task.player.y=task.poseOrigin.y;}
+     if(task.poseOrigin){
+       const item=window.CityHome?.find?.(task.H,task.itemId)||task.itemSnapshot;
+       const p=item&&window.CityHomeNav?.exitSpot?.(task.H,item,task.poseOrigin);
+       const fallback=item&&task.stand&&window.CityHomeNav?.safeSpot?.(task.H,item,task.stand.x,task.stand.y)?
+         task.stand:null;
+       // Exits never use an unvalidated coordinate outside the property.
+       if(p||fallback){task.player.x=(p||fallback).x;task.player.y=(p||fallback).y;}
+     }
      task.player.homeAction=null;task.player.speed=0;task.player.running=false;task.player.armed=task.wasArmed;
    }
    task=null;epoch++;
@@ -20,7 +27,7 @@ const CityHomeRoutine=(()=>{
    if(!planned)return {ok:false,text:'Sem caminho livre até este móvel. Reposicione os obstáculos'};
    cancel('',true);
    task={id:++epoch,H,itemId:item.id,kind,options,player,
-     points:planned.points,step:0,stand:planned.stand,face:planned.face,stage:'walk',
+     points:planned.points,step:0,stand:planned.stand,face:planned.face,stage:'walk',itemSnapshot:{...item},
      elapsed:0,stuck:0,lastX:player.x,lastY:player.y,replans:0,
      houseVersion:typeof world!=='undefined'?world.version:0,wasArmed:!!player.armed};
    player.homeAction=null;player.wantShot=false;player.aiming=false;player.armed=false;
@@ -45,9 +52,11 @@ const CityHomeRoutine=(()=>{
        player.y=t.poseOrigin.y+(t.poseTarget.y-t.poseOrigin.y)*w;
      }
      if(['fridge','eat'].includes(t.kind)&&furniture.kind==='fridge'){
-       const u=clamp(Math.min((t.elapsed-.35)/.7,(t.duration-t.elapsed-.35)/.7),0,1),w=u*u*(3-2*u),rot=furniture.rot||0;
-       player.x=t.poseOrigin.x-(Math.sin(rot)*.34+Math.cos(rot)*.50)*w;
-       player.y=t.poseOrigin.y+(Math.cos(rot)*.34-Math.sin(rot)*.50)*w;
+       const u=clamp(Math.min((t.elapsed-.35)/.7,(t.duration-t.elapsed-.35)/.7),0,1),w=u*u*(3-2*u);
+       // Lean toward the fridge handle from the accessible side; never sweep
+       // diagonally into the back wall just because the house is rotated.
+       const front=CityHomeNav.facing(furniture),x=t.poseOrigin.x-front.x*.13*w,y=t.poseOrigin.y-front.y*.13*w;
+       if(CityHomeNav.safeSpot(t.H,furniture,x,y,furniture.id)){player.x=x;player.y=y;}
      }
      player.face+=ANG(t.face,player.face)*clamp(dt*8,0,1);
      if(t.elapsed>=t.duration){
@@ -67,12 +76,25 @@ const CityHomeRoutine=(()=>{
    const point=t.points[t.step];
    if(!point){t.stage='pose';t.elapsed=0;t.duration=t.kind==='sleep'?6:t.kind==='cook'?5:4;
      t.poseOrigin={x:player.x,y:player.y};
-     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep';
-     if(seated||sleep){
-       // The rendered pose enters the furniture; the collision actor returns
-       // to the accessible approach point on completion or cancellation.
-       t.poseTarget={x:furniture.x,y:furniture.y};
-       t.face=(furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):furniture.kind==='chair'?-Math.PI/2:Math.PI/2);
+     if(!CityHomeNav.safeSpot(t.H,furniture,player.x,player.y)){
+       const safe=CityHomeNav.exitSpot(t.H,furniture,t.stand);
+       if(!safe){cancel('Não há posição segura para esta interação');return false;}
+       t.poseOrigin=safe;player.x=safe.x;player.y=safe.y;
+     }
+     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&furniture.kind==='shower';
+     if(seated||sleep||shower){
+       // The actor temporarily enters the bed / chair / shower, but returns
+       // to its collision-checked approach point when completed or cancelled.
+       const facing=window.CityHomeNav?.facing?.(furniture)||
+         {x:-Math.sin(furniture.rot||0),y:Math.cos(furniture.rot||0)};
+       t.poseTarget=shower?
+         {x:furniture.x+facing.x*.06,y:furniture.y+facing.y*.06}:
+         {x:furniture.x,y:furniture.y};
+       // Face the mixer/head from inside the shower, never toward the wall.
+       // Every seated pose faces the model's backrest/desk side, not the
+       // procedural building rotation. Important for sofas, toilets and chairs.
+       t.face=(shower||seated)?Math.atan2(-facing.y,-facing.x):
+         (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):Math.PI/2);
      }
      player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,
        itemId:t.itemId,item:furniture,house:t.H,surface:sleep?furniture.h*1.05:furniture.h*.55};return true;}

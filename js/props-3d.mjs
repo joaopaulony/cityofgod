@@ -371,8 +371,15 @@ export function createProps(THREE, scene, bridge) {
     k.box(-0.425, 0, -0.425, 0.425, 1.95, -0.4, c||'#dfe8ea'); k.box(-0.425, 0, -0.425, -0.4, 1.95, 0.425, c||'#dfe8ea');
     for (let y = 0.3; y < 1.95; y += 0.3) { k.box(-0.42, y, -0.401, 0.42, y + 0.006, -0.398, '#b8c4c8'); k.box(-0.401, y, -0.42, -0.398, y + 0.006, 0.42, '#b8c4c8'); }
     k.cyl(0.1, 0.9, -0.39, 0.012, 1.95, CHROME, 8); k.cylZ(0.1, 1.95, -0.39, -0.25, 0.012, CHROME, 8); k.cyl(0.1, 1.9, -0.25, 0.07, 1.93, CHROME, 14);
-    k.box(-0.425, 0.08, 0.41, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass'); k.box(0.41, 0.08, -0.425, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass');
-    k.box(0.405, 0.08, 0.405, 0.43, 1.95, 0.43, CHROME); k.box(-0.43, 1.93, 0.405, 0.43, 1.96, 0.43, CHROME);
+    // Walk-in shower: split the front glass into two panels with a real 48 cm
+    // central entrance (+Z). Previously the glass wall covered the entire opening.
+    k.box(-0.425, 0.08, 0.41, -0.24, 1.95, 0.425, '#bfe0ea', 0, 'glass');
+    k.box(0.24, 0.08, 0.41, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass');
+    k.box(0.41, 0.08, -0.425, 0.425, 1.95, 0.425, '#bfe0ea', 0, 'glass');
+    k.box(0.405, 0.08, 0.405, 0.43, 1.95, 0.43, CHROME);
+    for(const sx of [-.24,.24])k.box(sx-.009,.08,.414,sx+.009,1.95,.431,CHROME);
+    k.box(-0.43, 1.93, 0.405, -0.24, 1.96, 0.43, CHROME);
+    k.box(0.24, 1.93, 0.405, 0.43, 1.96, 0.43, CHROME);
   } };
   M.mirror = { dims: [0.85, 1.6, 0.1], face: 'short', tinted:true, make(k,c) { k.box(-0.38, 0.85, -0.05, 0.38, 1.55, 0.0, c||'#f0ece2', 0.02); k.box(-0.34, 0.89, 0.0, 0.34, 1.51, 0.01, '#b8ccd6'); } };
   // barbearia: cadeira hidráulica (base cromada, assento estofado, encosto com apoio de cabeça, braços e descanso de pés)

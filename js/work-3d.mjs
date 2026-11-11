@@ -105,6 +105,44 @@ export function installWork3D(THREE, scene, bridge) {
     g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, H - 14, W, 14); g.fillStyle = k === 'help' ? '#3dff8f' : '#ffcc4d'; g.fillRect(0, H - 14, W * Math.max(.04, Math.min(1, p)), 14);
   }
 
+  // ---------- shower: procedural falling water and warm vapor ----------
+  // Reuses existing home_wash/interact clip; no GLB, image or new animation asset.
+  const dropCount=70,waterCoords=new Float32Array(dropCount*6),waterGeo=new THREE.BufferGeometry();
+  waterGeo.setAttribute('position',new THREE.BufferAttribute(waterCoords,3));
+  const showerWater=new THREE.LineSegments(waterGeo,
+    new THREE.LineBasicMaterial({color:0x9fe4fb,transparent:true,opacity:.81,depthWrite:false}));
+  showerWater.visible=false;showerWater.userData.noSnow=true;scene.add(showerWater);
+  const steam=new THREE.Group();steam.userData.noSnow=true;scene.add(steam);
+  const vaporGeo=new THREE.SphereGeometry(.15,7,5);
+  const vaporMat=new THREE.MeshBasicMaterial({color:0xf0f7f6,transparent:true,opacity:.13,depthWrite:false,depthTest:true});
+  for(let i=0;i<14;i++){const cloud=new THREE.Mesh(vaporGeo,vaporMat);cloud.frustumCulled=false;steam.add(cloud);}
+  steam.visible=false;
+  function updateShower(){
+    const action=P()?.homeAction,item=action?.item,active=action?.kind==='wash'&&item?.kind==='shower';
+    showerWater.visible=steam.visible=!!active;
+    if(!active)return;
+    // Water emerges just below the shower head (local +x 0.1, -z 0.25).
+    // faceW uses the exact same orientation as the 3D furniture renderer.
+    const f=window.CityHomeNav?.facing?.(item)||
+      {x:-Math.sin(item.rot||0),y:Math.cos(item.rot||0)};
+    const side={x:f.y,y:-f.x},head={
+      x:item.x+side.x*.1-f.x*.25,y:item.y+side.y*.1-f.y*.25};
+    const z=item.z||0;
+    for(let i=0;i<dropCount;i++){
+      const a=i*2.399963+t*.41,r=.035+(i%9)*.016;
+      const phase=(t*2.7+i*.137)%1,top=z+1.88-phase*1.57;
+      const x=head.x+Math.cos(a)*r,y=head.y+Math.sin(a)*r;
+      waterCoords.set([x,top,y,x+Math.sin(a)*.025,top-.25-Math.cos(t*4+i)*.045,y+Math.cos(a)*.025],i*6);
+    }
+    waterGeo.attributes.position.needsUpdate=true;
+    waterGeo.computeBoundingSphere();
+    steam.children.forEach((p,i)=>{
+      const phase=(t*.22+i*.139)%1,angle=i*2.31+t*.12,rad=.17+.20*phase;
+      p.position.set(item.x+Math.cos(angle)*rad,z+.38+phase*1.43,item.y+Math.sin(angle)*rad);
+      const scale=.65+phase*2.5;p.scale.set(scale*1.12,scale*.55,scale*1.12);
+    });
+  }
+
   // ---------- caixas de estoque ----------
   const boxGeo = new THREE.BoxGeometry(.26, .18, .22), boxMat = new THREE.MeshStandardMaterial({ color: 0xb98a52, roughness: .85 }), tapeMat = new THREE.MeshStandardMaterial({ color: 0xd9c79a, roughness: .7 });
   const tapeGeo = new THREE.BoxGeometry(.27, .012, .05);
@@ -127,6 +165,7 @@ export function installWork3D(THREE, scene, bridge) {
 
   function update(dt) {
     t += dt; const p = P(); if (!p) return;
+    updateShower();
     // monitor do home office
     const info = window.CityDesk?.screenInfo?.();
     if (info && info.screen && (info.screen.floor || 0) === (p.floor || 0)) {
@@ -150,6 +189,7 @@ export function installWork3D(THREE, scene, bridge) {
       if (nsig !== sig) { sig = nsig; if (v) rebuild(v, p.floor || 0); else boxes.clear(); }
     }
   }
-  window.CityWork3D = { update, get debug() { return { boxes: boxes.children.length, screen: screen.visible }; } };
+  window.CityWork3D = { update, get debug() { return { boxes: boxes.children.length, screen: screen.visible,
+    shower:showerWater.visible,steam:steam.visible,drops:showerWater.visible?dropCount:0 }; } };
   return { update };
 }

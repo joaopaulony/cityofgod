@@ -8,7 +8,15 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  const Kit=makeKit(THREE),entries=new Map(),builds=new Map();
  const state=window.cityArchitecture3D={ready:true,properties:0,meshes:0,triangles:0,pending:0,buildMs:0,errors:[],revision:1};
  const mats=propertyMaterials(THREE,opts.seeThrough);
- const civicLights=Array.from({length:4},()=>{const l=new THREE.PointLight(0xf0f4e9,0,24,2);return l;});
+ const civicLights=Array.from({length:4},()=>new THREE.PointLight(0xf0f4e9,0,24,2));
+ // Pooled lighting: only the current occupied floor consumes dynamic lights.
+ // Decorative ceiling fixtures use cheap BasicMaterial and no shadow maps.
+ const homePointLights=Array.from({length:4},()=>new THREE.PointLight(0xffe1b5,0,13,1.25));
+ // Soft bounce/fill; no shadow-map or additional assets. Lit rooms must not
+ // depend on sunlight or the window's emissive texture to be visible at night.
+ const homeAmbient=new THREE.HemisphereLight(0xffefd7,0x737b80,0);
+ scene.userData.homeLights=homePointLights;
+ state.interiorFixtures=0;state.lightsActive=0;state.powered=false;
  // Interior cutaway already exposes the player. Keep its floor, rails and
  // doors opaque instead of applying the vegetation's broad dither circle.
  const innerMats=Object.fromEntries(Object.entries(mats).map(([k,m])=>[k,m.clone()]));
@@ -187,7 +195,8 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  }
  function* build(H){
   const A=H.architecture,root=new THREE.Group(),exterior=new THREE.Group(),roof=new THREE.Group();root.add(exterior,roof);const p=A.toWorld(0,0);root.position.set(p[0],0,p[1]);root.rotation.y=-A.angle;
-  const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],H};
+  const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],
+   roomFixtures:[],lampMaterials:[],H};
   const glass=mats.glass.clone();opts.seeThrough?.(glass);e.materials.push(glass);e.glass=glass;
   const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
   for(const level of A.levels){
@@ -243,7 +252,9 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  // caixa (planta) do lance, p/ o vão do piso
  const stairBox=(s,pad=0)=>{const ax=s.axis==='x',hu=1.38+pad,hv=(s.w||.92)/2+.05+pad;return ax?[s.x-hu,s.y-hv,s.x+hu,s.y+hv]:[s.x-hv,s.y-hu,s.x+hv,s.y+hu];};
  function interior(e,floor,key){
-  disposeGroup(e.interior);e.interior=new THREE.Group();e.root.add(e.interior);e.cutKey=key;e.innerDoors=[];e.innerWindows=[];
+  for(const m of e.lampMaterials||[])m.dispose();
+  disposeGroup(e.interior);e.interior=new THREE.Group();e.root.add(e.interior);e.cutKey=key;
+  e.innerDoors=[];e.innerWindows=[];e.roomFixtures=[];e.lampMaterials=[];
   const A=e.H.architecture,level=A.levels[floor],kit=Kit();if(!level)return;
   const custom=typeof CityHomePlus!=='undefined'&&window.CityHome?.owned(e.H);
   const ca=bridge.cam.ang,Acos=Math.cos(A.angle),Asin=Math.sin(A.angle),camera=[Math.sin(ca)*Acos+Math.cos(ca)*Asin,-Math.sin(ca)*Asin+Math.cos(ca)*Acos];
@@ -291,6 +302,25 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    rail(pt(s,ub,-w),pt(s,ut,-w));rail(pt(s,ub,w),pt(s,ut,w));rail(pt(s,ub,-w),pt(s,ub,w));};
   if(level.stair&&floor<A.levels.length-1)flight(level);if(floor>0&&A.levels[floor-1]?.stair){flight(A.levels[floor-1]);guard(A.levels[floor-1]);}
   groups(kit,e.interior,{...innerMats,glass:e.glass});for(const d of e.innerDoors)e.interior.add(d.object);e.innerSashes=installSashes(e.innerWindows,e.interior,e.glass,innerMats.trim);
+  // Procedural, real 3D ceiling lamps for EVERY residential room. No external assets,
+  // no opaque ceiling plane that would hide the player in the cutaway view.
+  if(!e.H.civic)for(const room of level.rooms){
+    if(room.x1-room.x0<1||room.y1-room.y0<1)continue;
+    const cx=(room.x0+room.x1)/2,cy=(room.y0+room.y1)/2;
+    const root=new THREE.Group();
+    root.position.set(cx,level.z+A.floorHeight-.12,cy);
+    const metal=new THREE.MeshStandardMaterial({color:0x847d73,metalness:.55,roughness:.48});
+    const diffuser=new THREE.MeshBasicMaterial({color:0xffe8bb,toneMapped:false});
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(.019,.019,.28,8),metal);
+    stem.position.y=-.12;root.add(stem);
+    const shade=new THREE.Mesh(new THREE.CylinderGeometry(.17,.235,.15,14),metal);
+    shade.position.y=-.29;root.add(shade);
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.16,12,8),diffuser);
+    bulb.position.y=-.385;bulb.scale.y=.57;root.add(bulb);
+    e.interior.add(root);e.lampMaterials.push(metal,diffuser);
+    e.roomFixtures.push({root,bulb,roomId:room.id,floor,px:cx,py:cy,
+      world:e.H.architecture.toWorld(cx,cy)});
+  }
  }
  let statsDirty=true;
  function update(){
@@ -310,24 +340,54 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
    e.glass.envMapIntensity=bridge.world.night?.10:.75;
   }
   const far=H=>Math.hypot((H.x0+H.x1)/2-c.x,(H.y0+H.y1)/2-c.y)>R+40;
-  for(const [H,e] of entries)if(!seen.has(H)&&(far(H)||!bridge.houses.includes(H))){statsDirty=true;disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
+  for(const [H,e] of entries)if(!seen.has(H)&&(far(H)||!bridge.houses.includes(H))){statsDirty=true;disposeGroup(e.root);for(const m of e.materials)m.dispose();for(const m of e.lampMaterials)m.dispose();for(const t of e.textures)t.dispose();entries.delete(H);}
   for(const [H,job] of builds)if(!seen.has(H)&&far(H)){job.return();builds.delete(H);}
-  // Instantiate lamps only for a visibly occupied, permitted property.
-  // Never add decorative PointLights to empty streets or unloaded sectors.
-  const playerHome=bridge.houses.find(H=>H.inside&&window.CityHome?.owned(H)&&H.architecture);
-  const lamps=playerHome&&typeof CityHomePlus!=='undefined'&&CityHomePlus.data(playerHome).power!==false?
-      CityHomePlus.data(playerHome).lights.filter(l=>l.floor===(bridge.player.floor||0)).slice(0,2):[];
-  if(lamps.length&&!scene.userData.homeLights){
-    scene.userData.homeLights=Array.from({length:2},()=>new THREE.PointLight(0xffd6a4,0,10,1.8));
+  // Electrical circuit is shared with the physical wall switch and F7 controls.
+  // Base ceiling fixtures are present automatically; paid upgrades change color
+  // and brightness. Only 4 nearest fixtures use PointLights to bound GPU cost.
+  const playerHome=bridge.houses.find(H=>H.inside&&H.architecture&&!H.civic&&
+     H.contains?.(bridge.player.x,bridge.player.y,bridge.player.floor||0))||
+     bridge.houses.find(H=>H.inside&&H.architecture&&!H.civic);
+  const powered=!!playerHome&&(window.CityHomePlus&&window.CityHome?.owned(playerHome)?
+    CityHomePlus.powerOn(playerHome):playerHome.lightOn!==false);
+  const occupiedEntry=playerHome&&entries.get(playerHome);
+  const fixtures=occupiedEntry?.interior?.visible?occupiedEntry.roomFixtures:[];
+  const options=playerHome&&window.CityHomePlus?.data?.(playerHome).lights||[];
+  const level=playerHome?.architecture?.levels?.[bridge.player.floor||0];
+  const candidates=[];
+  for(const f of fixtures){
+    const custom=options.find(l=>l.floor===f.floor&&l.roomId===f.roomId);
+    const mode=custom?.mode||'warm',color=window.CityHomePlus?.color?.[mode]||'#ffe4b5';
+    f.bulb.material.color.set(powered?color:'#55565b');
+    if(powered){
+      const d=Math.hypot(bridge.player.x-f.world[0],bridge.player.y-f.world[1]);
+      candidates.push({f,custom,color,d});
+    }
   }
-  if(scene.userData.homeLights)scene.userData.homeLights.forEach((L,i)=>{
-    const f=lamps[i];
-    if(!f){scene.remove(L);return;}
+  candidates.sort((a,b)=>a.d-b.d);
+  const nearest=candidates.slice(0,homePointLights.length);
+  homePointLights.forEach((L,i)=>{
+    const o=nearest[i];
+    if(!o){if(L.parent)scene.remove(L);L.intensity=0;return;}
     if(!L.parent)scene.add(L);
-    L.intensity=(bridge.world.night?3.4:1.5)*f.intensity;
-    L.color.set(CityHomePlus.color[f.mode]||'#ffdaa8');
-    L.position.set(f.x,playerHome.architecture.levels[f.floor].z+2.5,f.y);
+    L.color.set(o.color);
+    L.position.set(o.f.world[0],(level?.z||0)+playerHome.architecture.floorHeight-.65,o.f.world[1]);
+    // Visible at night with physically correct inverse-square lighting; still
+    // capped at four pooled PointLights and 13 m falloff for WebGL performance.
+    L.intensity=(bridge.world.night?85:26)*(o.custom?.intensity||1);
   });
+  // Keep the architecture as scene.children[0] and detach lighting completely
+  // when no residential interior is occupied (including sector unload).
+  if(powered){if(!homeAmbient.parent)scene.add(homeAmbient);}
+  else if(homeAmbient.parent)scene.remove(homeAmbient);
+  homeAmbient.intensity=powered?(bridge.world.night?1.65:.52):0;
+  for(const [name,mat] of Object.entries(innerMats))if(name!=='glass'&&mat.emissive){
+    mat.emissive.set(powered?'#3c3228':'#000000');
+    mat.emissiveIntensity=powered?.30:0;
+  }
+  state.interiorFixtures=fixtures.length;
+  state.lightsActive=nearest.length;
+  state.powered=powered;
   const occupied=bridge.houses.find(H=>H.civic&&H.inside&&H.lightOn),lit=occupied?.architecture.levels[bridge.player.floor||0];
   civicLights.forEach((light,i)=>{light.intensity=lit?(bridge.world.night?75:35):0;if(lit&&lit.rooms[i]){if(!light.parent)scene.add(light);const room=lit.rooms[i],p=occupied.architecture.toWorld((room.x0+room.x1)/2,(room.y0+room.y1)/2);light.position.set(p[0],lit.z+2.8,p[1]);}else scene.remove(light);});
   if(statsDirty){statsDirty=false;let meshes=0,triangles=0;for(const e of entries.values())e.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});Object.assign(state,{meshes,triangles});}
