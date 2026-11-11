@@ -109,7 +109,7 @@ const CityClickInteractions=(()=>{
  // Rendered at the real position of each powered TV/monitor, only while visible indoors.
  function drawScreens(ctx,t){
   const G=window.__game,p=G?.player;if(!p||!ctx||typeof proj!=='function')return;
-  if(document.body.classList.contains('front-open'))return;
+  if(document.body.classList.contains('front-open')||window.cityVehicles?.homeDisplays?.active)return;
   for(const H of G.houses||[]){
    if(!H.contains?.(p.x,p.y,p.floor||0))continue;
    for(const b of H.interactables||[]){
