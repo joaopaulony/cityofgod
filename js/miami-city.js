@@ -1370,7 +1370,6 @@ function* miaGenSector(S, rects) {
   }
   infillCandidates.sort((a,b)=>a.r-b.r);
   // Always reserve new buildable empty lots first so homes cannot swallow the land.
-  if (infillCandidates.length) { miaLotsForSale(S, zoneAt, rects, true); yield; }
   const maxExtra = Math.min(22, Math.max(0, 88 - placed));
   let extraHomes = 0, extraTried = 0;
   for (const c of infillCandidates) {
@@ -1379,6 +1378,7 @@ function* miaGenSector(S, rects) {
     const H = miaHouse(S, c, rects, c.zone === 'poor');
     if (H) { H.residentialInfill = true; extraHomes++; yield; }
   }
+  if (infillCandidates.length) { miaLotsForSale(S, zoneAt, rects, true); yield; }
   S.residentialInfill = {houses:extraHomes,attempted:extraTried,emptyLots:(world.lotsForSale||[]).filter(l=>l.id.startsWith(`lot-${S.sx}-${S.sy}-infill-`)).length};
   miaCrosswalks(S);
   miaStreets(S, zoneAt); yield;
