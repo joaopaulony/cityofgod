@@ -15,6 +15,7 @@ const CityClickInteractions=(()=>{
   switch:[['Ligar / desligar luzes','switch']],
   door:[['Abrir / fechar porta','door']],window:[['Abrir / fechar janela','window']]
  };
+ const actionKind=kind=>/^qf_couch_/.test(kind)?'sofa':/^qf_chair_/.test(kind)?'chair':/^qf_bed_/.test(kind)?'bed':/^qf_bathroom_toilet/.test(kind)?'toilet':/^qf_bathroom_shower/.test(kind)?'shower':/^qf_kitchen_fridge/.test(kind)?'fridge':/^qf_kitchen_oven/.test(kind)?'stove':/^qf_kitchen_sink/.test(kind)?'sink':kind;
  const labels={tv:'Televisão',screen:'Monitor',switch:'Interruptor',door:'Porta',window:'Janela'};
  const close=()=>{if(menu){menu.remove();menu=null;}};
  function candidates(p){
@@ -22,7 +23,7 @@ const CityClickInteractions=(()=>{
   for(const H of window.__game?.houses||[]){
    // A player can stand on a threshold while the target object is inside.
    // Do not gate selection on contains(): range and property access are checked separately.
-   for(const b of H.interactables||[])if(actions[b.kind]&&(b.floor||0)===(p.floor||0))
+   for(const b of H.interactables||[])if(actions[actionKind(b.kind)]&&(b.floor||0)===(p.floor||0))
     items.push({obj:b,kind:b.kind,house:H});
    for(const b of H.switches||[])if((b.floor||0)===(p.floor||0))
     items.push({obj:b,kind:'switch',house:H});
@@ -81,7 +82,7 @@ const CityClickInteractions=(()=>{
  function open(it,e){
   close();const el=document.createElement('div');el.id='city-context-menu';el.setAttribute('role','menu');
   const name=document.createElement('div');name.className='city-context-title';name.textContent=labels[it.kind]||window.CityHome?.catalog?.[it.kind]?.name||it.kind;el.appendChild(name);
-  for(const [label,action] of actions[it.kind]||[]){
+  for(const [label,action] of actions[actionKind(it.kind)]||[]){
    const btn=document.createElement('button');btn.type='button';btn.textContent=label;
    btn.addEventListener('click',ev=>{ev.stopPropagation();execute(it,action);});el.appendChild(btn);
   }
