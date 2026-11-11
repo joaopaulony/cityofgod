@@ -855,31 +855,37 @@ function drawBeachUmbrella(g, b) {
 }
 
 // ---------- terrenos à venda: lote vazio cercado com placa (no futuro os jogadores compram e constroem a casa) ----------
-function miaLotsForSale(S, zoneAt, rects) {
-  const R = mulberry(owSeed(S, 'lots')), want = 4 + Math.floor(R()*5); let made = 0;
+function miaLotsForSale(S, zoneAt, rects, infill = false) {
+  // First pass remains unchanged for backwards-compatible existing lot IDs.
+  // Later infill adds only vacant parcels after all original homes have been registered.
+  const R = mulberry(owSeed(S, infill ? 'residential-vacant-infill-v1' : 'lots'));
+  const want = infill ? 4 + Math.floor(R() * 5) : 4 + Math.floor(R() * 5);
+  let made = 0;
   for (const rd of S.roads) {
     if (made >= want) break; if (rd.cls === 'highway' || rd.pts.length < 30) continue;
-    for (let tries = 0; tries < 48 && made < want; tries++) {
+    for (let tries = 0; tries < (infill ? 95 : 48) && made < want; tries++) {
       const i = 8 + ((R() * (rd.pts.length - 16)) | 0), p = rd.pts[i], s = R() < 0.5 ? 1 : -1;
-      const W = 10 + ((R() * 5) | 0) * 2, D = 14 + ((R() * 5) | 0) * 2, n = [p.nx * s, p.ny * s], t = [-n[1], n[0]], off = ROAD_W + (rd.off || 0) + SIDE + 0.8;
+      const W = infill ? 10 + ((R() * 4) | 0) * 2 : 10 + ((R() * 5) | 0) * 2, D = infill ? 12 + ((R() * 5) | 0) * 2 : 14 + ((R() * 5) | 0) * 2, n = [p.nx * s, p.ny * s], t = [-n[1], n[0]], off = ROAD_W + (rd.off || 0) + SIDE + 0.8;
       const z = zoneAt(p.x + n[0] * (off + D / 2), p.y + n[1] * (off + D / 2));
       if (!['bungalow', 'town', 'mansion', 'southbeach'].includes(z)) continue;
       const P = (u, v) => [p.x + n[0] * (off + v) + t[0] * u, p.y + n[1] * (off + v) + t[1] * u];
       const q = [P(-W / 2, 0), P(W / 2, 0), P(W / 2, D), P(-W / 2, D)], xs = q.map(c => c[0]), ys = q.map(c => c[1]);
       const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
       if (bb[0] < S.bounds[0] + 1 || bb[1] < S.bounds[1] + 1 || bb[2] > S.bounds[2] - 1 || bb[3] > S.bounds[3] - 1) continue;
-      if (rects.some(b => bb[0] < b[2] + 2 && bb[2] > b[0] - 2 && bb[1] < b[3] + 2 && bb[3] > b[1] - 2)) continue;
+      if (rects.some(b => bb[0] < b[2] + (infill ? 0.8 : 2) && bb[2] > b[0] - (infill ? 0.8 : 2) && bb[1] < b[3] + (infill ? 0.8 : 2) && bb[3] > b[1] - (infill ? 0.8 : 2))) continue;
       let ok = true;
       for (let u = -W / 2; u <= W / 2 + 0.01 && ok; u += 2) for (let v = 0; v <= D + 0.01 && ok; v += 2) { const [x, y] = P(u, v); if (roadDist(x, y) < ROAD_W + SIDE + 0.3 || pondVal(x, y) < 1.4 || miaBlocked(x, y, 0.5)) ok = false; }
       if (!ok) continue;
-      // terreno já comprado e construído pelo jogador (city-lots.js): a casa escolhida no lugar da cerca e da placa
-      { const lid = `lot-${S.sx}-${S.sy}-${made}`, build = window.CityLots?.buildOf(lid);
+      const lotId = infill ? `lot-${S.sx}-${S.sy}-infill-${Math.round(p.x)}-${Math.round(p.y)}-${s}` : `lot-${S.sx}-${S.sy}-${made}`;
+      // The extra parcel IDs are derived from street positions, not generation order.
+      // Existing owned lots keep their old IDs and locations.
+      { const lid = lotId, build = window.CityLots?.buildOf(lid);
         if (build && miaLotHouse(S, rects, rd, p, s, q, build, lid)) { made++; continue; } }
       rects.push(bb); world.yards.push(bb);
       miaDecal(q, 'lot', R, { ax: n, origin: P(0, 0), w: W, len: D });   // terra limpa, cascalho, marcas de trator
       const [gx, gy] = P(0, 0.1), gate = (x, y) => Math.hypot(x - gx, y - gy) < 1.7;
       for (const [a, b] of [[q[0], q[1]], [q[1], q[2]], [q[2], q[3]], [q[3], q[0]]]) chainLine(a[0], a[1], b[0], b[1], gate, { h: 1.8 });
-      const list = world.lotsForSale || (world.lotsForSale = []), id = `lot-${S.sx}-${S.sy}-${made}`, area = W * D;
+      const list = world.lotsForSale || (world.lotsForSale = []), id = lotId, area = W * D;
       const price = Math.round(area * (z === 'mansion' ? 2600 : z === 'southbeach' ? 2200 : 1100) / 1000) * 1000;
       const [sx, sy] = P(W / 2 - 2.4, 1.1);
       addBox({ x: sx, y: sy, w: 2.4, d: 0.35, h: 2.7, rot: Math.atan2(t[1], t[0]), kind: 'forsale', solid: true, lot: id, area, price, nx: n[0], ny: n[1] });
@@ -1345,6 +1351,35 @@ function* miaGenSector(S, rects) {
     else H = miaBuilding(S, c, rects, kind);
     if (H) { placed++; yield; }
   }
+  // Preserve the original placement pass (and existing house purchase IDs) above.
+  // Fill remaining street frontage in suburbs with compact, individually purchasable homes.
+  // Sparse farmland, industrial zones, downtown and wealthy waterfront are excluded.
+  const infillR = mulberry(owSeed(S, 'suburban-infill-houses-v1'));
+  const infillCandidates = [];
+  for (const rd of S.roads) {
+    if (rd.cls !== 'street' || rd.pts.length < 28) continue;
+    for (let i = 10; i < rd.pts.length - 10; i += 3) for (const side of [1, -1]) {
+      const p = rd.pts[i], off = rd.off || 0;
+      const x = p.x + p.nx * side * (ROAD_W + off + SIDE + 8);
+      const y = p.y + p.ny * side * (ROAD_W + off + SIDE + 8);
+      const zone = zoneAt(x, y);
+      if (!['bungalow', 'town', 'poor'].includes(zone)) continue;
+      if (!CityStreetLayout.alignedFront(rd, i, 8, .20)) continue;
+      infillCandidates.push({p,s:side,off,cls:rd.cls,rd,i,zone,r:infillR()});
+    }
+  }
+  infillCandidates.sort((a,b)=>a.r-b.r);
+  // Always reserve new buildable empty lots first so homes cannot swallow the land.
+  if (infillCandidates.length) { miaLotsForSale(S, zoneAt, rects, true); yield; }
+  const maxExtra = Math.min(22, Math.max(0, 88 - placed));
+  let extraHomes = 0, extraTried = 0;
+  for (const c of infillCandidates) {
+    if (extraHomes >= maxExtra || extraTried >= 420) break;
+    extraTried++;
+    const H = miaHouse(S, c, rects, c.zone === 'poor');
+    if (H) { H.residentialInfill = true; extraHomes++; yield; }
+  }
+  S.residentialInfill = {houses:extraHomes,attempted:extraTried,emptyLots:(world.lotsForSale||[]).filter(l=>l.id.startsWith(`lot-${S.sx}-${S.sy}-infill-`)).length};
   miaCrosswalks(S);
   miaStreets(S, zoneAt); yield;
   miaClutter(S, zoneAt, rects); yield;
