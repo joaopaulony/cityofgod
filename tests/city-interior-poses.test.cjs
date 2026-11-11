@@ -14,7 +14,7 @@ function room({deskY=4,front=[0,-1],itemKind='desk'}={}){
  ctx.window.__game={player,st:{clock:0}};
  ctx.window.CityUI={notify(){}};
  ctx.window.CityHome={placed:()=>[item],find:(_,id)=>id===item.id?item:null,
-  owned:()=>true,key:()=> 'seed:owned-property'};
+  owned:()=>true,key:()=> 'seed:owned-property',catalog:{desk:{name:'Escrivaninha'},shower:{name:'Box de banho'}}};
  ctx.CityHome=ctx.window.CityHome;
  ctx.window.CityDeskCore={newState:()=>({}),sanitizeState:x=>x||{}};
  ctx.window.CityDeskContent={};
