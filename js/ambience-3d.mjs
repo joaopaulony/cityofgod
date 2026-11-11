@@ -26,7 +26,7 @@ export function createAmbience(THREE, scene, bridge, L) {
   const dp = new Float32Array(ND * 4);
   for (let i = 0; i < ND; i++) dp[i * 4 + 2] = -1;
   // ---------- flocos de neve ----------
-  const NS = 2600, snowPos = new Float32Array(NS * 3), snowSeed = new Float32Array(NS);
+  const NS = 900, snowPos = new Float32Array(NS * 3), snowSeed = new Float32Array(NS);
   const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3).setUsage(THREE.DynamicDrawUsage));
   const flake = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
   const snowMat = new THREE.PointsMaterial({ size: 5, sizeAttenuation: false, map: flake, transparent: true, depthWrite: false, opacity: 0, color: 0xffffff });
@@ -36,7 +36,7 @@ export function createAmbience(THREE, scene, bridge, L) {
   // ---------- neve pousada: o alto dos objetos 3D clareia conforme ENV.snowCover ----------
   // construções perto da câmera (área no chão + altura do telhado): por dentro delas, abaixo do telhado, nada de neve
   // (nem nos móveis, nem no piso, nem flocos caindo) — os telhados continuam recebendo
-  const SNOW_N = 48, snowRects = Array.from({ length: SNOW_N }, () => new THREE.Vector4(0, 0, 0, 0)), snowTops = new Array(SNOW_N).fill(0);
+  const SNOW_N = 16, snowRects = Array.from({ length: SNOW_N }, () => new THREE.Vector4(0, 0, 0, 0)), snowTops = new Array(SNOW_N).fill(0);
   const snowU = { snowCover: { value: 0 }, snowUp: { value: new THREE.Vector3(0, 1, 0) }, snowCam: { value: new THREE.Matrix4() }, snowRects: { value: snowRects }, snowTops: { value: snowTops }, snowN: { value: 0 } };
   const SNOW_DECL = 'uniform mat4 snowCam; uniform vec4 snowRects[' + SNOW_N + ']; uniform float snowTops[' + SNOW_N + ']; uniform int snowN;\n';
   const SNOW_INSIDE = 'bool snowInside( vec3 p ) { for ( int i = 0; i < ' + SNOW_N + '; i ++ ) { if ( i >= snowN ) break; vec4 r = snowRects[ i ]; if ( p.x > r.x && p.x < r.z && p.z > r.y && p.z < r.w && p.y < snowTops[ i ] - 0.2 ) return true; } return false; }\n';
@@ -70,7 +70,8 @@ export function createAmbience(THREE, scene, bridge, L) {
   }
   // pessoas (jogador, NPCs, pets) e o que elas carregam (arma, taco, balão) nunca ficam cobertas de neve
   const noSnowUnder = o => { for (let p = o.parent; p; p = p.parent) if (p.userData.noSnow) return true; return false; };
-  let patchT = 0;
+  // Spread shader compilation across many frames instead of freezing on first snowfall.
+  let patchT = 0,patchStack=[],patchesThisWeather=0;
 
   const v3 = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Euler(), s3 = new THREE.Vector3(), M = new THREE.Matrix4();
   let last = performance.now() / 1000;
@@ -144,7 +145,18 @@ export function createAmbience(THREE, scene, bridge, L) {
       snowU.snowCover.value = E.snowCover;
       if (E.snowCover > 0.005 || E.snow > 0.05) {
         updateSnowRects(camera);
-        if ((patchT -= dt) <= 0) { patchT = 1.5; scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material) && !o.isSkinnedMesh && !o.userData.noSnow && !noSnowUnder(o)) patch(o.material); }); }
+        patchT-=dt;
+        if(patchT<=0&&!patchStack.length){patchT=8;patchStack=scene.children.slice();patchesThisWeather=0;}
+        // At most 3 new shader variants/frame, and 48 tree nodes visited.
+        let visited=0,budget=3;
+        while(patchStack.length&&visited++<48&&budget>0){
+          const o=patchStack.pop();
+          if(o.children?.length)patchStack.push(...o.children);
+          if(o.isMesh&&o.material&&!Array.isArray(o.material)&&!o.isSkinnedMesh&&
+             !o.userData.noSnow&&!noSnowUnder(o)&&!o.material.userData.snowP){
+            patch(o.material);budget--;patchesThisWeather++;
+          }
+        }
         snowU.snowUp.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse);
       }
     },
