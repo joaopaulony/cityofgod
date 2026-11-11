@@ -231,6 +231,10 @@ view.addEventListener('mousemove', e => {
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
   if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
+  if (e.button === 0 && !player.armed && window.CityRealty?.clickLot?.(e.clientX/RS,e.clientY/RS,proj,player)) {
+    // Clicking the nearby sale sign selects its exact property, not a phone entry.
+    input.lmb=false;player.wantShot=false;e.preventDefault();return;
+  }
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
   if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
@@ -623,6 +627,7 @@ function render() {
   for (const q of parts) list.push({ d: depthOf(q.x, q.y) + (q.z > 0.5 ? 0.3 : 0), draw: () => drawPart(q) });
   list.sort((a, b) => a.d - b.d);
   for (const it of list) it.draw(g);
+  window.CityRealty?.drawLotSelection?.(g,proj,player);
   ecosystemDrawPollen(g, T, st.night);
 
   // rastros das balas e clarão
