@@ -1,4 +1,5 @@
 name: QA browser - Interiores, banho e iluminação
+# Rodada 2026-11-10: orientação do mobiliário, saída segura, chuveiro e luminárias.
 on:
   push:
     branches: [main]
