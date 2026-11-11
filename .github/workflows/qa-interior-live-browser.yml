@@ -1,0 +1,39 @@
+name: QA browser - Interiores, banho e iluminação
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-interior-live-browser.yml'
+      - 'tools/qa-interior-live-browser.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  interior-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Start game server
+        run: |
+          node tools/serve.mjs > /tmp/city-interior.log 2>&1 &
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:4322/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/city-interior.log
+          exit 1
+      - name: Play indoors, sit, bathe, operate lamps
+        run: node tools/qa-interior-live-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-interiores-chuveiro-iluminacao
+          path: artifacts/qa-residential-interiors/
+          if-no-files-found: warn
