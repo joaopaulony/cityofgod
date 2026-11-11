@@ -13,7 +13,7 @@ test('configurações: padrão, limites e qualidade inválida', () => {
   assert.equal(s.ink, false); assert.equal(s.inkOutline, 1); assert.equal(s.inkToon, 0);
   assert.equal(s.inkQuality, 'balanced'); assert.equal(s.inkSaturation, INK_DEFAULTS.inkSaturation);
   const p = inkParamsFrom({ inkThickness: 1, inkSaturation: 0, inkContrast: 1 });
-  assert.equal(p.thicknessPx, 2); assert.equal(p.saturation, 1); assert.ok(p.contrast > 1 && p.contrast <= 1.2);
+  assert.equal(p.thicknessPx, 2); assert.equal(p.saturation, -0.2); assert.ok(p.contrast > 0 && p.contrast <= 0.5);
   assert.ok(inkParamsFrom({}).thicknessPx <= 1.1, 'traço padrão fino (~1 px)');
 });
 

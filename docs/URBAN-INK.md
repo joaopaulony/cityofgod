@@ -4,6 +4,12 @@ Identidade visual cartoon 3D do mundo do City of God: luz em faixas, cores chapa
 (tingido pela cor de baixo, não preto chapado) que fica mais leve quando a câmera se afasta. Personagens humanos
 não mudam. O estilo original continua disponível para comparação (Configurações → Vídeo → URBAN INK — CARTOON).
 
+## Cor
+
+Visual de ilustração, não de desenho saturado: **vibração** em vez de saturação (aviva só as cores apagadas, sem verde
+neon nem amarelo gritando), curva em S suave, sombra levemente fria e luz levemente quente, toon com passagem macia
+entre faixas e paleta do chão natural (grama oliva, calçada bege suave, asfalto grafite, terra ocre).
+
 ## Como funciona
 
 | Parte | Arquivo | O quê |

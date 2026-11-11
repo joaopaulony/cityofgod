@@ -253,9 +253,9 @@ const INK_SKIP = new Set(['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gju
 // URBAN INK (urban-ink.mjs): paleta chapada da referência — asfalto cinza-azulado, calçada bege clara, grama viva,
 // terra alaranjada; as demais cores seguem o padrão oficial
 const INK_COL = Object.assign({}, COL, Object.fromEntries(Object.entries({
-  lush: '#4fa52c', dry: '#7dab34', moss: '#3d8a33', litter: '#8a5a33', dirt: '#b3733d', mud: '#6b4a32', trail: '#c08a55',
-  sand: '#e6cd92', wsand: '#c2a26f', shallow: '#4cb1c2', deep: '#256f99', foam: '#eef3ea',
-  asph: '#3c414b', patch: '#363a43', gutter: '#6f7177', curbF: '#8a8379', curbT: '#efe4cd', walk: '#e2d3b5'
+  lush: '#5f9440', dry: '#8c9b4a', moss: '#4a7a3c', litter: '#7d5d40', dirt: '#a07651', mud: '#5f4836', trail: '#ad8a63',
+  sand: '#dcc79c', wsand: '#b39d76', shallow: '#5aa6ad', deep: '#2b6681', foam: '#e9eee6',
+  asph: '#43464d', patch: '#3d4047', gutter: '#717274', curbF: '#86817a', curbT: '#e6ddcb', walk: '#d9cdb7'
 }).map(([name, hex]) => [name, TC(hex)])));
 // L: camada (o próprio bloco a 56 px/m, ou a versão rápida); também roda dentro dos workers
 function paintRows(ch, rows, L = ch) {

@@ -32,7 +32,7 @@
   /* chão na GPU (ground-gpu.js): por baixo da tela 2D, com o mesmo tratamento de cor */
   #ground-gpu { z-index: 0; pointer-events: none; filter: saturate(1.5) contrast(1.12) brightness(1.04) brightness(var(--city-brightness,1)); }
   /* URBAN INK (urban-ink.mjs): a cor já sai chapada e saturada do próprio estilo; o filtro só acerta o brilho */
-  body.urban-ink #view, body.urban-ink #ground-gpu { filter: saturate(1.12) contrast(1.04) brightness(var(--city-brightness,1)); }
+  body.urban-ink #view, body.urban-ink #ground-gpu { filter: brightness(var(--city-brightness,1)); }
   body.urban-ink #vehicle3d { filter: brightness(var(--city-brightness,1)); }
   #chat {
     position: absolute; left: 12px; bottom: 12px; width: 270px;

@@ -25,7 +25,7 @@ export const INK_QUALITY = {
   quality: { msaa: 4, foliage: true, crease: true, color: true, fine: true },
 };
 export const INK_DEFAULTS = Object.freeze({
-  ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.75, inkSaturation: 0.5, inkContrast: 0.4, inkQuality: 'balanced',
+  ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.55, inkSaturation: 0.4, inkContrast: 0.4, inkQuality: 'balanced',
 });
 const cap = (v, a, b, f) => (Number.isFinite(Number(v)) ? Math.max(a, Math.min(b, Number(v))) : f);
 // valores salvos (0–1 nos controles deslizantes) → valores do Urban Ink
@@ -48,8 +48,8 @@ export function inkParamsFrom(s) {
     outline: v.inkOutline,
     thicknessPx: 0.8 + v.inkThickness * 1.2,       // 0,8–2 px de tela (vezes a densidade de pixels); padrão ~1 px
     toon: v.inkToon,
-    saturation: 1 + v.inkSaturation * 0.6,         // 1,00–1,60 (no lugar do filtro CSS de saturação do estilo original)
-    contrast: 1 + v.inkContrast * 0.2,             // 1,00–1,20
+    saturation: -0.2 + v.inkSaturation * 0.7,      // vibração −0,20…+0,50: aviva só as cores apagadas, nunca as já fortes
+    contrast: v.inkContrast * 0.5,                 // curva em S 0…0,5 (sem esmagar sombras nem estourar brancos)
     quality: v.inkQuality,
   };
 }
@@ -60,7 +60,7 @@ export function inkParamsFrom(s) {
 //  inkParams: x = força do toon (0 desliga), y = faixas por stop de luz, z = viés de mip da textura (menos microdetalhe),
 //             w = highlight especular estilizado
 //  inkMark:   x = marca de classe no alpha da render target (0 = não marca)
-export const INK = { params: { x: 0, y: 1.35, z: 0, w: 0 }, mark: { x: 0, y: 0, z: 0, w: 0 } };
+export const INK = { params: { x: 0, y: 1.9, z: 0, w: 0 }, mark: { x: 0, y: 0, z: 0, w: 0 } };
 // marcas no alpha (8 bits): sólido 1 · folhagem (alphaTest) 0,85 · pessoa 0,5. Misturas da borda suavizada de uma
 // pessoa com o vazio ficam abaixo de 0,5 e nunca parecem folhagem nem sólido.
 export const INK_CLASS = { foliage: 0.85, human: 0.5, solid: 1 };
@@ -73,7 +73,7 @@ const INK_LIGHT = `
 		float inkL = max( dot( inkIrr, vec3( 0.2126, 0.7152, 0.0722 ) ), 1e-4 );
 		float inkX = log2( inkL ) * inkParams.y;
 		float inkF = floor( inkX ), inkR = fract( inkX );
-		float inkW = clamp( fwidth( inkX ) * 0.6, 0.04, 0.25 );
+		float inkW = clamp( fwidth( inkX ) * 0.8, 0.12, 0.3 );   // passagem macia entre as faixas
 		float inkQ = exp2( ( inkF + smoothstep( 0.5 - inkW, 0.5 + inkW, inkR ) ) / inkParams.y );
 		float inkS = mix( 1.0, inkQ / inkL, inkParams.x );
 		reflectedLight.directDiffuse *= inkS; reflectedLight.indirectDiffuse *= inkS;
@@ -197,8 +197,14 @@ void main() {
 	}
 	// cor: saturação e contraste na cor de tela
 	vec3 c = col.rgb;
-	c = clamp( mix( vec3( luma( c ) ), c, uSat ), 0.0, 1.0 );
-	c = clamp( ( c - 0.5 ) * uCon + 0.5, 0.0, 1.0 );
+	// vibração: aviva as cores apagadas e poupa as que já são fortes (nada de verde neon nem amarelo gritando)
+	float sat = max( c.r, max( c.g, c.b ) ) - min( c.r, min( c.g, c.b ) );
+	c = clamp( mix( vec3( luma( c ) ), c, 1.0 + uSat * ( 1.0 - smoothstep( 0.15, 0.6, sat ) ) - 0.12 * smoothstep( 0.55, 0.9, sat ) ), 0.0, 1.0 );
+	// curva em S suave e tons de ilustração: sombra levemente fria, luz levemente quente
+	c = mix( c, c * c * ( 3.0 - 2.0 * c ), uCon );
+	float lum = luma( c );
+	c += vec3( -0.012, 0.0, 0.03 ) * ( 1.0 - smoothstep( 0.0, 0.45, lum ) ) + vec3( 0.025, 0.012, -0.02 ) * smoothstep( 0.55, 1.0, lum );
+	c = clamp( c, 0.0, 1.0 );
 	// ombro suave nos brancos: piso claro e parede ao sol não estouram (interiores)
 	c *= 1.0 - 0.13 * smoothstep( 0.72, 1.0, luma( c ) );
 	// traço tingido: escurece a cor de baixo em direção ao tom da tinta, em vez de pintar preto chapado
@@ -219,7 +225,7 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
     uniforms: {
       tColor: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2() },
       uThick: { value: 1 }, uOutline: { value: 1 }, uRange: { value: 1 }, uPx: { value: 0.02 },
-      uSat: { value: 1.3 }, uCon: { value: 1.08 }, uFoliage: { value: 1 }, uCrease: { value: 1 }, uFine: { value: 0 }, uColorEdge: { value: 0 },
+      uSat: { value: 0.1 }, uCon: { value: 0.2 }, uFoliage: { value: 1 }, uCrease: { value: 1 }, uFine: { value: 0 }, uColorEdge: { value: 0 },
       uSee: { value: new THREE.Vector4(-1, -1, 0, 0) }, uTune: { value: new THREE.Vector4(0.6, 1.2, 0.1, 0.22) },
       uInk: { value: new THREE.Color() },
     },
