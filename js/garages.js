@@ -100,17 +100,25 @@ function garageCar(g, where, col) {
 }
 
  // Portão interativo: F somente para o dono da casa; sem chave genérica por aproximação.
+ function garageOutside(G,p){
+   if(!G||!p||!G.house?.architecture)return false;
+   if((p.floor||0)!==0)return false;
+   const [u,v]=garageLocal(G,p.x,p.y);
+   // The street-facing apron is beyond the door plane. Inside the garage/house is never eligible.
+   return v>=G.y1+0.12&&u>=G.cu-G.driveW/2-1.2&&u<=G.cu+G.driveW/2+1.2;
+ }
  function garageClosest(p,max=4.8){
    if(!p||typeof world==='undefined')return null;
    let found=null,best=max;
    for(const G of world.garages||[]){
      const d=Math.hypot(G.door[0]-p.x,G.door[1]-p.y);
-     if(d<best){best=d;found=G;}
+     if(d<best&&garageOutside(G,p)){best=d;found=G;}
    }
    return found;
  }
  function garageToggle(G,p,max=12){
    if(!G?.seg?.doorAnim)return 'Garagem indisponível';
+   if(!garageOutside(G,p))return 'O portão só pode ser acionado pelo lado de fora';
    if(!window.CityRealty?.isOwned(G.house))return 'Portão trancado: imóvel de outro proprietário';
    if(p&&Math.hypot(G.door[0]-p.x,G.door[1]-p.y)>max)return 'Aproxime-se da garagem para usar o portão';
    const a=G.seg.doorAnim;
@@ -125,5 +133,5 @@ function garageCar(g, where, col) {
    const G=garageClosest(p,4.6);
    return G?'F · '+(window.CityRealty?.isOwned(G.house)?(G.seg.doorAnim.target>.5?'Fechar':'Abrir')+' minha garagem':'Garagem particular · acesso restrito'):'';
  }
- window.CityGarage={nearby:garageClosest,toggle:garageToggle,use:garageUse,prompt:garagePrompt};
+ window.CityGarage={nearby:garageClosest,toggle:garageToggle,use:garageUse,prompt:garagePrompt,outside:garageOutside};
  
