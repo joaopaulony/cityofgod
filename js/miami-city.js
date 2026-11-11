@@ -931,7 +931,7 @@ function miaLotsForSale(S, zoneAt, rects, infill = false) {
       const list = world.lotsForSale || (world.lotsForSale = []), id = lotId, area = W * D;
       const price = Math.round(area * (z === 'mansion' ? 2600 : z === 'southbeach' ? 2200 : 1100) / 1000) * 1000;
       const [sx, sy] = P(W / 2 - 2.4, 1.1);
-      addBox({ x: sx, y: sy, w: 2.4, d: 0.35, h: 2.7, rot: Math.atan2(t[1], t[0]), kind: 'forsale', solid: true, lot: id, area, price, nx: n[0], ny: n[1] });
+      addBox({ x: sx, y: sy, w: 2.4, d: 0.35, h: 2.7, rot: Math.atan2(t[1], t[0]), kind: 'forsale', solid: true, top:'#c8102e', side:'#f8f3e8', lot: id, area, price, nx: n[0], ny: n[1] });
       const record={ id, q, bb, area, price, zone: z, sign: [sx, sy], front: [-n[0], -n[1]] },previous=list.findIndex(l=>l.id===id);
       if(previous<0)list.push(record);else list[previous]=record;
       made++;
