@@ -138,6 +138,22 @@ async function shot(name){
   for(const z of x){assert.equal(z.ok,true,JSON.stringify(z));assert.equal(z.inside,true);assert.equal(z.back,false);}
   return x;
  });
+ await check('04b Captura do personagem sentado corretamente na cadeira da escrivaninha',async()=>{
+  const started=await page.evaluate(()=>{
+   const q=__qaHome,H=q.H,d=CityHome.find(H,q.deskId);
+   return !!CityDesk.sitDown('desk_code',{H,desk:d,floor:0});
+  });
+  assert.equal(started,true);
+  await page.waitForTimeout(850);
+  await shot('00-escrivaninha-sentado');
+  const posed=await page.evaluate(()=>({
+   action:__game.player.homeAction?.kind,
+   safe:__qaHome.H.contains(__game.player.x,__game.player.y,0)
+  }));
+  await page.evaluate(()=>CityDesk.standUp());
+  assert.equal(posed.safe,true);
+  return posed;
+ });
  await check('05 Escurecer cidade, acender luminárias em todos os cômodos',async()=>{
   const a=await page.evaluate(()=>{
     const H=__qaHome.H,p=__game.player;
@@ -146,7 +162,9 @@ async function shot(name){
     CityHomePlus.powerOn(H);
     return {night:world.night,power:H.lightOn,rooms:H.architecture.levels[0].rooms.length};
   });
-  await page.waitForTimeout(2400);
+  await page.waitForFunction(()=>window.cityArchitecture3D?.interiorFixtures>=3&&
+    window.cityArchitecture3D?.lightsActive>=2,null,{timeout:35000});
+  await page.waitForTimeout(3000);
   await shot('01-casa-luzes-acesas');
   const b=await page.evaluate(()=>({...window.cityArchitecture3D,inside:__qaHome.H.inside}));
   assert.equal(a.night,true,JSON.stringify(a));assert.equal(b.powered,true,JSON.stringify(b));assert.ok(b.interiorFixtures>=2,JSON.stringify(b));assert.ok(b.lightsActive>=1);return {a,b};
@@ -183,7 +201,10 @@ async function shot(name){
   });
   assert.equal(q.started,true,JSON.stringify(q));assert.equal(q.pose,true,JSON.stringify(q));assert.equal(q.inside,true,JSON.stringify(q));assert.equal(q.fx?.shower,true,JSON.stringify(q));assert.equal(q.fx?.steam,true);return q;
  });
- if(wash){await shot('02-banho-agua-vapor');}
+ if(wash){
+  await page.waitForTimeout(1600);
+  await shot('02-banho-agua-vapor');
+ }
  await check('08 Sair do banho, cancelar e permanecer dentro da residência',async()=>{
   const result=await page.evaluate(()=>{
    const H=__qaHome.H,p=__game.player,shower=CityHome.find(H,__qaHome.showerId);
