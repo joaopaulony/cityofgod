@@ -208,7 +208,7 @@ const CityHomePlus=(()=>{
    if(!item)return {ok:false,text:'Móvel indisponível'};
    const state=typeof CityLife!=='undefined'?CityLife.state:null;
    const p=state?.player||window.__game?.player;
-   if(!p||Math.hypot(p.x-item.x,p.y-item.y)>Math.max(2.8,Math.max(item.w,item.d)*.5+1.65))
+   if(!p||(kind!=='watch'||!options.watchTarget)&&Math.hypot(p.x-item.x,p.y-item.y)>Math.max(2.8,Math.max(item.w,item.d)*.5+1.65))
      return {ok:false,text:'O personagem não alcançou o móvel'};
    if(!data(H).power&&['cook','watch','work','eat'].includes(kind))
      return {ok:false,text:'Sem energia elétrica'};
@@ -259,7 +259,16 @@ const CityHomePlus=(()=>{
    if(kind==='eat'&&window.CityHomeKitchen&&CityHomeKitchen.pantry(H).portions<1)
      return {ok:false,text:'Cozinhe algo antes de comer'};
    // In production this queues A* routing and spends needs/ingredients ONLY after arrival.
-   if(window.CityHomeRoutine)return CityHomeRoutine.start(H,item,kind,options);
+   if(window.CityHomeRoutine){
+    if(kind==='watch'&&item.kind==='tv'){
+      const seats=CityHome.placed(H).filter(s=>s.floor===item.floor&&['sofa','couch','sectional','chair'].includes(s.kind)&&Math.hypot(s.x-item.x,s.y-item.y)<6)
+       .filter(s=>{const front=CityHomeNav.facing(s),dx=item.x-s.x,dy=item.y-s.y;return (dx*front.x+dy*front.y)/Math.max(.01,Math.hypot(dx,dy))>-.1;})
+       .sort((a,b)=>((['sofa','couch','sectional'].includes(a.kind)?0:2)+Math.hypot(a.x-item.x,a.y-item.y)*.15)-((['sofa','couch','sectional'].includes(b.kind)?0:2)+Math.hypot(b.x-item.x,b.y-item.y)*.15));
+      for(const seat of seats){const face=Math.atan2(item.y-seat.y,item.x-seat.x),result=CityHomeRoutine.start(H,seat,'watch',{...options,watchTarget:item.id,watchFacing:face});if(result.ok)return {...result,text:'Indo sentar para assistir televisão'};}
+      return {ok:false,text:'Coloque um sofá ou cadeira acessível de frente para a TV'};
+    }
+    return CityHomeRoutine.start(H,item,kind,options);
+   }
    // Preserve the older offline fixture interface where nav engine is absent.
    const done=completeActivity(H,id,kind,options);
    if(done.ok)player.homeAction={kind,t:0,duration:kind==='sleep'?5:3.5};
