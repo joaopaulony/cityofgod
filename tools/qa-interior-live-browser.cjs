@@ -10,15 +10,26 @@ async function check(name,fn){
 }
 async function shot(name){
  const dest=ROOT+'/'+name+'.png';
- try{await page.screenshot({path:dest,timeout:18000,animations:'disabled'});report.screenshots.push(dest);}
- catch(e){
-  report.warnings.push('Screenshot '+name+': '+String(e.message).slice(0,240));
+ try{
+  // Direct CDP screenshot captures the WebGL scene and HTML at once, avoiding
+  // Playwright's font/animation screenshot waits on CPU-only GitHub runners.
+  const session=await page.context().newCDPSession(page);
   try{
-   const data=await page.evaluate(()=>{
-    const c=document.querySelector('#view');return c?.toDataURL('image/png')||null;
-   });
+   const raw=await Promise.race([
+    session.send('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false}),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('CDP screenshot exceeded 20s')),20000))
+   ]);
+   fs.writeFileSync(dest,Buffer.from(raw.data,'base64'));report.screenshots.push(dest);
+   console.log('HOME_CAPTURE',name,'cdp',fs.statSync(dest).size);
+  }finally{await session.detach().catch(()=>{});}
+ }catch(e){
+  report.warnings.push('Screenshot '+name+': '+String(e.message).slice(0,240));
+  // Diagnose fallback separately: this is ONLY the 2D world, not a 3D proof.
+  try{
+   const data=await page.evaluate(()=>document.querySelector('#view')?.toDataURL('image/png')||null);
    if(data?.startsWith('data:image/png;base64,')){
-    fs.writeFileSync(dest,Buffer.from(data.split(',')[1],'base64'));report.screenshots.push(dest);
+    const alt=ROOT+'/'+name+'-2d-apenas.png';
+    fs.writeFileSync(alt,Buffer.from(data.split(',')[1],'base64'));
    }
   }catch(_){}
  }
@@ -101,7 +112,7 @@ async function shot(name){
  if(!prepared)return;
  const d=await check('03 Sentar com direção do modelo e levantar dentro da casa',async()=>{
   const x=await page.evaluate(()=>{
-   const q=window.__qaHome,p=__game.player,old={x:p.x,y:p.y},start=CityDesk.open('home');
+   const q=window.__qaHome,p=__game.player,old={x:p.x,y:p.y},start=CityDesk.show('home');
    const seated={x:p.x,y:p.y,face:p.face,kind:p.homeAction?.kind};
    const desk=CityHome.find(q.H,q.deskId),f=CityHomeNav.facing(desk);
    const seatedOnFront=(p.x-desk.x)*f.x+(p.y-desk.y)*f.y>0;
