@@ -246,7 +246,8 @@ const CityHomePlus=(()=>{
      sectional:'sit',chair:'sit',tv:'watch',screen:'watch',desk:'work',
      studentdesk:'work',stove:'cook',fridge:'fridge',microwave:'eat',
      sink:'drink',shower:'wash',toilet:'toilet'};
-   const kind=item.kind==='fridge'&&options.action==='eat'?'eat':actions[item.kind];
+   const normalized=/^qf_couch_/.test(item.kind)?'sofa':/^qf_chair_/.test(item.kind)?'chair':/^qf_bed_/.test(item.kind)?'bed':/^qf_bathroom_toilet/.test(item.kind)?'toilet':/^qf_bathroom_shower/.test(item.kind)?'shower':/^qf_kitchen_fridge/.test(item.kind)?'fridge':/^qf_kitchen_oven/.test(item.kind)?'stove':/^qf_kitchen_sink/.test(item.kind)?'sink':item.kind;
+   const kind=normalized==='fridge'&&options.action==='eat'?'eat':actions[normalized];
    if(!kind)return {ok:false,text:'Esse móvel não possui interação'};
    if(!data(H).power&&['watch','work','cook','eat'].includes(kind))
      return {ok:false,text:'Ligue a energia da casa'};
@@ -261,7 +262,7 @@ const CityHomePlus=(()=>{
    // In production this queues A* routing and spends needs/ingredients ONLY after arrival.
    if(window.CityHomeRoutine){
     if(kind==='watch'&&item.kind==='tv'){
-      const seats=CityHome.placed(H).filter(s=>s.floor===item.floor&&['sofa','couch','sectional','chair'].includes(s.kind)&&Math.hypot(s.x-item.x,s.y-item.y)<6)
+      const seats=CityHome.placed(H).filter(s=>s.floor===item.floor&&(['sofa','couch','sectional','chair'].includes(s.kind)||/^qf_(couch_|chair_)/.test(s.kind))&&Math.hypot(s.x-item.x,s.y-item.y)<6)
        .filter(s=>{const front=CityHomeNav.facing(s),dx=item.x-s.x,dy=item.y-s.y;return (dx*front.x+dy*front.y)/Math.max(.01,Math.hypot(dx,dy))>-.1;})
        .sort((a,b)=>((['sofa','couch','sectional'].includes(a.kind)?0:2)+Math.hypot(a.x-item.x,a.y-item.y)*.15)-((['sofa','couch','sectional'].includes(b.kind)?0:2)+Math.hypot(b.x-item.x,b.y-item.y)*.15));
       for(const seat of seats){const face=Math.atan2(item.y-seat.y,item.x-seat.x),result=CityHomeRoutine.start(H,seat,'watch',{...options,watchTarget:item.id,watchFacing:face});if(result.ok)return {...result,text:'Indo sentar para assistir televisão'};}
