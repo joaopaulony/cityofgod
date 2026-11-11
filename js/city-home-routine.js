@@ -82,7 +82,7 @@ const CityHomeRoutine=(()=>{
        if(!safe){cancel('Não há posição segura para esta interação');return false;}
        t.poseOrigin=safe;player.x=safe.x;player.y=safe.y;
      }
-     const seated=['sit','toilet','watch'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&furniture.kind==='shower';
+     const seated=['sit','toilet','watch'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&(/shower/.test(furniture.kind));
      if(seated||sleep||shower){
        // The actor temporarily enters the bed / chair / shower, but returns
        // to its collision-checked approach point when completed or cancelled.
