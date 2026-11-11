@@ -20,7 +20,9 @@ const CityClickInteractions=(()=>{
  function candidates(p){
   const items=[];
   for(const H of window.__game?.houses||[]){
-   if(!H.contains?.(p.x,p.y,p.floor||0))continue;
+   // A player can stand on a threshold while the target object is inside.
+   // Do not gate selection on contains(): range and property access are checked separately.
+   if(p.x<H.x0-5||p.x>H.x1+5||p.y<H.y0-5||p.y>H.y1+5)continue;
    for(const b of H.interactables||[])if(actions[b.kind]&&(b.floor||0)===(p.floor||0))
     items.push({obj:b,kind:b.kind,house:H});
    for(const b of H.switches||[])if((b.floor||0)===(p.floor||0))
