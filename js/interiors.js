@@ -148,6 +148,7 @@ function useHouseInteraction(p,st,time){
     }
   }else if(kind==='tv'){
     H.tvOn=!H.tvOn;
+    obj.screenOn=H.tvOn;
     message=H.tvOn?'Televisao ligada':'Televisao desligada';
   }else if(kind==='cabinet'||kind==='wardrobe'){
     obj.open=!obj.open;
