@@ -13,7 +13,8 @@ test('configurações: padrão, limites e qualidade inválida', () => {
   assert.equal(s.ink, false); assert.equal(s.inkOutline, 1); assert.equal(s.inkToon, 0);
   assert.equal(s.inkQuality, 'balanced'); assert.equal(s.inkSaturation, INK_DEFAULTS.inkSaturation);
   const p = inkParamsFrom({ inkThickness: 1, inkSaturation: 0, inkContrast: 1 });
-  assert.equal(p.thicknessPx, 3); assert.equal(p.saturation, 1); assert.ok(p.contrast > 1 && p.contrast <= 1.16);
+  assert.equal(p.thicknessPx, 2); assert.equal(p.saturation, 1); assert.ok(p.contrast > 1 && p.contrast <= 1.2);
+  assert.ok(inkParamsFrom({}).thicknessPx <= 1.1, 'traço padrão fino (~1 px)');
 });
 
 test('menu: front-state salva as chaves do Urban Ink com os mesmos limites', () => {
@@ -45,7 +46,7 @@ test('estilo original: fora do passe do Urban Ink todos os termos ficam neutros'
   assert.equal(INK.params.x, 0); assert.equal(INK.params.z, 0); assert.equal(INK.params.w, 0); assert.equal(INK.mark.x, 0);
   const f = THREE.ShaderLib.physical.fragmentShader;
   assert.ok(f.includes('if ( inkParams.z > 0.0 ) sampledDiffuseColor.rgb'), 'viés só na cor e só ligado');
-  assert.ok(f.includes('if ( inkMark.x > 0.0 )'), 'marca só ligada');
+  assert.ok(f.includes('if ( inkMark.x != 0.0 )'), 'marca só ligada');
 });
 
 test('integração: renderizador usa o Urban Ink sem duplicar a cena', async () => {

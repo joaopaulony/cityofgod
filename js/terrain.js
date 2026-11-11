@@ -233,12 +233,23 @@ const TC = h => hexToRgb(h);
 // refletem o padrão oficial sem trocar bitmaps, rachaduras ou formas.
 const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
   .map(([name,hex])=>[name,TC(hex)]));
+const COLB = COL;
+const INK_SKIP = new Set(['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gjunk', 'grit', 'paper', 'gum', 'crack', 'pebble']);
+// URBAN INK (urban-ink.mjs): paleta chapada da referência — asfalto cinza-azulado, calçada bege clara, grama viva,
+// terra alaranjada; as demais cores seguem o padrão oficial
+const INK_COL = Object.assign({}, COL, Object.fromEntries(Object.entries({
+  lush: '#4fa52c', dry: '#7dab34', moss: '#3d8a33', litter: '#8a5a33', dirt: '#b3733d', mud: '#6b4a32', trail: '#c08a55',
+  sand: '#e6cd92', wsand: '#c2a26f', shallow: '#4cb1c2', deep: '#256f99', foam: '#eef3ea',
+  asph: '#3c414b', patch: '#363a43', gutter: '#6f7177', curbF: '#8a8379', curbT: '#efe4cd', walk: '#e2d3b5'
+}).map(([name, hex]) => [name, TC(hex)])));
 // L: camada (o próprio bloco a 56 px/m, ou a versão rápida); também roda dentro dos workers
 function paintRows(ch, rows, L = ch) {
   const F = L.F || ch.F, img = L.img, data = img.data, n1 = terrain.n1, n2 = terrain.n2, n3 = terrain.n3;
   const Frd = F.rd, Fpv = F.pv, Ftr = F.tr, Fgt = F.gt, Fdry = F.dry, Fdirt = F.dirt, Fwet = F.wet, Ffo = F.fo, Fdi = F.di, Ffa = F.fa, Ffc = F.fc;
   const open = world.open, CROP = terrain.crops;
-  const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
+  // URBAN INK: cores chapadas — sem as texturas fotográficas, ruído fino quase nulo e a paleta do estilo
+  const ink = !!terrain.ink, inkN = ink ? 0.16 : 1, COL = ink ? INK_COL : COLB;
+  const tex = !ink && typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
   const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
   const sk = L.k || 1, pd = L.pad === undefined ? PAD : L.pad, SZ = L.sz || CSZ, gx0 = ch.ci * CPX - pd * sk, gy0 = ch.cj * CPX - pd * sk, gs = L.gs || GSTEP, gn = L.gn || GN, inv = 1 / ((L.tp || TP) * gs);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
@@ -256,7 +267,7 @@ function paintRows(ch, rows, L = ch) {
       const dirt = Fdirt[k] * w00 + Fdirt[k + 1] * w10 + Fdirt[k2] * w01 + Fdirt[k2 + 1] * w11;
       const wet = Fwet[k] * w00 + Fwet[k + 1] * w10 + Fwet[k2] * w01 + Fwet[k2 + 1] * w11;
       const fo = Ffo[k] * w00 + Ffo[k + 1] * w10 + Ffo[k2] * w01 + Ffo[k2 + 1] * w11;
-      const ni = ny | ((Xp) & 255), d1 = n1[ni], d2 = n2[ni], d3 = n3[ni];
+      const ni = ny | ((Xp) & 255), d1 = 0.5 + (n1[ni] - 0.5) * inkN, d2 = 0.5 + (n2[ni] - 0.5) * inkN, d3 = 0.5 + (n3[ni] - 0.5) * inkN;
       let r, gg, b;
       // --- grama: tom por ruído + tufos + grão com pontas claras/escuras
       const dk = sstep(0.42, 0.72, dry), tone = 0.82 + (gt - 0.5) * 0.55 + (d1 - 0.5) * 0.3;
@@ -393,8 +404,11 @@ function paintRows(ch, rows, L = ch) {
       }
       // URBAN INK (urban-ink.mjs): traço preto no meio-fio, na borda da calçada e na margem da água
       if (terrain.ink) {
-        const il = Math.max(inkBand(rd - ROAD_W - 0.02, 0.07), rd < s1 + 0.2 ? inkBand(rd - s1, 0.07) : 0, inkBand(pv - 1.0, 0.006) * (pv < 1.3 ? 1 : 0));
-        if (il > 0) { r = lerp(r, 23, il); gg = lerp(gg, 26, il); b = lerp(b, 32, il); }
+        let il = Math.max(inkBand(rd - ROAD_W - 0.02, 0.045) * 0.6, rd < s1 + 0.2 ? inkBand(rd - s1, 0.045) * 0.5 : 0, inkBand(pv - 1.0, 0.004) * (pv < 1.3 ? 0.55 : 0));
+        // placas da calçada contornadas (1,5 m), como na referência
+        if (rd > ROAD_W + 0.2 && rd < s1 - 0.05) { const wx = Xp / TP, wy = Yp / TP, jx = Math.abs(((wx / 1.5) % 1 + 1) % 1 - 0.5) * 1.5, jy = Math.abs(((wy / 1.5) % 1 + 1) % 1 - 0.5) * 1.5; il = Math.max(il, inkBand(0.75 - Math.max(jx, jy), 0.035) * 0.28); }
+        // traço tingido: a própria cor escurecida puxada p/ o tom da tinta (#171A20), não preto chapado
+        if (il > 0) { r = lerp(r, r * 0.3 + 16, il); gg = lerp(gg, gg * 0.3 + 18, il); b = lerp(b, b * 0.3 + 22, il); }
       }
       const o = (py * SZ + px) * 4;
       data[o] = r; data[o + 1] = gg; data[o + 2] = b; data[o + 3] = 255;
@@ -585,7 +599,9 @@ function paintItems(ch, g, from = 0, to = Infinity) {
       for (const it of chunkItems(ci, cj)) if (it.x > x0 && it.x < x1 && it.y > y0 && it.y < y1) all.push(it);
     }
     const bk = new Map(), bucket = (k, f) => { if (!bk.has(k)) bk.set(k, []); bk.get(k).push(f); };
-    for (const it of all) bucket(it.t + '|' + (it.c || ''), it);
+    // URBAN INK: sem sujeira fotográfica (manchas de óleo, remendos, rachaduras, lixo miúdo); flores e folhas ficam
+    const inkSkip = terrain.ink ? INK_SKIP : null;
+    for (const it of all) if (!inkSkip || !inkSkip.has(it.t)) bucket(it.t + '|' + (it.c || ''), it);
     const order = ['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gjunk', 'grit', 'paper', 'gum', 'crack', 'pebble', 'shell', 'ripple', 'twig', 'leaf', 'clover', 'blade', 'flower', 'wildflower', 'foam', 'lily'];
     ch._buckets = bk;
     ch._keys = [...bk.keys()].sort((a, b) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]));
@@ -851,10 +867,10 @@ function twInit() {
   if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return false;
   try {
     const src = ['"use strict";', `const CH=${CH},TP=${TP},CPX=${CPX},PAD=${PAD},CSZ=${CSZ},GSTEP=${GSTEP},GN=${GN},ROAD_W=${ROAD_W},SIDE=${SIDE};`,
-      'let COL=null,GTEX={ready:false,t:{}};const terrain={},world={open:false};',
-      'const clamp=' + clamp, 'const lerp=' + lerp, 'const sstep=' + sstep, 'const texAt=' + texAt, paintRows.toString(),
-      'onmessage=e=>{const m=e.data;if(m.init){Object.assign(terrain,m.init);COL=m.COL;return;}if(m.tex){GTEX={ready:true,t:m.tex};return;}' +
-      'world.open=m.open;terrain.crops=m.crops;const sz=m.sz,img={data:new Uint8ClampedArray(sz*sz*4)};' +
+      'let COLB=null,GTEX={ready:false,t:{}};const terrain={},world={open:false};',
+      'const clamp=' + clamp, 'const lerp=' + lerp, 'const sstep=' + sstep, 'const texAt=' + texAt, 'const inkBand=' + inkBand, 'const INK_COL=' + JSON.stringify(INK_COL), paintRows.toString(),
+      'onmessage=e=>{const m=e.data;if(m.init){Object.assign(terrain,m.init);COLB=m.COL;return;}if(m.tex){GTEX={ready:true,t:m.tex};return;}' +
+      'world.open=m.open;terrain.crops=m.crops;terrain.ink=!!m.ink;const sz=m.sz,img={data:new Uint8ClampedArray(sz*sz*4)};' +
       'paintRows({ci:m.ci,cj:m.cj,F:m.F,zone:m.zone},sz,{img,row:0,tp:m.tp,pad:m.pad,sz,k:m.k,gs:m.gs,gn:m.gn});' +
       'postMessage({buf:img.data.buffer},[img.data.buffer]);};'].join('\n');
     const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
@@ -887,7 +903,7 @@ function coarseFields(ch) {
   ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
   return F;
 }
-const twBase = (ch, F) => ({ ci: ch.ci, cj: ch.cj, F, zone: ch.zone, open: !!world.open, crops: terrain.crops || null });
+const twBase = (ch, F) => ({ ci: ch.ci, cj: ch.cj, F, zone: ch.zone, open: !!world.open, crops: terrain.crops || null, ink: !!terrain.ink });
 function twQuick(ch) {
   twTex();
   const c = makeCanvas(QSZ, QSZ); ch.q = { c, g: c.getContext('2d'), rows: false, done: false };

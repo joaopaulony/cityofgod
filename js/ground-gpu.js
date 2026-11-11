@@ -36,7 +36,8 @@ out vec4 o;
 float h21(vec2 q){ q = fract(q * vec2(123.34, 456.21)); q += dot(q, q + 45.32); return fract(q.x * q.y); }
 float vnoise(vec2 q){ vec2 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-vec3 det(sampler2D t, vec2 w, float m, vec3 a){ return texture(t, w / m).rgb / max(a, vec3(0.04)); }
+// URBAN INK: sem o detalhe fotográfico das texturas (cor chapada)
+vec3 det(sampler2D t, vec2 w, float m, vec3 a){ return uInk > 0.0 ? vec3(1.0) : texture(t, w / m).rgb / max(a, vec3(0.04)); }
 // juntas das placas do piso (calçada e calçadão), como no detalhe da CPU: linha escura a cada 1,2 m
 float joints(vec2 w){ vec2 g = abs(fract(w / 1.2) - 0.5) * 1.2, fw = max(fwidth(w), vec2(0.004)); vec2 l = 1.0 - smoothstep(vec2(0.0), fw * 1.5 + 0.02, 0.6 - g); return 1.0 - 0.1 * max(l.x, l.y); }
 void main(){
@@ -87,9 +88,9 @@ void main(){
   // URBAN INK: o mesmo traço do chão 2D (meio-fio, borda da calçada, margem da água)
   if (uInk > 0.0) {
     float aw = max(fwidth(d), 0.02), ap = max(fwidth(pv), 0.002);
-    float il = max(1.0 - smoothstep(0.03, 0.03 + aw * 1.5, abs(d - uRoadW - 0.02)), d < uRoadW + uSide + 0.2 ? 1.0 - smoothstep(0.03, 0.03 + aw * 1.5, abs(d - uRoadW - uSide)) : 0.0);
+    float il = max(1.0 - smoothstep(0.02, 0.02 + aw * 1.5, abs(d - uRoadW - 0.02)), d < uRoadW + uSide + 0.2 ? 1.0 - smoothstep(0.02, 0.02 + aw * 1.5, abs(d - uRoadW - uSide)) : 0.0);
     il = max(il, (1.0 - smoothstep(0.003, 0.003 + ap * 1.5, abs(pv - 1.0))) * step(pv, 1.3));
-    col = mix(col, vec3(0.09, 0.102, 0.125), il * uInk);
+    col = mix(col, col * 0.3 + vec3(0.063, 0.07, 0.086), il * 0.55 * uInk);
   }
   o = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;

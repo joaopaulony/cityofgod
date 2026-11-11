@@ -14,14 +14,19 @@
     dusk: { x: 1942, y: 1176, zoom: 48, clock: 19 * 60 + 5 },
     night: { x: 1942, y: 1176, zoom: 48, clock: 22 * 60 + 30 },
     noon: { x: 1942, y: 1176, zoom: 48, clock: 12 * 60 },
+    // interior da referência 1: sala da casa 1923_1169_6x13 (guarda-roupa à esquerda, cozinha ao fundo); a casa
+    // precisa ser do jogador p/ o corte do telhado (CityRealty.buy no save de teste)
+    interior: { x: 1924.2, y: 1167.2, camX: 1924.5, camY: 1165.5, zoom: 105, clock: 11 * 60 },
+    interiorNight: { x: 1924.2, y: 1167.2, camX: 1924.5, camY: 1165.5, zoom: 105, clock: 22 * 60 + 30 },
   };
   async function inkScene(name = 'house', extra = {}) {
     const s = { ...(SCENES[name] || SCENES.house), ...extra }, g = window.__game, p = g.player, w = g.world;
     await w.prepareResume?.(s.x, s.y);
     Object.assign(p, { x: s.x, y: s.y, floor: 0, floorZ: 0 });
-    g.cam.x = g.cam.tx = p.x; g.cam.y = g.cam.ty = p.y; g.cam.ang = g.cam.tang = s.ang ?? Math.PI / 4;
-    g.cam.tzoom = g.cam.zoom = s.zoom; g.st.clock = s.clock; w.version++;
+    g.cam.x = g.cam.tx = s.camX ?? p.x; g.cam.y = g.cam.ty = s.camY ?? p.y; g.cam.ang = g.cam.tang = s.ang ?? Math.PI / 4;
+    g.cam.tzoom = g.cam.zoom = s.zoom; g.st.clock = Math.floor(g.st.clock / 1440) * 1440 + s.clock; w.version++;
     window.__timeScale = 1; await wait(s.settle ?? 4000); await groundReady(); window.__timeScale = 0;
+    g.cam.zoom = g.cam.tzoom = s.zoom; g.cam.x = g.cam.tx = s.camX ?? p.x; g.cam.y = g.cam.ty = s.camY ?? p.y;   // entrar em casa mexe na câmera
     return s;
   }
   // espera o chão 2D (terrain.js) terminar de repintar os blocos da vista
