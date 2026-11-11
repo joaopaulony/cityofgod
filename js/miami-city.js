@@ -888,7 +888,14 @@ function miaLotsForSale(S, zoneAt, rects, infill = false) {
       // building placement and protect already purchased empty land.
       const [saleX,saleY] = P(W / 2 - 2.4, 1.1);
       const ownerKey = Math.round(saleX) + '-' + Math.round(saleY);
-      const previouslyOwned = (window.CitySim?.data?.ownedLots || []).some(l => l.id === lotId || l.key === ownerKey);
+      // World streaming can run before CitySim.init(), so also read the saved
+      // contracts directly. Otherwise previously purchased vacant land could
+      // be converted into a house before the owner state is hydrated.
+      let savedLots = [];
+      try { savedLots = JSON.parse(localStorage.getItem('cityofgod.sim.v2') || '{}').ownedLots || []; }
+      catch (_) {}
+      const previouslyOwned = [...(window.CitySim?.data?.ownedLots || []), ...(Array.isArray(savedLots) ? savedLots : [])]
+        .some(l => l.id === lotId || l.key === ownerKey);
       const makeHome = !infill && !previouslyOwned && ['bungalow','town','poor'].includes(z) &&
         (owSeed(S,'home-parcel-' + made) % 10 < 7);
       if (makeHome) {
