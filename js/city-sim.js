@@ -182,11 +182,27 @@ const CitySim = (() => {
       .sort((a,b)=>Math.hypot(a.sign[0]-game.player.x,a.sign[1]-game.player.y)-Math.hypot(b.sign[0]-game.player.x,b.sign[1]-game.player.y))
       .slice(0,5).map(lot=>({key:lotKey(lot),id:lot.id,price:lot.price,name:'Lote '+lotKey(lot),x:lot.sign[0],y:lot.sign[1],area:lot.area}));
   }
-  function buyLot(key){
-    const lot=nearbyLots().find(x=>x.key===key);
-    if(!lot)return fail('Lote não disponível neste bairro. Aproxime-se de uma placa VENDE-SE.');
+  // The land registry always resolves the exact loaded parcel, not its position
+  // in the phone's limited "five nearest" list. Purchases require standing at its sign.
+  function findSaleLot(ref){
+    if(typeof world==='undefined'||!Array.isArray(world.lotsForSale))return null;
+    return world.lotsForSale.find(l=>l&&l.sign&&(l.id===ref||lotKey(l)===ref))||null;
+  }
+  function buyLot(ref){
+    const source=findSaleLot(ref),p=game?.player;
+    if(!source||!Number.isFinite(source.price)||source.price<=0||!source.q||!source.bb)
+      return fail('Terreno indisponível. Aproxime-se da placa VENDE-SE.');
+    if(!p||p.floor>0||window.cityVehicles?.driver||Math.hypot(source.sign[0]-p.x,source.sign[1]-p.y)>4.5)
+      return fail('Para comprar, saia do veículo e aproxime-se da placa deste terreno.');
+    const key=lotKey(source);
+    if(state.ownedLots.some(l=>l.id===source.id||l.key===key))
+      return fail('Este terreno já pertence a você.');
+    if(window.CityLots?.buildOf(source.id))return fail('Este lote já possui uma construção.');
+    if(state.ownedLots.length>=15)return fail('Limite de 15 terrenos por jogador atingido.');
+    const lot={key,id:source.id,price:source.price,name:'Lote '+key,x:source.sign[0],y:source.sign[1],area:source.area};
     if(!transact(lot.price,'Compra de terreno · '+lot.name))return fail('Saldo insuficiente');
-    state.ownedLots.push(lot);commit();return ok(lot.name+' comprado. Terreno registrado como seu.');
+    state.ownedLots.push(lot);commit();
+    return ok('🏡 '+lot.name+' comprado! Agora você pode construir usando CasaCerta.');
   }
   function rentApartment(){
     if(state.home)return fail('Você já tem uma residência principal');
