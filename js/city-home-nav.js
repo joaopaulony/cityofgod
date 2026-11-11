@@ -123,15 +123,22 @@ const CityHomeNav=(()=>{
  }
  function approach(H,p,item){
    const f=item.floor||0,front=facing(item),side={x:front.y,y:-front.x};
-   // Use the actual +Z direction of the rendered GLB/procedural model.
-   // 'rot' is often the house angle, while faceW is the chair/shower's real front.
+   // The 3D model can face a different direction than the procedural house.
+   // Project collision extents onto the ACTUAL model-facing axis: using d/2
+   // for a face parallel to the long edge selected a point inside a sofa.
+   const angle=item.rot||0,axis={x:Math.cos(angle),y:Math.sin(angle)},
+     perp={x:-axis.y,y:axis.x};
+   const halfExtent=dir=>Math.abs(dir.x*axis.x+dir.y*axis.y)*(item.w||0)/2+
+     Math.abs(dir.x*perp.x+dir.y*perp.y)*(item.d||0)/2;
+   const frontEdge=halfExtent(front),sideEdge=halfExtent(side);
    const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet',
      'desk','studentdesk','shower'].includes(item.kind);
    const clearance=item.kind==='stove'?.30:item.kind==='shower'?.38:.42;
-   const offsets=item.kind==='fridge'?[[.15,item.d/2+.31],[.05,item.d/2+.31],[.25,item.d/2+.31]]:frontOnly?[[0,item.d/2+clearance],[.22,item.d/2+clearance],[-.22,item.d/2+clearance]]:[
-     [0,item.d/2+.62],[0,-item.d/2-.62],
-     [item.w/2+.62,0],[-item.w/2-.62,0],
-     [.25,item.d/2+.58],[-.25,item.d/2+.58]];
+   const offsets=item.kind==='fridge'?[[.15,frontEdge+.35],[.05,frontEdge+.35],[.25,frontEdge+.35]]:
+     frontOnly?[[0,frontEdge+clearance],[.22,frontEdge+clearance],[-.22,frontEdge+clearance]]:[
+       [0,frontEdge+.62],[0,-frontEdge-.62],
+       [sideEdge+.62,0],[-sideEdge-.62,0],
+       [.25,frontEdge+.58],[-.25,frontEdge+.58]];
    let best=null;
    for(const [u,v] of offsets){
      const x=item.x+u*side.x+v*front.x,y=item.y+u*side.y+v*front.y;
