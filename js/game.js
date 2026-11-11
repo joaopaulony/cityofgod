@@ -1036,7 +1036,7 @@ function showcaseTick(dt) {
   for (const p of world.props) { if (p.hit > 0) p.hit = Math.max(0, p.hit - dt); if (p.wob > 0) p.wob = Math.max(0, p.wob - dt); }
   spawnAmbientLeaves(dt); updateParts(dt);
   st.hp = hp; player.dead = dead; player.busted = busted; player.hurtT = 0;   // nada acontece com o jogador no menu
-  render(); window.cityVehicles?.render(); h.clearRect(0, 0, hudC.width, hudC.height);
+  render(); window.CityClickInteractions?.drawScreens?.(g,T); window.cityVehicles?.render(); h.clearRect(0, 0, hudC.width, hudC.height);
   window.CityFront.markFrame(); window.CityFront.markLive?.();
 }
 let frontFrameDebt=0;
@@ -1046,7 +1046,7 @@ function tick(dt) {
   if(window.CityFront?.blocked){
     if(window.CityFront.loading){
       for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}
-      window.cityCharacters?.update(0);droneCam(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();
+      window.cityCharacters?.update(0);droneCam(dt);render();window.CityClickInteractions?.drawScreens?.(g,T);window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();
     }else if(window.CityFront.showcase){
       // 30 Hz no fundo do menu evita gastar potência para renderizar uma tela atrás de botões.
       frontFrameDebt=Math.min(.1,frontFrameDebt+dt);
@@ -1067,7 +1067,7 @@ function tick(dt) {
     return;
   }
   if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
-    cam.update(dt);render();window.cityVehicles?.render();
+    cam.update(dt);render();window.CityClickInteractions?.drawScreens?.(g,T);window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
@@ -1228,6 +1228,7 @@ window.__game = { player, cam, st, world, houses, input };
 CityUI.mount();
 window.CityAdventures?.mount();
 window.CityHomeUI?.mount();
+window.CityClickInteractions?.mount();
 window.CityFront?.attachGame({
   release:()=>{input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;player.aimHold=0;},
   previewReady:dronePreviewReady,needsPlayerSector,preparePlay,
