@@ -872,7 +872,7 @@ function drawNight(W,H){
       indoor.push({...fixture,polygon:lightVisibilityPolygon(
         fixture.x,fixture.y,fixture.r,fixture.floor)});
     }
-  for(const p of indoor)carve(p.x,p.y,p.r,.67,p.polygon,
+  for(const p of indoor)carve(p.x,p.y,p.r,.46,p.polygon,
     p.floor?STOREY_HEIGHT:0);
   carve(player.x,player.y,1.05,.25,
     lightVisibilityPolygon(player.x,player.y,1.05));
@@ -908,7 +908,7 @@ function drawNight(W,H){
   for(const w of windows)directional(gg,w,.20,'239,183,103');
   for(const w of porch)directional(gg,w,.33,'255,207,129');
   gg.globalCompositeOperation='source-over';
-  for(const p of indoor)tint(p.x,p.y,p.r*.74,.18,'249,211,150',
+  for(const p of indoor)tint(p.x,p.y,p.r*.66,.045,'249,211,150',
     p.polygon,p.floor?STOREY_HEIGHT:0);
   gg.globalCompositeOperation='source-over';
   protectBuildingSurfaces(gg);
