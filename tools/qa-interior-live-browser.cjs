@@ -60,8 +60,8 @@ async function shot(name){
       const [x,y]=H.architecture.toWorld((room.x0+room.x1)/2+du,room.y1-gap);
       p.x=H.architecture.toWorld(room.x0+.55,room.y0+.55)[0];p.y=H.architecture.toWorld(room.x0+.55,room.y0+.55)[1];p.floor=0;p.floorZ=0;
       if(!C.place(H,sid,{x,y,rot:0,floor:0}).ok)continue;
-      const row=C.find(H,sid);row.faceW=[-Math.sin(H.architecture.angle||0),-Math.cos(H.architecture.angle||0)];
-      row.faceW=[0,-1];row.along=row.w;row.depth=row.d;C.refresh(H);
+      const row=C.find(H,sid),o=H.architecture.toWorld(0,0),axis=H.architecture.toWorld(0,-1);
+      row.faceW=[axis[0]-o[0],axis[1]-o[1]];row.along=row.w;row.depth=row.d;C.refresh(H);
       const face=CityHomeNav.facing(row);
       const seat={x:row.x+face.x*.6*(row.d/.62),y:row.y+face.y*.6*(row.d/.62)};
       const stand={x:row.x+face.x*1.45,y:row.y+face.y*1.45};
