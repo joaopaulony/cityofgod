@@ -6,7 +6,7 @@ não mudam. O estilo original continua disponível para comparação (Configura�
 
 ## Cor
 
-Visual de ilustração, não de desenho saturado: **vibração** em vez de saturação (aviva só as cores apagadas, sem verde
+Visual de ilustração viva, não de desenho saturado: **vibração** em vez de saturação (aviva mais as cores apagadas, sem verde
 neon nem amarelo gritando), curva em S suave, sombra levemente fria e luz levemente quente, toon com passagem macia
 entre faixas e paleta do chão natural (grama oliva, calçada bege suave, asfalto grafite, terra ocre).
 

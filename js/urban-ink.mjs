@@ -25,7 +25,7 @@ export const INK_QUALITY = {
   quality: { msaa: 4, foliage: true, crease: true, color: true, fine: true },
 };
 export const INK_DEFAULTS = Object.freeze({
-  ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.55, inkSaturation: 0.4, inkContrast: 0.4, inkQuality: 'balanced',
+  ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.6, inkSaturation: 0.75, inkContrast: 0.5, inkQuality: 'balanced',
 });
 const cap = (v, a, b, f) => (Number.isFinite(Number(v)) ? Math.max(a, Math.min(b, Number(v))) : f);
 // valores salvos (0–1 nos controles deslizantes) → valores do Urban Ink
@@ -48,7 +48,7 @@ export function inkParamsFrom(s) {
     outline: v.inkOutline,
     thicknessPx: 0.8 + v.inkThickness * 1.2,       // 0,8–2 px de tela (vezes a densidade de pixels); padrão ~1 px
     toon: v.inkToon,
-    saturation: -0.2 + v.inkSaturation * 0.7,      // vibração −0,20…+0,50: aviva só as cores apagadas, nunca as já fortes
+    saturation: -0.2 + v.inkSaturation * 1.0,      // vibração −0,20…+0,80: aviva mais as cores apagadas, pouco as já fortes
     contrast: v.inkContrast * 0.5,                 // curva em S 0…0,5 (sem esmagar sombras nem estourar brancos)
     quality: v.inkQuality,
   };
@@ -199,7 +199,7 @@ void main() {
 	vec3 c = col.rgb;
 	// vibração: aviva as cores apagadas e poupa as que já são fortes (nada de verde neon nem amarelo gritando)
 	float sat = max( c.r, max( c.g, c.b ) ) - min( c.r, min( c.g, c.b ) );
-	c = clamp( mix( vec3( luma( c ) ), c, 1.0 + uSat * ( 1.0 - smoothstep( 0.15, 0.6, sat ) ) - 0.12 * smoothstep( 0.55, 0.9, sat ) ), 0.0, 1.0 );
+	c = clamp( mix( vec3( luma( c ) ), c, 1.0 + uSat * ( 1.0 - 0.65 * smoothstep( 0.2, 0.75, sat ) ) ), 0.0, 1.0 );
 	// curva em S suave e tons de ilustração: sombra levemente fria, luz levemente quente
 	c = mix( c, c * c * ( 3.0 - 2.0 * c ), uCon );
 	float lum = luma( c );
