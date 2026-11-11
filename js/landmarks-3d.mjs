@@ -62,9 +62,9 @@ export function createLandmarks(THREE, scene, bridge) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 280; const g = c.getContext('2d');
     g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, 512, 280);
     g.fillStyle = '#c8102e'; g.fillRect(0, 0, 512, 92); g.fillStyle = '#fff'; g.font = '800 64px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('VENDE-SE', 256, 50);
-    g.fillStyle = '#1d2733'; g.font = '700 40px Arial'; g.fillText('TERRENO · LOTE ' + String(b.lot || 1).padStart(2, '0'), 256, 128);
-    g.font = '600 32px Arial'; g.fillText((b.area || 0) + ' m²  ·  US$ ' + (b.price || 0).toLocaleString('pt-BR'), 256, 172);
-    g.fillStyle = '#596572'; g.font = '500 23px Arial'; g.fillText('Em breve: compre e construa sua casa', 256, 214);
+    g.fillStyle = '#1d2733'; g.font = '700 40px Arial'; g.fillText('LOTE X ' + Math.round(b.x) + ' · Y ' + Math.round(b.y), 256, 128);
+    g.font = '600 32px Arial'; g.fillText((b.area || 0) + ' m²  ·  R$ ' + (b.price || 0).toLocaleString('pt-BR'), 256, 172);
+    g.fillStyle = '#596572'; g.font = '500 23px Arial'; g.fillText('APROXIME-SE · CLIQUE OU F PARA COMPRAR', 256, 214);
     g.fillStyle = '#c8102e'; g.fillRect(0, 248, 512, 32); g.fillStyle = '#fff'; g.font = '700 20px Arial'; g.fillText('CITY OF GOD IMÓVEIS', 256, 265);
     g.strokeStyle = '#1d2733'; g.lineWidth = 6; g.strokeRect(3, 3, 506, 274);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
