@@ -113,7 +113,7 @@ const CityClickInteractions=(()=>{
    if(!H.contains?.(p.x,p.y,p.floor||0))continue;
    for(const b of H.interactables||[]){
     if(!['tv','screen'].includes(b.kind)||(b.floor||0)!==(p.floor||0)||
-     !(b.screenOn||b.kind==='tv'&&H.tvOn)||Math.hypot(b.x-p.x,b.y-p.y)>18)continue;
+     !b.screenOn||Math.hypot(b.x-p.x,b.y-p.y)>18)continue;
     if(window.CityHomePlus&&window.CityHome?.owned(H)&&!CityHomePlus.powerOn(H))continue;
     const q=proj(b.x,b.y,(b.z||0)+(b.h||.8)*.68);
     const width=Math.max(10,Math.min(90,(b.w||1)*G.cam.zoom*.55)),height=width*.52;
