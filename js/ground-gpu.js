@@ -133,12 +133,15 @@ void main(){
       let unit = 2;
       for (const k of Object.keys(TEXS)) { tex[k] = { unit: unit++, t: gl.createTexture() }; avg[k] = [0.5, 0.5, 0.5]; meters[k] = 3.5; solid(k); }
       gl.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; failed = true; });
-      void loadTextures();
+      // URBAN INK: chão chapado, as fotos do chão só baixam no estilo original (setInk)
+      if (!ink) wantTextures();
       ready = true;
       return true;
     } catch (e) { console.warn('Chão na GPU indisponível:', e); failed = true; try { canvas?.remove(); } catch (_) {} gl = null; return false; }
   }
   function solid(k) { gl.activeTexture(gl.TEXTURE0 + tex[k].unit); gl.bindTexture(gl.TEXTURE_2D, tex[k].t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255])); }
+  let texWanted = false;
+  function wantTextures() { if (texWanted || !gl) return; texWanted = true; void loadTextures(); }
   async function loadTextures() {
     let man = {}; try { man = await (await fetch('assets/textures/manifest.json')).json(); } catch (_) {}
     await Promise.all(Object.entries(TEXS).map(async ([k, file]) => {
@@ -202,6 +205,8 @@ void main(){
     if (!world.open || typeof owBaseColor !== 'function') return false;
     if (!ready && !init()) return false;
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    // a vista inteira já está coberta pelos blocos pintados da tela 2D: nada a desenhar aqui
+    else if (typeof terrainCovered === 'function' && terrainCovered(W, H)) { stats.skipped = (stats.skipped || 0) + 1; return true; }
     const cs = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => unproj(x, y, 0)), xs = cs.map(p => p[0]), ys = cs.map(p => p[1]);
     update(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
     gl.viewport(0, 0, W, H); gl.useProgram(prog);
@@ -220,7 +225,9 @@ void main(){
   function invalidate() { slot.fill(null); }
   // URBAN INK (urban-ink.mjs): parâmetros do traço ou null p/ o estilo original; o chão 2D (terrain.js) acompanha
   let ink = null;
-  function setInk(p) { ink = p && p.enabled ? p : null; window.CityTerrainInk?.(!!ink); }
+  // já nasce no estilo salvo (antes de a camada 3D aplicar as configurações): não baixa fotos à toa
+  try { const S = window.CityFrontState, v = S && S.settings(S.read(localStorage, S.SETTINGS)); if (v && v.ink) ink = { enabled: true, outline: v.inkOutline }; } catch (_) {}
+  function setInk(p) { ink = p && p.enabled ? p : null; window.CityTerrainInk?.(!!ink); if (!ink) wantTextures(); }
   return { draw, invalidate, setInk, get active() { return ready && !failed; }, stats };
 })();
 window.GroundGPU = GroundGPU;

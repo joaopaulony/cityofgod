@@ -26,6 +26,29 @@ não mudam. O estilo original continua disponível para comparação (Configura�
 * O traço é um único passe de tela cheia com 4 amostras de vizinhança (8 só na qualidade "Qualidade").
 * Copas: só a silhueta externa (teste de cobertura), nunca folha por folha; respeita o pontilhado de vegetação vazada.
 
+### Chão mais leve no modo Urban Ink
+
+O chão tem duas camadas: o chão da GPU (`ground-gpu.js`, desenhado na hora) e, por cima, blocos de 16×16 m pintados
+pixel a pixel pela CPU (`terrain.js`). No modo Urban Ink:
+
+* **Sem fotos do chão:** as 7 texturas fotográficas do chão não são baixadas (nem pelo chão 2D nem pelo da GPU) e o
+  chão não é mais jogado fora e repintado quando elas chegam. Só baixam se o estilo original for ligado.
+* **Já nasce no estilo salvo:** o chão não é pintado no estilo original para ser descartado logo em seguida.
+* **Meia resolução:** blocos a 28 px/m (cores chapadas não precisam de 56): ¼ dos pixels e da memória.
+* **Sem piso escondido:** o piso 2D debaixo das casas 3D (coberto pelo piso 3D) não é pintado.
+* **Chão da GPU só quando aparece:** com todos os blocos da vista prontos, ele não é desenhado.
+
+| Chão | Original | Urban Ink |
+|---|---|---|
+| Pintar 1 bloco | 260–420 ms | ~100 ms |
+| Memória por bloco | 3,1 MB | 0,8 MB |
+| Chão da tela pronto após teleporte | ~7,7 s | ~3,5–3,9 s |
+| Fotos do chão baixadas | 7 | 0 |
+| Chão da GPU com a vista pronta | todo quadro | 0 quadros (100 de 100 pulados) |
+
+Com o jogo parado, o quadro continua dominado pelo desenho 3D: 24,4 ms no original contra 26,7 ms no Urban Ink (o
+passe do traço). O ganho do chão aparece ao entrar no jogo, ao teleportar e ao andar/dirigir para áreas novas.
+
 ## Métricas (cena `house`, mesma câmera, 807×734, densidade 0,9)
 
 | | Original | Ink — Equilibrada | Ink — Desempenho |

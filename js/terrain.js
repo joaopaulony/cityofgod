@@ -13,7 +13,12 @@ const terrain = { chunks: new Map(), maxChunks: 20, noise: null, frame: 0 };
 // faixa de traço do Urban Ink: 1 no centro, some suave até a meia largura w
 const inkBand = (x, w) => 1 - Math.min(1, Math.max(0, (Math.abs(x) - w * 0.35) / (w * 0.65)));
 // liga/desliga o traço do Urban Ink: os blocos já pintados são refeitos aos poucos
-function setTerrainInk(on) { on = !!on; if (terrain.ink === on) return; terrain.ink = on; terrain.chunks.clear(); }
+function setTerrainInk(on) {
+  on = !!on; if (terrain.ink === on) return; terrain.ink = on; terrain.chunks.clear();
+  if (!on && typeof texEnsureGround === 'function') texEnsureGround();   // estilo original: texturas do chão sob demanda
+}
+// já nasce no estilo salvo: nada é pintado num estilo e jogado fora logo depois
+try { const S = typeof window !== 'undefined' && window.CityFrontState; if (S) terrain.ink = S.settings(S.read(localStorage, S.SETTINGS)).ink !== false; } catch { }
 if (typeof window !== 'undefined') window.CityTerrainInk = setTerrainInk;
 
 // ---------- ruído tileável 256² (ancorado no mundo) ----------
@@ -206,9 +211,19 @@ function chunkItemsStep(ci, cj, maxIter) {
 }
 
 // ---------- pintura de um bloco (em etapas p/ não travar o jogo) ----------
+// URBAN INK: cores chapadas não precisam de 56 px/m — o bloco é pintado a 28 px/m (¼ dos pixels e da memória);
+// o resto do código continua em pixels de 56 px/m e só a escala do bloco muda (ch.k = quantos px finos por px)
+const INK_TP = 28;
+function chunkRes(ch) {
+  const tp = ch.tp || TP, pad = ch.tp ? PAD * ch.tp / TP : PAD, cpx = CH * tp;
+  return { tp, pad, cpx, csz: cpx + pad * 2, s: tp / TP };
+}
 function startChunk(ci, cj) {
-  const c = makeCanvas(CSZ, CSZ), g = c.getContext('2d');
+  const R = terrain.ink ? { tp: INK_TP, k: TP / INK_TP, pad: PAD * INK_TP / TP } : null;
+  const csz = R ? CH * R.tp + R.pad * 2 : CSZ;
+  const c = makeCanvas(csz, csz), g = c.getContext('2d');
   const ch = { ci, cj, c, g, stage: 0, row: 0, done: false, used: terrain.frame };
+  if (R) Object.assign(ch, R, { sz: csz });
   terrain.chunks.set(ci + ',' + cj, ch);
   return ch;
 }
@@ -223,7 +238,7 @@ function chunkFields(ch, budgetMs = Infinity) {
     if (performance.now() - t0 > budgetMs) break;
   }
   if (ch.fj < GN) return false;
-  if (!TW.ok) ch.img = ch.g.createImageData(CSZ, CSZ);   // com workers a imagem chega pronta
+  if (!TW.ok) { const n = chunkRes(ch).csz; ch.img = ch.g.createImageData(n, n); }   // com workers a imagem chega pronta
   const cx = (ch.ci + 0.5) * CH, cy = (ch.cj + 0.5) * CH;
   ch.zone = world.open && typeof miaZone === 'function' && world.districtFn ? miaZone(cx, cy, world.districtFn(cx, cy)) : null;
   return true;
@@ -798,8 +813,8 @@ function crackLine(g, x, y, a, len, r3, w, depth) {
 // Etapa final em passos curtos (antes era um bloco único de 50–80 ms que travava o jogo):
 // vias -> itens (2 grupos por passo) -> pisos das casas -> sombras e minimapa.
 function finishChunk(ch) {
-  const g = ch.g, ox = ch.ci * CH * TP - PAD, oy = ch.cj * CH * TP - PAD, stp = ch.fin || 0;
-  if (stp === 0) { g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintRoadVectors(ch, g); g.restore(); ch.fin = 1; return; }
+  const g = ch.g, ox = ch.ci * CH * TP - PAD, oy = ch.cj * CH * TP - PAD, stp = ch.fin || 0, R = chunkRes(ch), s = R.s;
+  if (stp === 0) { g.save(); g.setTransform(TP * s, 0, 0, TP * s, -ox * s, -oy * s); paintRoadVectors(ch, g); g.restore(); ch.fin = 1; return; }
   if (stp === 1) {
     if (!ch._keys && (ch.nb || 0) < 9) {   // detalhes dos 8 vizinhos + o próprio: um bloco por passo
       const k = ch.nb || 0, ci = ch.ci + (k % 3) - 1, cj = ch.cj + ((k / 3) | 0) - 1;
@@ -808,7 +823,7 @@ function finishChunk(ch) {
     }
     if (!ch._keys) { paintItems(ch, g, 0, 0); return; }   // só agrupa (passo de cálculo)
     const from = ch.itemPos || 0;
-    g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy); paintItems(ch, g, from, from + 1); g.restore();
+    g.save(); g.setTransform(TP * s, 0, 0, TP * s, -ox * s, -oy * s); paintItems(ch, g, from, from + 1); g.restore();
     ch.itemPos = from + 1; if (ch.itemPos >= ch._keys.length) ch.fin = 2;
     return;
   }
@@ -818,16 +833,18 @@ function finishChunk(ch) {
       // Somente casas perto deste bloco: não enfileirar todos os edifícios do mapa.
       const x0=ch.ci*CH,y0=ch.cj*CH,x1=x0+CH,y1=y0+CH;
       const near=houses.filter(H=>H.x1+18>=x0&&H.x0-18<=x1&&H.y1+18>=y0&&H.y0-18<=y1);
-      ch.floorList=[['decals',null],...near.map(H=>['walk',H]),...near.map(H=>['floor',H]),['fences',null]];
+      // URBAN INK: o piso interno das casas 3D (architecture-3d.mjs) cobre este piso 2D por inteiro — não pintar
+      const hidden=H=>terrain.ink&&globalThis.VEG3D&&H.architecture;
+      ch.floorList=[['decals',null],...near.map(H=>['walk',H]),...near.filter(H=>!hidden(H)).map(H=>['floor',H]),['fences',null]];
     }
     const [mode, H] = ch.floorList.shift(), last = !ch.floorList.length;
     if (mode === 'decals') {
       const bx0 = ch.ci * CH - 1, by0 = ch.cj * CH - 1, bx1 = bx0 + CH + 2, by1 = by0 + CH + 2;
-      g.save(); g.setTransform(TP, 0, 0, TP, -ox, -oy);
+      g.save(); g.setTransform(TP * s, 0, 0, TP * s, -ox * s, -oy * s);
       for (const d of world.decals || []) if (!(d.bb[0] > bx1 || d.bb[2] < bx0 || d.bb[1] > by1 || d.bb[3] < by0)) d.paint(g, d);
       g.restore(); if (last) { ch.fin = 3; ch.floorList = null; } return;
     }
-    g.save(); g.setTransform(1, 0, 0, 1, -ox, -oy);
+    g.save(); g.setTransform(s, 0, 0, s, -ox * s, -oy * s);
     const M = v => v * TP, rect = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(M(x), M(y), M(w), M(h)); };
     world.floorClip = [ch.ci * CH - 1, ch.cj * CH - 1, ch.ci * CH + CH + 1, ch.cj * CH + CH + 1];
     world.floorSet = new Set(H ? [H] : []); world.floorNoFences = mode !== 'fences'; world.floorMode = mode === 'fences' ? 'walk' : mode;
@@ -840,18 +857,18 @@ function finishChunk(ch) {
     const bx0 = ox / TP, by0 = oy / TP, bs = CSZ / TP;
     for (const L of world.shadowLayers.values()) {
       if (L.x0 > bx0 + bs || L.x1 < bx0 || L.y0 > by0 + bs || L.y1 < by0) continue;
-      g.setTransform(TP / L.ppm, 0, 0, TP / L.ppm, (L.x0 - bx0) * TP, (L.y0 - by0) * TP);
+      g.setTransform(TP * s / L.ppm, 0, 0, TP * s / L.ppm, (L.x0 - bx0) * TP * s, (L.y0 - by0) * TP * s);
       g.drawImage(L.canvas, 0, 0);
     }
   } else {
     const sc = world.groundCtx.canvas, k = PPM / TP, sx = ox * k, sy = oy * k;
-    g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, CSZ, CSZ);
+    g.drawImage(sc, sx, sy, CSZ * k, CSZ * k, 0, 0, R.csz, R.csz);
   }
   g.restore();
   // refina o minimapa com a versão detalhada
   terrain.miniCtx.imageSmoothingEnabled = true;
   const mp = terrain.miniPPM || MINI;
-  terrain.miniCtx.drawImage(ch.c, PAD, PAD, CPX, CPX, ch.ci * CH * mp, ch.cj * CH * mp, CH * mp, CH * mp);
+  terrain.miniCtx.drawImage(ch.c, R.pad, R.pad, R.cpx, R.cpx, ch.ci * CH * mp, ch.cj * CH * mp, CH * mp, CH * mp);
   ch.done = true; ch.F = null; ch.img = null; ch._buckets = null; ch._keys = null;
 }
 
@@ -912,7 +929,8 @@ function twQuick(ch) {
 }
 function twFull(ch) {
   twTex();
-  TW.queue.push({ ch, kind: 'f', msg: Object.assign({ sz: CSZ, tp: TP, pad: PAD, k: 1, gs: GSTEP, gn: GN }, twBase(ch, ch.F)) });
+  const R = chunkRes(ch);
+  TW.queue.push({ ch, kind: 'f', msg: Object.assign({ sz: R.csz, tp: R.tp, pad: R.pad, k: TP / R.tp, gs: GSTEP, gn: GN }, twBase(ch, ch.F)) });
   twPump();
 }
 // worker livre pega a versão rápida mais perto da câmera; só depois as nítidas
@@ -936,7 +954,7 @@ function twDone(w, data) {
   if (j) {
     const ch = j.ch;
     if (j.kind === 'q') { if (ch.q && !ch.done) { ch.q.g.putImageData(new ImageData(new Uint8ClampedArray(data.buf), QSZ, QSZ), 0, 0); ch.q.rows = true; } }
-    else { ch.img = new ImageData(new Uint8ClampedArray(data.buf), CSZ, CSZ); ch.g.putImageData(ch.img, 0, 0); ch.row = CSZ; ch.stage = 2; }
+    else { const n = chunkRes(ch).csz; ch.img = new ImageData(new Uint8ClampedArray(data.buf), n, n); ch.g.putImageData(ch.img, 0, 0); ch.row = n; ch.stage = 2; }
   }
   twPump();
 }
@@ -976,12 +994,25 @@ function workChunkLoop(ch, budgetMs, t0) {
       if (useW) { ch.stage = 'w'; twFull(ch); } else ch.stage = 1;
     }
     else if (ch.stage === 'w') return;   // pixels sendo pintados num worker
-    else if (ch.stage === 1) { if (!ch.img) ch.img = ch.g.createImageData(CSZ, CSZ); paintRows(ch, 16); if (ch.row >= CSZ) ch.stage = 2; }   // ~1,5 ms por fatia
+    else if (ch.stage === 1) { const n = chunkRes(ch).csz; if (!ch.img) ch.img = ch.g.createImageData(n, n); paintRows(ch, 16); if (ch.row >= n) ch.stage = 2; }   // ~1,5 ms por fatia
     else { finishChunk(ch); }
   }
 }
 
 // ---------- desenho por quadro ----------
+// todos os blocos da vista já pintados (e com o fade de entrada concluído)? Então o chão da GPU (ground-gpu.js), que
+// fica por baixo, está totalmente coberto e não precisa ser desenhado neste quadro
+function terrainCovered(W, H) {
+  const cs = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => unproj(x, y, 0));
+  const xs = cs.map(p => p[0]), ys = cs.map(p => p[1]), now = performance.now();
+  const ci0 = clamp(Math.floor((Math.min(...xs) - 1) / CH), 0, MAP / CH - 1), ci1 = clamp(Math.floor((Math.max(...xs) + 1) / CH), 0, MAP / CH - 1);
+  const cj0 = clamp(Math.floor((Math.min(...ys) - 1) / CH), 0, MAP / CH - 1), cj1 = clamp(Math.floor((Math.max(...ys) + 1) / CH), 0, MAP / CH - 1);
+  for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
+    const ch = terrain.chunks.get(ci + ',' + cj);
+    if (!ch || !ch.done || !ch.shown || now - ch.shown < 300) return false;
+  }
+  return true;
+}
 function drawGround(g, W, H) {
   terrain.frame++;
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
@@ -1049,9 +1080,10 @@ function drawGround(g, W, H) {
     if (ch.q) ch.q = null;
     // bloco recém-pintado entra com fade sobre o chão da GPU (sem "estalo" de qualidade)
     const fade = terrain.gpu ? Math.min(1, (performance.now() - (ch.shown || (ch.shown = performance.now()))) / 260) : 1;
-    affine(TP, ci * CH - PAD / TP, cj * CH - PAD / TP);
+    const R = chunkRes(ch);
+    affine(R.tp, ci * CH - R.pad / R.tp, cj * CH - R.pad / R.tp);
     if (fade < 1) g.globalAlpha = fade;
-    g.drawImage(ch.c, PAD - 1, PAD - 1, CPX + 2, CPX + 2, PAD - 1, PAD - 1, CPX + 2, CPX + 2);
+    g.drawImage(ch.c, R.pad - 1, R.pad - 1, R.cpx + 2, R.cpx + 2, R.pad - 1, R.pad - 1, R.cpx + 2, R.cpx + 2);
     if (fade < 1) g.globalAlpha = 1;
   }
   g.imageSmoothingEnabled = false;

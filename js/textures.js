@@ -32,10 +32,27 @@ function detailMap(img) {
   return c;
 }
 
+let texMan = null, texGroundPending = false;
+// estilo original ligado depois de entrar no Urban Ink: baixa as texturas do chão agora e repinta os blocos
+async function texEnsureGround() {
+  if (!texGroundPending || !texMan) return; texGroundPending = false;
+  await Promise.all(Object.entries(TEX_FILES).filter(([, id]) => texMan[id]).map(async ([key, file]) => {
+    const img = await loadImg('assets/textures/' + file + '.webp'); if (!img) return;
+    const n = Math.round(texMan[file].meters * TP), c = makeCanvas(n, n), g = c.getContext('2d');
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, n, n);
+    GTEX.t[key] = { n, data: g.getImageData(0, 0, n, n).data };
+  }));
+  GTEX.ready = Object.keys(GTEX.t).length > 0;
+  if (GTEX.ready && typeof terrain !== 'undefined' && !terrain.ink) terrain.chunks.clear();
+}
 async function texLoad() {
   let man = {};
   try { man = await (await fetch('assets/textures/manifest.json', { cache: 'no-cache' })).json(); } catch { return; }
-  const ground = Object.entries(TEX_FILES).filter(([, id]) => man[id]), walls = Object.entries(WALL_FILES).filter(([, [id]]) => man[id]);
+  texMan = man;
+  // URBAN INK (urban-ink.mjs): o chão é chapado e não usa as fotos — elas só baixam se o estilo original for ligado
+  const inkGround = typeof terrain !== 'undefined' && terrain.ink;
+  const ground = inkGround ? [] : Object.entries(TEX_FILES).filter(([, id]) => man[id]), walls = Object.entries(WALL_FILES).filter(([, [id]]) => man[id]);
+  if (inkGround) texGroundPending = true;
   await Promise.all([
     ...ground.map(async ([key, file]) => {
       const img = await loadImg('assets/textures/' + file + '.webp'); if (!img) return;
@@ -53,7 +70,7 @@ async function texLoad() {
     }),
   ]);
   GTEX.ready = Object.keys(GTEX.t).length > 0;
-  if (GTEX.ready && typeof terrain !== 'undefined') terrain.chunks.clear();   // repinta o chão com as texturas
+  if (GTEX.ready && typeof terrain !== 'undefined' && !terrain.ink) terrain.chunks.clear();   // repinta o chão com as texturas
   if (Object.keys(WTEX.t).length && typeof houses !== 'undefined') for (const H of houses) {   // repinta fachadas e telhados
     H.tex = null; H._texBuild = null; H.slabTex = null; H._warm = false;
     if (H.roofGeom && H.roofGeom.faces) for (const f of H.roofGeom.faces) f.tex = null;
