@@ -172,7 +172,7 @@ const CityRealty=(()=>{
  }
  function panel(H){
    window.CityUI?.togglePhone?.(false);
-   selected=H;close(false);
+   selected=H;selectedLot=null;close(false);
    let el=document.getElementById('city-property-dialog');
    if(!el){el=document.createElement('div');el.id='city-property-dialog';document.body.appendChild(el);}
    if(multi(H))return unitsPanel(H,el);
