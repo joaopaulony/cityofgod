@@ -13,7 +13,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  // Decorative ceiling fixtures use cheap BasicMaterial and no shadow maps.
  const homePointLights=Array.from({length:4},()=>new THREE.PointLight(0xffe1b5,0,9,1.55));
  const homeAmbient=new THREE.HemisphereLight(0xffe7c8,0x526477,0);
- scene.add(homeAmbient);scene.userData.homeLights=homePointLights;
+ scene.userData.homeLights=homePointLights;
  state.interiorFixtures=0;state.lightsActive=0;state.powered=false;
  // Interior cutaway already exposes the player. Keep its floor, rails and
  // doors opaque instead of applying the vegetation's broad dither circle.
@@ -370,6 +370,10 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
     L.position.set(o.f.world[0],(level?.z||0)+playerHome.architecture.floorHeight-.65,o.f.world[1]);
     L.intensity=(bridge.world.night?22:10)*(o.custom?.intensity||1);
   });
+  // Keep the architecture as scene.children[0] and detach lighting completely
+  // when no residential interior is occupied (including sector unload).
+  if(powered){if(!homeAmbient.parent)scene.add(homeAmbient);}
+  else if(homeAmbient.parent)scene.remove(homeAmbient);
   homeAmbient.intensity=powered?(bridge.world.night?1.1:.42):0;
   for(const [name,mat] of Object.entries(innerMats))if(name!=='glass'&&mat.emissive){
     mat.emissive.set(powered?'#3c3228':'#000000');
