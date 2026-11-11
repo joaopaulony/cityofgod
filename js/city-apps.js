@@ -67,8 +67,10 @@ const CityApps = (() => {
       (owned||'')+
       '<div class="city-phone-label">Terrenos reais com placa VENDE-SE carregados por perto</div>'+
       (CitySim.nearbyLots().length?CitySim.nearbyLots().map(l=>card(l.name,
-         Math.round(l.area)+' m² · '+price(l.price),btn('sim:lot:'+l.key,'Comprar',CityLife.funds<l.price),'🏘️')).join(''):
-         '<p class="city-help">Aproxime-se de terrenos com placas VENDE-SE para ver ofertas reais do mapa.</p>');
+         Math.round(l.area)+' m² · '+price(l.price)+' · X '+Math.round(l.x)+' / Y '+Math.round(l.y)+
+         '<br>Compra presencial: aproxime-se da placa VENDE-SE, pressione F ou clique nela.',
+         btn('sim:lot-route:'+l.key,'GPS até esta placa'),'🏘️')).join(''):
+         '<p class="city-help">Aproxime-se das placas VENDE-SE para consultar e comprar cada terreno presencialmente.</p>');
   }
   if(app==='cars'){
    const directory=window.cityVehicles?.fleetDirectory;
@@ -213,7 +215,15 @@ const CityApps = (() => {
     const c=window.CityRealty?.lease?.();result=c&&window.CityGPS?.set?.({id:'leased-home',x:c.property.x,y:c.property.y,name:c.property.name})?{ok:true,text:'Rota até a portaria calculada'}:{ok:false,text:'Não há rota conectada até a residência'};
   }
   else if(type==='home')result=CitySim.setHome(id);
-  else if(type==='lot')result=CitySim.buyLot(id);
+  else if(type==='lot-route'){
+    const l=(typeof world!=='undefined'?world.lotsForSale||[]:[])
+      .find(x=>x?.sign&&(Math.round(x.sign[0])+'-'+Math.round(x.sign[1]))===id);
+    result=l&&window.CityGPS?.set?.({id:'lot:'+l.id,x:l.sign[0],y:l.sign[1],
+      name:'Terreno '+id+' · placa VENDE-SE'})?
+      {ok:true,text:'Rota para a placa VENDE-SE selecionada. Compre diretamente no terreno.'}:
+      {ok:false,text:'Não foi possível calcular a rota até a placa.'};
+  }
+  else if(type==='lot')result={ok:false,text:'Para comprar, vá até a placa VENDE-SE do terreno.'};
   else if(type==='lotbuild')result=window.CityLots?.build(id,arg)||{ok:false,text:'Indisponível'};
   else if(type==='lotfurn')result=window.CityLots?.setFurnish(id)||{ok:false,text:'Indisponível'};
   else if(type==='bills')result=CitySim.payBills();
