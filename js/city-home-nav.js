@@ -148,6 +148,41 @@ const CityHomeNav=(()=>{
    }
    return best;
  }
- return {route,approach,grid,doorway,inside,furnitureBlocked,version:'1.0'};
+ // Match the exact +Z direction rendered by props-3d.mjs. A furnished
+ // architecture item can use faceW even when its original rot points elsewhere.
+ function facing(item){
+   const v=item?.faceW;
+   if(Array.isArray(v)&&v.length===2&&Number.isFinite(v[0])&&Number.isFinite(v[1])){
+     const length=Math.hypot(v[0],v[1]);if(length>0.001)return {x:v[0]/length,y:v[1]/length};
+   }
+   const a=item?.rot||0;return {x:-Math.sin(a),y:Math.cos(a)};
+ }
+ function safeSpot(H,item,x,y,ignoreId=null){
+   if(!H||!item||!Number.isFinite(x)||!Number.isFinite(y))return false;
+   const f=item.floor||0,[u,v]=toLocal(H,x,y);
+   if(!inside(H,f,u,v)||furnitureBlocked(H,f,u,v,ignoreId))return false;
+   if(H.contains&&!H.contains(x,y,f))return false;
+   // Only use the apartment owned/rented by this character, never the corridor
+   // or the unit across a thin interior wall.
+   const realty=window.CityRealty;
+   if(realty?.multi?.(H)){
+     const unit=realty.unitAt?.(H,x,y,f);
+     if(unit==null||realty.canUse?.(H,f,unit)===false)return false;
+   }
+   return true;
+ }
+ function exitSpot(H,item,origin){
+   if(origin&&Math.hypot(origin.x-item.x,origin.y-item.y)<=3.25&&
+      safeSpot(H,item,origin.x,origin.y))return {x:origin.x,y:origin.y};
+   const f=facing(item),side={x:f.y,y:-f.x};
+   // Approach from the same usable side of the furniture; every candidate
+   // is validated against the room footprint, all furniture and unit ownership.
+   for(const r of [.82,1.06,1.35,1.7,2.1,2.7])for(const v of [0,.36,-.36,.72,-.72]){
+     const x=item.x+f.x*r+side.x*v,y=item.y+f.y*r+side.y*v;
+     if(safeSpot(H,item,x,y))return {x,y};
+   }
+   return null; // Never invent an unsafe point outside the building.
+ }
+ return {route,approach,grid,doorway,inside,furnitureBlocked,facing,safeSpot,exitSpot,version:'1.1'};
 })();
 window.CityHomeNav=CityHomeNav;

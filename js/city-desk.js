@@ -64,8 +64,10 @@ const CityDesk=(()=>{
  }
  function open(a='home'){
   stationNow=stationAt(player());if(!stationNow?.screen){notify('Use o computador em casa: mesa com monitor, no seu imóvel.',false);return false;}
+  // Do not open the computer or teleport outside if the built-in chair faces
+  // a wall. Players can rotate the desk using F7 to make the seat accessible.
+  if(!sitDown('desk_code',stationNow))return false;
   ensure();openFlag=true;app=a;root.hidden=false;document.body.classList.add('city-desk-open');
-  sitDown('desk_code',stationNow);   // senta à mesa enquanto usa o computador (o braço segue o app aberto)
   window.__game?.input?.keys?.clear?.();refreshOffersAll();render();root.querySelector('[data-app="'+a+'"]')?.focus();return true;
  }
  function close(){if(!openFlag)return;openFlag=false;root.hidden=true;document.body.classList.remove('city-desk-open');if(!W)standUp();save();document.getElementById('view')?.focus();}
@@ -350,19 +352,45 @@ const CityDesk=(()=>{
  const WORDS=['commit','deploy','teste','array','loop','fetch','merge','debug','cache','query'];
  const NPCN=['Lia','Tico','Bia','Duda','Rafa','Nina','Caio','Mano'],NPCM=['kkkk','boa!!','🔥🔥','que jogada','salve!','primeira vez aqui','GG','👏'];
  let W=null,wui=null,wkey='',wLast=0;
- // frente da escrivaninha: a cadeira do modelo fica em +z local (0,6 m); mundo = (−sen r, cos r) — props-3d gira por −rot
- const deskFront=d=>{const r=d.rot||0;return {x:-Math.sin(r),y:Math.cos(r)};};
- // props-3d encaixa só a MESA (M.desk.fit: x −0,55…0,55, z −0,31…0,31) no tamanho do móvel; a cadeira do modelo fica
- // à frente em z +0,6 (proporção real). local (lx,lz) → mundo: (lx·sx, lz·sz) girado por −rot
- const deskScale=d=>({sx:(d.w||1.1)/1.1,sz:(d.d||.62)/.62,sy:Math.min(1.5,Math.max(.6,(d.h||.74)/.74))});
- const deskLocal=(d,lx,lz)=>{const k=deskScale(d),r=d.rot||0,X=lx*k.sx,Z=lz*k.sz;return {x:d.x+X*Math.cos(r)-Z*Math.sin(r),y:d.y+X*Math.sin(r)+Z*Math.cos(r)};};
+ // props-3d.mjs uses faceW for procedurally oriented desks and -rot otherwise.
+ // The built-in chair is +Z of that model (0.60 m from the desk center).
+ const deskFront=d=>window.CityHomeNav?.facing?.(d)||{x:-Math.sin(d.rot||0),y:Math.cos(d.rot||0)};
+ const deskScale=d=>({sx:(d.faceW?(d.along||d.w):d.w||1.1)/1.1,
+   sz:(d.faceW?(d.depth||d.d):d.d||.62)/.62,
+   sy:Math.min(1.5,Math.max(.6,(d.h||.74)/.74))});
+ const deskLocal=(d,lx,lz)=>{
+   const k=deskScale(d),f=deskFront(d),side={x:f.y,y:-f.x};
+   return {x:d.x+side.x*lx*k.sx+f.x*lz*k.sz,
+     y:d.y+side.y*lx*k.sx+f.y*lz*k.sz};
+ };
  function seatAt(st){
-  const p=player(),d=st.desk;
-  if(d.kind==='desk'){const f=deskFront(d),seat=deskLocal(d,0,.6);return {seat,face:Math.atan2(-f.y,-f.x)};}let dx=p.x-d.x,dy=p.y-d.y,n=Math.hypot(dx,dy);if(n<.2){dx=Math.cos((d.rot||0)+Math.PI/2);dy=Math.sin((d.rot||0)+Math.PI/2);n=1;}
-  const seat={x:d.x+dx/n*.72,y:d.y+dy/n*.72};return {seat,face:Math.atan2(d.y-seat.y,d.x-seat.x)};
+   const d=st.desk,f=deskFront(d),seat=deskLocal(d,0,d.kind==='desk'?.60:.72);
+   if(!window.CityHomeNav?.safeSpot?.(st.H,d,seat.x,seat.y,d.id))return null;
+   return {seat,face:Math.atan2(-f.y,-f.x)};
  }
- function sitDown(kind,st,extra={}){const p=player();if(!p||!st)return null;const s=seatAt(st);p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);p.homeAction={kind,t:0,duration:1e9,deskWork:true,...extra};return s;}
- function standUp(){const p=player();if(p?.homeAction?.deskWork)p.homeAction=null;}
+ function sitDown(kind,st,extra={}){
+   const p=player();if(!p||!st)return null;
+   const s=seatAt(st);
+   if(!s){notify('A cadeira da escrivaninha está encostada na parede ou bloqueada. Vire a mesa com R no F7.',false);return null;}
+   // Persist the safe approach point in transient pose data. A seated actor
+   // must never walk out of a wall when the UI closes.
+   const standOrigin={x:p.x,y:p.y,floor:p.floor||0};
+   p.x=s.seat.x;p.y=s.seat.y;p.face=s.face;p.speed=0;
+   if(p.armed&&window.CityLife)CityLife.equip?.('unarmed',false);
+   p.homeAction={kind,t:0,duration:1e9,deskWork:true,standOrigin,deskId:st.desk.id,
+     deskHouse:st.H,...extra};
+   return s;
+ }
+ function standUp(){
+   const p=player(),action=p?.homeAction;
+   if(!action?.deskWork)return;
+   const H=action.deskHouse,desk=H&&CityHome.find(H,action.deskId);
+   const origin=action.standOrigin;
+   const safe=desk&&window.CityHomeNav?.exitSpot?.(H,desk,origin);
+   if(safe){p.x=safe.x;p.y=safe.y;}
+   if(origin){p.floor=origin.floor;p.floorZ=H?.architecture?.levels?.[origin.floor]?.z||0;}
+   p.homeAction=null;p.speed=0;
+ }
  function startAuto(c,format){
   const st=stationNow||stationAt(player());if(!st?.screen)return notify('Sente na mesa com monitor para trabalhar.',false);
   if(window.CityTimeScale>1&&!W)return notify('Termine a atividade acelerada antes.',false);
@@ -371,6 +399,7 @@ const CityDesk=(()=>{
   else if(c.state==='ACCEPTED')C.transition(c,'IN_PROGRESS',clock());
   close();
   const s=sitDown(KINDS[career],st);
+  if(!s)return;
   const w=c?work(c):{},done=c?(w.autoMin||0):0;
   W={id:c?.id||null,career,st,seat:s.seat,face:s.face,dur:DUR[career],minutes:done,last:clock(),games:GAMES[career].slice(),at:[.25,.55,.85].filter(f=>f>done/DUR[career]),asked:w.autoAsked||0,correct:w.autoCorrect||0,game:null,fast:true,seed:(c?.seed||C.hash('live',clock()))+1,chat:[],talkT:0};
   W.games=W.games.slice(3-W.at.length);

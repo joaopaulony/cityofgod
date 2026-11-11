@@ -139,8 +139,13 @@ function useHouseInteraction(p,st,time){
     a.target=a.target>.5?0:1;
     message=(kind==='door'?'Porta':'Janela')+(a.target?' aberta':' fechada');
   }else if(kind==='switch'){
-    H.lightOn=!H.lightOn;
-    message=H.lightOn?'Luzes acesas':'Luzes apagadas';
+    // F on the physical wall switch and the F7 lighting menu control the
+    // identical saved electrical circuit for the entire owned residence.
+    if(window.CityHomePlus&&window.CityHome?.owned(H)){
+      const r=CityHomePlus.togglePower(H);message=r.text;
+    }else{
+      H.lightOn=!H.lightOn;message=H.lightOn?'Luzes acesas':'Luzes apagadas';
+    }
   }else if(kind==='tv'){
     H.tvOn=!H.tvOn;
     message=H.tvOn?'Televisao ligada':'Televisao desligada';

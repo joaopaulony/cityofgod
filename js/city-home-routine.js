@@ -5,7 +5,12 @@ const CityHomeRoutine=(()=>{
  const ANG=(to,from)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
  function cancel(message='',silent=false){
    if(task?.player){
-     if(task.poseOrigin){task.player.x=task.poseOrigin.x;task.player.y=task.poseOrigin.y;}
+     if(task.poseOrigin){
+       const item=window.CityHome?.find?.(task.H,task.itemId);
+       const p=item&&window.CityHomeNav?.exitSpot?.(task.H,item,task.poseOrigin);
+       // Only a collision-checked interior position is eligible on exit.
+       if(p){task.player.x=p.x;task.player.y=p.y;}
+     }
      task.player.homeAction=null;task.player.speed=0;task.player.running=false;task.player.armed=task.wasArmed;
    }
    task=null;epoch++;
@@ -67,12 +72,17 @@ const CityHomeRoutine=(()=>{
    const point=t.points[t.step];
    if(!point){t.stage='pose';t.elapsed=0;t.duration=t.kind==='sleep'?6:t.kind==='cook'?5:4;
      t.poseOrigin={x:player.x,y:player.y};
-     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep';
-     if(seated||sleep){
-       // The rendered pose enters the furniture; the collision actor returns
-       // to the accessible approach point on completion or cancellation.
-       t.poseTarget={x:furniture.x,y:furniture.y};
-       t.face=(furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):furniture.kind==='chair'?-Math.PI/2:Math.PI/2);
+     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&furniture.kind==='shower';
+     if(seated||sleep||shower){
+       // The actor temporarily enters the bed / chair / shower, but returns
+       // to its collision-checked approach point when completed or cancelled.
+       const facing=window.CityHomeNav?.facing?.(furniture)||
+         {x:-Math.sin(furniture.rot||0),y:Math.cos(furniture.rot||0)};
+       t.poseTarget=shower?
+         {x:furniture.x+facing.x*.06,y:furniture.y+facing.y*.06}:
+         {x:furniture.x,y:furniture.y};
+       t.face=shower?Math.atan2(-facing.y,-facing.x):
+         (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):furniture.kind==='chair'?-Math.PI/2:Math.PI/2);
      }
      player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,
        itemId:t.itemId,item:furniture,house:t.H,surface:sleep?furniture.h*1.05:furniture.h*.55};return true;}
