@@ -8,7 +8,7 @@ const front=fs.readFileSync('js/front-end.js','utf8');
 
 function camera(){
  const def=core.slice(core.indexOf('const CAMERA_ELEVATION_MIN'),core.indexOf('// mundo -> tela.'));
- const ctx={Math,VISUAL_REFERENCE:{anchors:{outline:'#222'}}};return vm.runInNewContext('let TILT=.5,HZ=.866;'+def+';({cam,TILT_MIN,TILT_MAX,CAMERA_DEFAULT_TILT,CAMERA_ELEVATION_MIN,CAMERA_ELEVATION_MAX})',ctx);
+ const ctx={Math,VISUAL_REFERENCE:{anchors:{outline:'#222'}}};return vm.runInNewContext(def+';({cam,TILT_MIN,TILT_MAX,CAMERA_DEFAULT_TILT,CAMERA_ELEVATION_MIN,CAMERA_ELEVATION_MAX})',ctx);
 }
 test('Zomboid-style elevation is constrained to 28–60° with a 35° default',()=>{
  const c=camera();
