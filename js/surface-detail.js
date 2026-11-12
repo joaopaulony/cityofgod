@@ -21,7 +21,7 @@
   roof:['shingle','grit','weather','moss','rainStreak','flake','chip','watermark','rustStain','sand','seam','pore']
  };
  // 14 ORIGINAL materials x 12 distinct material-specific baked effects = 168 recipes.
- const cache=new Map(),stats={materialEffects:0,stamps:0,materials:[],processed:0};
+ const cache=new Map(),stats={materialEffects:0,stamps:0,materials:[],processed:0,facadeCalls:0,facadeStamps:0};
  const hash=text=>{let v=2166136261;for(let i=0;i<text.length;i++)v=Math.imul(v^text.charCodeAt(i),16777619);return v>>>0;};
  const random=seed=>()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);t^=t+Math.imul(t^(t>>>7),61|t);return ((t^(t>>>14))>>>0)/4294967296;};
  const canvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
@@ -174,7 +174,7 @@
   g.globalAlpha=clamp(.5+.3*aging,.2,.85);
   let n=0;
   for(const t of types)for(let i=0;i<3;i++){draw(g,key,t,r,w,h);n++;}
-  g.restore();return n;
+  g.restore();stats.facadeCalls++;stats.facadeStamps+=n;return n;
  }
  root.CitySurfaceDetails={enrich,paintArea,recipes:RECIPES,stats,clear:()=>cache.clear()};
 })(typeof window==='object'?window:globalThis);
