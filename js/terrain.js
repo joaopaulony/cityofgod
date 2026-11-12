@@ -264,7 +264,7 @@ function paintRows(ch, rows, L = ch) {
   const open = world.open, CROP = terrain.crops;
   // URBAN INK: cores chapadas — sem as texturas fotográficas, ruído fino quase nulo e a paleta do estilo
   const ink = !!terrain.ink, inkN = ink ? 0.16 : 1, COL = ink ? INK_COL : COLB;
-  const tex = !ink && typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
+  const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
   const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
   const sk = L.k || 1, pd = L.pad === undefined ? PAD : L.pad, SZ = L.sz || CSZ, gx0 = ch.ci * CPX - pd * sk, gy0 = ch.cj * CPX - pd * sk, gs = L.gs || GSTEP, gn = L.gn || GN, inv = 1 / ((L.tp || TP) * gs);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
