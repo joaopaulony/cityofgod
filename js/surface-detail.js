@@ -163,5 +163,18 @@
   if(!stats.materials.includes(key))stats.materials.push(key);
   return c;
  }
- root.CitySurfaceDetails={enrich,recipes:RECIPES,stats,clear:()=>cache.clear()};
+ // Existing procedural facade canvases are already per-house, so do not
+ // cache their whole image by size: paint tiny wear directly into their pixels.
+ function paintArea(g,key,x,y,w,h,unique='',aging=1){
+  if(!g||w<=0||h<=0)return 0;
+  const types=(RECIPES[key]||RECIPES.plaster).filter(v=>
+   !['brickJoint','mortar','joint','shingle','seam','groutDark'].includes(v));
+  const r=random(hash(key+':'+unique+':'+Math.round(w)+':'+Math.round(h)));
+  g.save();g.beginPath();g.rect(x,y,w,h);g.clip();g.translate(x,y);
+  g.globalAlpha=clamp(.5+.3*aging,.2,.85);
+  let n=0;
+  for(const t of types)for(let i=0;i<3;i++){draw(g,key,t,r,w,h);n++;}
+  g.restore();return n;
+ }
+ root.CitySurfaceDetails={enrich,paintArea,recipes:RECIPES,stats,clear:()=>cache.clear()};
 })(typeof window==='object'?window:globalThis);
