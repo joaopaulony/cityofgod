@@ -5,25 +5,25 @@ const TAU=Math.PI*2;
 const h32=(x,y,k=0)=>{let h=(Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(k|0,1274126177))|0;h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967296;};
 export const GRASS_BUDGET={low:4200,balanced:10600,high:17000};
 export const GRASS_PALETTES={
- lawn:['#407e31','#4d963c','#68a349','#7dab55'],
- meadow:['#37692f','#478639','#68934a','#90a95a'],
- wild:['#43682e','#628441','#829b4b','#9ba65e'],
- dry:['#637839','#818949','#9c9b56','#ac9d67'],
- wet:['#386b3d','#4b8650','#6c9b50','#8cb161'],
- shade:['#315b37','#426c3a','#577e40','#718a4a']
+ lawn:['#356d37','#438544','#619653','#80a667'],
+ meadow:['#315e37','#477744','#67844e','#87975b'],
+ wild:['#345b34','#486f3b','#69854d','#8f9962'],
+ dry:['#566b3e','#74834d','#939357','#a79d71'],
+ wet:['#2e653b','#43814b','#629457','#87a86b'],
+ shade:['#2d5033','#3d643c','#54784a','#779063']
 };
 // Four tapering, slightly bent ribbons in each clump, single reusable geometry.
 function bladeGeometry(THREE){
  const positions=[],colors=[],indices=[];
  const lengths=[1,.86,.95,.72],rotations=[0,1.31,2.75,4.45];
  for(let b=0;b<4;b++){
-  const a=rotations[b],c=Math.cos(a),s=Math.sin(a),h=lengths[b],width=.046+(b%2)*.016;
+  const a=rotations[b],c=Math.cos(a),s=Math.sin(a),h=lengths[b],width=.077+(b%2)*.024;
   const base=positions.length/3;
   for(let k=0;k<4;k++){
-   const t=k/3,lean=t*t*(.085+(b%3)*.024),w=width*(1-.87*t);
+   const t=k/3,lean=t*t*(.21+(b%3)*.075),w=width*(1-.87*t);
    for(const side of [-1,1]){
     positions.push(c*lean-s*side*w,t*h,s*lean+c*side*w);
-    const value=.57+.43*t;colors.push(value*(.95+b*.019),value*(1+.02*b),value*.75+.21);
+    const value=.67+.29*t;colors.push(value*(.95+b*.014),value*(.98+.013*b),value*.81+.12);
    }
   }
   for(let k=0;k<3;k++){const i=base+k*2;indices.push(i,i+1,i+2,i+1,i+3,i+2);}
@@ -102,6 +102,14 @@ export function createLivingGrass(THREE,scene,bridge){
   bladesPerClump:4,patches:0,low:0,medium:0,tall:0,skipped:0,ms:0,wind:0,footstep:0,quality:'balanced',pending:false,center:[0,0],biomes:{}};
  let job=null,prev={x:null,y:null,t:0},lastRebuild=-Infinity,built={x:1e8,y:1e8,r:0,quality:''},count=0;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+ // Smooth 9m-scale clump variation: no uniform grass-grid or harsh square gaps.
+ const patchNoise=(x,y)=>{
+  const gx=x/9,gy=y/9,ix=Math.floor(gx),iy=Math.floor(gy);
+  const a=gx-ix,b=gy-iy,u=a*a*(3-2*a),v=b*b*(3-2*b);
+  const n00=h32(ix,iy,419),n10=h32(ix+1,iy,419);
+  const n01=h32(ix,iy+1,419),n11=h32(ix+1,iy+1,419);
+  return (n00*(1-u)+n10*u)*(1-v)+(n01*(1-u)+n11*u)*v;
+ };
  const palette=(kind,seed)=>{
   const col=colors[kind]||colors.meadow;
   const f=clamp(seed,0,.999),i=Math.min(col.length-2,Math.floor(f*(col.length-1))),v=f*(col.length-1)-i;
@@ -121,7 +129,7 @@ export function createLivingGrass(THREE,scene,bridge){
   }
   const dScale=r<16?1:r<32?.6:.33;
   const max=sample.profile==='lawn'?4:sample.profile==='wild'?4:5;
-  const probability=sample.cover*dScale;
+  const probability=sample.cover*dScale*clamp(.31+patchNoise(x,y)*1.37,.3,1);
   const n=Math.min(max,1+Math.floor(probability*max*1.25));
   for(let q=0;q<n&&j.list.length<j.budget;q++){
    const h=h32(Math.floor(x*13),Math.floor(y*11),q+1);
