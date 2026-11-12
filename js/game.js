@@ -45,6 +45,24 @@ window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
   get urbanBins(){return urbanLife.bins;},get geo(){return typeof OW!=='undefined'&&world.open?OW.geo:null;},get urbanLitter(){return urbanLife.litter;},
   get terrainItems(){return terrain.items;},
+  // Single source of truth shared with the soil painter: roads, wetlands,
+  // bare concrete, muddy paths and districts never receive generic turf.
+  grassAt(x,y){
+    const f=fieldsAt(x,y),w=weightsAt(f),D=COG.D;
+    if(w.paved>.1||w.water>.02||w.sand>.28||w.trail>.3||f.bare||
+       f.di===D.DOWNTOWN||f.di===D.INDUSTRIAL||f.di===D.PORT||f.di===D.BEACH)return null;
+    let cover=Math.max(0,w.grass);
+    if(f.di===D.FAVELA)cover*=.32;
+    else if(f.di===D.GHETTO)cover*=.78;
+    if(f.di===D.FARM && f.fc>0)cover*=.25; // don't hide crop furrows under turf
+    if(cover<.08)return null;
+    const moisture=f.wet||.5,dry=f.dry||.5,forest=w.forest||0;
+    const profile=moisture>.67&&f.pv<1.8?'wet':dry>.68?'dry':forest>.45?'shade':
+       f.di===D.FARM||f.di===D.GHETTO?'wild':w.dirt>.24?'wild':'lawn';
+    const height=profile==='lawn'?.26:profile==='shade'?.40:
+      profile==='dry'?.51:profile==='wet'?1.03:.69;
+    return {cover,profile,height};
+  },
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
   get gameTime(){return T;},trafficPhase,props3d,ROAD_W,
   get roads(){return world.roads;},
