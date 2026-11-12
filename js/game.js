@@ -218,7 +218,7 @@ addEventListener('resize', resize); resize();
 let orbitButton = null;
 const orbitLocked = () => wmap.open || !!window.CityFront?.blocked ||
   !!window.CityUI?.blocksGameInput?.() || !!window.cityCharacterEditorOpen ||
-  !!window.CityHomeUI?.active || !!window.CityRealty?.dialogOpen;
+  !!window.CityRealty?.dialogOpen;
 function stopOrbit() { dragX = dragY = null; orbitButton = null; }
 function orbitMove(e) {
   if(dragX===null)return;
@@ -249,7 +249,7 @@ addEventListener('mousemove',e=>{if(e.target!==view&&dragX!==null)orbitMove(e);}
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
   if (wmap.open) { if(e.button===0){wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;}e.preventDefault();return; }
-  if(e.button===1 || (e.button===2&&e.altKey)){
+  if(e.button===1 || (e.button===2&&e.altKey&&!window.CityHomeUI?.active)){
     orbitButton=e.button;dragX=e.clientX;dragY=e.clientY;
     input.rmb=false;player.wantShot=false;
     window.CameraMotion?.pauseManual?.(6);
