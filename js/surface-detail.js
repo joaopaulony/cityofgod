@@ -86,12 +86,41 @@
   circle(g,x,y,z*.4,edge);
  }
  function enrich(image,key,channel='color'){
-  const names=RECIPES[key];if(!image||!names||channel==='normal')return image;
+  const names=RECIPES[key];if(!image||!names)return image;
   const w=image.width||image.naturalWidth,h=image.height||image.naturalHeight;
   if(!w||!h)return image;
   const id=key+':'+channel+':'+w+'x'+h;
   if(cache.has(id))return cache.get(id);
-  const c=canvas(w,h),g=c.getContext('2d',{willReadFrequently:false});g.drawImage(image,0,0,w,h);
+  const c=canvas(w,h),g=c.getContext('2d',{willReadFrequently:channel==='normal'});g.drawImage(image,0,0,w,h);
+  if(channel==='normal'){
+   // Retain the original PBR normal map and add tiny surface relief to its
+   // existing pixels: no extra textures or geometry at runtime.
+   const data=g.getImageData(0,0,w,h),px=data.data,relief=new Float32Array(w*h),seed=hash(key);
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const u=x/w,v=y/h,n=((Math.imul(x+seed,1103515245)^Math.imul(y+seed,12345))>>>0)/4294967296;
+    let z=(n-.5)*.06;
+    if(key==='stone'||key==='roof'||key==='tile'){
+      const rows=key==='stone'?15:key==='roof'?10:6,cols=key==='stone'?8:key==='roof'?7:5;
+      const row=Math.floor(v*rows),xx=(u*cols+(row%2)*.5)%1,yy=v*rows%1;
+      z+=Math.min(xx,1-xx,yy,1-yy)<.048?-.23:.06;
+    } else if(key==='wood'){z+=Math.sin(y*.32+Math.sin(x*.021)*2.2)*.075;}
+    else if(key==='plaster'){z+=(n-.5)*.13;}
+    else if(key==='concrete'){z+=n>.975?-.11:.015;}
+    relief[y*w+x]=z;
+   }
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const idx=(y*w+x)*4;
+    const a=relief[y*w+(x+w-1)%w],b=relief[y*w+(x+1)%w];
+    const c=relief[((y+h-1)%h)*w+x],d=relief[((y+1)%h)*w+x];
+    const nx=px[idx]/127.5-1+(a-b)*.42,ny=px[idx+1]/127.5-1+(c-d)*.42,nz=Math.max(.2,px[idx+2]/127.5-1);
+    const len=Math.hypot(nx,ny,nz);
+    px[idx]=clamp(Math.round(127.5+127.5*nx/len),0,255);
+    px[idx+1]=clamp(Math.round(127.5+127.5*ny/len),0,255);
+    px[idx+2]=clamp(Math.round(127.5+127.5*nz/len),0,255);
+   }
+   g.putImageData(data,0,0);
+   cache.set(id,c);stats.processed++;return c;
+  }
   let stamped=0;
   for(let i=0;i<names.length;i++){
    const type=names[i],r=random(hash(key+':'+type));
