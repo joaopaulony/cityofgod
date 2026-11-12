@@ -72,6 +72,8 @@ void main(){
  vec3 tint=mix(vColor,vec3(.79,.83,.79),uSnow*.65);
  tint*=mix(.41,1.04,uDay);
  gl_FragColor=vec4(tint,.85); // Urban Ink vegetation class: no thick cartoon strokes.
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
 }`;
 export function createLivingGrass(THREE,scene,bridge){
  const geo=bladeGeometry(THREE);
@@ -118,7 +120,7 @@ export function createLivingGrass(THREE,scene,bridge){
    state.skipped++;return;
   }
   const dScale=r<16?1:r<32?.6:.33;
-  const max=sample.profile==='lawn'?4:sample.profile==='wild'?3:5;
+  const max=sample.profile==='lawn'?4:sample.profile==='wild'?4:5;
   const probability=sample.cover*dScale;
   const n=Math.min(max,1+Math.floor(probability*max*1.25));
   for(let q=0;q<n&&j.list.length<j.budget;q++){
