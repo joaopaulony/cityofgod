@@ -7,7 +7,7 @@ const world=fs.readFileSync('js/game.js','utf8');
 
 test('WebGL enables hardware MSAA for player and NPC meshes',()=>{
  assert.match(webgl,/WebGLRenderer\(\{canvas,alpha:true,antialias:true/);
- assert.match(ink,/samples: 4/);
+ assert.match(ink,/balanced: \{ msaa: 4,/);
  assert.match(ink,/samples = renderer\.capabilities\.isWebGL2 \? q\.msaa : 0/);
 });
 test('balanced mode preserves more silhouette detail without using extra scene passes',()=>{
