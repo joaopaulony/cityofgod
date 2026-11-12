@@ -198,7 +198,10 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
   const e={root,exterior,roof,interior:null,cutKey:null,doors:[],windows:[],materials:[],textures:[],
    roomFixtures:[],lampMaterials:[],H};
   const glass=mats.glass.clone();opts.seeThrough?.(glass);e.materials.push(glass);e.glass=glass;
-  const materialSet={...mats,glass};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
+  // Reuse the EXISTING stone/brick masonry PBR texture for selected exteriors.
+  // Other houses keep their original plaster. No new geometry or texture slots.
+  const masonry=H.brick||['poor','warehouse','projects'].includes(A.kind)||(A.kind==='house'&&(H.seed%9===0));
+  const materialSet={...mats,glass,wall:masonry?mats.stone:mats.wall};const wallKit=Kit(),roofKit=Kit(),base=A.kind==='mansion'?'#eee8d9':A.kind==='office'?['#d8e0dc','#d1dbdf','#ddd9d0'][A.palette%3]:H.style?.plaster||palettes[A.palette][0],accent=palettes[A.palette][1];
   for(const level of A.levels){
    if(level.floor&&(level.setback>A.levels[level.floor-1].setback||level.wingRecess>A.levels[level.floor-1].wingRecess)){const prev=A.levels[level.floor-1];
     for(const r of prev.rooms)wallKit.box(r.x0-.06,level.z-.12,r.y0-.06,r.x1+.06,level.z-.01,r.y1+.06,'#c9cbc2',0,'concrete');
