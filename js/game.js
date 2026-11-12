@@ -67,7 +67,7 @@ window.cityVehicleBridge={
        f.di===D.GHETTO||f.di===D.FAVELA?'meadow':
        w.dirt>.24?'meadow':'lawn';
     const height=profile==='lawn'?.33:profile==='shade'?.60:
-       profile==='meadow'?.60:profile==='dry'?.50:profile==='wet'?1.12:.76;
+       profile==='meadow'?.58:profile==='dry'?.49:profile==='wet'?1.12:.70;
     return {cover,profile,height};
   },
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
