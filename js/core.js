@@ -55,6 +55,12 @@ const cam = {
   update(dt) {
     // Clamp the target even when modified by a vehicle, cinematic, or editor.
     this.ttilt = clamp(Number.isFinite(this.ttilt) ? this.ttilt : CAMERA_DEFAULT_TILT, TILT_MIN, TILT_MAX);
+    // Long free-orbit sessions must not accumulate enormous radian angles.
+    // Reduce both endpoints by identical turns, preserving the actual view.
+    if(Math.abs(this.tang)>TAU*8){
+      const turns=Math.trunc(this.tang/TAU);
+      this.tang-=turns*TAU;this.ang-=turns*TAU;
+    }
     const k = 1 - Math.exp(-dt * 6);
     this.x = lerp(this.x, this.tx, k);
     this.y = lerp(this.y, this.ty, k);
