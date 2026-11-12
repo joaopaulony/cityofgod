@@ -12,8 +12,9 @@ export function architecturalTexture(THREE,name,kind){
  let cache=caches.get(THREE);if(!cache){cache=new Map();caches.set(THREE,cache);}
  const key=name+'-'+kind;if(cache.has(key))return cache.get(key);
  const t=new THREE.TextureLoader().load(`assets/textures/architecture/${key}.webp`,image=>{
-  const enriched=globalThis.CitySurfaceDetails?.enrich(image,name,kind);
-  if(enriched&&enriched!==image){t.image=enriched;t.needsUpdate=true;}
+  const source=image?.image||image;
+  const enriched=globalThis.CitySurfaceDetails?.enrich(source,name,kind);
+  if(enriched&&enriched!==source){image.image=enriched;image.needsUpdate=true;}
 });t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;if(kind==='color')t.colorSpace=THREE.SRGBColorSpace;cache.set(key,t);return t;
 }
 export function propertyMaterials(THREE,wrap=m=>m){
