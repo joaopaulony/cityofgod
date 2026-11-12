@@ -64,7 +64,8 @@ async function texLoad() {
       GTEX.t[key] = { n, data: g.getImageData(0, 0, n, n).data };
     }),
     ...walls.map(async ([key, [file, mode]]) => {
-      const img = await loadImg('assets/textures/' + file + '.webp'); if (!img) return;
+      const raw = await loadImg('assets/textures/' + file + '.webp'); if (!raw) return;
+      const img = window.CitySurfaceDetails?.enrich(raw,file)||raw;
       let c = img;
       if (mode === 'detail') c = detailMap(img);
       else { c = makeCanvas(img.width, img.height); c.getContext('2d').drawImage(img, 0, 0); }
