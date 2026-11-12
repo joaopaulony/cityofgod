@@ -132,7 +132,7 @@ const CityHomeNav=(()=>{
      Math.abs(dir.x*perp.x+dir.y*perp.y)*(item.d||0)/2;
    const frontEdge=halfExtent(front),sideEdge=halfExtent(side);
    const frontOnly=['chair','sofa','couch','sectional','sink','stove','fridge','toilet',
-     'desk','studentdesk','shower'].includes(item.kind);
+     'desk','studentdesk','shower'].includes(item.kind)||/^qf_(chair_|couch_|bathroom_toilet|bathroom_shower|kitchen_(fridge|oven|sink))/.test(item.kind);
    const clearance=item.kind==='stove'?.30:item.kind==='shower'?.38:.42;
    const offsets=item.kind==='fridge'?[[.15,frontEdge+.35],[.05,frontEdge+.35],[.25,frontEdge+.35]]:
      frontOnly?[[0,frontEdge+clearance],[.22,frontEdge+clearance],[-.22,frontEdge+clearance]]:[

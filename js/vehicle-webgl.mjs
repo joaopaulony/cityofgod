@@ -14,6 +14,7 @@ import {createPets} from './pets-3d.mjs';
 import {createHouse3D} from './house-3d.mjs';
 import {createArchitecture3D} from './architecture-3d.mjs';
 import {createAmbience} from './ambience-3d.mjs';
+import {createHomeDisplays} from './home-displays-3d.mjs';
 import {createBirds} from './birds-3d.mjs';
 import {createLandmarks} from './landmarks-3d.mjs';
 import {createAirport3D} from './airport-3d.mjs';
@@ -45,6 +46,7 @@ const fuel={level:.58,pump:null,gallons:0,cost:0,msg:'',msgT:0};
 const TANK_GAL=13.2,RANGE_M=12000;
 const modelId=new URLSearchParams(location.search).get('vehicleModel')||'sedan';
 const fleet=new VehicleFleet();let activeKey=null,activePaint=null,claiming=false;
+let homeDisplays=null;
 let vehicleFX=null,damageFX=null,destructibles=null,lighting=null,lightingClock=0,deformation=null;
 let damage=createVehicleDamage();
 let activeModel=getVehicleById(modelId)||VEHICLE_MODELS[0],wheelRig=null,
@@ -340,6 +342,8 @@ function initRenderer(){
  installCareers(scene,bridge);
  installWork3D(THREE,scene,bridge);   // home office no mundo: monitor ligado e caixas de estoque (work-3d.mjs)   // profissões: faculdade, piloto automático até a aula, negócio próprio (careers.mjs)
  createPets(scene,bridge);
+ homeDisplays=createHomeDisplays(THREE,scene,bridge);
+ system.homeDisplays=homeDisplays.state;
  // árvores, palmeiras e arbustos 3D (vegetation-3d.mjs); se falhar, o jogo volta às árvores 2D
  if(window.VEG3D!==false){
   try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
@@ -722,7 +726,9 @@ system.render=()=>{
  lap('vegetation');
  props3d?.update(performance.now()/1000,bridge.gameTime||0);lap('props');
  window.CityPets?.render();lap('pets');
- architecture3d?.update();lap('architecture');
+ architecture3d?.update();
+ homeDisplays?.update(performance.now()/1000);
+ lap('architecture');
  house3d?.update(performance.now()/1000);lap('houses');
  birds?.update();
  landmarks?.update();

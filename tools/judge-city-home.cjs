@@ -9,7 +9,10 @@ const src={nav:read('js/city-home-nav.js'),routine:read('js/city-home-routine.js
  ui:read('js/city-home-ui.js'),plusUI:read('js/city-home-plus-ui.js'),
  plus:read('js/city-home-plus.js'),core:read('js/city-home.js'),
  props:read('js/props-3d.mjs'),arch:read('js/architecture-3d.mjs'),
- game:read('js/game.js'),html:read('index.html')};
+ game:read('js/game.js'),html:read('index.html'),
+ context:read('js/city-click-interactions.js'),screens:read('js/home-displays-3d.mjs'),
+ snow:read('js/ambience-3d.mjs'),avatar:read('js/character-webgl.mjs'),
+ routine3d:read('js/city-home-routine.js')};
 const has=(name,pattern)=>pattern.test(src[name]);
 const rubric=[
  ['Navegação e colisões',[
@@ -54,6 +57,22 @@ const rubric=[
   has('visitors',/CityHome\?\.owned/),has('plusUI',/não transferem propriedade/),
   has('core',/cityofgod\.home-furniture/),has('kitchen',/cityofgod\.home-pantry/),
   has('plus',/cityofgod\.home-plus/),has('core',/undoLog\.delete/)]],
+ ['Interações, camas e TV 3D',[
+  has('context',/function findAt\(/),has('context',/function execute\(/),
+  has('context',/qf_bed_/),has('context',/qf_bathroom_toilet/),
+  has('screens',/THREE\.CanvasTexture/),has('screens',/THREE\.PlaneGeometry/),
+  has('screens',/m\.quaternion\.setFromAxisAngle/),has('screens',/b\.screenOn/),
+  has('routine3d',/watchFacing/),has('plus',/watchTarget:item\.id/),
+  has('avatar',/\['rest','sleep'\]/),has('routine3d',/surface:sleep/)]],
+ ['Luz residencial e neve sem travamentos',[
+  has('arch',/PointLight\(0xffe1b5,0,9,2\)/),
+  has('arch',/bridge\.world\.night\?9:3\.5/),
+  has('arch',/homeAmbient\.intensity=powered/),
+  has('snow',/const NS = 900/),
+  has('snow',/const SNOW_N = 16/),
+  has('snow',/visited\+\+<48/),
+  has('snow',/budget=3/),
+  has('snow',/patchStack/)]],
  ['Desempenho e integração',[
   has('props',/wovenData=new Uint8Array\(48\*48\*4\)/),
   has('props',/photoCache\.size>72/),has('arch',/slice\(0,2\)/),
@@ -64,7 +83,8 @@ const rubric=[
   has('html',/src="js\/city-home-visitors\.js"/)]]
 ];
 const suites=['tests/city-home-journey.test.cjs','tests/city-home-plus.test.cjs',
- 'tests/city-home.test.cjs','tests/city-home-polish.test.cjs'];
+ 'tests/city-home.test.cjs','tests/city-home-polish.test.cjs',
+ 'tests/city-interior-poses.test.cjs','tests/home-click-and-garage.test.cjs'];
 const regress=cp.spawnSync(process.execPath,['--test',...suites],{encoding:'utf8',timeout:90000,
  maxBuffer:4*1024*1024});
 const output=(regress.stdout||'')+'\n'+(regress.stderr||'');

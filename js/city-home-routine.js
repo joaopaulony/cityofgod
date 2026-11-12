@@ -27,6 +27,7 @@ const CityHomeRoutine=(()=>{
    if(!planned)return {ok:false,text:'Sem caminho livre até este móvel. Reposicione os obstáculos'};
    cancel('',true);
    task={id:++epoch,H,itemId:item.id,kind,options,player,
+     completeId:options.watchTarget||item.id,
      points:planned.points,step:0,stand:planned.stand,face:planned.face,stage:'walk',itemSnapshot:{...item},
      elapsed:0,stuck:0,lastX:player.x,lastY:player.y,replans:0,
      houseVersion:typeof world!=='undefined'?world.version:0,wasArmed:!!player.armed};
@@ -60,7 +61,7 @@ const CityHomeRoutine=(()=>{
      }
      player.face+=ANG(t.face,player.face)*clamp(dt*8,0,1);
      if(t.elapsed>=t.duration){
-       const result=window.CityHomePlus?.completeActivity?.(t.H,t.itemId,t.kind,t.options);
+       const result=window.CityHomePlus?.completeActivity?.(t.H,t.completeId||t.itemId,t.kind,t.options);
        cancel('',true);
        window.CityUI?.notify?.(result?.text||'Atividade concluída');
      }
@@ -81,7 +82,7 @@ const CityHomeRoutine=(()=>{
        if(!safe){cancel('Não há posição segura para esta interação');return false;}
        t.poseOrigin=safe;player.x=safe.x;player.y=safe.y;
      }
-     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&furniture.kind==='shower';
+     const seated=['sit','toilet','watch'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&(/shower/.test(furniture.kind));
      if(seated||sleep||shower){
        // The actor temporarily enters the bed / chair / shower, but returns
        // to its collision-checked approach point when completed or cancelled.
@@ -93,11 +94,11 @@ const CityHomeRoutine=(()=>{
        // Face the mixer/head from inside the shower, never toward the wall.
        // Every seated pose faces the model's backrest/desk side, not the
        // procedural building rotation. Important for sofas, toilets and chairs.
-       t.face=(shower||seated)?Math.atan2(-facing.y,-facing.x):
-         (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):Math.PI/2);
+       t.face=(shower||seated||sleep)?Math.atan2(facing.y,facing.x):t.face;
+       if(t.kind==='watch'&&t.options?.watchFacing)t.face=t.options.watchFacing;
      }
      player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,
-       itemId:t.itemId,item:furniture,house:t.H,surface:sleep?furniture.h*1.05:furniture.h*.55};return true;}
+       itemId:t.itemId,item:furniture,house:t.H,surface:sleep?Math.min(.55,furniture.h*.72):furniture.h*.55};return true;}
    const dx=point.x-player.x,dy=point.y-player.y,d=Math.hypot(dx,dy);
    if(d<.08){t.step++;return true;}
    const rate=Math.min(d,1.42*dt),p=move(player.x+dx/d*rate,player.y+dy/d*rate);

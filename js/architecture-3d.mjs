@@ -11,7 +11,7 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
  const civicLights=Array.from({length:4},()=>new THREE.PointLight(0xf0f4e9,0,24,2));
  // Pooled lighting: only the current occupied floor consumes dynamic lights.
  // Decorative ceiling fixtures use cheap BasicMaterial and no shadow maps.
- const homePointLights=Array.from({length:4},()=>new THREE.PointLight(0xffe1b5,0,13,1.25));
+ const homePointLights=Array.from({length:4},()=>new THREE.PointLight(0xffe1b5,0,9,2));
  // Soft bounce/fill; no shadow-map or additional assets. Lit rooms must not
  // depend on sunlight or the window's emissive texture to be visible at night.
  const homeAmbient=new THREE.HemisphereLight(0xffefd7,0x737b80,0);
@@ -374,16 +374,16 @@ export function createArchitecture3D(THREE,scene,bridge,opts={}){
     L.position.set(o.f.world[0],(level?.z||0)+playerHome.architecture.floorHeight-.65,o.f.world[1]);
     // Visible at night with physically correct inverse-square lighting; still
     // capped at four pooled PointLights and 13 m falloff for WebGL performance.
-    L.intensity=(bridge.world.night?85:26)*(o.custom?.intensity||1);
+    L.intensity=(bridge.world.night?9:3.5)*Math.max(.2,Math.min(1.35,o.custom?.intensity||1));
   });
   // Keep the architecture as scene.children[0] and detach lighting completely
   // when no residential interior is occupied (including sector unload).
   if(powered){if(!homeAmbient.parent)scene.add(homeAmbient);}
   else if(homeAmbient.parent)scene.remove(homeAmbient);
-  homeAmbient.intensity=powered?(bridge.world.night?1.65:.52):0;
+  homeAmbient.intensity=powered?(bridge.world.night?.38:.22):0;
   for(const [name,mat] of Object.entries(innerMats))if(name!=='glass'&&mat.emissive){
     mat.emissive.set(powered?'#3c3228':'#000000');
-    mat.emissiveIntensity=powered?.30:0;
+    mat.emissiveIntensity=powered?.08:0;
   }
   state.interiorFixtures=fixtures.length;
   state.lightsActive=nearest.length;

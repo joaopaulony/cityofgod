@@ -163,6 +163,8 @@ function mix(c1, c2, t) {
 }
 // 3 tons a partir da luz: escuro / base / claro
 function tone(base, lit) {
+  // Streamed and imported decor can omit a side color; never crash the renderer.
+  if (typeof base !== 'string' || !/^#[0-9a-f]{6}$/i.test(base)) base = '#777777';
   if (lit > 0.45) return mix(base, VISUAL_REFERENCE.anchors.sunlight, 0.16);
   if (lit > -0.05) return base;
   return mix(base, '#242026', 0.34);

@@ -150,9 +150,10 @@ test('all seated poses face the actual +Z front of the 3D furniture even in rota
    f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
    if(f.window.CityHomeRoutine.stage==='pose'){
     pose=true;
-    const expected=Math.atan2(0,1);
+    // Actor must face the object's true +Z front, not the back wall.
+    const expected=Math.atan2(0,-1);
     for(let j=0;j<25;j++)f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
-    assert.ok(Math.abs(f.player.face-expected)<.5,kind+': face '+f.player.face);
+    assert.ok(Math.abs(Math.atan2(Math.sin(f.player.face-expected),Math.cos(f.player.face-expected)))<.5,kind+': face '+f.player.face);
     break;
    }
   }
