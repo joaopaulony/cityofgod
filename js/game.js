@@ -45,6 +45,31 @@ window.cityVehicleBridge={
   cam,player,world,houses,boxes,actors,buildRoofGeom,
   get urbanBins(){return urbanLife.bins;},get geo(){return typeof OW!=='undefined'&&world.open?OW.geo:null;},get urbanLitter(){return urbanLife.litter;},
   get terrainItems(){return terrain.items;},
+  // Single source of truth shared with the soil painter: roads, wetlands,
+  // bare concrete, muddy paths and districts never receive generic turf.
+  grassAt(x,y){
+    const f=fieldsAt(x,y),w=weightsAt(f),D=COG.D;
+    if(f.rd < ROAD_W + SIDE + .9 ||w.paved>.1||w.water>.02||w.sand>.28||w.trail>.3||f.bare||
+       f.di===D.DOWNTOWN||f.di===D.INDUSTRIAL||f.di===D.PORT||
+       f.di===D.BEACH||f.di===D.AIRPORT||f.di===D.FARM)return null;
+    let cover=Math.max(0,w.grass);
+    if(f.di===D.FAVELA)cover*=.32;
+    else if(f.di===D.GHETTO)cover*=.78;
+    // Planted farm rows and airport aprons are separate surfaces, never wild lawn.
+    if(cover<.08)return null;
+    const moisture=f.wet||.5,dry=f.dry||.5,forest=w.forest||0;
+    // Trimmed lawns around homes/town, mixed meadows across rural land,
+    // high grass by fields and wet edges, undergrowth beneath forest canopy.
+    const rural=f.di===D.RURAL;
+    const profile=moisture>.67&&f.pv<1.8?'wet':
+       forest>.46||f.di===D.FOREST?'shade':
+       dry>.71?'dry':rural?'wild':
+       f.di===D.GHETTO||f.di===D.FAVELA?'meadow':
+       w.dirt>.24?'meadow':'lawn';
+    const height=profile==='lawn'?.33:profile==='shade'?.60:
+       profile==='meadow'?.58:profile==='dry'?.49:profile==='wet'?1.12:.70;
+    return {cover,profile,height};
+  },
   // objetos 3D (props-3d.mjs): tempo do jogo p/ os semáforos, vias p/ o meio-fio e onde ele se interrompe
   get gameTime(){return T;},trafficPhase,props3d,ROAD_W,
   get roads(){return world.roads;},

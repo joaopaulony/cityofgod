@@ -9,6 +9,7 @@ import {VEHICLE_MODELS,CIVIL_PACK_EXPECTED,POLICE_SUV_EXPECTED,VEHICLE_DIRECTORY
 import {createWheelRig,stepWheelRig,resetWheelRig} from './vehicle-wheels.mjs';
 import {createCharacterSystem} from './character-webgl.mjs';
 import {createVegetation} from './vegetation-3d.mjs';
+import {createLivingGrass} from './living-grass-3d.mjs';
 import {createProps} from './props-3d.mjs';
 import {createPets} from './pets-3d.mjs';
 import {createHouse3D} from './house-3d.mjs';
@@ -344,6 +345,13 @@ function initRenderer(){
  if(window.VEG3D!==false){
   try{vegetation=createVegetation(THREE,scene,bridge);system.vegetation=vegetation.state;}
   catch(error){console.error('Vegetação 3D falhou',error);window.VEG3D=false;}
+  // A separate instanced layer grows low, medium and tall grass only over
+  // compatible terrain. No GLB or image downloads; shaders move it on GPU.
+  if(window.LIVING_GRASS!==false){
+   try{livingGrass=createLivingGrass(THREE,scene,{...bridge,quality:()=>system.quality});
+       system.livingGrass=livingGrass.state;}
+   catch(error){console.error('Grama procedural falhou',error);window.LIVING_GRASS=false;}
+  }
   // objetos da rua, móveis, postes, semáforos e meio-fio (props-3d.mjs)
   try{props3d=createProps(THREE,scene,bridge);system.props3d=props3d.state;
    system.furnitureThumbnail=(kind,color)=>props3d.thumbnail(kind,color);}
@@ -436,7 +444,7 @@ function inkLights(){
  const [[hemi],[sun],[bounce]]=scene.userData.lights;
  hemi.intensity*=INK_LIGHT.hemi;sun.intensity*=INK_LIGHT.sun;bounce.intensity*=INK_LIGHT.bounce;
 }
-let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
+let vegetation=null,livingGrass=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -718,6 +726,7 @@ system.render=()=>{
   const p=bridge.player,occupied=bridge.houses.find(H=>H.architecture&&H.inside),indoorRadius=occupied?Math.min(12,Math.hypot(occupied.x1-occupied.x0,occupied.y1-occupied.y0)*.52):1.7;
   const target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:indoorRadius};
   vegetation.update(performance.now()/1000,viewCamera,renderer,target);urbanInk?.setSeeThrough(target);shadowGround.visible=false;
+  livingGrass?.update(performance.now()/1000,viewCamera,system.quality||'balanced');
  }
  lap('vegetation');
  props3d?.update(performance.now()/1000,bridge.gameTime||0);lap('props');
