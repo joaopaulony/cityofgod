@@ -97,7 +97,7 @@ export function createLivingGrass(THREE,scene,bridge){
  const matrix=new THREE.Matrix4(),quat=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0),pos=new THREE.Vector3(),scale=new THREE.Vector3(),tmpColor=new THREE.Color();
  const colors=Object.fromEntries(Object.entries(GRASS_PALETTES).map(([name,list])=>[name,list.map(c=>new THREE.Color(c))]));
  const state={active:0,capacity,drawCalls:1,trianglesPerClump:geo.index.count/3,
-  bladesPerClump:4,patches:0,low:0,medium:0,tall:0,skipped:0,ms:0,wind:0,footstep:0,quality:'balanced',pending:false,center:[0,0]};
+  bladesPerClump:4,patches:0,low:0,medium:0,tall:0,skipped:0,ms:0,wind:0,footstep:0,quality:'balanced',pending:false,center:[0,0],biomes:{}};
  let job=null,prev={x:null,y:null,t:0},lastRebuild=-Infinity,built={x:1e8,y:1e8,r:0,quality:''},count=0;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  const palette=(kind,seed)=>{
@@ -136,7 +136,7 @@ export function createLivingGrass(THREE,scene,bridge){
    const width=.82+.44*b,angle=h32(Math.floor(xx*100),Math.floor(yy*100),19)*TAU;
    const tint=palette(sample.profile,h32(Math.floor(xx*50),Math.floor(yy*50),47));
    tint.multiplyScalar(.78+.35*a);
-   j.list.push({x:xx,y:yy,height,width,angle,r:tint.r,g:tint.g,b:tint.b});
+   j.list.push({x:xx,y:yy,height,width,angle,profile:sample.profile,r:tint.r,g:tint.g,b:tint.b});
   }
  };
  function begin(x,y,r,quality,now){
@@ -149,7 +149,7 @@ export function createLivingGrass(THREE,scene,bridge){
  }
  function commit(){
   if(!job)return;
-  let low=0,medium=0,tall=0;
+  let low=0,medium=0,tall=0;const biomes={};
   count=job.list.length;
   for(let i=0;i<count;i++){
    const p=job.list[i];
@@ -157,11 +157,12 @@ export function createLivingGrass(THREE,scene,bridge){
    scale.set(p.width,p.height,p.width);matrix.compose(pos,quat,scale);mesh.setMatrixAt(i,matrix);
    shade.setXYZ(i,p.r,p.g,p.b);
    if(p.height<.35)low++;else if(p.height<.78)medium++;else tall++;
+   biomes[p.profile]=(biomes[p.profile]||0)+1;
   }
   mesh.count=count;
   if(count){mesh.instanceMatrix.needsUpdate=true;shade.needsUpdate=true;}
   Object.assign(state,{active:count,low,medium,tall,ms:+(performance.now()-job.start).toFixed(1),
-   quality:job.quality,pending:false,center:[job.cx,job.cy],patches:job.houses.length});
+   quality:job.quality,pending:false,center:[job.cx,job.cy],patches:job.houses.length,biomes});
   built={x:job.cx,y:job.cy,r:job.radius,quality:job.quality};
   job=null;
  }
