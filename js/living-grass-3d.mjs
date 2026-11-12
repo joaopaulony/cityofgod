@@ -17,13 +17,13 @@ function bladeGeometry(THREE){
  const positions=[],colors=[],indices=[];
  const lengths=[1,.86,.95,.72],rotations=[0,1.31,2.75,4.45];
  for(let b=0;b<4;b++){
-  const a=rotations[b],c=Math.cos(a),s=Math.sin(a),h=lengths[b],width=.077+(b%2)*.024;
+  const a=rotations[b],c=Math.cos(a),s=Math.sin(a),h=lengths[b],width=.058+(b%2)*.018;
   const base=positions.length/3;
   for(let k=0;k<4;k++){
-   const t=k/3,lean=t*t*(.21+(b%3)*.075),w=width*(1-.87*t);
+   const t=k/3,lean=t*t*(.27+(b%3)*.085),w=width*(1-.87*t);
    for(const side of [-1,1]){
     positions.push(c*lean-s*side*w,t*h,s*lean+c*side*w);
-    const value=.67+.29*t;colors.push(value*(.95+b*.014),value*(.98+.013*b),value*.81+.12);
+    const value=.49+.25*t;colors.push(value*(.95+b*.014),value*(.97+.013*b),value*.83+.11);
    }
   }
   for(let k=0;k<3;k++){const i=base+k*2;indices.push(i,i+1,i+2,i+1,i+3,i+2);}
@@ -70,7 +70,7 @@ void main(){
  float rand=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
  if(fade<rand)discard;
  vec3 tint=mix(vColor,vec3(.79,.83,.79),uSnow*.65);
- tint*=mix(.41,1.04,uDay);
+ tint*=mix(.36,.92,uDay);
  gl_FragColor=vec4(tint,.85); // Urban Ink vegetation class: no thick cartoon strokes.
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
@@ -140,7 +140,7 @@ export function createLivingGrass(THREE,scene,bridge){
      ||j.paved.some(t=>xx>t[0]&&xx<t[2]&&yy>t[1]&&yy<t[3]))continue;
    let height=sample.height*(.64+.65*h32(Math.floor(xx*100),Math.floor(yy*100),31));
    // Mature wild grass appears in islands; lawns remain short, not uniform.
-   if(sample.profile==='wild'&&b>.83)height*=1.6;
+   if(sample.profile==='wild'&&b>.85)height*=1.55;
    if(sample.profile==='wet'&&a>.78)height*=1.4;
    height=clamp(height,.09,1.75);
    const width=.82+.44*b,angle=h32(Math.floor(xx*100),Math.floor(yy*100),19)*TAU;
