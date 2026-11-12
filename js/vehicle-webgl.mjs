@@ -374,9 +374,23 @@ function initRenderer(){
 }
 // Qualidade (menu Vídeo): resolução base, sombras e o piso da resolução dinâmica.
 //  baixa: 75% da tela, sem sombras · equilibrada: tela nativa, sombra 2048 · alta: 150% (supersampling), sombra 4096
-const QUALITY={low:{ratio:.75,shadow:0,min:.5},balanced:{ratio:1,shadow:2048,min:.7},high:{ratio:1.5,shadow:4096,min:1}};
+// Adaptive supersampling: preserve native sharpness at startup, then only increase
+// resolution while the GPU has sustained spare frame time. No extra rendering pass.
+// Existing MSAA smooths triangles; this protects small face/hair silhouettes on 1x screens.
+const QUALITY={
+ low:{ratio:.75,shadow:0,min:.5,max:1},
+ balanced:{ratio:1.1,shadow:2048,min:.68,max:1.14},
+ high:{ratio:1.5,shadow:4096,min:1,max:1.1}
+};
 const dyn={scale:1,ema:16.7,slow:0,fast:0,last:0};
-function applyRatio(){const q=QUALITY[system.quality]||QUALITY.balanced;renderer.setPixelRatio(Math.min(devicePixelRatio||1,1)*q.ratio*dyn.scale);system.pixelRatio=renderer.getPixelRatio();system.dynamicScale=dyn.scale;}
+function applyRatio(){
+ const q=QUALITY[system.quality]||QUALITY.balanced;
+ const ratio=Math.max(.5,Math.min(2,q.ratio*dyn.scale));
+ renderer.setPixelRatio(ratio);
+ system.pixelRatio=renderer.getPixelRatio();
+ system.dynamicScale=dyn.scale;
+ system.aaProfile={mode:system.quality,ratio,range:[+(q.ratio*q.min).toFixed(2),+(q.ratio*q.max).toFixed(2)],msaa:true};
+}
 system.applyQuality=value=>{
  if(!renderer)return;
  if(value==='economy')value='low';if(!QUALITY[value])value='balanced';
@@ -404,9 +418,15 @@ function dynamicResolution(now){
  if(window.CityFront?.blocked){dyn.slow=dyn.fast=0;dyn.ema=16.7;return;}   // carregando/menu: quadros lentos não contam
  if(!(d>0&&d<250))return;
  dyn.ema+=(d-dyn.ema)*.1;const cpu=bridge.frameCost||0,q=QUALITY[system.quality]||QUALITY.balanced;
- dyn.slow=dyn.ema>20&&cpu<dyn.ema*.6?dyn.slow+d:0;dyn.fast=dyn.ema<17.6?dyn.fast+d:0;
- if(dyn.slow>700&&dyn.scale>q.min+.001){dyn.scale=Math.max(q.min,+(dyn.scale-.1).toFixed(2));dyn.slow=0;applyRatio();}
- else if(dyn.fast>3000&&dyn.scale<1){dyn.scale=Math.min(1,+(dyn.scale+.05).toFixed(2));dyn.fast=0;applyRatio();}
+ dyn.slow=dyn.ema>20&&cpu<dyn.ema*.6?dyn.slow+d:0;
+ // Upgrade AA only after sustained GPU headroom; preserve FPS when driving
+ // or when character/vegetation density rises. Hysteresis avoids size thrashing.
+ dyn.fast=dyn.ema<16.5&&cpu<11?dyn.fast+d:0;
+ if(dyn.slow>650&&dyn.scale>q.min+.001){
+  dyn.scale=Math.max(q.min,+(dyn.scale-.08).toFixed(2));dyn.slow=0;dyn.fast=0;applyRatio();
+ }else if(dyn.fast>3200&&dyn.scale<q.max-.001){
+  dyn.scale=Math.min(q.max,+(dyn.scale+.04).toFixed(2));dyn.fast=0;applyRatio();
+ }
 }
 let urbanInk=null;
 // iluminação do Urban Ink: menos luz de preenchimento (céu) e mais sol, p/ as faixas do toon separarem luz e sombra;

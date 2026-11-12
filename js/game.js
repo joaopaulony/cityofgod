@@ -564,7 +564,7 @@ function drawPart(q) {
 // ---------- render ----------
 function render() {
   const W = view.width, H = view.height;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'medium';
   // chão: a placa de vídeo pinta a vista inteira na tela de baixo (ground-gpu.js) e esta tela 2D fica transparente
   // onde o detalhe ainda não foi pintado; sem WebGL2, o fundo sólido de antes
   terrain.gpu = typeof GroundGPU !== 'undefined' && GroundGPU.draw(W, H);
@@ -572,6 +572,10 @@ function render() {
   // chão: a textura pintada uma vez é só reprojetada com uma transformação afim (gira/zoom de graça)
   const s = cam.zoom, c = cam.cos, sn = cam.sin;
   drawGround(g,W,H);
+  // drawGround intentionally restores pixel sampling for its sprite caches.
+  // Re-enable bilinear filtering for the world overlay (rotated assets and
+  // fine details), without changing the 2D canvas resolution or HUD.
+  g.imageSmoothingEnabled=true;g.imageSmoothingQuality='medium';
   drawSnowGround(g,W,H);   // neve acumulada no chão (env.js)
   if(st.night)for(const lamp of world.lamps)drawLampBeam(g,lamp,T);
 

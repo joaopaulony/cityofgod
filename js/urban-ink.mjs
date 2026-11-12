@@ -127,7 +127,7 @@ const POST_FS = `
 uniform sampler2D tColor;
 uniform sampler2D tDepth;
 uniform vec2 uTexel;
-uniform float uThick, uOutline, uRange, uPx, uSat, uCon, uFoliage, uCrease, uFine, uColorEdge;
+uniform float uThick, uOutline, uRange, uPx, uSat, uCon, uFoliage, uCrease, uFine, uColorEdge, uAA;
 uniform vec3 uInk;
 uniform vec4 uSee;    // vegetação vazada (vegetation-3d.mjs): uv.xy do alvo, raio em pixels e profundidade do alvo
 uniform vec4 uTune;   // limiares: vinco (início, fim), borda de material (início, fim)
@@ -155,10 +155,28 @@ void tap( vec2 o, float cC, float dC, float lC, inout float lapSum, inout float 
 		if ( abs( diff ) < 0.05 ) tone = max( tone, luma( col.rgb ) - lC );   // vizinho mais claro no mesmo plano
 	}
 }
+// Reconstruct multisample edge coverage for partial silhouette pixels.
+ // The render target stores class alpha (.5 people, .85 foliage, 1 opaque).
+ // The old output forced every partially covered class-2 pixel to alpha=1,
+ // turning MSAA-resolved faces and hair into hard staircase contours.
+ float silhouetteCoverage( float alpha, float depth ) {
+   float nearbyAlpha = alpha;
+   vec2 sx = vec2( uTexel.x, 0.0 ), sy = vec2( 0.0, uTexel.y );
+   vec2 coords[4];
+   coords[0] = vUv + sx; coords[1] = vUv - sx;
+   coords[2] = vUv + sy; coords[3] = vUv - sy;
+   for (int i=0;i<4;i++) {
+     float d=texture2D(tDepth,coords[i]).r;
+     if (d < .99999 && abs(d-depth)*uRange < 0.65)
+       nearbyAlpha = max(nearbyAlpha,texture2D(tColor,coords[i]).a);
+   }
+   return clamp(alpha/max(nearbyAlpha,0.001),0.0,1.0);
+ }
 void main() {
 	vec4 col = texture2D( tColor, vUv );
 	float dRaw = texture2D( tDepth, vUv ).r;
 	float cC = cls( col.a, dRaw );
+	float resolvedCoverage = (uAA > .5 && cC == 2.0) ? silhouetteCoverage(col.a,dRaw) : 1.0;
 	float edge = 0.0;
 	// quanto detalhe cabe na tela: de perto, traço inteiro; de longe só as silhuetas, mais leves
 	float near = 1.0 - smoothstep( 0.014, 0.045, uPx );
@@ -209,7 +227,11 @@ void main() {
 	c *= 1.0 - 0.13 * smoothstep( 0.72, 1.0, luma( c ) );
 	// traço tingido: escurece a cor de baixo em direção ao tom da tinta, em vez de pintar preto chapado
 	vec3 inkC = mix( uInk, c * 0.32, 0.35 );
-	float alpha = cC == 0.0 ? col.a : 1.0;   // vazio mantém o alpha original (sombra no chão, fumaça)
+	float alpha = cC == 0.0 ? col.a : (cC == 2.0 ? resolvedCoverage : 1.0);
+	// MSAA averages uncovered transparent samples with black. Recover straight
+	// alpha at only partially covered edges; keep interior face texture crisp.
+	if (uAA > .5 && cC == 2.0 && resolvedCoverage < .99)
+		c = clamp(c / max(.1,resolvedCoverage),0.0,1.0);
 	edge *= uOutline;
 	gl_FragColor = vec4( mix( c, inkC, edge ), max( alpha, edge ) );
 }
@@ -225,7 +247,7 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
     uniforms: {
       tColor: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2() },
       uThick: { value: 1 }, uOutline: { value: 1 }, uRange: { value: 1 }, uPx: { value: 0.02 },
-      uSat: { value: 0.1 }, uCon: { value: 0.2 }, uFoliage: { value: 1 }, uCrease: { value: 1 }, uFine: { value: 0 }, uColorEdge: { value: 0 },
+      uSat: { value: 0.1 }, uCon: { value: 0.2 }, uFoliage: { value: 1 }, uCrease: { value: 1 }, uFine: { value: 0 }, uColorEdge: { value: 0 }, uAA: { value: 1 },
       uSee: { value: new THREE.Vector4(-1, -1, 0, 0) }, uTune: { value: new THREE.Vector4(0.6, 1.2, 0.1, 0.22) },
       uInk: { value: new THREE.Color() },
     },
@@ -294,6 +316,7 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
     const u = post.uniforms, q = INK_QUALITY[params.quality] || INK_QUALITY.balanced;
     u.uOutline.value = params.outline; u.uSat.value = params.saturation; u.uCon.value = params.contrast;
     u.uFoliage.value = q.foliage ? 1 : 0; u.uCrease.value = q.crease ? 1 : 0; u.uFine.value = q.fine ? 1 : 0; u.uColorEdge.value = q.color ? 1 : 0;
+    u.uAA.value = q.msaa > 0 ? 1 : 0; // Skip extra texture reads in performance mode.
     state.enabled = params.enabled; state.quality = params.quality;
   }
   applyUniforms();
