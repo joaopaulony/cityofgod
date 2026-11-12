@@ -39,7 +39,9 @@ function houseStyle(H, rnd) {
 function paintPlaster(g, x, y, w, h, col, rnd, aging) {
   // reboco pintado (textures.js): luz e sombra da textura sobre a cor da casa; o gasto nas casas mais velhas.
   // A escala vem da própria imagem (fachadas Miami guardam c.ppm), senão TEX.
-  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, aging > 0.6 ? 'stuccoWorn' : 'stucco', g.canvas.ppm || TEX, col)) return;
+  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, aging > 0.6 ? 'stuccoWorn' : 'stucco', g.canvas.ppm || TEX, col)) {
+    window.CitySurfaceDetails?.paintArea(g,'plaster',x,y,w,h,col+aging,aging);return;
+  }
   g.fillStyle = col; g.fillRect(x, y, w, h);
   // variação tonal da pintura (manchas suaves grandes)
   for (let i = 0; i < w * h / 900; i++) {
@@ -54,9 +56,12 @@ function paintPlaster(g, x, y, w, h, col, rnd, aging) {
     g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)';
     g.fillRect(x + rnd() * w, y + rnd() * h, 1, 1);
   }
+  window.CitySurfaceDetails?.paintArea(g,'plaster',x,y,w,h,col+aging,aging);
 }
 function paintBrick(g, x, y, w, h, col, rnd) {
-  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, 'brick', g.canvas.ppm || TEX, null)) return;   // tijolo pintado
+  if (typeof wallTexFill === 'function' && wallTexFill(g, x, y, w, h, 'brick', g.canvas.ppm || TEX, null)) {
+    window.CitySurfaceDetails?.paintArea(g,'stone',x,y,w,h,col,1);return;
+  }
   g.fillStyle = '#b9ad9c'; g.fillRect(x, y, w, h);   // argamassa
   const bh = 0.075 * TEX, bw = 0.22 * TEX;
   for (let r = 0, yy = y + h - bh; yy > y - bh; yy -= bh, r++) for (let xx = x - (r % 2) * bw / 2; xx < x + w; xx += bw) {
@@ -64,6 +69,7 @@ function paintBrick(g, x, y, w, h, col, rnd) {
     g.fillStyle = 'rgba(255,230,210,0.12)'; g.fillRect(xx + 1, yy + 1, bw - 1.5, 1);
     g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(xx + 1, yy + bh - 1.5, bw - 1.5, 1);
   }
+  window.CitySurfaceDetails?.paintArea(g,'stone',x,y,w,h,col,1);
 }
 
 // ---------- janela (em coordenadas de textura) ----------

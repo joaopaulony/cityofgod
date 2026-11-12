@@ -37,7 +37,7 @@ float h21(vec2 q){ q = fract(q * vec2(123.34, 456.21)); q += dot(q, q + 45.32); 
 float vnoise(vec2 q){ vec2 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
 // URBAN INK: sem o detalhe fotográfico das texturas (cor chapada)
-vec3 det(sampler2D t, vec2 w, float m, vec3 a){ return uInk > 0.0 ? vec3(1.0) : texture(t, w / m).rgb / max(a, vec3(0.04)); }
+vec3 det(sampler2D t, vec2 w, float m, vec3 a){ vec3 sampled=texture(t, w / m).rgb / max(a, vec3(0.04)); return mix(clamp(sampled,vec3(0.65),vec3(1.45)),vec3(1.0),uInk>0.0?0.22:0.0); }
 // juntas das placas do piso (calçada e calçadão), como no detalhe da CPU: linha escura a cada 1,2 m
 float joints(vec2 w){ vec2 g = abs(fract(w / 1.2) - 0.5) * 1.2, fw = max(fwidth(w), vec2(0.004)); vec2 l = 1.0 - smoothstep(vec2(0.0), fw * 1.5 + 0.02, 0.6 - g); return 1.0 - 0.1 * max(l.x, l.y); }
 void main(){
@@ -78,7 +78,13 @@ void main(){
     float aa = max(fwidth(d), 0.02);
     vec3 walk = cWalk * det(uWalk, w, mB.x, aWalk) * 0.94 * joints(w);
     float n = vnoise(w * 6.0), n2 = vnoise(w * 0.9);
-    vec3 asph = mix(cAsph, cPatch, smoothstep(0.66, 0.82, n2) * 0.35) * (0.9 + 0.08 * n);
+    // Embedded pavement microtexture: stone aggregate, faded wheel tracks,
+    // aged binder and restrained tar repairs. All in the existing road pixels.
+    float grains=h21(floor(w*19.0));
+    float worn=smoothstep(0.65,0.84,n2)*0.35;
+    float tar=smoothstep(0.82,0.90,n2)*0.065;
+    float wheel=exp(-pow((d-1.05)*2.4,2.0))+exp(-pow((d-2.55)*2.4,2.0));
+    vec3 asph = mix(cAsph, cPatch, worn) * (0.93 + 0.08*n + (grains-.5)*.105 - tar - wheel*.025);
     asph = mix(cGutter, asph, smoothstep(uRoadW - 0.45, uRoadW - 0.75, d));   // sarjeta junto ao meio-fio
     vec3 curb = mix(cCurbT, cCurbF, smoothstep(uRoadW + 0.08, uRoadW + 0.16, d));
     vec3 r = mix(asph, curb, smoothstep(uRoadW - aa, uRoadW + aa, d));
@@ -133,8 +139,8 @@ void main(){
       let unit = 2;
       for (const k of Object.keys(TEXS)) { tex[k] = { unit: unit++, t: gl.createTexture() }; avg[k] = [0.5, 0.5, 0.5]; meters[k] = 3.5; solid(k); }
       gl.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; failed = true; });
-      // URBAN INK: chão chapado, as fotos do chão só baixam no estilo original (setInk)
-      if (!ink) wantTextures();
+      // Surface-richness uses the original GPU textures in both art presets.
+      wantTextures();
       ready = true;
       return true;
     } catch (e) { console.warn('Chão na GPU indisponível:', e); failed = true; try { canvas?.remove(); } catch (_) {} gl = null; return false; }
@@ -150,7 +156,8 @@ void main(){
       try { await img.decode(); } catch (_) { return; }
       if (!gl) return;
       gl.activeTexture(gl.TEXTURE0 + tex[k].unit); gl.bindTexture(gl.TEXTURE_2D, tex[k].t);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D);
+      const enriched=window.CitySurfaceDetails?.enrich(img,file)||img;
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, enriched); gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
       const ext = gl.getExtension('EXT_texture_filter_anisotropic'); if (ext) gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
       // cor média (a textura entra como detalhe sobre a cor base da paleta, sem mudar o tom)

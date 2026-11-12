@@ -25,7 +25,7 @@ export const INK_QUALITY = {
   quality: { msaa: 4, foliage: true, crease: true, color: true, fine: true },
 };
 export const INK_DEFAULTS = Object.freeze({
-  ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.6, inkSaturation: 0.75, inkContrast: 0.5, inkQuality: 'balanced',
+  ink: true, inkOutline: 0.52, inkThickness: 0.2, inkToon: 0.36, inkSaturation: 0.52, inkContrast: 0.4, inkQuality: 'balanced',
 });
 const cap = (v, a, b, f) => (Number.isFinite(Number(v)) ? Math.max(a, Math.min(b, Number(v))) : f);
 // valores salvos (0–1 nos controles deslizantes) → valores do Urban Ink

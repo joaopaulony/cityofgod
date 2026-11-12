@@ -264,7 +264,7 @@ function paintRows(ch, rows, L = ch) {
   const open = world.open, CROP = terrain.crops;
   // URBAN INK: cores chapadas — sem as texturas fotográficas, ruído fino quase nulo e a paleta do estilo
   const ink = !!terrain.ink, inkN = ink ? 0.16 : 1, COL = ink ? INK_COL : COLB;
-  const tex = !ink && typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
+  const tex = typeof GTEX !== 'undefined' && GTEX.ready, tA = [0, 0, 0], tB = [0, 0, 0];   // texturas pintadas (textures.js)
   const walkKey = ch.zone === 'southbeach' ? 'walkPink' : 'walk';
   const sk = L.k || 1, pd = L.pad === undefined ? PAD : L.pad, SZ = L.sz || CSZ, gx0 = ch.ci * CPX - pd * sk, gy0 = ch.cj * CPX - pd * sk, gs = L.gs || GSTEP, gn = L.gn || GN, inv = 1 / ((L.tp || TP) * gs);
   const s0 = ROAD_W + 0.2, s1 = ROAD_W + SIDE;
@@ -402,7 +402,10 @@ function paintRows(ch, rows, L = ch) {
           // asfalto: agregado, trilhas de pneu polidas, faixa de óleo, remendos, sarjeta suja
           const tracks = Math.exp(-((rd - 0.95) ** 2) / 0.09) + Math.exp(-((rd - 2.55) ** 2) / 0.09);
           const oil = Math.exp(-((rd - 1.75) ** 2) / 0.05);
-          const agg = d2 > 0.93 ? 1.4 : 0.8 + d2 * 0.36;
+          // Deterministic fine mineral aggregate in the asphalt's existing
+          // texels; no extra decals, geometry, draw calls or per-frame shaders.
+          const grit=(((Math.imul(Xp|0,73856093)^Math.imul(Yp|0,19349663))>>>0)&255)/255;
+          const agg = (d2 > 0.93 ? 1.12 : 0.89 + d2 * 0.23) * (0.955 + grit * 0.085);
           let m3 = lerp(agg, 0.97, tracks * 0.5) * (1 - tracks * 0.07) * (1 - oil * 0.1) * (0.95 + d3 * 0.1);
           let ar = COL.asph[0] * m3 + oil * 4, ag = COL.asph[1] * m3, ab = COL.asph[2] * m3 - oil * 2;
           if (tex && texAt('asphalt', Xp, Yp, tA)) { const ma = (1 - tracks * 0.06) * (1 - oil * 0.08) * (0.98 + d3 * 0.04); ar = tA[0] * ma + oil * 3; ag = tA[1] * ma; ab = tA[2] * ma - oil * 2; }
