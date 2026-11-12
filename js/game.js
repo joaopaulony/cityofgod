@@ -49,7 +49,7 @@ window.cityVehicleBridge={
   // bare concrete, muddy paths and districts never receive generic turf.
   grassAt(x,y){
     const f=fieldsAt(x,y),w=weightsAt(f),D=COG.D;
-    if(w.paved>.1||w.water>.02||w.sand>.28||w.trail>.3||f.bare||
+    if(f.rd < ROAD_W + SIDE + .9 ||w.paved>.1||w.water>.02||w.sand>.28||w.trail>.3||f.bare||
        f.di===D.DOWNTOWN||f.di===D.INDUSTRIAL||f.di===D.PORT||f.di===D.BEACH)return null;
     let cover=Math.max(0,w.grass);
     if(f.di===D.FAVELA)cover*=.32;
