@@ -85,6 +85,32 @@
   // Explicit feature even if a new recipe is introduced, never silently skip.
   circle(g,x,y,z*.4,edge);
  }
+ // Add fine mineral/fibre variation INSIDE the original albedo pixels.
+ // Two periodic noise bands preserve tiling at the 2m texture boundary.
+ function addMaterialGrain(g,key,w,h){
+  const strength=key==='plaster'?12:key==='stone'?9:key==='wood'?7:
+    key==='roof'||key==='roof-flat'?10:key.includes('lawn')||key.includes('weeds')?12:
+    key.includes('dirt')?11:9;
+  const r=random(hash(key+'-mineral-grain'));
+  const makeGrid=n=>{const a=new Float32Array(n*n);for(let i=0;i<a.length;i++)a[i]=r()-.5;return a;};
+  const big=makeGrid(24),fine=makeGrid(96);
+  const sample=(a,n,x,y)=>{
+   const fx=x*n/w,fy=y*n/h,ix=Math.floor(fx),iy=Math.floor(fy),sx=fx-ix,sy=fy-iy;
+   const x1=(ix+1)%n,y1=(iy+1)%n;
+   const t0=a[iy*n+ix]*(1-sx)+a[iy*n+x1]*sx;
+   const t1=a[y1*n+ix]*(1-sx)+a[y1*n+x1]*sx;
+   return t0*(1-sy)+t1*sy;
+  };
+  const data=g.getImageData(0,0,w,h),p=data.data;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const q=(y*w+x)*4,lo=sample(big,24,x,y),hi=sample(fine,96,x,y);
+   const delta=(lo*.75+hi*.48)*strength;
+   p[q]=clamp(p[q]+delta,0,255);
+   p[q+1]=clamp(p[q+1]+delta*.96,0,255);
+   p[q+2]=clamp(p[q+2]+delta*.92,0,255);
+  }
+  g.putImageData(data,0,0);
+ }
  function enrich(image,key,channel='color'){
   const names=RECIPES[key];if(!image||!names)return image;
   const w=image.width||image.naturalWidth,h=image.height||image.naturalHeight;
@@ -121,6 +147,7 @@
    g.putImageData(data,0,0);
    cache.set(id,c);stats.processed++;return c;
   }
+  if(channel==='color')addMaterialGrain(g,key,w,h);
   let stamped=0;
   for(let i=0;i<names.length;i++){
    const type=names[i],r=random(hash(key+':'+type));
