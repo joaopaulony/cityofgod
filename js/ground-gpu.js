@@ -78,7 +78,13 @@ void main(){
     float aa = max(fwidth(d), 0.02);
     vec3 walk = cWalk * det(uWalk, w, mB.x, aWalk) * 0.94 * joints(w);
     float n = vnoise(w * 6.0), n2 = vnoise(w * 0.9);
-    vec3 asph = mix(cAsph, cPatch, smoothstep(0.66, 0.82, n2) * 0.35) * (0.9 + 0.08 * n);
+    // Embedded pavement microtexture: stone aggregate, faded wheel tracks,
+    // aged binder and restrained tar repairs. All in the existing road pixels.
+    float grains=h21(floor(w*19.0));
+    float worn=smoothstep(0.65,0.84,n2)*0.35;
+    float tar=smoothstep(0.82,0.90,n2)*0.065;
+    float wheel=exp(-pow((d-1.05)*2.4,2.0))+exp(-pow((d-2.55)*2.4,2.0));
+    vec3 asph = mix(cAsph, cPatch, worn) * (0.93 + 0.08*n + (grains-.5)*.105 - tar - wheel*.025);
     asph = mix(cGutter, asph, smoothstep(uRoadW - 0.45, uRoadW - 0.75, d));   // sarjeta junto ao meio-fio
     vec3 curb = mix(cCurbT, cCurbF, smoothstep(uRoadW + 0.08, uRoadW + 0.16, d));
     vec3 r = mix(asph, curb, smoothstep(uRoadW - aa, uRoadW + aa, d));
