@@ -64,7 +64,7 @@ const CityMedia=(()=>{
    return;
   }
   if(m.type==='radio'&&typeof m.vehicle==='string'&&stations.some(s=>s.id===m.station)){
-   if(m.playing)radios.set(m.vehicle,{...m});else radios.delete(m.vehicle);return;
+   if(m.playing)radios.set(m.vehicle,{...m,at:Number.isFinite(m.at)?m.at:Date.now()});else radios.delete(m.vehicle);return;
   }
  }
  function transmit(message){
@@ -340,12 +340,30 @@ const CityMedia=(()=>{
   if(shown){
    const changed=active?.screen!==shown.screen;
    if(changed){active=shown;videoID=null;syncVideo(tvs.get(shown.screen));}
-   const pt=typeof proj==='function'?proj(shown.item.x,shown.item.y,shown.item.z+shown.item.h*.6):null;
-   const scale=typeof RS==='number'?RS:1;
-   if(pt&&pt.x>=-120&&pt.x<window.innerWidth/scale+120&&pt.y>=-120&&pt.y<window.innerHeight/scale+120){
-    const px=Math.max(78,Math.min(250,(typeof cam!=='undefined'?cam.zoom:55)*1.8))*scale;
-    screenEl.style.left=(pt.x*scale-px/2)+'px';screenEl.style.top=(pt.y*scale-px*.47)+'px';
-    screenEl.style.width=px+'px';screenEl.style.height=px*.5625+'px';screenEl.hidden=false;
+   // The iframe is attached to the four projected corners of the actual
+   // furniture screen. It follows the free-orbit isometric camera, rather
+   // than floating as a rectangular billboard above the TV.
+   const item=shown.item,scale=typeof RS==='number'?RS:1;
+   const front=item.faceW?.length===2?item.faceW:[-Math.sin(item.rot||0),Math.cos(item.rot||0)];
+   const n=Math.hypot(front[0],front[1])||1,nx=front[0]/n,ny=front[1]/n;
+   const tangent=item.faceW?.length===2?[ny,-nx]:[Math.cos(item.rot||0),Math.sin(item.rot||0)];
+   const direction=typeof facingCam==='function'?facingCam(nx,ny):1;
+   const isTV=item.kind==='tv',bottom=(item.z||0)+(isTV?(item.h||.8)*1.08:(item.h||.7)*.07);
+   const top=bottom+(item.h||.7)*(isTV?1.01:.91);
+   const half=(item.w||1.2)*(isTV?.455:.475)*.5;
+   const x=item.x+nx*.035,y=item.y+ny*.035;
+   const tl=proj(x-tangent[0]*half,y-tangent[1]*half,top);
+   const tr=proj(x+tangent[0]*half,y+tangent[1]*half,top);
+   const bl=proj(x-tangent[0]*half,y-tangent[1]*half,bottom);
+   const W=640,H=360;
+   const a=(tr.x-tl.x)*scale/W,b=(tr.y-tl.y)*scale/W;
+   const c=(bl.x-tl.x)*scale/H,d=(bl.y-tl.y)*scale/H;
+   const area=Math.abs(a*d-b*c)*W*H;
+   if(direction>.08&&area>300&&tl.x>-280&&tl.x<window.innerWidth/scale+280&&tl.y>-280&&tl.y<window.innerHeight/scale+280){
+    screenEl.style.left=(tl.x*scale)+'px';screenEl.style.top=(tl.y*scale)+'px';
+    screenEl.style.width=W+'px';screenEl.style.height=H+'px';
+    screenEl.style.transform='matrix('+[a,b,c,d,0,0].map(v=>Number(v.toFixed(6))).join(',')+')';
+    screenEl.hidden=false;
     syncTVVolume();
    }else {screenEl.hidden=true;muteVideo(true);}
   }else{screenEl.hidden=true;muteVideo(true);if(dialog.hidden)active=null;}
