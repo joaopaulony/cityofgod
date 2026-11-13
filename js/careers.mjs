@@ -129,7 +129,7 @@ export function installCareers(scene,bridge){
   for(const n of L.npcs)chars()?.removeExtra(n);
   hideLesson();
   const r=finishLesson(state,L.start+L.minutes,{minutes:L.minutes,correct:L.correct,asked:L.asked});save();
-  if(r.graduated){notify('🎓 Formatura! Você agora é '+PROFESSIONS[r.graduated.id].pro+' (média '+r.graduated.gpa.toFixed(1)+'). Já dá para comprar o ponto — '+PROFESSIONS[r.graduated.id].business.name+' — pelo app Carreira.');window.CityAudio?.ui?.('confirm');}
+  if(r.graduated){const G0=PROFESSIONS[r.graduated.id];notify('🎓 Formatura! Você agora é '+G0.pro+' (média '+r.graduated.gpa.toFixed(1)+'). '+(G0.career?'Candidate-se a '+G0.pro+' no app Empregos'+(G0.business?'; com experiência (cargo 4) você poderá abrir '+G0.business.name+'.':'.'):G0.business?'Já dá para comprar o ponto — '+G0.business.name+' — pelo app Carreira.':'Entre na carreira de '+G0.pro+' pelo app Carreira.'));window.CityAudio?.ui?.('confirm');}
   else notify((reason?reason+' ':'')+r.text,r.ok);
  }
  function tickLesson(dt){
@@ -213,14 +213,15 @@ export function installCareers(scene,bridge){
  // onde o dono recebe os clientes: em frente ao balcão da recepção, ao lado de quem espera
  function receptionPoint(H){const desk=serviceSpots(H,'desk')[0];if(!desk)return entryPoint(H);const q=H.architecture.toLocal(desk.x,desk.y);return A2W(H,q[0],Math.min(desk.room.y1-.6,q[1]+.75));}
  // onde o cliente fica e onde o profissional trabalha, por profissão
- const STATION={vet:'exam',medic:'exam',lawyer:'client',mechanic:'lift',chef:'table',barber:'chair'};
+ const STATION={vet:'exam',medic:'exam',lawyer:'client',mechanic:'lift',chef:'table',barber:'chair',police:'client',paramedic:'exam'};
+ const careerKey=id=>PROFESSIONS[id]?.career||'uni:'+id;
  function stationFor(b,H){
   const list=serviceSpots(H,STATION[b.id]);if(!list.length)return null;
   const busy=new Set(work.clients.map(c=>c.station?.f));const s=list.find(x=>!busy.has(x.f))||list[0];
   const r=s.room,cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,q=H.architecture.toLocal(s.x,s.y);
   const toC=[cx-q[0],cy-q[1]],l=Math.hypot(...toC)||1;
   const worker=b.id==='chef'?(serviceSpots(H,'stove')[0]||s):A2W(H,q[0]+toC[0]/l*1.1,q[1]+toC[1]/l*1.1);
-  const client=b.id==='vet'||b.id==='medic'?A2W(H,q[0]+toC[0]/l*1.1-toC[1]/l*1.15,q[1]+toC[1]/l*1.1+toC[0]/l*1.15):b.id==='mechanic'?A2W(H,q[0]+toC[0]/l*2.4,q[1]+toC[1]/l*2.4):b.id==='chef'?A2W(H,q[0]-.92,q[1]):{x:s.x,y:s.y};
+  const client=b.id==='vet'||b.id==='medic'||b.id==='paramedic'?A2W(H,q[0]+toC[0]/l*1.1-toC[1]/l*1.15,q[1]+toC[1]/l*1.1+toC[0]/l*1.15):b.id==='mechanic'?A2W(H,q[0]+toC[0]/l*2.4,q[1]+toC[1]/l*2.4):b.id==='chef'?A2W(H,q[0]-.92,q[1]):{x:s.x,y:s.y};
   return {...s,worker:{x:worker.x,y:worker.y},client,sit:['lawyer','chef','barber'].includes(b.id)};
  }
  async function spawnClient(b,H){
@@ -279,7 +280,7 @@ export function installCareers(scene,bridge){
    if(!b.open||!b.auto||!openHours)continue;
    b.autoT=(b.autoT||0)+dt;
    const every=clientInterval(b)*1.6;
-   if(b.autoT>=every){b.autoT=0;const r=registerService(b,{score:.55,auto:true});CityLife?.credit?.(r.pay,PROFESSIONS[b.id].business.name+' · atendimento automático');save();
+   if(b.autoT>=every){b.autoT=0;const r=registerService(b,{score:window.CityCareer?.hasUnlock?.(careerKey(b.id),'rende mais')?.7:.55,auto:true});window.CityCareer?.addXP(careerKey(b.id),r.xp*.5);CityLife?.credit?.(r.pay,PROFESSIONS[b.id].business.name+' · atendimento automático');save();
     if(r.levelUp)notify('⭐ '+PROFESSIONS[b.id].business.name+' subiu para o nível '+r.level+'!');}
   }
   // atendimento presencial: clientes chegam na recepção enquanto você está lá
@@ -287,6 +288,9 @@ export function installCareers(scene,bridge){
    work.spawnT-=dt;
    const waiting=work.clients.filter(c=>c.b===here.b&&c.state!=='leaving').length;
    if(work.spawnT<=0&&waiting<2){work.spawnT=clientInterval(here.b)*(.6+Math.random()*.8);spawnClient(here.b,here.H);}
+   // cargo 4 (chefe/sócio/dono): um auxiliar NPC atende outros clientes junto com você
+   if(window.CityCareer?.hasUnlock?.(careerKey(here.b.id),'NPC')){work.assistT=(work.assistT||0)+dt;
+    if(work.assistT>=clientInterval(here.b)*1.8){work.assistT=0;const r=registerService(here.b,{score:.6,auto:true});CityLife?.credit?.(r.pay,PROFESSIONS[here.b.id].business.name+' · auxiliar');save();notify('🤝 Seu auxiliar atendeu um cliente · +'+money(r.pay));}}
   }
   for(const c of work.clients.slice()){
    tickClient(c,dt);
@@ -350,6 +354,7 @@ export function installCareers(scene,bridge){
  }
  function completeService(c,score,auto){
   const b=c.b,r=registerService(b,{score,auto});work.service=null;
+  window.CityCareer?.addXP(careerKey(b.id),r.xp);
   CityLife?.credit?.(r.pay,b.id==='chef'?'Restaurante · mesa servida':PROFESSIONS[b.id].business.service);save();
   const happy=score>=.75,line=happy?'Excelente! Muito obrigado(a).':score>=.5?'Obrigado(a).':'Hmm… esperava mais.';
   chars()?.say(c.npc,line,happy?'😄':score>=.5?'🙂':'😕');
@@ -368,7 +373,7 @@ export function installCareers(scene,bridge){
   const g=game;if(!g)return;g.i++;cancelAnimationFrame(g.raf);
   if(g.i>=g.steps.length){finishGame();return;}
   const s=g.steps[g.i];g.t0=performance.now();g.answered=false;
-  const head=`<div class="cr-step">Etapa ${g.i+1} de ${g.steps.length} · ${PROFESSIONS[g.c.b.id].pro}</div><div class="cr-ask">“${esc(g.c.case.ask)}”</div>`;
+  const head=`<div class="cr-step">Etapa ${g.i+1} de ${g.steps.length} · ${esc(g.c.pro||PROFESSIONS[g.c.b.id].pro)}</div><div class="cr-ask">“${esc(g.c.case.ask)}”</div>`;
   if(s.type==='choice'){g.order=shuffle(s.options.map((o,i)=>i));
    gameUI.innerHTML=head+`<b>${esc(s.q)}</b><div class="cr-row" style="flex-direction:column">${g.order.map((oi,k)=>`<button data-opt="${k}" style="text-align:left">${esc(s.options[oi])}</button>`).join('')}</div>`;}
   else if(s.type==='timing'){g.needle=Math.random()*.2;g.dir=1;
@@ -394,7 +399,9 @@ export function installCareers(scene,bridge){
  function finishGame(){
   const g=game,score=average(g.scores);game=null;
   gameUI.innerHTML=`<div class="cr-step">Resultado</div><div class="cr-score">${Math.round(score*100)}%</div><small>${score>=.85?'Atendimento impecável.':score>=.6?'Bom atendimento.':'Dá para melhorar.'}</small>`;
-  setTimeout(()=>{gameUI.hidden=true;},1400);completeService(g.c,score,false);
+  setTimeout(()=>{gameUI.hidden=true;},1400);
+  if(g.c.onDone){window.CityUI?.releaseInput?.();g.c.onDone(score);return;}
+  completeService(g.c,score,false);
  }
  window.addEventListener('keydown',e=>{
   if(!game&&!lesson)return;const k=e.key.toLowerCase();
@@ -412,7 +419,7 @@ export function installCareers(scene,bridge){
   if(work.service||game)return null;
   const c=nearClient(p);if(c)return 'F · Atender '+c.name;
   const here=myBizAt(p);if(here&&!here.b.open)return PROFESSIONS[here.b.id].business.name+' (seu) está fechado — abra pelo app Carreira';
-  for(const id of Object.keys(PROFESSIONS)){const H=bizHouse(id);if(H&&H.inside&&!state.biz[id]?.owned)return PROFESSIONS[id].business.name+' à venda · '+money(PROFESSIONS[id].business.price)+' · requer diploma de '+PROFESSIONS[id].title;}
+  for(const id of Object.keys(PROFESSIONS)){if(!PROFESSIONS[id].business)continue;const H=bizHouse(id);if(H&&H.inside&&!state.biz[id]?.owned)return PROFESSIONS[id].business.name+' à venda · '+money(PROFESSIONS[id].business.price)+' · requer diploma de '+PROFESSIONS[id].title;}
   return null;
  }
  function interact(p){
@@ -448,6 +455,27 @@ export function installCareers(scene,bridge){
  function renderApp({card,banner,btn}){
   const c=state.course,now=clock(),html=[];
   html.push(banner('<strong>Carreira</strong><small>Universidade City of God · profissões e negócio próprio</small>'));
+  // ---------- escada de carreira (career-ladder.js): até 2 profissões ao mesmo tempo ----------
+  const CC=window.CityCareer,LD=window.CityCareerLadder;
+  if(CC&&LD){
+   const act=CC.active(),enc=id=>id.replace(':','.');
+   html.push('<div class="city-phone-label">Minhas profissões ('+act.length+'/'+LD.MAX_ACTIVE+')</div>');
+   if(!act.length)html.push(card('Nenhuma profissão ainda','Arrume um emprego no app Empregos, forme-se na Universidade, trabalhe no computador (CityDesk) ou entre para a Polícia / SAMU. Você pode exercer até 2 ao mesmo tempo — o computador conta como uma.','','🧭'));
+   for(const i of act){
+    const bar='<div style="height:6px;border-radius:3px;background:#0002;overflow:hidden;margin:6px 0"><i style="display:block;height:100%;width:'+Math.round(i.progress*100)+'%;background:currentColor"></i></div>';
+    html.push(card(i.title+' · '+i.rankTitle,'Cargo '+(i.rank+1)+'/5 · salário ×'+i.payMult.toFixed(2)+' · '+(i.nextXP?i.xp+'/'+i.nextXP+' XP':'cargo máximo')+bar+
+     '<small>Liberado: '+esc(i.unlocked.join(' · '))+'</small>'+(i.nextUnlocks.length?'<br><small>Próximo cargo libera: '+esc(i.nextUnlocks.join(' · '))+'</small>':'')+
+     (i.property?'<br><small>🏢 '+esc(i.property.name)+(i.propertyOpen?' · liberado para comprar':' · libera no cargo '+(i.property.minRank+1))+'</small>':''),
+     btn('career:leave:'+enc(i.id),'Deixar profissão'),i.icon));
+   }
+   const groups={job:'Empregos (sem faculdade)',service:'Serviço público (curso na Universidade)',university:'Profissões com negócio próprio',remote:'No computador (CityDesk)'};
+   html.push('<div class="city-phone-label">Todas as profissões</div>');
+   for(const [g,label] of Object.entries(groups)){
+    const list=CC.list().filter(i=>i.group===g);
+    html.push('<p class="city-help"><b>'+label+'</b></p>'+list.map(i=>{const req=CC.requirement(i.id),how=g==='job'||g==='service'?'Candidate-se no app Empregos':g==='university'?'Forme-se e compre o ponto':'Aceite um contrato no CityDesk';
+     return card(i.title+(i.active?' ✓':''),(i.xp?i.rankTitle+' · '+i.xp+' XP · ':'')+(req.ok?how:esc(req.text)),'',i.icon);}).join(''));
+   }
+  }
   if(c){
    const P0=PROFESSIONS[c.id],w=classWindow(c,now),total=lessonsFor(c.id),pay=needsPayment(c);
    const when=w.attendedToday?'Aula de hoje concluída ✓ · próxima '+dayTime(w.day+1,PERIODS[c.period].start):w.open||w.running&&!w.after?'Aula AGORA ('+fmt(PERIODS[c.period].start)+'–'+fmt(PERIODS[c.period].end)+')':'Próxima aula: '+dayTime(Math.floor(nextClass(c,now)/DAY),PERIODS[c.period].start);
@@ -460,7 +488,10 @@ export function installCareers(scene,bridge){
   // negócios
   for(const [id,d] of degrees){
    const P0=PROFESSIONS[id],b=state.biz[id];
-   if(!b?.owned){html.push(card(P0.business.name,'Prédio mobiliado à venda · '+money(P0.business.price),btn('career:buy:'+id,'Comprar',typeof CityLife!=='undefined'&&CityLife.funds<P0.business.price)+btn('career:gps-biz:'+id,'Ver no GPS'),'🏢'));continue;}
+   if(!P0.business)continue;
+   // policial e socorrista: o imóvel libera pelo cargo na escada de carreira
+   const lock=!b?.owned&&P0.career&&window.CityCareer?window.CityCareer.canBuyProperty(P0.business.kind):{ok:true};
+   if(!b?.owned){html.push(card(P0.business.name,(lock.ok?'Prédio mobiliado à venda · ':esc(lock.text)+' · ')+money(P0.business.price),btn('career:buy:'+id,'Comprar',!lock.ok||typeof CityLife!=='undefined'&&CityLife.funds<P0.business.price)+btn('career:gps-biz:'+id,'Ver no GPS'),'🏢'));continue;}
    const r=priceRange(id,b.level),xpNeed=levelXP(b.level);
    html.push(card(P0.business.name+' · nível '+b.level,(b.open?(b.auto?'Aberto · equipe atendendo (automático)':'Aberto · atendimento presencial'):'Fechado')+' · '+b.served+' atendimentos · faturou '+money(b.revenue)+' · reputação '+Math.round(b.rep)+'/100',
     btn('career:toggle:'+id,b.open?'Fechar':'Abrir')+btn('career:mode:'+id,b.auto?'Mudar p/ presencial':'Modo automático')+btn('career:biz:'+id,'🚶 Ir até lá'),P0.icon));
@@ -474,7 +505,7 @@ export function installCareers(scene,bridge){
   html.push('<div class="city-phone-label">Cursos da Universidade</div>');
   for(const [id,P0] of Object.entries(PROFESSIONS)){
    const total=lessonsFor(id),done=state.degrees[id],cur=c?.id===id;
-   html.push(card(P0.title+' · '+P0.years+' anos',total+' aulas ('+(total/30).toFixed(1).replace('.0','')+' '+(total/30>1?'meses':'mês')+' de jogo) · matrícula '+money(P0.enroll)+' + '+money(P0.tuition)+' por ano de curso · depois: '+P0.business.name,
+   html.push(card(P0.title+' · '+P0.years+' anos',total+' aulas ('+(total/30).toFixed(1).replace('.0','')+' '+(total/30>1?'meses':'mês')+' de jogo) · matrícula '+money(P0.enroll)+' + '+money(P0.tuition)+' por ano de curso · depois: '+(P0.business?P0.business.name:'carreira de '+P0.pro),
     done?'<small>Formado ✓</small>':cur?'<small>Cursando</small>':c?'<small>Conclua o curso atual</small>':Object.entries(PERIODS).map(([k,v])=>btn('career:enroll:'+id+':'+k,v.label+' '+fmt(v.start))).join(''),P0.icon));
   }
   html.push('<div class="city-phone-label">Piloto automático</div>'+card('Ir a pé sozinho','Anda pela calçada, espera o sinal verde e os carros. WASD devolve o controle.',
@@ -483,6 +514,10 @@ export function installCareers(scene,bridge){
  }
  function action(cmd,arg,arg2){
   const L=typeof CityLife!=='undefined'?CityLife:null,now=clock(),day=Math.floor(now/DAY);
+  if(cmd==='leave'){const id=String(arg).replace('.',':');if(!confirm('Deixar de exercer esta profissão? A experiência fica guardada.'))return {ok:false,text:'Cancelado.'};
+   {const k=Object.keys(PROFESSIONS).find(k=>careerKey(k)===id),b=k&&state.biz[k];if(b?.open){b.open=false;save();}}
+   if(id.startsWith('job:')||id.startsWith('svc:')){const S=typeof CitySim!=='undefined'?CitySim:null;if(S?.data?.job)return S.quitJob();}
+   return window.CityCareer?.leave(id)||{ok:false,text:'Indisponível.'};}
   if(cmd==='enroll'){
    const P0=PROFESSIONS[arg];if(!P0)return {ok:false,text:'Curso inválido.'};
    const probe={...state,course:state.course};const r=enrollCourse(probe,arg,arg2,day);if(!r.ok)return r;
@@ -498,6 +533,8 @@ export function installCareers(scene,bridge){
   if(cmd==='buy'){
    const P0=PROFESSIONS[arg];if(!P0||!state.degrees[arg])return {ok:false,text:'É preciso o diploma de '+(P0?.title||'')+'.'};
    if(state.biz[arg]?.owned)return {ok:false,text:'Você já é dono(a).'};
+   if(!P0.business)return {ok:false,text:P0.pro+' não tem negócio próprio: entre na carreira pelo app Carreira.'};
+   const CC=window.CityCareer;if(CC){const slot=CC.activate(careerKey(arg),{quiet:true});if(!slot.ok)return slot;const pr=CC.canBuyProperty(P0.business.kind);if(!pr.ok)return pr;}
    if(!L?.debit(P0.business.price,'Compra · '+P0.business.name))return {ok:false,text:'Saldo insuficiente.'};
    state.biz[arg]=newBusiness(state,arg);save();return {ok:true,text:'Compra feita: '+P0.business.name+' agora é sua propriedade. Abra pelo app e atenda clientes.'};
   }
@@ -510,6 +547,9 @@ export function installCareers(scene,bridge){
   return {ok:false,text:'Ação desconhecida.'};
  }
  const api={get state(){return state;},renderApp,action,prompt,interact,tick,goToClass,goToBusiness,get lesson(){return lesson;},get work(){return work;},
+  // minigame de atendimento p/ outros sistemas (jobs.mjs: ocorrências da polícia, chamados do SAMU)
+  playCase(pro,kase,onDone){if(game)return false;openGame({pro,case:kase,onDone});return true;},
+  get playing(){return !!game;},
   debug:{startLesson,endLesson,spawnClient,offerClient,beginService,save,openGame}};
  window.CityCareers=api;
  return api;

@@ -9,7 +9,10 @@ const CitySim = (() => {
     taxi:    { title:'Taxista', icon:'🚕', pay:420, cost:.12, place:'Central Logística City', detail:'Corridas com passageiros pela cidade' },
     garbage: { title:'Gari da coleta', icon:'🗑️', pay:400, cost:.15, place:'Central Logística City', detail:'Coleta de lixo com o caminhão' },
     mechanic:{ title:'Mecânico', icon:'🔧', pay:520, cost:.15, place:'Oficina City Motors', detail:'Consertos na oficina da concessionária' },
-    barista: { title:'Atendente da lanchonete', icon:'☕', pay:320, cost:.10, place:'Lanchonete do Hospital City of God', detail:'Atendimento e preparo de pedidos' }
+    barista: { title:'Atendente da lanchonete', icon:'☕', pay:320, cost:.10, place:'Lanchonete do Hospital City of God', detail:'Atendimento e preparo de pedidos' },
+    // serviços públicos: exigem o curso (Universidade) — career-ladder.js confere o requisito
+    police:  { title:'Policial', icon:'👮', pay:600, cost:.16, place:'Delegacia de City of God', detail:'Ronda de viatura e ocorrências (requer Academia de Polícia)', career:'svc:police' },
+    paramedic:{ title:'Socorrista do SAMU', icon:'🚑', pay:640, cost:.16, place:'Hospital City of God', detail:'Chamados de ambulância (requer Técnico em Emergência ou Medicina)', career:'svc:paramedic' }
   };
   const BUSINESSES = {
     cafe:  { title:'Cafeteria', icon:'☕', price:550, income:110 },
@@ -87,13 +90,18 @@ const CitySim = (() => {
   function applyJob(id){
     if(!JOBS[id])return fail('Vaga indisponível');
     if(typeof window!=='undefined'&&window.CityJobs?.shift)return fail('Termine o turno atual antes de trocar de emprego');
+    // escada de carreira: requisito de curso e no máximo 2 profissões (o emprego anterior sai da lista)
+    const CC=typeof window!=='undefined'?window.CityCareer:null,cid=JOBS[id].career||'job:'+id;
+    if(CC){const req=CC.requirement(cid);if(!req.ok)return fail(req.text);
+     const prev=state.job&&state.job!==id?(JOBS[state.job].career||'job:'+state.job):null;if(prev)CC.leave(prev);
+     const r=CC.activate(cid,{quiet:true});if(!r.ok){if(prev)CC.activate(prev,{quiet:true});return fail(r.text);}}
     state.job=id;commit();
     return ok('Entrevista aprovada! Contratado(a) como '+JOBS[id].title+'. Vá até '+JOBS[id].place+' e bata o ponto (F).');
   }
   function quitJob(){
     if(!state.job)return fail('Você não tem emprego');
     if(typeof window!=='undefined'&&window.CityJobs?.shift)window.CityJobs.abandon();
-    const t=JOBS[state.job]?.title;state.job=null;commit();return ok('Você pediu demissão de '+t);
+    const t=JOBS[state.job]?.title;if(typeof window!=='undefined')window.CityCareer?.leave?.(JOBS[state.job]?.career||'job:'+state.job);state.job=null;commit();return ok('Você pediu demissão de '+t);
   }
   function work(){
     const job=JOBS[state.job];

@@ -145,6 +145,9 @@
   autoshop:[{L:[['garage',1]],R:[['parts',.36],['bathroom',.54],['shopoffice',.74],['shopwait',1]]}],
   restaurant:[{L:[['restkitchen',.45],['restdining',1]],R:[['pantry',.30],['bathroom',.48],['restdining',1]]}],
   barbershop:[{L:[['barberhall',1]],R:[['pantry',.30],['bathroom',.50],['barberwait',1]]}],
+  // imóveis das carreiras públicas (liberam por cargo na escada de carreira)
+  security:[{L:[['monitoring',.40],['secoffice',.72],['secwait',1]],R:[['armory',.36],['bathroom',.54],['lockers',.74],['secoffice',1]]}],
+  ambulancebase:[{L:[['ambgarage',.58],['ambcare',1]],R:[['medstock',.34],['bathroom',.52],['dispatch',.74],['ambwait',1]]}],
  };
  const BUSINESS_KINDS=Object.keys(BUSINESS_FLOORS);
  function furnishBusiness(r,put,level,{W,D,cx,cy}){
@@ -186,6 +189,20 @@
    case'restdining':for(let y=r.y0+1.6;y<r.y1-1.3;y+=2.5)for(let x=r.x0+1.5;x<r.x1-1.2;x+=2.8){put('cafetable',1.2,1.2,.95,[x,y],{...E,service:'table'});for(const [dx,t] of [[-.92,Math.PI/2],[.92,-Math.PI/2]])put('qf_chair_3',.38,.42,.85,[x+dx,y],{...E,turn:t});}
     plant(wallX(.5),r.y1-.5);if(!left){put('counter',2,.7,1.05,[cx,r.y1-.55],{...E,service:'desk'});put('coffeestation',1.4,.6,1.25,[wallX(.8),r.y0+.45],E);}break;
    case'pantry':for(let y=r.y0+.5;y<r.y1-.5;y+=1.3)put('shelf',Math.min(2.4,W-1.5),.5,1.9,[cx,y],E);break;
+   // ---- segurança privada: recepção, sala do contrato, central de monitoramento, armaria e vestiário
+   case'secwait':put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,r.y0+1],{...E,service:'desk'});wait(2);put('watercooler',.35,.35,1.25,[doorX(.4),r.y1-.4],E);plant(wallX(.5),r.y1-.5);put('infoboard',1.6,.08,1.5,[cx,r.y1-.15],{...E,overlay:true});break;
+   case'secoffice':put('execdesk',2.2,2.15,1.3,[cx,r.y0+1.4],E);for(const dx of [-.6,.6])put('chair',.5,.5,.9,[cx+dx,r.y0+3.1],{...E,turn:Math.PI,top:'#2f3a46',service:dx<0?'client':undefined});
+    put('filingcab',.5,.65,1.35,[wallX(.4),r.y1-.45],E);put('filingcab',.5,.65,1.35,[wallX(1),r.y1-.45],E);put('camstand',.5,.5,1.6,[doorX(.5),r.y0+.5],E);plant(doorX(.5),r.y1-.5);break;
+   case'monitoring':put('videowall',Math.min(3.6,W-1.2),.3,2.4,[cx,r.y0+.3],E);put('policedesk',1.5,1.3,1.25,[cx-.8,r.y0+2],{...E,turn:0});put('policedesk',1.5,1.3,1.25,[cx+.8,r.y0+2],{...E,turn:0});
+    put('filingcab',.5,.65,1.35,[wallX(.4),r.y1-.5],E);put('watercooler',.35,.35,1.25,[doorX(.4),r.y1-.4],E);break;
+   case'armory':put('safe',.8,.7,1.2,[wallX(.6),r.y0+.6],E);put('safe',.8,.7,1.2,[wallX(.6),r.y0+1.5],E);put('evidenceshelf',Math.min(2.2,W-1.4),.6,2.1,[cx,r.y1-.45],E);put('counter',1.6,.6,.9,[doorX(.45),cy],{...E,top:'#cfd4d8'});break;
+   case'lockers':for(let x=r.x0+.8;x<r.x1-.6;x+=1.3)put('locker',1.2,.5,1.95,[x,r.y0+.35],E);put('hbench',Math.min(2.4,W-1.6),.45,.45,[cx,cy+.3],E);break;
+   // ---- base de ambulâncias: garagem, sala de atendimento, almoxarifado, central de regulação e recepção
+   case'ambgarage':for(let x=r.x0+.9;x<r.x1-.8;x+=1.15)put('toolchest',1.05,.55,1.1,[x,r.y0+.4],E);put('workbench',2,.8,1,[wallX(.5),r.y1-1.4],E);put('crashcart',.7,.5,1,[doorX(.5),r.y1-.6],E);put('medshelf',1.8,.45,1.9,[doorX(.35),cy],E);break;
+   case'ambcare':put('exambed',1.15,2.05,.9,[cx,cy],{...E,service:'exam'});put('crashcart',.7,.5,1,[cx+1.2,cy-.9],E);put('medcabinet',.9,.45,1.9,[wallX(.5),r.y0+.5],E);put('sink',.8,.6,.9,[doorX(.5),r.y1-.5],E);put('desk',1.3,.65,.75,[wallX(.75),r.y1-.6],E);break;
+   case'medstock':for(let y=r.y0+.5;y<r.y1-.5;y+=1.3)put('medshelf',Math.min(2.2,W-1.5),.45,1.9,[cx,y],E);break;
+   case'dispatch':put('videowall',Math.min(3.2,W-1.2),.3,2.2,[cx,r.y0+.3],E);put('policedesk',1.5,1.3,1.25,[cx-.8,r.y0+2],{...E,turn:0});put('policedesk',1.5,1.3,1.25,[cx+.8,r.y0+2],{...E,turn:0});put('filingcab',.5,.65,1.35,[wallX(.4),r.y1-.5],E);break;
+   case'ambwait':put('receptiondesk',Math.min(3,W-2),.9,1.1,[cx,r.y0+1],{...E,service:'desk'});wait(2);put('watercooler',.35,.35,1.25,[doorX(.4),r.y1-.4],E);plant(wallX(.5),r.y1-.5);put('infoboard',1.6,.08,1.5,[cx,r.y1-.15],{...E,overlay:true});break;
    // ---- barbearia
    case'barberhall':{   // bancadas com espelho na parede interna (sem janelas), cadeira hidráulica de frente p/ o espelho; lavatórios e sofá do lado das janelas
     const st=left?-Math.PI/2:Math.PI/2;

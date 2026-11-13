@@ -15,7 +15,7 @@ const free=(level,f,z)=>!level.furniture.some(o=>o!==f&&o.room===f.room&&!o.over
 
 function plans(){
  const out=[];
- for(const kind of ['bungalow','poor','mansion','hospital','police','school','cityhall','university','campuslib','vetclinic','medclinic','lawoffice','autoshop','restaurant','barbershop'])
+ for(const kind of ['bungalow','poor','mansion','hospital','police','school','cityhall','university','campuslib','vetclinic','medclinic','lawoffice','autoshop','restaurant','barbershop','security','ambulancebase'])
   for(const seed of [1,2,3])out.push([kind,A.makePlan({width:kind==='university'?40:24,depth:kind==='university'?26:18,kind,seed,floors:kind==='university'?3:kind==='mansion'?2:1,height:3})]);
  for(const kind of ['condo','projects','deco'])for(const seed of [1,2])out.push([kind,A.makePlan({width:22,depth:16,kind,seed,floors:4,height:3})]);
  for(const k of Object.keys(O.LAYOUTS))for(const seed of [1,2,3,4])out.push([k,O.makePlan({width:Math.round(O.LAYOUTS[k].w),depth:Math.round(O.LAYOUTS[k].d),layout:k,seed})]);
