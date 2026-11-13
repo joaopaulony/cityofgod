@@ -133,9 +133,9 @@ export function installJobs(THREE, scene, bridge) {
       },
       interact(s, p) {
         const vp = vPos();
-        if (s.step === 'unload' && vp && !vp.driving && !p.carry && d2(p, rear(vp)) < 1.8) { p.carry = 'package'; window.CityAudio?.ui('click'); return 'Pacote em mãos'; }
+        if (s.step === 'unload' && vp && !vp.driving && !p.carry && d2(p, rear(vp)) < 1.8) { p.carry = 'package'; s.fragile = perk(s, 'frágeis', .3); window.CityAudio?.ui('click'); if (s.fragile) notify('⚠️ Encomenda frágil: entregue com cuidado — paga o dobro.'); return s.fragile ? 'Pacote frágil em mãos' : 'Pacote em mãos'; }
         if (s.step === 'door' && p.carry === 'package' && d2(p, { x: s.house.doorPt[0], y: s.house.doorPt[1] }) < 2) {
-          p.carry = null; s.house_done = s.house; const fast = (performance.now() - s.t0) / 1000 < 50, fragile = perk(s, 'frágeis', .3), pay = (45 + (fast ? 35 : 10)) * (fragile ? 2 : 1); s.earned += pay; s.done++;
+          p.carry = null; s.house_done = s.house; const fast = (performance.now() - s.t0) / 1000 < 50, fragile = !!s.fragile, pay = (45 + (fast ? 35 : 10)) * (fragile ? 2 : 1); s.earned += pay; s.done++;
           notify('📦 Entregue! +' + money(pay) + (fragile ? ' (encomenda frágil, pagou o dobro)' : '') + (fast ? ' (bônus de rapidez)' : '')); if (s.done >= s.total) s.step = 'return'; else { s.step = 'drive'; s.house = null; next(s); } return 'Encomenda entregue';
         }
         return doReturn(s, vp);
@@ -148,10 +148,12 @@ export function installJobs(THREE, scene, bridge) {
         if (s.step === 'getVehicle') { if (vp.driving) { s.step = 'pickup'; next(s); } else task('Pegue o táxi no pátio', vp, 0xffd54a, 'Táxi'); return; }
         if (s.step === 'pickup') { if (!s.pick) next(s); if (!s.pick) { task('Aguardando a próxima corrida…', null); return; } const q = s.pick; task('Busque o passageiro · corrida ' + (s.done + 1), q, 0x4fc3f7, 'Passageiro');
           if (!s.npc && !s.spawning && d2(P(), q) < 140) { s.spawning = true; chars()?.spawnExtra?.(q.x, q.y, { face: q.face }).then(n => { s.npc = n; s.spawning = false; }); }
-          if (s.npc && d2(vp, s.npc) < 11 && vp.speed < 1) { s.step = 'boarding'; s.bt = 0; chars()?.releaseExtra?.(s.npc, { x: vp.x, y: vp.y }); chars()?.say?.(s.npc, pick(['Boa tarde! Obrigado por vir.', 'Oi! Pode me levar?', 'Até que enfim, tô atrasado!']), '🚕'); } return; }
+          if (s.npc && d2(vp, s.npc) < 11 && vp.speed < 1) { s.step = 'boarding'; s.bt = 0; s.vip = perk(s, 'VIP', .3); chars()?.releaseExtra?.(s.npc, { x: vp.x, y: vp.y });
+            if (s.vip) { chars()?.say?.(s.npc, 'Corrida executiva, por favor. Pago bem pelo conforto.', '💼'); notify('🚘 Passageiro VIP: dirija com cuidado — tarifa 60% maior.'); }
+            else chars()?.say?.(s.npc, pick(['Boa tarde! Obrigado por vir.', 'Oi! Pode me levar?', 'Até que enfim, tô atrasado!']), '🚕'); } return; }
         if (s.step === 'boarding') { s.bt += 1 / 30; const n = s.npc; if (!n || d2(n, vp) < 2.2 || s.bt > 7) { chars()?.removeExtra?.(n); s.npc = null; s.step = 'ride'; s.t0 = performance.now(); s.from = { x: vp.x, y: vp.y }; s.dest = destOf(s, vp); } return; }
         if (s.step === 'ride') { task('Leve o passageiro ao destino', s.dest, 0x7fd6bd, 'Destino da corrida');
-          if (d2(vp, s.dest) < 14 && vp.speed < 1) { const dist = d2(s.from, s.dest), secs = (performance.now() - s.t0) / 1000, fast = secs < dist / 8 + 25, vip = perk(s, 'VIP', .3), fare = Math.round((30 + dist * .2 + (fast ? 30 : 0)) * (vip ? 1.6 : 1));
+          if (d2(vp, s.dest) < 14 && vp.speed < 1) { const dist = d2(s.from, s.dest), secs = (performance.now() - s.t0) / 1000, fast = secs < dist / 8 + 25, vip = !!s.vip, fare = Math.round((30 + dist * .2 + (fast ? 30 : 0)) * (vip ? 1.6 : 1));
             s.earned += fare; s.done++; notify((vip ? '🚘 Corrida VIP' : '🚕 Corrida') + ' concluída · ' + money(fare) + (fast ? ' (passageiro adorou a rapidez ⭐⭐⭐⭐⭐)' : ' ⭐⭐⭐⭐'));
             const side = { x: vp.x - Math.sin(vp.a) * 1.8, y: vp.y + Math.cos(vp.a) * 1.8 }; chars()?.spawnExtra?.(side.x, side.y).then(n => { if (n) chars()?.releaseExtra?.(n, { x: s.dest.door.x, y: s.dest.door.y, leave: true }); });
             if (s.done >= s.total) s.step = 'return'; else { s.step = 'pickup'; s.pick = null; next(s); } } return; }
@@ -164,9 +166,9 @@ export function installJobs(THREE, scene, bridge) {
       tick(s, p) {
         const vp = vPos(); if (!vp) return;
         if (s.step === 'getVehicle') { if (vp.driving) { s.step = 'drive'; next(s); } else task('Pegue o caminhão de coleta no pátio', vp, 0xffd54a, 'Caminhão de coleta'); return; }
-        if (s.step === 'drive') { if (!s.bin) next(s); if (!s.bin) return; task('Vá até a lixeira · ' + (s.done + 1) + 'ª coleta', s.bin, 0x4fc3f7, 'Coleta de lixo'); if (d2(vp, s.bin) < 15 && vp.speed < 1.2) s.step = 'collect'; return; }
-        if (s.step === 'collect') { if (s.hold) { s.hold += 1 / 30; if (d2(p, s.bin) > 2.4) s.hold = 0; else if (s.hold > 1.6) { s.hold = 0; p.carry = 'bag'; s.step = 'dump'; window.CityAudio?.thump(p.x, p.y, 'fall'); } }
-          task(vp.driving ? 'Estacione e desça do caminhão' : s.hold ? 'Recolhendo o lixo…' : 'Recolha o lixo da lixeira', s.bin, 0xffd54a); return; }
+        if (s.step === 'drive') { if (!s.bin) next(s); if (!s.bin) return; task('Vá até a lixeira · ' + (s.done + 1) + 'ª coleta', s.bin, 0x4fc3f7, 'Coleta de lixo'); if (d2(vp, s.bin) < 15 && vp.speed < 1.2) { s.step = 'collect'; s.heavy = perk(s, 'entulho', .3); if (s.heavy) notify('🧱 Entulho de obra nesta lixeira: mais pesado, paga quase o dobro.'); } return; }
+        if (s.step === 'collect') { if (s.hold) { s.hold += 1 / 30; if (d2(p, s.bin) > 2.4) s.hold = 0; else if (s.hold > (s.heavy ? 3.2 : 1.6)) { s.hold = 0; p.carry = 'bag'; s.step = 'dump'; window.CityAudio?.thump(p.x, p.y, 'fall'); } }
+          task(vp.driving ? 'Estacione e desça do caminhão' : s.hold ? (s.heavy ? 'Carregando o entulho…' : 'Recolhendo o lixo…') : s.heavy ? 'Recolha o entulho (pesado)' : 'Recolha o lixo da lixeira', s.bin, 0xffd54a); return; }
         if (s.step === 'dump') { task('Jogue o saco na caçamba do caminhão', rear(vp), 0x7fd6bd); return; }
         if (s.step === 'return') returnTask(s, vp, 'Volte à Central e descarregue');
       },
@@ -179,7 +181,7 @@ export function installJobs(THREE, scene, bridge) {
       interact(s, p) {
         const vp = vPos();
         if (s.step === 'collect' && vp && !vp.driving && d2(p, s.bin) < 2.2) { s.hold = .01; return 'Recolhendo…'; }
-        if (s.step === 'dump' && vp && d2(p, rear(vp)) < 2) { p.carry = null; s.used.push(s.bin); s.done++; const heavy = perk(s, 'entulho', .3), pay = heavy ? 65 : 35; s.earned += pay; window.CityAudio?.thump(vp.x, vp.y, 'bat'); notify((heavy ? '🧱 Entulho recolhido' : '🗑️ Lixo na caçamba') + ' · +' + money(pay));
+        if (s.step === 'dump' && vp && d2(p, rear(vp)) < 2) { p.carry = null; s.used.push(s.bin); s.done++; const heavy = !!s.heavy, pay = heavy ? 65 : 35; s.earned += pay; window.CityAudio?.thump(vp.x, vp.y, 'bat'); notify((heavy ? '🧱 Entulho recolhido' : '🗑️ Lixo na caçamba') + ' · +' + money(pay));
           if (s.done >= s.total) s.step = 'return'; else { s.step = 'drive'; s.bin = null; next(s); } return 'Coleta feita'; }
         return doReturn(s, vp);
       },
@@ -339,11 +341,14 @@ export function installJobs(THREE, scene, bridge) {
     const L = pick(lifts), model = pick(['sedan', 'hatchback', 'suv', 'compact', 'wagon', 'pickup']), col = pick(['#7f8c8d', '#c0392b', '#2c3e50', '#f4f4f2', '#27ae60']);
     const A = s.H.architecture, ey = A.toWorld(L.f.x, L.f.y + 1).map((v, i) => v - [L.x, L.y][i]);
     const box = bridge.addBox({ x: L.x, y: L.y, w: 4.6, d: 1.9, h: 1.5, z: 0, rot: Math.atan2(ey[1], ey[0]), kind: 'parkedcar', modelId: model, col, top: col, side: col, display: true, solid: true, house: s.H, floor: 0, draw: typeof drawParkedCar === 'function' ? drawParkedCar : undefined, vehicleKey: 'repair:' + performance.now() });
-    s.car = { box, fault: pick(FAULTS), title: sim()?.CARS?.[model]?.title || model };
+    // especialista: às vezes chega serviço de motor/câmbio (mais longo, paga mais)
+    const major = perk(s, 'Motores', .3);
+    s.car = { box, major, fault: major ? pick(['Retífica do motor', 'Troca do câmbio', 'Junta do cabeçote queimada']) : pick(FAULTS), title: sim()?.CARS?.[model]?.title || model };
+    if (major) notify('🛠️ Serviço pesado chegou: ' + s.car.fault + ' — mais etapas, paga 60% a mais.');
     s.step = 'repair'; window.CityAudio?.horn(L.x, L.y, .2);
   }
   function startQte(s) {
-    const keys = Array.from({ length: 6 }, () => pick(['W', 'A', 'S', 'D', 'Q', 'E']));
+    const keys = Array.from({ length: s.car.major ? 9 : 6 }, () => pick(['W', 'A', 'S', 'D', 'Q', 'E']));
     qte = { keys, i: 0, ok: 0, t: 0, lim: 1.7 };
     const el = document.createElement('div'); el.id = 'city-job-qte';
     el.innerHTML = `<h3>🔧 ${s.car.title} · ${s.car.fault}</h3><p>Aperte as teclas na ordem, antes do tempo acabar</p><div class="q-keys">${keys.map(k => `<kbd>${k}</kbd>`).join('')}</div><div class="q-time"><i></i></div>`;
@@ -357,7 +362,7 @@ export function installJobs(THREE, scene, bridge) {
   }
   function endQte() {
     const s = shift, q = qte; qte = null; setTimeout(() => q.el.remove(), 600);
-    const quality = q.ok / q.keys.length, major = perk(s, 'Motores', .3), pay = Math.round((60 + 70 * quality) * (major ? 1.6 : 1)); s.earned += pay; s.done++;
+    const quality = q.ok / q.keys.length, major = !!s.car.major, pay = Math.round((60 + 70 * quality) * (major ? 1.6 : 1)); s.earned += pay; s.done++;
     notify(`🔧 ${s.car.title} ${major ? '(motor/câmbio) ' : ''}consertado · qualidade ${Math.round(quality * 100)}% · +${money(pay)}`, quality >= .5);
     const b = s.car.box; setTimeout(() => { b.fleetHidden = true; b.solid = false; }, 1500); s.car = null;
     if (s.done >= s.total) finish(s); else { s.step = 'wait'; s.wt = 4; }

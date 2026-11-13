@@ -215,6 +215,10 @@ export function installCareers(scene,bridge){
  // onde o cliente fica e onde o profissional trabalha, por profissão
  const STATION={vet:'exam',medic:'exam',lawyer:'client',mechanic:'lift',chef:'table',barber:'chair',police:'client',paramedic:'exam'};
  const careerKey=id=>PROFESSIONS[id]?.career||'uni:'+id;
+ // diploma do curso (ou outro que a carreira aceita: Medicina vale para o SAMU)
+ const hasDegreeFor=id=>!!state.degrees[id]||!!(PROFESSIONS[id]?.career&&window.CityCareer?.requirement?.(PROFESSIONS[id].career)?.ok);
+ // o imóvel só funciona enquanto a profissão dele é uma das 2 exercidas
+ const careerActive=id=>!window.CityCareer||window.CityCareer.state.active.includes(careerKey(id));
  function stationFor(b,H){
   const list=serviceSpots(H,STATION[b.id]);if(!list.length)return null;
   const busy=new Set(work.clients.map(c=>c.station?.f));const s=list.find(x=>!busy.has(x.f))||list[0];
@@ -277,6 +281,7 @@ export function installCareers(scene,bridge){
   const p=P(),here=myBizAt(p),hour=clock()%DAY,openHours=hour>=OPEN_FROM&&hour<OPEN_TO;
   // equipe no modo automático: atende sozinha (sem precisar estar lá), rende 55%
   for(const b of ownedBiz()){
+   if(b.open&&!careerActive(b.id)){b.open=false;save();notify(PROFESSIONS[b.id].business.name+' fechou: você deixou de exercer '+PROFESSIONS[b.id].pro+'.',false);continue;}
    if(!b.open||!b.auto||!openHours)continue;
    b.autoT=(b.autoT||0)+dt;
    const every=clientInterval(b)*1.6;
@@ -484,9 +489,9 @@ export function installCareers(scene,bridge){
    html.push('<div class="city-panel"><div class="city-row"><strong>Progresso</strong><strong>'+Math.round(c.attended.length/total*100)+'%</strong></div><div style="height:8px;border-radius:4px;background:#0002;overflow:hidden"><i style="display:block;height:100%;width:'+(c.attended.length/total*100)+'%;background:#2e7d32"></i></div><p class="city-help">Cada ano de curso = 15 aulas (meio mês de jogo). Uma aula por dia, no período escolhido; perguntas em sala valem nota.</p></div>');
   }
   const degrees=Object.entries(state.degrees);
-  if(degrees.length)html.push('<div class="city-phone-label">Diplomas</div>'+degrees.map(([id,d])=>card(PROFESSIONS[id].pro,'Formado(a) no dia '+(d.day+1)+' · média '+d.gpa.toFixed(1),'',PROFESSIONS[id].icon)).join(''));
+  if(degrees.length)html.push('<div class="city-phone-label">Diplomas</div>'+degrees.map(([id,d])=>card(PROFESSIONS[id].pro,'Formado(a) no dia '+((d.day||0)+1)+' · média '+(+d.gpa||0).toFixed(1),'',PROFESSIONS[id].icon)).join(''));
   // negócios
-  for(const [id,d] of degrees){
+  for(const id of Object.keys(PROFESSIONS).filter(hasDegreeFor)){
    const P0=PROFESSIONS[id],b=state.biz[id];
    if(!P0.business)continue;
    // policial e socorrista: o imóvel libera pelo cargo na escada de carreira
@@ -531,7 +536,7 @@ export function installCareers(scene,bridge){
   if(cmd==='go'){const s=sites().find(x=>x.kind===arg);if(!s)return {ok:false,text:'Destino indisponível.'};
    const r=arg==='university'?window.CityAutopilot.go({x:s.x,y:s.y-6,name:s.name}):window.CityAutopilot.go({x:s.x,y:s.y,name:s.name});if(r.ok)window.CityUI?.togglePhone?.(false);return r;}
   if(cmd==='buy'){
-   const P0=PROFESSIONS[arg];if(!P0||!state.degrees[arg])return {ok:false,text:'É preciso o diploma de '+(P0?.title||'')+'.'};
+   const P0=PROFESSIONS[arg];if(!P0||!hasDegreeFor(arg))return {ok:false,text:'É preciso o diploma de '+(P0?.title||'')+'.'};
    if(state.biz[arg]?.owned)return {ok:false,text:'Você já é dono(a).'};
    if(!P0.business)return {ok:false,text:P0.pro+' não tem negócio próprio: entre na carreira pelo app Carreira.'};
    const CC=window.CityCareer;if(CC){const slot=CC.activate(careerKey(arg),{quiet:true});if(!slot.ok)return slot;const pr=CC.canBuyProperty(P0.business.kind);if(!pr.ok)return pr;}
@@ -540,7 +545,7 @@ export function installCareers(scene,bridge){
   }
   if(cmd==='gps-biz'){const s=bizSite(arg);if(!s)return {ok:false,text:'Indisponível.'};window.CityGPS?.set({x:s.x,y:s.y,name:PROFESSIONS[arg].business.name});return {ok:true,text:'Rota no GPS.'};}
   const b=state.biz[arg];if(!b?.owned)return {ok:false,text:'Você não tem esse negócio.'};
-  if(cmd==='toggle'){b.open=!b.open;save();if(!b.open)for(const c of work.clients.filter(c=>c.b===b&&c.state==='waiting'))leave(c,false);return {ok:true,text:b.open?'Aberto para clientes.':'Fechado.'};}
+  if(cmd==='toggle'){if(!b.open){const sl=window.CityCareer?.activate?.(careerKey(arg),{quiet:true});if(sl&&!sl.ok)return sl;}b.open=!b.open;save();if(!b.open)for(const c of work.clients.filter(c=>c.b===b&&c.state==='waiting'))leave(c,false);return {ok:true,text:b.open?'Aberto para clientes.':'Fechado.'};}
   if(cmd==='mode'){b.auto=!b.auto;save();return {ok:true,text:b.auto?'Modo automático: a equipe atende sozinha (55% do valor).':'Atendimento presencial: venha até aqui atender.'};}
   if(cmd==='price'){const step=Math.round(PROFESSIONS[arg].business.base*.1),d=Number(arg2);setPrice(b,d===0?priceRange(arg,b.level).fair:b.price+d*step);save();return {ok:true,text:'Novo preço: '+money(b.price)};}
   if(cmd==='biz'){const r=goToBusiness(arg);if(r.ok)window.CityUI?.togglePhone?.(false);return r;}
