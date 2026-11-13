@@ -28,6 +28,8 @@ test('Room-aware sound is restricted to correct house, room and floor',()=>{
  assert.equal(C.roomAt(H,0,9,3,roomFn),'0:cozinha');
  assert.equal(C.canHear(H,listen,'0:sala',roomFn),true);
  for(const p of [otherRoom,up,outside])assert.equal(C.canHear(H,p,'0:sala',roomFn),false);
+ const irregular={...H,contains(x,y){return x<4&&y<10;}};
+ assert.equal(C.canHear(irregular,{x:5,y:4,floor:0},'0:sala',roomFn),false);
 });
 test('Screen keys are deterministic and stable between clients',()=>{
  const H={x0:3,y0:5};
@@ -53,6 +55,9 @@ test('Real HTTPS stations are editable and car radio is wired into game',()=>{
  assert.match(read('interiors.js'),/CityMedia\?\.openTV/);
  assert.match(read('city-home-plus.js'),/CityMedia\.openTV/);
  assert.match(read('game.js'),/CityMedia\?\.tick/);
+ assert.match(read('game.js'),/CityMedia\?\.dialogOpen/);
+ assert.match(read('city-media.js'),/screenEl\.style\.transform='matrix\('/);
+ assert.match(read('city-media.js'),/Number\.isFinite\(m\.at\)\?m\.at:Date\.now\(\)/);
  const html=fs.readFileSync('index.html','utf8');
  assert.match(html,/js\/city-media-core\.js/);
  assert.match(html,/js\/city-media\.js/);
