@@ -547,10 +547,17 @@ export function createCharacterSystem(scene,bridge,{camera=null,canvas=null}={})
     e.root.position.set(a.x,(a.floorZ||0)+(a.actionZ||0)+e.groundY+(a.dead?.08:0),a.y);
     e.root.rotation.y=Math.PI/2-a.face;
     e.root.rotation.x=0;
-    if(a.homeAction?.kind==='rest'&&a.homeAction.item){const bed=a.homeAction.item,angle=(bed.rot||0)+(bed.d>bed.w?Math.PI/2:0),half=e.spec.height*.45;e.root.rotation.set(-Math.PI/2,Math.PI/2-angle,0,'YXZ');e.root.position.set(bed.x+Math.cos(angle)*half,(a.floorZ||0)+(bed.h||.7)+.16,bed.y+Math.sin(angle)*half);}
+    if(['rest','sleep'].includes(a.homeAction?.kind)&&a.homeAction.item){
+      const bed=a.homeAction.item,front=window.CityHomeNav?.facing?.(bed);
+      const angle=front?Math.atan2(front.y,front.x):(bed.rot||0)+(bed.d>bed.w?Math.PI/2:0);
+      const half=Math.min(.70,e.spec.height*.38);
+      // Keep the whole mesh horizontal on the mattress while the sleep pose plays.
+      e.root.rotation.set(-Math.PI/2,Math.PI/2-angle,0,'YXZ');
+      e.root.position.set(bed.x+Math.cos(angle)*half,(a.floorZ||0)+(bed.h||.7)*.76+.10,bed.y+Math.sin(angle)*half);
+    }
     if(a===p){const pr=system.casProfile;e.root.scale.set(pr.build,pr.height,pr.build);}
     e.root.updateMatrixWorld(true);
-    if(e.tag)e.tag.visible=!a.dead&&a.homeAction?.kind!=='rest'&&Math.hypot(a.x-p.x,a.y-p.y)<9;
+    if(e.tag)e.tag.visible=!a.dead&&!['rest','sleep'].includes(a.homeAction?.kind)&&Math.hypot(a.x-p.x,a.y-p.y)<9;
    }
    if(a.armed)syncGun(e,a);
    e.gun.visible=e.root.visible&&!!a.armed&&!a.traversal&&!a.carry&&e.gun.children.length>1;

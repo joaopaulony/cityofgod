@@ -81,7 +81,7 @@ const CityHomeRoutine=(()=>{
        if(!safe){cancel('Não há posição segura para esta interação');return false;}
        t.poseOrigin=safe;player.x=safe.x;player.y=safe.y;
      }
-     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&furniture.kind==='shower';
+     const seated=['sit','toilet'].includes(t.kind),sleep=t.kind==='sleep',shower=t.kind==='wash'&&/shower/.test(furniture.kind);
      if(seated||sleep||shower){
        // The actor temporarily enters the bed / chair / shower, but returns
        // to its collision-checked approach point when completed or cancelled.
@@ -93,7 +93,12 @@ const CityHomeRoutine=(()=>{
        // Face the mixer/head from inside the shower, never toward the wall.
        // Every seated pose faces the model's backrest/desk side, not the
        // procedural building rotation. Important for sofas, toilets and chairs.
-       t.face=(shower||seated)?Math.atan2(-facing.y,-facing.x):
+       // The imported Quaternius/procedural sofa and toilet have their backrest
+       // on local -Z: actor +Z must point toward the open/front (+Z) side.
+       // Using the inverse axis seated the player facing INTO the sofa back.
+       // The shower is different: its controls are on -Z, so face them.
+       t.face=seated?Math.atan2(facing.y,facing.x):
+         shower?Math.atan2(-facing.y,-facing.x):
          (furniture.rot||0)+(sleep?(furniture.w>furniture.d?0:Math.PI/2):Math.PI/2);
      }
      player.homeAction={kind:t.kind,t:0,duration:t.duration,managed:true,

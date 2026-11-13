@@ -150,7 +150,7 @@ test('all seated poses face the actual +Z front of the 3D furniture even in rota
    f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
    if(f.window.CityHomeRoutine.stage==='pose'){
     pose=true;
-    const expected=Math.atan2(0,1);
+    const expected=Math.atan2(0,-1); // actual +Z front: [-1,0], not the reversed sofa back
     for(let j=0;j<25;j++)f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
     assert.ok(Math.abs(f.player.face-expected)<.5,kind+': face '+f.player.face);
     break;
@@ -160,4 +160,52 @@ test('all seated poses face the actual +Z front of the 3D furniture even in rota
   f.window.CityHomeRoutine.cancel('',true);
   assert.ok(f.H.contains(f.player.x,f.player.y,0),kind+' exited into an exterior wall');
  }
+});
+
+test('sofa and bathroom poses follow the real model front at every quarter-turn',()=>{
+ const options=[
+  {facing:[1,0],rot:0},{facing:[0,1],rot:Math.PI/2},
+  {facing:[-1,0],rot:Math.PI},{facing:[0,-1],rot:Math.PI*1.5},
+ ];
+ for(const kind of ['sofa','couch','sectional','toilet','qf_couch_medium2','qf_bathroom_toilet']){
+  for(const {facing,rot} of options){
+   const f=room({itemKind:kind,deskY:6,front:facing});
+   f.item.x=6;f.item.y=6;f.item.rot=rot;
+   f.item.w=kind.includes('couch')||['sofa','couch','sectional'].includes(kind)?2.05:.7;
+   f.item.d=kind==='sectional'?.9:.75;f.item.h=.8;
+   f.player.x=3;f.player.y=3;
+   const command=kind.includes('toilet')?'toilet':'sit';
+   const started=f.window.CityHomeRoutine.start(f.H,f.item,command);
+   assert.equal(started.ok,true,kind+' orientation '+rot+': '+started.text);
+   let entered=false;
+   for(let i=0;i<320&&f.window.CityHomeRoutine.active;i++){
+    f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+    if(f.window.CityHomeRoutine.stage==='pose'){
+     entered=true;
+     for(let j=0;j<20;j++)f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+     const expected=Math.atan2(facing[1],facing[0]);
+     const diff=Math.atan2(Math.sin(f.player.face-expected),Math.cos(f.player.face-expected));
+     assert.ok(Math.abs(diff)<.12,kind+' at '+rot+' facing '+f.player.face+' expected '+expected);
+     assert.ok(f.player.homeAction?.kind===command);
+     break;
+    }
+   }
+   assert.ok(entered,kind+' did not reach the seat at '+rot);
+   f.window.CityHomeRoutine.cancel('',true);
+   assert.ok(f.window.CityHomeNav.safeSpot(f.H,f.item,f.player.x,f.player.y),
+    'exited into furniture or outside at '+rot);
+  }
+ }
+});
+test('Quaternius seats and beds use matching interaction family and safe navigation',()=>{
+ const home=read('js/city-home-plus.js'),nav=read('js/city-home-nav.js'),
+  model=read('js/character-webgl.mjs');
+ assert.match(home,/\^qf_couch_/);
+ assert.match(home,/\^qf_chair_/);
+ assert.match(home,/\^qf_bed_/);
+ assert.match(home,/\^qf_bathroom_toilet/);
+ assert.match(nav,/\^qf_\(chair_\|couch_/);
+ assert.match(model,/\['rest','sleep'\]/);
+ assert.match(model,/CityHomeNav\?\.facing\?\.\(bed\)/);
+ assert.match(read('js/city-home-routine.js'),/CityHomeNav\?\.exitSpot/);
 });

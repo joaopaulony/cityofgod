@@ -248,7 +248,14 @@ const CityHomePlus=(()=>{
      sectional:'sit',chair:'sit',tv:'watch',screen:'watch',desk:'work',
      studentdesk:'work',stove:'cook',fridge:'fridge',microwave:'eat',
      sink:'drink',shower:'wash',toilet:'toilet'};
-   const kind=item.kind==='fridge'&&options.action==='eat'?'eat':actions[item.kind];
+   // Quaternius furniture should use the SAME real interaction family as
+   // the corresponding procedural furniture, including facing and safe exits.
+   const normalized=/^qf_couch_/.test(item.kind)?'sofa':/^qf_chair_/.test(item.kind)?'chair':
+     /^qf_bed_/.test(item.kind)?'bed':/^qf_bathroom_toilet/.test(item.kind)?'toilet':
+     /^qf_bathroom_shower/.test(item.kind)?'shower':
+     /^qf_kitchen_fridge/.test(item.kind)?'fridge':/^qf_kitchen_oven/.test(item.kind)?'stove':
+     /^qf_kitchen_sink/.test(item.kind)?'sink':item.kind;
+   const kind=normalized==='fridge'&&options.action==='eat'?'eat':actions[normalized];
    if(!kind)return {ok:false,text:'Esse móvel não possui interação'};
    if(!data(H).power&&['watch','work','cook','eat'].includes(kind))
      return {ok:false,text:'Ligue a energia da casa'};
