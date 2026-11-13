@@ -337,7 +337,7 @@ function drawFountain(g, b) {
 // Compact 8×8 m starter house: original B geometry/interior at native scale, no new rig/assets.
 const MIA_ORGANIC = ['O_integrada', 'O_varanda', 'O_emL', 'O_ampla', 'O_sobrado', 'O_vila', 'O_estreita'], MIA_ORGANIC_POOR = ['O_estreita', 'O_vila', 'O_integrada'];
 function miaHouse(S, c, rects, poor) {
-  if (typeof TPL!=='undefined' && !TPL.INFILL) TPL.INFILL = {...TPL.B, noScale:true, yard:false, setback:.6};
+  if (!TPL.INFILL) TPL.INFILL = {...TPL.B, noScale:true, yard:false, setback:.6};
   const organic = TPL.O_estreita && rng() < 0.5;
   const first = c.infill ? 'INFILL' : organic ? (poor ? MIA_ORGANIC_POOR : MIA_ORGANIC)[(rng() * (poor ? MIA_ORGANIC_POOR.length : MIA_ORGANIC.length)) | 0] : poor ? (rng() < 0.6 ? 'B' : 'D') : ['A', 'B', 'D', 'C'][(rng() * 4) | 0];
   let H = null;
