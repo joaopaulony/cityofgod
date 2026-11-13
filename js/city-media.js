@@ -210,7 +210,7 @@ const CityMedia=(()=>{
   });
   document.getElementById('cog-radio-volume').addEventListener('input',e=>{state.volume=Number(e.target.value)/100;persist();syncRadioVolume();});
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded.open){closeExpanded();e.preventDefault();e.stopImmediatePropagation?.();return;}if(e.key==='Escape'&&!dialog.hidden){dialog.hidden=true;}} ,true);
-  document.addEventListener('visibilitychange',()=>{if(document.hidden){safeAudio().volume=0;try{videoPlayer?.mute?.();}catch{}}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){safeAudio().volume=0;try{videoPlayer?.mute?.();expanded.player?.mute?.();}catch{}}});
   radioUI.addEventListener('pointerdown',e=>e.stopPropagation());
   resetChannel();
  }
@@ -376,7 +376,8 @@ const CityMedia=(()=>{
  function syncTVVolume(){
   if(!videoReady)return;
   const p=getPlayer();
-  const ok=active&&p&&!inMenu()&&!driver()&&C.canHear(active.house,p,active.room,window.CityHomePlus?.roomAt);
+  const record=active&&tvs.get(active.screen);
+  const ok=record?.playing&&record?.video&&p&&!inMenu()&&!driver()&&C.canHear(active.house,p,active.room,window.CityHomePlus?.roomAt);
   try{if(ok&&!document.hidden&&!expanded.open){videoPlayer.unMute();videoPlayer.setVolume(55);}
    else muteVideo(!expanded.open);}catch{}
  }
