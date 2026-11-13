@@ -14,7 +14,7 @@ const CityMedia=(()=>{
  let connection=null,channel=null,lastRender=0,lastCar=false,radioVehicle=null;
  let remoteRadio=null,radioCurrent=null,radioAttempt='',lastSend=0;
  const notify=s=>window.CityUI?.notify?.(s);
- const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const getPlayer=()=>window.__game?.player||null;
  const driver=()=>!!window.cityVehicles?.driver;
  const inMenu=()=>!!window.CityFront?.blocked||document.body.classList.contains('front-open');
