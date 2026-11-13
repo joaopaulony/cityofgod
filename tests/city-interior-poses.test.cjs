@@ -128,8 +128,18 @@ for(const [kind,furniture] of [
   let calls=0;f.window.CityHomePlus={completeActivity(){calls++;return {ok:true,text:'Atividade concluída'}}};
   const r=f.window.CityHomeRoutine.start(f.H,f.item,kind);
   assert.equal(r.ok,true,r.text);
-  for(let i=0;i<360&&f.window.CityHomeRoutine.active;i++)
+  const continuous=['sit','sleep','watch','work','wash','toilet'].includes(kind);
+  for(let i=0;i<360;i++){
+   if(!f.window.CityHomeRoutine.active)break;
    f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],false);
+  }
+  if(continuous){
+   assert.equal(f.window.CityHomeRoutine.stage,'pose',kind+' should remain in pose');
+   assert.equal(f.window.CityHomeRoutine.active,true,kind+' must not end automatically');
+   assert.equal(calls,0,'no early reward while '+kind+' continues');
+   assert.equal(f.player.homeAction?.kind,kind);
+   f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],true); // player presses WASD
+  }
   assert.equal(f.window.CityHomeRoutine.active,false,'activity did not end');
   assert.equal(calls,1,'activity reward should trigger exactly once');
   assert.equal(f.player.homeAction,null,'pose did not reset');
