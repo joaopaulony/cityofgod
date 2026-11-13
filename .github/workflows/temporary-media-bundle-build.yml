@@ -1,0 +1,28 @@
+name: Temporary media WebGL bundle compilation
+on:
+  push:
+    branches: [feat/youtube-room-tv-brazilian-car-radio]
+    paths: [.github/workflows/temporary-media-bundle-build.yml]
+permissions:
+  contents: write
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Commit generated bundle to feature branch
+        run: |
+          git diff --quiet -- js/vehicle-webgl.bundle.js && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/vehicle-webgl.bundle.js
+          git commit -m "Build media-enabled WebGL bundle"
+          git push origin HEAD:feat/youtube-room-tv-brazilian-car-radio
