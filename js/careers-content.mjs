@@ -2,6 +2,22 @@
 // Pergunta: [enunciado, [opções], índice da certa]. Caso: pedido do cliente + passos do minigame.
 // Passos: {type:'choice', q, options, answer} · {type:'timing', label, zone:[a,b], speed} · {type:'sequence', label, keys}
 export const QUIZ={
+ police:[
+  ['Numa abordagem a um suspeito, o policial deve primeiro:',['Identificar-se e dar ordens claras','Atirar para o alto','Correr na direção dele','Ignorar e seguir a ronda'],0],
+  ['A prisão em flagrante acontece quando:',['O crime está ocorrendo ou acabou de ocorrer','Alguém tem cara de suspeito','O policial recebe uma denúncia antiga','O suspeito não tem documento'],0],
+  ['Ao algemar, a forma correta é:',['Mãos para trás, com o suspeito controlado','Mãos na frente, de qualquer jeito','Só uma mão','Deixar o suspeito escolher'],0],
+  ['Uso progressivo da força significa:',['Usar só a força necessária, aumentando aos poucos','Começar pela arma','Nunca usar força','Bater primeiro e perguntar depois'],0],
+  ['O boletim de ocorrência registra:',['Fatos, envolvidos, testemunhas e horário','Só o nome do policial','Opinião pessoal','Nada, é opcional'],0],
+  ['Numa perseguição na cidade, a prioridade é:',['A segurança dos pedestres e motoristas','Alcançar a qualquer custo','Desligar a sirene','Fechar os olhos'],0],
+ ],
+ paramedic:[
+  ['Na cena de um acidente, o primeiro passo do socorrista é:',['Garantir a segurança da cena','Mover a vítima imediatamente','Dar água à vítima','Tirar foto'],0],
+  ['Ritmo correto das compressões na RCP de um adulto:',['100 a 120 por minuto','20 por minuto','200 por minuto','Uma por minuto'],0],
+  ['Suspeita de lesão na coluna: a vítima deve ser',['Imobilizada com colar cervical e prancha','Sentada logo','Carregada pelos braços','Deixada sozinha'],0],
+  ['A sequência XABCDE começa por:',['Hemorragia grave (X)','Pupilas','Temperatura','Glicemia'],0],
+  ['Sinais de AVC (avaliação rápida):',['Rosto torto, braço fraco, fala enrolada','Febre e tosse','Coceira','Dor de dente'],0],
+  ['Queimadura: o que fazer na hora?',['Água corrente em temperatura ambiente','Manteiga','Gelo direto','Pasta de dente'],0],
+ ],
  medic:[
   ['Qual exame avalia o ritmo elétrico do coração?',['Eletrocardiograma','Hemograma','Raio-X de tórax','Ultrassom de abdome'],0],
   ['Febre, tosse com catarro e dor ao respirar sugerem:',['Pneumonia','Enxaqueca','Gastrite','Rinite alérgica'],0],
@@ -56,6 +72,21 @@ const tm=(label,zone=[.42,.58],speed=1)=>({type:'timing',label,zone,speed});
 const sq=(label,keys)=>({type:'sequence',label,keys});
 // cada caso: pedido (o que o cliente diz) e os passos do atendimento
 export const CASES={
+ // imóveis das carreiras públicas: clientes da Empresa de Segurança Privada e da Base de Ambulâncias Particular
+ police:[
+  {ask:'Vou fazer uma festa de casamento para 300 convidados no sábado. Preciso de segurança.',steps:[ch('Quantos vigilantes para 300 pessoas?',['Uma equipe de 6, com um líder','Um só na porta','Nenhum, é festa de família','50 vigilantes armados'],0),sq('Montar a escala da equipe',['W','D','S','A']),tm('Fechar o contrato no valor justo: pare na faixa verde')]},
+  {ask:'Minha loja foi furtada duas vezes este mês. Quero câmeras e alarme.',steps:[ch('Onde instalar a primeira câmera?',['Na entrada e no caixa','No banheiro dos funcionários','Virada para a parede','Só no estacionamento'],0),sq('Instalar e testar o sensor do alarme',['A','W','D','S']),tm('Calibrar a sensibilidade do sensor',[.46,.58])]},
+  {ask:'Preciso transportar o dinheiro do caixa da empresa até o banco toda semana.',steps:[ch('Procedimento correto:',['Carro-forte, horários variados e dois vigilantes','Sempre no mesmo horário a pé','Pedir para um estagiário levar','Postar o horário nas redes'],0),ch('Se houver tentativa de assalto:',['Proteger a equipe e acionar a polícia','Reagir atirando no meio da rua','Entregar a rota antes','Abandonar o carro aberto'],0),tm('Rota segura: pare na faixa verde',[.44,.56])]},
+  {ask:'Meu condomínio quer portaria 24 horas. Vocês fazem?',steps:[ch('Escala para portaria 24 h:',['Turnos de 12x36 com folguistas','Um porteiro sem folga','Só durante o dia','Câmera sem ninguém olhando'],0),sq('Cadastrar moradores e visitantes no sistema',['S','A','W','D']),tm('Assinatura do contrato anual')]},
+  {ask:'Vou receber uma autoridade na empresa e preciso de escolta.',steps:[ch('Primeiro passo da escolta:',['Estudar o trajeto e os pontos de risco','Ir improvisando','Avisar a imprensa do roteiro','Usar só um carro'],0),sq('Posicionar a equipe em volta do carro',['W','A','D','S']),tm('Desembarque seguro: pare na faixa verde',[.47,.57])]},
+ ],
+ paramedic:[
+  {ask:'Minha avó está acamada e precisa ir do hospital para casa de ambulância.',steps:[ch('Tipo de remoção:',['Ambulância simples com maca e acompanhante','Carro de aplicativo','Ônibus','Moto-táxi'],0),sq('Transferir da cama para a maca em bloco',['A','D','W','S']),tm('Subir a maca na ambulância sem tranco',[.45,.57])]},
+  {ask:'Vou fazer um show com 2 mil pessoas. Preciso de equipe médica no evento.',steps:[ch('Estrutura mínima para o evento:',['Ambulância UTI, posto de atendimento e socorristas','Um kit de primeiros socorros','Só o telefone do SAMU','Nada, é um show'],0),sq('Montar o posto de atendimento',['W','S','A','D']),tm('Fechar o contrato do evento')]},
+  {ask:'Meu pai teve um mal-estar, está tonto e suando frio. Podem avaliar?',steps:[ch('Primeiro a verificar:',['Pressão, glicemia e sinais vitais','Dar café forte','Mandar dormir','Esperar até amanhã'],0),ch('Glicemia 48 mg/dL (baixa) e consciente:',['Dar açúcar por via oral e reavaliar','Insulina','Deixar em jejum','Gelo na testa'],0),tm('Reavaliar a glicemia na hora certa',[.44,.56])]},
+  {ask:'A empresa quer um curso de primeiros socorros para os funcionários.',steps:[ch('Tema mais importante do curso:',['Reconhecer parada cardíaca e fazer RCP','Receitas caseiras','Como dirigir rápido','Como desmaiar'],0),sq('Demonstrar a RCP no boneco',['S','S','W','S']),tm('Ritmo das compressões (100–120/min)',[.46,.58],1.3)]},
+  {ask:'Paciente em hemodiálise precisa de transporte três vezes por semana.',steps:[ch('Como organizar:',['Agenda fixa com equipe e ambulância dedicadas','Ir quando der','Só às segundas','Pedir para ele dirigir'],0),sq('Checar oxigênio, maca e documentos',['D','W','A','S']),tm('Chegada pontual na clínica',[.45,.58])]},
+ ],
  vet:[
   {ask:'Meu cachorro está vomitando e não quer comer há dois dias.',steps:[ch('Diagnóstico mais provável (filhote sem vacina, diarreia com sangue):',['Parvovirose','Otite','Fratura','Alergia de pele'],0),tm('Aplicar o soro na veia: pare na faixa verde'),sq('Curativo do acesso venoso',['W','A','S','D'])]},
   {ask:'Ele vive coçando a orelha e balançando a cabeça.',steps:[ch('O que o exame com otoscópio mostra?',['Otite com secreção','Pulgas no rabo','Dente quebrado','Olho seco'],0),sq('Limpar o ouvido e aplicar o remédio',['A','D','W','S']),tm('Dose certa de gotas: pare na faixa verde',[.45,.6])]},
@@ -100,4 +131,19 @@ export const CASES={
  ],
 };
 // nomes de clientes que contam o problema (o NPC também fala)
-export const GREET={vet:'Doutor(a), preciso de ajuda com meu cachorro.',medic:'Bom dia, doutor(a).',lawyer:'Bom dia, doutor(a). Preciso de um advogado.',mechanic:'Opa, mestre! Dá uma olhada no meu carro?',chef:'Boa noite! Mesa pra um, por favor.',barber:'E aí! Tem horário pra agora?'};
+// ocorrências da polícia e chamados do SAMU: o que a central diz pelo rádio e os passos do minigame no local
+export const POLICE_CALLS=[
+ {code:'Furto em andamento',ask:'Central: furto de bicicleta em frente à residência, suspeito ainda no local.',steps:[ch('Abordagem:',['Identificar-se e dar voz de parada','Atirar no pneu da bicicleta','Gritar e correr','Esperar ele ir embora'],0),sq('Revista pessoal com segurança',['W','A','D','S']),tm('Algemar: pare na faixa verde (firme, sem machucar)',[.44,.58],1.1)],arrest:true},
+ {code:'Perturbação do sossego',ask:'Central: som alto e briga de vizinhos, chamado de madrugada.',steps:[ch('Conduta:',['Mediar a conversa e orientar sobre a lei','Prender todo mundo','Quebrar a caixa de som','Ignorar'],0),ch('Resultado esperado:',['Acordo e registro da ocorrência','Tiro de advertência','Multa de trânsito','Nada'],0)],arrest:false},
+ {code:'Roubo a pedestre',ask:'Central: vítima teve o celular roubado, suspeito de casaco escuro na esquina.',steps:[ch('Primeiro:',['Garantir que a vítima está bem e pegar a descrição','Sair atirando','Prender a vítima','Desligar o rádio'],0),sq('Cercar o suspeito pela calçada',['D','W','W','A']),tm('Contenção: pare na faixa verde',[.4,.55],1.25)],arrest:true},
+ {code:'Acidente de trânsito',ask:'Central: colisão entre dois carros, trânsito parado.',steps:[ch('Prioridade:',['Sinalizar a via e chamar o SAMU se houver feridos','Multar os dois e sair','Empurrar os carros com a viatura','Discutir com os motoristas'],0),sq('Sinalizar com cones',['A','A','D','D']),ch('Depois:',['Registrar o boletim e liberar a via','Prender os dois','Ir embora sem registro','Chamar os bombeiros para pintar'],0)],arrest:false},
+ {code:'Suspeito armado',ask:'Central: denúncia de homem armado ameaçando moradores. Cuidado.',steps:[ch('Abordagem:',['Abrigar-se, pedir apoio e verbalizar','Entrar correndo de peito aberto','Atirar sem verbalizar','Mandar a vítima resolver'],0),tm('Desarmar: pare exatamente na faixa',[.47,.56],1.4),sq('Algemar e revistar',['S','D','A','W','S'])],arrest:true,danger:true},
+];
+export const SAMU_CALLS=[
+ {code:'Parada cardíaca',ask:'Central: homem de 58 anos caído na calçada, não responde e não respira.',steps:[ch('Primeiro:',['Checar segurança, chamar e iniciar RCP','Dar água','Esperar acordar','Sentar a vítima'],0),tm('Compressões: mantenha o ritmo (faixa verde)',[.44,.58],1.3),tm('Desfibrilador: choque no momento certo',[.48,.58],1.4)],grave:true},
+ {code:'Queda de altura',ask:'Central: pedreiro caiu do telhado, consciente, com dor nas costas.',steps:[ch('Conduta:',['Colar cervical e prancha rígida','Levantar e andar','Dar analgésico e liberar','Massagear as costas'],0),sq('Imobilizar na prancha',['W','S','A','D'])],grave:false},
+ {code:'AVC',ask:'Central: mulher com rosto torto e fala enrolada há 20 minutos.',steps:[ch('Suspeita:',['AVC: levar rápido ao hospital','Gripe','Ressaca','Alergia'],0),ch('Ao chegar, informar à equipe:',['Horário do início dos sintomas','Cor da roupa','Nome do vizinho','Nada'],0)],grave:true},
+ {code:'Queimadura',ask:'Central: criança se queimou com água quente na cozinha.',steps:[ch('Primeiro socorro:',['Resfriar com água corrente','Passar manteiga','Gelo direto','Estourar as bolhas'],0),sq('Curativo estéril',['A','D','S'])],grave:false},
+ {code:'Hemorragia',ask:'Central: corte profundo no braço, muito sangue.',steps:[ch('Primeiro:',['Compressão direta e torniquete se preciso','Lavar com álcool','Esperar parar','Dar café'],0),tm('Torniquete: aperte na faixa certa',[.45,.58],1.2),sq('Acesso venoso e soro',['W','D','W','S'])],grave:true},
+];
+export const GREET={police:'Boa tarde! Quero contratar segurança.',paramedic:'Olá! Preciso de um atendimento particular.',vet:'Doutor(a), preciso de ajuda com meu cachorro.',medic:'Bom dia, doutor(a).',lawyer:'Bom dia, doutor(a). Preciso de um advogado.',mechanic:'Opa, mestre! Dá uma olhada no meu carro?',chef:'Boa noite! Mesa pra um, por favor.',barber:'E aí! Tem horário pra agora?'};

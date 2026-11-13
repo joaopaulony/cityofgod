@@ -21,7 +21,10 @@
   {kind:'lawoffice',id:'biz-lawoffice',name:'Escritório de Advocacia',profession:'lawyer',floors:1,color:'#e7e1d6',business:{w:32,d:34},target:A=>({x:A.downtown.x+60,y:A.downtown.y+80})},
   {kind:'autoshop',id:'biz-autoshop',name:'Oficina Mecânica',profession:'mechanic',floors:1,color:'#d9dde0',business:{w:32,d:34},target:A=>({x:A.urban.x+320,y:A.urban.y-120})},
   {kind:'restaurant',id:'biz-restaurant',name:'Restaurante',profession:'chef',floors:1,color:'#f1e2cf',business:{w:32,d:34},target:A=>({x:A.downtown.x-160,y:A.downtown.y+40})},
-  {kind:'barbershop',id:'biz-barbershop',name:'Barbearia',profession:'barber',floors:1,color:'#ece6dc',business:{w:32,d:34},target:A=>({x:A.urban.x-60,y:A.urban.y-160})}
+  {kind:'barbershop',id:'biz-barbershop',name:'Barbearia',profession:'barber',floors:1,color:'#ece6dc',business:{w:32,d:34},target:A=>({x:A.urban.x-60,y:A.urban.y-160})},
+  // imóveis das carreiras públicas: o policial/socorrista com cargo alto compra (career-ladder.js)
+  {kind:'security',id:'biz-security',name:'Empresa de Segurança Privada',profession:'police',floors:1,color:'#dfe3e8',business:{w:32,d:34},target:A=>({x:A.downtown.x+200,y:A.downtown.y-120})},
+  {kind:'ambulancebase',id:'biz-ambulancebase',name:'Base de Ambulâncias Particular',profession:'paramedic',floors:1,color:'#f1f1ee',business:{w:32,d:34},target:A=>({x:A.urban.x+60,y:A.urban.y+260})}
  ];
  C.planCivicSites=function(cw,roadDist,water,reserved=[]){
   const sites=[],A=cw.geo.anchors;
@@ -91,7 +94,9 @@ function civicPlaceSector(S){
    const MODELS=['sedan','suv','hatchback','pickup','coupe','compact','wagon','offroad'],COLS=['#c0392b','#f2f2f0','#1d2b3a','#7f8c8d','#2c6e49','#e1b12c','#2f3640','#5d6d7e'];
    for(let i=0;i<8;i++){const sx=i<4?x+7+i*3.2:x-8-(i-4)*3.2,b=addBox({x:sx,y:site.y-15.5,w:4.6,d:1.9,h:1.5,rot:Math.PI/2,kind:'parkedcar',modelId:MODELS[i],col:COLS[i],top:COLS[i],side:COLS[i],display:true,solid:true,street:true,draw:drawParkedCar});b.vehicleKey='dealer:'+site.id+':'+i;}
    site.delivery={x:x+18,y:site.y-5,angle:Math.PI};
-  }else for(let i=0;i<4;i++)miaCar(x+7+i*3,site.y-16,Math.PI/2);
+  }else{for(let i=0;i<4;i++)miaCar(x+7+i*3,site.y-16,Math.PI/2);
+   // delegacia e hospital: vaga de saída da viatura / ambulância do turno (jobs.mjs)
+   if(site.kind==='police'||site.kind==='hospital')site.delivery={x:x+18,y:site.y-5,angle:Math.PI};}
   for(const dx of [-24,24]){world.lamps.push({x:x+dx,y:site.y-8,ax:0,ay:-1});}
   if(site.kind==='military'){
    const [x0,y0,x1,y1]=site.bb,gate=(px,py)=>py>y1-1&&Math.abs(px-H.doorPt[0])<4;

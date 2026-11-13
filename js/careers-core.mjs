@@ -29,6 +29,13 @@ export const PROFESSIONS=Object.freeze({
  chef:{id:'chef',title:'Gastronomia',pro:'Chef de cozinha',icon:'👨‍🍳',years:2,tuition:700,enroll:400,room:'lab',
   business:{kind:'restaurant',name:'Restaurante',price:140000,service:'Mesa servida',base:90,min:45,max:480},
   topics:['Higiene e segurança dos alimentos','Cortes e técnicas de faca','Molhos-base','Cozinha brasileira','Confeitaria','Gestão de cozinha']},
+ // serviços públicos: sem negócio próprio — formado, entra na carreira (delegacia / SAMU) pelo app Carreira
+ police:{id:'police',title:'Academia de Polícia',pro:'Policial',icon:'👮',years:1,tuition:400,enroll:250,room:'classroom',career:'svc:police',
+  business:{kind:'security',name:'Empresa de Segurança Privada',price:160000,service:'Contrato de segurança',base:240,min:120,max:1300},
+  topics:['Legislação e direitos humanos','Abordagem e uso progressivo da força','Tiro defensivo e segurança','Direção de viatura','Primeiros socorros','Boletim de ocorrência']},
+ paramedic:{id:'paramedic',title:'Técnico em Emergência (SAMU)',pro:'Socorrista',icon:'🚑',years:2,tuition:600,enroll:350,room:'lecture',career:'svc:paramedic',
+  business:{kind:'ambulancebase',name:'Base de Ambulâncias Particular',price:190000,service:'Atendimento e remoção particular',base:260,min:130,max:1400},
+  topics:['Atendimento pré-hospitalar (XABCDE)','Reanimação cardiopulmonar','Imobilização e transporte','Trauma e hemorragias','Emergências clínicas: AVC e infarto','Direção de ambulância']},
  barber:{id:'barber',title:'Estética e Barbearia',pro:'Barbeiro(a)',icon:'💈',years:2,tuition:500,enroll:300,room:'classroom',
   business:{kind:'barbershop',name:'Barbearia',price:48000,service:'Corte e barba',base:55,min:30,max:320},
   topics:['Anatomia do cabelo','Cortes clássicos','Degradê e navalhado','Barba e toalha quente','Atendimento ao cliente','Gestão do salão']},

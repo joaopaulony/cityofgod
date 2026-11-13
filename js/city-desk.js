@@ -226,6 +226,7 @@ const CityDesk=(()=>{
   if(ev.code==='REJECTED'){msg(c.client.name+': “Não atende ao que pedimos.” Contrato recusado.',c.client.name);notify('Entrega recusada pelo cliente.',false);save();render();return;}
   const p=C.payout(S,c,clock(),(v,r)=>CityLife.credit(v,r),{partial});
   if(p.ok){
+   window.CityCareer?.addXP?.('remote:'+c.career,Math.round(25+60*score));
    if(artifact)S.artifacts.push({...artifact,id:'art-'+c.id,contractId:c.id,clock:clock(),client:c.client.name});
    const st=CityLife.state;if(st?.needs)st.needs.energy=Math.max(.05,(st.needs.energy??1)-C.CONFIG.careers[c.career].energy);
    msg(c.client.name+': “Aprovado! Obrigado.” Pagamento de '+money(p.data.net)+' (líquido) enviado.',c.client.name);
@@ -242,7 +243,9 @@ const CityDesk=(()=>{
   if(cmd==='go'){app=arg;sel=null;return render();}
   if(cmd==='tab'){ui.tab=arg;return render();}
   if(cmd==='sel'){sel=arg;return render();}
-  if(cmd==='accept'){const r=C.accept(S,arg,clock());notify(r.text,r.ok);if(r.ok){sel=r.data.id;app={programmer:'code',support:'help',designer:'brand'}[r.data.career];msg('Contrato aceito: '+(tpl(r.data.career,r.data.templateId)?.title)+'. Prazo '+dayTime(r.data.dueClock)+'.',r.data.client.name);}save();return render();}
+  if(cmd==='accept'){const off=Object.values(S.offers).flat().find(o=>o.id===arg),CC=window.CityCareer;
+   if(off&&CC){const sl=CC.activate('remote:'+(off.career||Object.keys(S.offers).find(k=>(S.offers[k]||[]).includes(off))),{quiet:true});if(!sl.ok){notify(sl.text,false);return render();}}
+   const r=C.accept(S,arg,clock());notify(r.text,r.ok);if(r.ok){sel=r.data.id;app={programmer:'code',support:'help',designer:'brand'}[r.data.career];msg('Contrato aceito: '+(tpl(r.data.career,r.data.templateId)?.title)+'. Prazo '+dayTime(r.data.dueClock)+'.',r.data.client.name);}save();return render();}
   if(cmd==='work'){const x=S.contracts.find(y=>y.id===arg);if(x){sel=x.id;app={programmer:'code',support:'help',designer:'brand'}[x.career];}return render();}
   if(cmd==='cancel'){const x=S.contracts.find(y=>y.id===arg);if(x){const r=C.cancel(S,x,clock());notify(r.text,r.ok);}sel=null;save();return render();}
   // CodeLab
@@ -291,6 +294,7 @@ const CityDesk=(()=>{
    if(cmd==='mkchannel'){const name=String(ui.chname||'').replace(/[<>&"'`]/g,'').trim();if(name.length<3)return notify('O nome do canal precisa de 3 a 24 caracteres.',false);
     S.channel={name,category:ui.chcat||'chat',followers:0,avatar:null};msg('Canal “'+name+'” criado no CityLive.');save();return render();}
    if(cmd==='golive'){const k=S.careers.streamer,f=T.FORMATS.find(x=>x.id===arg);if(!f||f.minLevel>k.level)return;
+    const sl=window.CityCareer?.activate?.('remote:streamer',{quiet:true});if(sl&&!sl.ok){notify(sl.text,false);return render();}
     const seed=C.hash('live',C.day(clock()),k.done,S.seq++),s=C.streamStart(S.channel,f.id,k.level);for(const [m,v] of Object.entries(f.base))s[m]=C.clamp(s[m]+v,0,100);
     ui.stream={s,order:shuffle(T.STREAM.map((_,i)=>i),seed).slice(0,5),chat:[{n:'CityLive',t:'Transmissão iniciada. Público simulado (NPC).'}],seed};save();return render();}
    const st=ui.stream;

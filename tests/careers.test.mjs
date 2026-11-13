@@ -8,14 +8,15 @@ import {QUIZ,CASES} from '../js/careers-content.mjs';
 const require=createRequire(import.meta.url);
 const Plan=require('../js/autopilot.js');
 
-test('seis profissões; cada ano de curso = meio mês (15 aulas); o curso mais curto dura 1 mês',()=>{
- assert.equal(Object.keys(PROFESSIONS).length,6);
+test('oito cursos: seis com negócio próprio e dois serviços públicos (polícia e SAMU); cada ano = meio mês (15 aulas)',()=>{
+ assert.equal(Object.keys(PROFESSIONS).length,8);
  for(const [id,p] of Object.entries(PROFESSIONS)){
   assert.equal(lessonsFor(id),p.years*LESSONS_PER_YEAR);
-  assert.ok(p.business.price>0&&p.business.min<p.business.base&&p.business.base<p.business.max,id);
-  assert.ok(QUIZ[id].length>=6&&CASES[id].length>=5,'conteúdo '+id);
+  assert.ok(QUIZ[id].length>=6,'perguntas '+id);
+  if(p.business){assert.ok(p.business.price>0&&p.business.min<p.business.base&&p.business.base<p.business.max,id);assert.ok(CASES[id].length>=5,'casos '+id);}
+  else assert.ok(p.career==='svc:police'||p.career==='svc:paramedic',id+' sem negócio precisa de carreira pública');
  }
- assert.equal(Math.min(...Object.keys(PROFESSIONS).map(lessonsFor)),30);
+ assert.equal(Math.min(...Object.keys(PROFESSIONS).map(lessonsFor)),15);
  assert.equal(lessonsFor('medic'),90);
 });
 test('conteúdo: toda pergunta e todo caso têm resposta válida e passos jogáveis',()=>{
