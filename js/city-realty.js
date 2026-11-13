@@ -2,7 +2,7 @@
 'use strict';
 const CityRealty=(()=>{
  const KEY='cityofgod.owned-homes.v1',RENT_DAYS=7,MAX_ARREARS=3;
- let owned={};let started=false,selected=null;
+ let owned={};let started=false,selected=null,selectedLot=null;
  const id=H=>Math.round(H.doorPt?.[0]??H.x0)+'_'+Math.round(H.doorPt?.[1]??H.y0)+'_'+Math.round(H.x1-H.x0)+'x'+Math.round(H.y1-H.y0);
  const residential=H=>!!H?.doorPt&&!H.civic&&!H.terminal&&!H.brick&&!['cafe','shop','store','hospital','office','hotel','commercial','public'].includes(H.miaKind);
  function init(){
@@ -13,6 +13,14 @@ const CityRealty=(()=>{
    document.addEventListener('click',e=>{
      const rent=e.target.closest('[data-unit-rent]');
      if(rent){const [hid,f,u]=rent.dataset.unitRent.split('|'),H=houses.find(h=>multi(h)&&id(h)===hid);const result=rentUnit(H,Number(f),Number(u||0));window.CityUI?.notify?.(result.text);if(H)panel(H);return;}
+     const purchaseLot=e.target.closest('[data-lot-buy]');
+     if(purchaseLot){
+       if(!selectedLot||purchaseLot.dataset.lotBuy!==selectedLot.id)return;
+       const result=window.CitySim?.buyLot?.(selectedLot.id)||{ok:false,text:'Imobiliária indisponível'};
+       window.CityUI?.notify?.(result.text);
+       if(result.ok)close();else lotPanel(selectedLot);
+       return;
+     }
      const b=e.target.closest('[data-property-buy]');
      if(b){const H=houses.find(h=>residential(h)&&id(h)===b.dataset.propertyBuy);const result=H?buy(H):{text:'Imóvel indisponível'};window.CityUI?.notify?.(result.text);close();return;}
      const toggle=e.target.closest('[data-garage-toggle]');
@@ -96,9 +104,75 @@ const CityRealty=(()=>{
    }
    return found;
  }
+ // A placa física determina exatamente qual lote está sendo negociado.
+ const lotKey=L=>Math.round(L.sign[0])+'-'+Math.round(L.sign[1]);
+ const ownedLot=L=>!!window.CitySim?.data?.ownedLots?.some(o=>o.id===L.id||o.key===lotKey(L));
+ const lotsNearby=(p,limit=4.5)=>{
+   if(!p||p.floor>0||window.cityVehicles?.driver)return [];
+   return (world.lotsForSale||[]).filter(L=>L?.sign&&L.q?.length===4&&Number.isFinite(L.price)&&
+     Math.hypot(L.sign[0]-p.x,L.sign[1]-p.y)<=limit&&!window.CityLots?.buildOf(L.id))
+     .sort((a,b)=>Math.hypot(a.sign[0]-p.x,a.sign[1]-p.y)-Math.hypot(b.sign[0]-p.x,b.sign[1]-p.y));
+ };
+ const nearbyLot=(p,limit=4.5)=>lotsNearby(p,limit)[0]||null;
+ function lotPanel(L){
+   if(!L||!(world.lotsForSale||[]).some(l=>l.id===L.id))return false;
+   selectedLot=L;selected=null;
+   window.CityUI?.togglePhone?.(false);
+   const size={w:Math.hypot(L.q[1][0]-L.q[0][0],L.q[1][1]-L.q[0][1]),
+     d:Math.hypot(L.q[3][0]-L.q[0][0],L.q[3][1]-L.q[0][1])};
+   const mine=ownedLot(L),money=CityLife.money,coords=Math.round(L.sign[0])+', '+Math.round(L.sign[1]);
+   let el=document.getElementById('city-property-dialog');
+   if(!el){el=document.createElement('div');el.id='city-property-dialog';document.body.appendChild(el);}
+   el.innerHTML='<div class="city-property-card" role="dialog" aria-label="Comprar terreno selecionado">'+
+     '<button data-property-close class="city-property-close" aria-label="Fechar">✕</button>'+
+     '<span class="city-property-eyebrow">CASACERTA · VENDA PRESENCIAL</span>'+
+     '<h2>🏡 TERRENO À VENDA</h2>'+
+     '<p style="color:#f0c761">📍 Esta é a propriedade da placa em que você está, destacada em amarelo no chão.</p>'+
+     '<p><strong>Identificação:</strong> '+lotKey(L)+'</p>'+
+     '<p><strong>Localização:</strong> '+coords+'</p>'+
+     '<p><strong>Medidas:</strong> '+Math.round(size.w)+' × '+Math.round(size.d)+' metros</p>'+
+     '<p><strong>Área:</strong> '+Math.round(L.area)+' m² · <strong>Zona:</strong> '+(L.zone||'Residencial')+'</p>'+
+     '<div class="city-property-value">'+money(L.price)+'</div>'+
+     (mine?'<p style="color:#8ee2af">✓ Você já é proprietário deste terreno. Abra CasaCerta para construir.</p>':
+       '<p>A compra será registrada para este terreno específico, não para outro lote próximo.</p>'+
+       '<button class="city-property-confirm" data-lot-buy="'+L.id+'" '+(CityLife.funds<L.price?'disabled':'')+'>Comprar este terreno · '+money(L.price)+'</button>')+
+     '<button data-property-close class="city-property-secondary">Voltar ao jogo</button></div>';
+   el.hidden=false;document.body.classList.add('city-property-open');return true;
+ }
+ function lotAtScreen(px,py,project,p){
+   if(!p||p.floor>0||typeof project!=='function')return null;
+   const nearby=lotsNearby(p,4.5);
+   let best=null,dist=Infinity;
+   for(const lot of nearby){
+     const a=project(lot.sign[0],lot.sign[1],1.5);
+     const d=Math.hypot(px-a.x,py-a.y);
+     if(d<Math.max(18,(typeof cam!=='undefined'?cam.zoom:30)*1.25)&&d<dist){dist=d;best=lot;}
+   }
+   return best;
+ }
+ function clickLot(px,py,project,p){
+   const L=lotAtScreen(px,py,project,p);
+   return L?lotPanel(L):false;
+ }
+ function drawLotSelection(ctx,project,p){
+   const L=selectedLot||nearbyLot(p,4.5);
+   if(!L||!L.q||!ctx||typeof project!=='function')return;
+   const pts=L.q.map(q=>project(q[0],q[1],.045));
+   ctx.save();
+   ctx.beginPath();pts.forEach((pt,i)=>i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.closePath();
+   ctx.fillStyle='rgba(250,190,58,0.13)';ctx.fill();
+   ctx.strokeStyle='#ffcf40';ctx.lineWidth=3;
+   ctx.setLineDash([11,6]);ctx.stroke();ctx.setLineDash([]);
+   const label=project(L.sign[0],L.sign[1],2.9);
+   ctx.font='bold 14px Arial';ctx.textAlign='center';
+   ctx.lineWidth=3;ctx.strokeStyle='#101820';
+   const message=ownedLot(L)?'✓ MEU TERRENO':'🏷 TERRENO À VENDA';
+   ctx.strokeText(message,label.x,label.y-7);ctx.fillStyle='#ffdb6b';ctx.fillText(message,label.x,label.y-7);
+   ctx.restore();
+ }
  function panel(H){
    window.CityUI?.togglePhone?.(false);
-   selected=H;close(false);
+   selected=H;selectedLot=null;close(false);
    let el=document.getElementById('city-property-dialog');
    if(!el){el=document.createElement('div');el.id='city-property-dialog';document.body.appendChild(el);}
    if(multi(H))return unitsPanel(H,el);
@@ -258,7 +332,7 @@ const CityRealty=(()=>{
      if(clearLease(c))window.CityUI?.notify?.('⚠️ Contrato encerrado após três parcelas de aluguel em atraso. Você perdeu o acesso ao apartamento.');
    }
  }
- function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;document.body.classList.remove('city-property-open');if(clear)selected=null;}
+ function close(clear=true){const el=document.getElementById('city-property-dialog');if(el)el.hidden=true;document.body.classList.remove('city-property-open');if(clear){selected=null;selectedLot=null;}}
  function rentStarter(){return rentNearbyApartment();}
  function buy(H){
    if(!residential(H)||isOwned(H))return {ok:false,text:'Imóvel indisponível'};
@@ -299,12 +373,22 @@ const CityRealty=(()=>{
    return {ok:true,text:next?'Posse de teste concedida':'Posse de teste removida'};
  }
  function onInteract(p){
-   const H=nearby(p);
+   const H=nearby(p),L=nearbyLot(p);
+   const dh=H?Math.hypot(H.doorPt[0]-p.x,H.doorPt[1]-p.y):Infinity;
+   const dl=L?Math.hypot(L.sign[0]-p.x,L.sign[1]-p.y):Infinity;
+   if(L&&dl<dh+.15)return lotPanel(L);
    if(!H)return false;
-   panel(H);return true;
+   return panel(H);
  }
- function prompt(p){const H=nearby(p);if(H&&multi(H))return 'F · '+name(H)+' · apartamentos para alugar ou comprar';return H?'F · '+(isOwned(H)?'Ver minha residência':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';}
- return {init,residential,isOwned,canFurnish,canFurnishLevel,canFurnishUnit,canUse,unitAt,unitKey,multi,units,ownsUnit,buyUnit,unitPrice,bare,claim,nearby,onInteract,prompt,buy,rentStarter,rentUnit,rentNearbyApartment,unitRent,lease,payRent,toggleAutoPay,terminateLease,tick,adminSetOwned,id,price,name,close,
+ function prompt(p){
+   const H=nearby(p),L=nearbyLot(p);
+   const dh=H?Math.hypot(H.doorPt[0]-p.x,H.doorPt[1]-p.y):Infinity;
+   const dl=L?Math.hypot(L.sign[0]-p.x,L.sign[1]-p.y):Infinity;
+   if(L&&dl<dh+.15)return 'F ou clique na placa · '+(ownedLot(L)?'Meu terreno':'Comprar terreno '+Math.round(L.area)+' m² · '+CityLife.money(L.price));
+   if(H&&multi(H))return 'F · '+name(H)+' · apartamentos para alugar ou comprar';
+   return H?'F · '+(isOwned(H)?'Ver minha residência':'Consultar '+name(H)+' à venda · '+CityLife.money(price(H))):'';
+ }
+ return {init,residential,isOwned,canFurnish,canFurnishLevel,canFurnishUnit,canUse,unitAt,unitKey,multi,units,ownsUnit,buyUnit,unitPrice,bare,claim,nearby,nearbyLot,lotPanel,clickLot,drawLotSelection,onInteract,prompt,buy,rentStarter,rentUnit,rentNearbyApartment,unitRent,lease,payRent,toggleAutoPay,terminateLease,tick,adminSetOwned,id,price,name,close,
   get dialogOpen(){return document.getElementById('city-property-dialog')?.hidden===false;},
   get owned(){return owned;}};
 })();
