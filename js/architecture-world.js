@@ -178,9 +178,26 @@ function remodelProperty(H){
      if(sector.own?.houses?.includes(H)){(sector.own.boxes||(sector.own.boxes=[])).push(...newBoxes);break;}
  };
  if(typeof CityRealty==='undefined'||CityRealty.canFurnish(H))H._architectureFurnished=true;
- const first=plan.levels[0];H.doorPt=P(...first.entry);H.doorN=[ey[0],ey[1]];H.front=[H.doorPt[0]+ey[0]*1.8,H.doorPt[1]+ey[1]*1.8];if(H.walk)H.walk[0]=H.doorPt;
+ const first=plan.levels[0],oldDoor=H.doorPt,oldN=H.doorN;H.doorPt=P(...first.entry);H.doorN=[ey[0],ey[1]];H.front=[H.doorPt[0]+ey[0]*1.8,H.doorPt[1]+ey[1]*1.8];if(H.walk)H.walk[0]=H.doorPt;
+ realignEntry(H,oldDoor,oldN);
  if(typeof CityRealty!=='undefined'&&CityRealty.isOwned(H))H.furnishOnPurchase();
  plan.openingSegments=plan.levels.flatMap(level=>level.segments.filter(s=>s.doorAnim||s.windowAnim));
  if(count>1){H.stair={house:H,z:height,architecture:true};CityStairs.layout(H);}
  return H;
+}
+
+// degrau/deque de entrada (houses.js) nascem na porta do molde; a planta 3D põe a porta em outro lugar da fachada.
+// Leva cada um junto com a porta: mesma distância à frente e ao lado, girado de frente para a nova porta.
+function realignEntry(H,oldDoor,oldN){
+ if(!oldDoor||!oldN||!H.entryBoxes?.length)return 0;
+ const nd=H.doorPt,nn=H.doorN,ot=[-oldN[1],oldN[0]],nt=[-nn[1],nn[0]],rot=Math.atan2(-nn[0],nn[1]);
+ if(Math.hypot(nd[0]-oldDoor[0],nd[1]-oldDoor[1])<.02&&Math.abs(nn[0]-oldN[0])+Math.abs(nn[1]-oldN[1])<.01)return 0;
+ let n=0;
+ for(const b of H.entryBoxes){   // só o degrau/deque desta casa (marcados em houses.js), nada de varrer o mundo
+  const dx=b.x-oldDoor[0],dy=b.y-oldDoor[1];
+  const along=dx*oldN[0]+dy*oldN[1],side=dx*ot[0]+dy*ot[1];
+  if(along<-.1||along>3.2||Math.abs(side)>2.4)continue;   // só o que está na frente desta porta
+  b.x=nd[0]+nn[0]*along+nt[0]*side;b.y=nd[1]+nn[1]*along+nt[1]*side;b.rot=rot;b.entryOf=H;n++;
+ }
+ return n;
 }

@@ -15,7 +15,8 @@ export const REPLACE=Object.freeze({
  sofa:['qf_couch_medium2'],couch:['qf_couch_small1'],sectional:['qf_couch_l'],chair:['qf_chair_3'],
  bed:['qf_bed_king'],mattress:['qf_bed_single'],shelf:['qf_shelf_large'],table:['qf_table_roundsmall'],
  stove:['qf_kitchen_oven'],sink:['qf_kitchen_sink'],toilet:['qf_bathroom_toilet'],shower:['qf_bathroom_shower1'],
- plant:['qf_houseplant_4'],lamp:['qf_light_floor1'],lampdesk:['qf_light_desk'],rug:['qf_carpet_1',90],mirror:['qf_bathroom_mirror1'],
+ plant:['qf_houseplant_4',0,{drop:/^Wood$/}],   // sem as estacas de madeira do modelo (espetos saindo da folhagem)
+lamp:['qf_light_floor1'],lampdesk:['qf_light_desk'],rug:['qf_carpet_1',90],mirror:['qf_bathroom_mirror1'],
 });
 const FABRIC=/couch|bed|carpet|curtain/,METAL=/light_|fridge|oven|washing|trashcan/;
 
@@ -45,8 +46,9 @@ export async function loadQuaterniusFurniture(THREE,M,{fabric,metal}={}){
   });
   pieces.set(node.name,list);
  }
- const build=(item,list,tint,{scale=1,turn=0}={})=>k=>{
+ const build=(item,list,tint,{scale=1,turn=0,drop=null}={})=>k=>{
   for(const [g,color,name] of list){
+   if(drop&&drop.test(name))continue;
    const geo=g.clone();
    if(turn)geo.rotateY(turn*Math.PI/180);
    if(scale!==1)geo.scale(scale,scale,scale);
@@ -60,10 +62,10 @@ export async function loadQuaterniusFurniture(THREE,M,{fabric,metal}={}){
   changed.add(kind);
  }
  // procedurais → pack: o modelo cabe na planta do tipo (largura × profundidade), sem passar de 15% de aumento
- for(const [kind,[q,turn=0]] of Object.entries(REPLACE)){
+ for(const [kind,[q,turn=0,opt={}]] of Object.entries(REPLACE)){
   const old=M[kind],item=manifest.items[q],list=pieces.get(item?.file);if(!old||!item||!list)continue;
   const [W,,D]=old.dims,w=turn%180?item.d:item.w,d=turn%180?item.w:item.d,s=Math.min(1.15,Math.max(.7,Math.min(W/w,D/d)));
-  M[kind]={...old,uniform:true,dims:[W,item.h*s,D],make(k,c){build(item,list,c,{scale:s,turn})(k);}};
+  M[kind]={...old,uniform:true,dims:[W,item.h*s,D],make(k,c){build(item,list,c,{scale:s,turn,drop:opt.drop})(k);}};
   if(FABRIC.test(q))fabric?.add(kind);
   changed.add(kind);
  }
