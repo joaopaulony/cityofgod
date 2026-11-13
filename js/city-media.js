@@ -180,6 +180,7 @@ const CityMedia=(()=>{
   if(!H||!item||!['tv','screen'].includes(item.kind))return {ok:false,text:'Televisão indisponível'};
   const p=getPlayer();
   if(!p||Math.hypot(p.x-item.x,p.y-item.y)>4.2)return {ok:false,text:'Aproxime-se da televisão'};
+  if(window.CityRealty?.canUse&&!window.CityRealty.canUse(H,item.floor||0,item.unit))return {ok:false,text:'Você não tem acesso a esta residência'};
   const room=C.roomAt(H,item.floor||0,item.x,item.y,window.CityHomePlus?.roomAt);
   if(!C.canHear(H,p,room,window.CityHomePlus?.roomAt))return {ok:false,text:'Entre no cômodo da televisão'};
   const powered=!window.CityHomePlus||window.CityHomePlus.powerOn?.(H)!==false;
