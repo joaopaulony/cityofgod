@@ -13,6 +13,7 @@ const CityMedia=(()=>{
  let active=null,videoPlayer=null,videoReady=false,videoID=null,playerLoading=false;
  let connection=null,channel=null,lastRender=0,lastCar=false,radioVehicle=null;
  let visibleScreen=null;
+ let expanded={open:false,screen:null,room:null,house:null,player:null,ready:false,video:null,lastSync:0};
  let remoteRadio=null,remoteStation=null,remoteOn=false,radioCurrent=null,lastSend=0;
  const notify=s=>window.CityUI?.notify?.(s);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -62,6 +63,9 @@ const CityMedia=(()=>{
    if(previous&&previous.at>record.at+1000)return;
    tvs.set(record.screen,record);saveTV();
    if(active?.screen===record.screen)syncVideo(record);
+   if(expanded.open&&expanded.screen===record.screen){
+    if(!record.playing||!record.video)closeExpanded();else syncExpanded(record,true);
+   }
    return;
   }
   if(m.type==='radio'&&typeof m.vehicle==='string'&&stations.some(s=>s.id===m.station)){
@@ -111,7 +115,10 @@ const CityMedia=(()=>{
         <div class="cog-media-tag">CITY OF GOD · MÍDIA</div>
         <h2>📺 Televisão YouTube</h2><p id="cog-media-room"></p>
         <label>Link do YouTube<input id="cog-media-link" type="url" maxlength="2048" placeholder="https://www.youtube.com/watch?v=..." spellcheck="false"></label>
-        <div class="cog-media-actions"><button data-cm="play">▶ Reproduzir</button><button data-cm="stop">■ Desligar</button><button data-cm="audio">🔊 Ativar áudio</button></div>
+        <div class="cog-media-actions">
+          <button data-cm="play">▶ Reproduzir</button><button data-cm="stop">■ Desligar</button>
+          <button data-cm="audio">🔊 Ativar áudio</button><button data-cm="expand">▣ Assistir em tela grande</button>
+        </div>
         <p id="cog-media-status" role="status">Cole um link e clique em Reproduzir.</p>
         <details><summary>Multiplayer · sala compartilhada</summary>
           <label>Código da sala<input id="cog-media-code" maxlength="100" autocomplete="off" spellcheck="false"></label>
@@ -120,6 +127,25 @@ const CityMedia=(()=>{
           <p id="cog-media-peers"></p><small>Na mesma sala, todos recebem o vídeo e o horário. O áudio só toca para quem está no cômodo. Sem servidor, sincroniza somente outras abas do mesmo navegador.</small>
         </details>
         <small>Vídeos podem bloquear incorporação, som automático ou reprodução em segundo plano por regras do YouTube e do navegador.</small>
+      </section>
+    </div>
+    <button type="button" id="cog-tv-expand" data-cm="expand" hidden title="Assistir em uma janela maior">▣ Assistir em tela grande</button>
+    <div id="cog-tv-viewer" hidden role="dialog" aria-label="Assistir televisão em tela ampliada">
+      <section class="cog-tv-viewer-panel">
+        <header class="cog-tv-viewer-header">
+          <span class="cog-tv-viewer-mark">CITY OF GOD <small>TV AO VIVO NO CÔMODO</small></span>
+          <span id="cog-tv-viewer-room"></span>
+          <div class="cog-tv-viewer-tools">
+            <button type="button" data-cm="viewer-audio" title="Habilitar som">🔊 Som</button>
+            <button type="button" data-cm="viewer-fullscreen" title="Tela cheia">⛶</button>
+            <button type="button" data-cm="viewer-close" title="Fechar janela">✕</button>
+          </div>
+        </header>
+        <div id="cog-tv-large-screen" class="cog-tv-large-screen"><div id="cog-tv-large-mount"></div></div>
+        <footer class="cog-tv-viewer-footer">
+          <span id="cog-tv-viewer-status" role="status">Reprodução sincronizada com a televisão do cômodo</span>
+          <button type="button" data-cm="viewer-close">Voltar ao jogo</button>
+        </footer>
       </section>
     </div>
     <div id="cog-car-radio" hidden role="group" aria-label="Rádio retrô do veículo">
@@ -158,6 +184,10 @@ const CityMedia=(()=>{
    if(!btn)return;
    const cmd=btn.dataset.cm;
    if(cmd==='close'){dialog.hidden=true;return;}
+   if(cmd==='viewer-close'){closeExpanded();return;}
+   if(cmd==='viewer-audio'){enableExpandedAudio();return;}
+   if(cmd==='viewer-fullscreen'){const panel=document.querySelector('.cog-tv-viewer-panel');if(document.fullscreenElement)document.exitFullscreen?.();else panel?.requestFullscreen?.().catch(()=>{});return;}
+   if(cmd==='expand'){openExpanded();return;}
    if(cmd==='radio-close'){document.getElementById('cog-radio-list').hidden=true;return;}
    if(cmd==='radio-list'){document.getElementById('cog-radio-list').hidden=false;return;}
    if(cmd==='ambient-toggle'){remoteOn=!remoteOn;syncNearbyRadio(true);return;}
@@ -176,7 +206,7 @@ const CityMedia=(()=>{
    if(cmd==='copy-room'){navigator.clipboard?.writeText(document.getElementById('cog-media-code').value);setStatus('Código copiado. Compartilhe com os outros jogadores.');}
   });
   document.getElementById('cog-radio-volume').addEventListener('input',e=>{state.volume=Number(e.target.value)/100;persist();syncRadioVolume();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!dialog.hidden){dialog.hidden=true;}});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded.open){closeExpanded();e.preventDefault();e.stopImmediatePropagation?.();return;}if(e.key==='Escape'&&!dialog.hidden){dialog.hidden=true;}} ,true);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){safeAudio().volume=0;try{videoPlayer?.mute?.();}catch{}}});
   radioUI.addEventListener('pointerdown',e=>e.stopPropagation());
   resetChannel();
