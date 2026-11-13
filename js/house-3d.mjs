@@ -37,16 +37,27 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
   });
   // folhagem de sebe: milhares de folhinhas sobrepostas com luz no alto (repete sem emenda)
   const leafPaint = (g, w, h) => {
-    g.fillStyle = '#24461c'; g.fillRect(0, 0, w, h);
-    const C = ['#2f5a24', '#376a2a', '#3f7530', '#4a8236', '#2a4f20', '#55903c', '#467a2e'];
-    for (let i = 0; i < 2600; i++) {
-      const x = rnd() * w, y = rnd() * h, a = rnd() * TAU, s = 3 + rnd() * 5, c = C[(rnd() * C.length) | 0];
-      for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) {
-        const X = x + ox, Y = y + oy; if (X < -10 || X > w + 10 || Y < -10 || Y > h + 10) continue;
-        g.save(); g.translate(X, Y); g.rotate(a); g.fillStyle = 'rgba(10,25,8,0.45)'; g.beginPath(); g.ellipse(0.8, 1.2, s, s * 0.5, 0, 0, TAU); g.fill();
-        g.fillStyle = c; g.beginPath(); g.ellipse(0, 0, s, s * 0.5, 0, 0, TAU); g.fill();
-        g.fillStyle = 'rgba(220,255,180,0.18)'; g.beginPath(); g.ellipse(-s * 0.25, -s * 0.12, s * 0.5, s * 0.18, 0, 0, TAU); g.fill(); g.restore();
-      }
+    // base média e manchas grandes de luz/sombra (o volume da sebe), depois tufos de folhas com luz de cima
+    g.fillStyle = '#3a6a2a'; g.fillRect(0, 0, w, h);
+    const wrap = (fn) => { for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) fn(ox, oy); };
+    for (let i = 0; i < 14; i++) {
+      const x = rnd() * w, y = rnd() * h, R = 30 + rnd() * 50, light = rnd() < 0.55;
+      wrap((ox, oy) => { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, R); gr.addColorStop(0, light ? 'rgba(120,170,80,0.28)' : 'rgba(20,45,18,0.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x + ox - R, y + oy - R, R * 2, R * 2); });
+    }
+    const C = ['#3f7a2e', '#478631', '#4f9036', '#5a9a3c', '#649f42', '#4a8233', '#6aa848'];
+    for (let i = 0; i < 380; i++) {
+      const x = rnd() * w, y = rnd() * h, n = 5 + ((rnd() * 3) | 0), s = 6 + rnd() * 6, a0 = rnd() * TAU, c = C[(rnd() * C.length) | 0];
+      wrap((ox, oy) => {
+        const X = x + ox, Y = y + oy; if (X < -24 || X > w + 24 || Y < -24 || Y > h + 24) return;
+        // sombra macia do tufo, folhas em roseta e um brilho só nas de cima
+        g.fillStyle = 'rgba(18,40,14,0.16)'; g.beginPath(); g.ellipse(X + 1.5, Y + 2.5, s * 1.25, s * 0.9, 0, 0, TAU); g.fill();
+        for (let k = 0; k < n; k++) {
+          const a = a0 + k / n * TAU; g.save(); g.translate(X + Math.cos(a) * s * 0.35, Y + Math.sin(a) * s * 0.35); g.rotate(a);
+          g.fillStyle = c; g.beginPath(); g.ellipse(s * 0.45, 0, s * 0.62, s * 0.3, 0, 0, TAU); g.fill();
+          if (Math.sin(a) < -0.2) { g.fillStyle = 'rgba(214,240,160,0.22)'; g.beginPath(); g.ellipse(s * 0.45, -s * 0.06, s * 0.4, s * 0.12, 0, 0, TAU); g.fill(); }
+          g.restore();
+        }
+      });
     }
   };
   const leafTex = canvas(256, 256, leafPaint);
@@ -59,7 +70,7 @@ export function createHouse3D(THREE, scene, bridge, opts = {}) {
   const matCloth = see(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   const matHole = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   const matWood = see(new THREE.MeshLambertMaterial({ vertexColors: true, map: woodTex }));
-  const matHedge = see(new THREE.MeshLambertMaterial({ vertexColors: true, map: leafTex, bumpMap: leafTex, bumpScale: 2.5 }));
+  const matHedge = see(new THREE.MeshLambertMaterial({ vertexColors: true, map: leafTex, bumpMap: leafTex, bumpScale: 0.9 }));
 
   // ======================= instâncias por tipo =======================
   const pool = new Map();
