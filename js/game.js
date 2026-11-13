@@ -1117,6 +1117,7 @@ function tick(dt) {
     return;
   }
   if(window.CityMedia?.dialogOpen||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
+    window.CityMedia?.tick?.(); // Keep active TV, room audio and spatial media in sync while media controls are open.
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
