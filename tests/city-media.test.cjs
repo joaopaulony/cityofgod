@@ -44,7 +44,7 @@ test('Real HTTPS stations are editable and car radio is wired into game',()=>{
  assert.ok(C.STATIONS.length>=5);
  assert.ok(C.STATIONS.every(r=>r.url.startsWith('https://')&&r.name&&r.id));
  assert.match(read('city-media.js'),/new Audio\(\)/);
- assert.match(read('city-media.js'),/radioAudio\.play\(\)/);
+ assert.match(read('city-media.js'),/audio\.play\(\)/);
  assert.match(read('city-media.js'),/YT\.Player/);
  assert.match(read('city-media.js'),/BroadcastChannel/);
  assert.match(read('interiors.js'),/CityMedia\?\.openTV/);
