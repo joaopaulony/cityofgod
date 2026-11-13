@@ -212,6 +212,80 @@ const CityMedia=(()=>{
   resetChannel();
  }
  function setStatus(text){const el=document.getElementById('cog-media-status');if(el)el.textContent=text;}
+
+ // Everyone physically in this exact room can watch; editing remains owner-gated.
+ const canWatch=sel=>{
+  const p=getPlayer();
+  return !!sel?.house&&!!p&&!driver()&&!inMenu()&&C.canHear(sel.house,p,sel.room,window.CityHomePlus?.roomAt);
+ };
+ const canEdit=sel=>!!sel&&(!window.CityRealty?.canUse||!!window.CityRealty.canUse(sel.house,sel.item.floor||0,sel.item.unit));
+ const viewerStatus=msg=>{const e=document.getElementById('cog-tv-viewer-status');if(e)e.textContent=msg;};
+ function closeExpanded(){
+  if(!expanded.open)return;
+  expanded.open=false;expanded.screen=null;expanded.house=null;expanded.room=null;expanded.video=null;expanded.lastSync=0;
+  const shell=document.getElementById('cog-tv-viewer');if(shell)shell.hidden=true;
+  try{expanded.player?.mute?.();expanded.player?.pauseVideo?.();}catch{}
+  if(document.fullscreenElement?.closest?.('.cog-tv-viewer-panel'))document.exitFullscreen?.().catch(()=>{});
+  syncTVVolume();
+ }
+ function ensureExpandedPlayer(){
+  if(expanded.player||expanded.loading)return;
+  expanded.loading=true;
+  youtubeAPI().then(YT=>{
+   const mount=document.getElementById('cog-tv-large-mount');
+   if(!mount)return;
+   expanded.player=new YT.Player(mount,{width:960,height:540,
+    playerVars:{playsinline:1,controls:0,autoplay:0,disablekb:1,rel:0,origin:location.origin},
+    events:{
+     onReady(){expanded.ready=true;expanded.player.mute();if(expanded.open)syncExpanded(tvs.get(expanded.screen),true);},
+     onError(e){viewerStatus('O YouTube bloqueou este vídeo para incorporação (código '+e.data+').');}
+    }});
+  }).catch(()=>{expanded.loading=false;viewerStatus('Não foi possível carregar o YouTube.');});
+ }
+ function syncExpanded(record,force=false){
+  if(!expanded.open)return;
+  if(!canWatch({house:expanded.house,room:expanded.room})||!record?.playing||
+     !record.video||record.screen!==expanded.screen){closeExpanded();return;}
+  ensureExpandedPlayer();
+  if(!expanded.ready)return;
+  const now=Date.now();
+  if(!force&&now-expanded.lastSync<4500)return;
+  expanded.lastSync=now;
+  const position=Math.max(0,Math.min(86400,(now-record.at)/1000));
+  try{
+   if(expanded.video!==record.video){
+    expanded.video=record.video;
+    expanded.player.loadVideoById({videoId:record.video,startSeconds:position});
+   }else if(Math.abs((expanded.player.getCurrentTime?.()||0)-position)>2.7){
+    expanded.player.seekTo(position,true);
+   }
+   if(expanded.player.getPlayerState?.()!==1)expanded.player.playVideo?.();
+   if(document.hidden)expanded.player.mute?.();
+   else{expanded.player.unMute?.();expanded.player.setVolume?.(64);}
+  }catch{viewerStatus('Falha na sincronização. Feche e reabra a janela.');}
+ }
+ function openExpanded(){
+  ensure();
+  const sel=visibleScreen||active,record=sel&&tvs.get(sel.screen);
+  if(!canWatch(sel)){notify('É necessário estar no mesmo cômodo da TV.');return false;}
+  if(!record?.playing||!record.video){setStatus('Ligue um vídeo na TV antes de ampliar.');return false;}
+  const shell=document.getElementById('cog-tv-viewer');
+  if(!shell)return false;
+  expanded.open=true;expanded.screen=sel.screen;expanded.house=sel.house;
+  expanded.room=sel.room;expanded.video=null;expanded.lastSync=0;
+  shell.hidden=false;dialog.hidden=true;
+  const e=document.getElementById('cog-tv-viewer-room');
+  if(e)e.textContent='Cômodo: '+sel.room.split(':').slice(1).join(':');
+  viewerStatus('O mesmo vídeo e horário da TV; cada pessoa pode abrir sua própria janela.');
+  syncTVVolume();
+  syncExpanded(record,true);
+  return true;
+ }
+ function enableExpandedAudio(){
+  if(!expanded.open)return;
+  syncExpanded(tvs.get(expanded.screen),true);
+  try{expanded.player?.unMute?.();expanded.player?.setVolume?.(64);expanded.player?.playVideo?.();}catch{}
+ }
  function syncDialog(){
   if(!active)return;
   const room=document.getElementById('cog-media-room');
@@ -219,14 +293,17 @@ const CityMedia=(()=>{
   const record=tvs.get(active.screen);
   if(record?.video)document.getElementById('cog-media-link').value='https://www.youtube.com/watch?v='+record.video;
   const peer=document.getElementById('cog-media-peers');
-  if(peer)peer.textContent=peers.connected?'🟢 Sala online · '+peers.count+' conexão(ões)':'⚪ Somente local · '+(peers.error||'Servidor não conectado');
+  if(peer)peer.textContent=peers.connected?'🟢 Sala de mídia online · '+peers.count+' conexão(ões)':'⚪ Somente local · '+(peers.error||'Servidor não conectado');
+  const editing=canEdit(active);
+  document.getElementById('cog-media-link').readOnly=!editing;
+  for(const name of ['play','stop'])dialog.querySelector('[data-cm="'+name+'"]').disabled=!editing;
+  dialog.querySelector('[data-cm="expand"]').disabled=!record?.playing;
  }
  function openTV(H,item){
   ensure();
   if(!H||!item||!['tv','screen'].includes(item.kind))return {ok:false,text:'Televisão indisponível'};
   const p=getPlayer();
   if(!p||Math.hypot(p.x-item.x,p.y-item.y)>4.2)return {ok:false,text:'Aproxime-se da televisão'};
-  if(window.CityRealty?.canUse&&!window.CityRealty.canUse(H,item.floor||0,item.unit))return {ok:false,text:'Você não tem acesso a esta residência'};
   const room=C.roomAt(H,item.floor||0,item.x,item.y,window.CityHomePlus?.roomAt);
   if(!C.canHear(H,p,room,window.CityHomePlus?.roomAt))return {ok:false,text:'Entre no cômodo da televisão'};
   const powered=!window.CityHomePlus||window.CityHomePlus.powerOn?.(H)!==false;
@@ -234,7 +311,7 @@ const CityMedia=(()=>{
   active={house:H,item,screen:recordKey(H,item),room};
   dialog.hidden=false;syncDialog();
   const record=tvs.get(active.screen);if(record)syncVideo(record);
-  return {ok:true,text:'Televisão pronta'};
+  return {ok:true,text:canEdit(active)?'Televisão pronta':'Assistir como visitante no cômodo'};
  }
  function allScreens(){
   const p=getPlayer();if(!p||driver())return [];
@@ -245,12 +322,12 @@ const CityMedia=(()=>{
     .map(item=>({house:H,item,screen:recordKey(H,item),room:C.roomAt(H,item.floor||0,item.x,item.y,window.CityHomePlus?.roomAt)}));
  }
  function playTV(id){
-  if(!active)return;
+  if(!active||!canEdit(active))return;
   const record={type:'tv',screen:active.screen,room:active.room,video:id,playing:true,at:Date.now()};
   ingest(record);transmit(record);syncVideo(record,true);setStatus('Vídeo selecionado. Caso o navegador bloqueie, clique em Ativar áudio.');
  }
  function stopTV(){
-  if(!active)return;
+  if(!active||!canEdit(active))return;
   const record={type:'tv',screen:active.screen,room:active.room,video:null,playing:false,at:Date.now()};
   ingest(record);transmit(record);muteVideo(true);setStatus('Televisão desligada.');
  }
@@ -295,7 +372,8 @@ const CityMedia=(()=>{
   if(!videoReady)return;
   const p=getPlayer();
   const ok=active&&p&&!inMenu()&&!driver()&&C.canHear(active.house,p,active.room,window.CityHomePlus?.roomAt);
-  try{if(ok&&!document.hidden){videoPlayer.unMute();videoPlayer.setVolume(55);}else muteVideo(true);}catch{}
+  try{if(ok&&!document.hidden&&!expanded.open){videoPlayer.unMute();videoPlayer.setVolume(55);}
+   else muteVideo(!expanded.open);}catch{}
  }
  function enableAudio(){
   if(!active)return;
@@ -386,6 +464,9 @@ const CityMedia=(()=>{
   const choices=allScreens();
   const shown=choices.find(b=>tvs.get(b.screen)?.playing)||null;
   visibleScreen=shown;
+  const expandBtn=document.getElementById('cog-tv-expand');
+  if(expandBtn)expandBtn.hidden=!shown||!canWatch(shown)||expanded.open;
+  if(expanded.open)syncExpanded(tvs.get(expanded.screen));
   if(shown){
    const changed=active?.screen!==shown.screen;
    if(changed){active=shown;videoID=null;syncVideo(tvs.get(shown.screen));}
@@ -425,8 +506,8 @@ const CityMedia=(()=>{
   if(wasHidden)syncVideo(record);
   syncTVVolume();
  }
- return {ensure,openTV,tick,updateOverlay,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
+ return {ensure,openTV,openExpanded,closeExpanded,tick,updateOverlay,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
   get state(){return {...state};},get screens(){return [...tvs.values()]},get active(){return active},
-  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
+  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get expandedOpen(){return expanded.open;},get expandedState(){return {open:expanded.open,screen:expanded.screen,room:expanded.room,ready:expanded.ready};},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
 })();
 window.CityMedia=CityMedia;
