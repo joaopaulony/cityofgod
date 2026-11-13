@@ -61,6 +61,7 @@ const system={
 window.cityVehicles=system;
 // Comprimento do modelo ativo: usado pela colisão de pedestres e pelos tiros (caixa orientada).
 Object.defineProperty(system,'carLength',{get:()=>activeModel.length,enumerable:true});
+Object.defineProperty(system,'mediaVehicleId',{get:()=>activeKey,enumerable:true});
 system.fuel=fuel;
 system.damage=damage;
 system.getSmokeStats=()=>damageFX?.stats()||{visibleSmoke:0,visibleSparks:0,capacity:0,emitters:0};
