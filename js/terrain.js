@@ -18,7 +18,7 @@ function setTerrainInk(on) {
   if (!on && typeof texEnsureGround === 'function') texEnsureGround();   // estilo original: texturas do chão sob demanda
 }
 // já nasce no estilo salvo: nada é pintado num estilo e jogado fora logo depois
-try { const S = typeof window !== 'undefined' && window.CityFrontState; if (S) terrain.ink = S.settings(S.read(localStorage, S.SETTINGS)).ink !== false; } catch { }
+try { const S = typeof window !== 'undefined' && window.CityFrontState; if (S) { const v = S.settings(S.read(localStorage, S.SETTINGS)); terrain.ink = v.ink !== false && !!v.inkGround; } } catch { }
 if (typeof window !== 'undefined') window.CityTerrainInk = setTerrainInk;
 
 // ---------- ruído tileável 256² (ancorado no mundo) ----------

@@ -226,7 +226,7 @@ void main(){
   // URBAN INK (urban-ink.mjs): parâmetros do traço ou null p/ o estilo original; o chão 2D (terrain.js) acompanha
   let ink = null;
   // já nasce no estilo salvo (antes de a camada 3D aplicar as configurações): não baixa fotos à toa
-  try { const S = window.CityFrontState, v = S && S.settings(S.read(localStorage, S.SETTINGS)); if (v && v.ink) ink = { enabled: true, outline: v.inkOutline }; } catch (_) {}
+  try { const S = window.CityFrontState, v = S && S.settings(S.read(localStorage, S.SETTINGS)); if (v && v.ink && v.inkGround) ink = { enabled: true, outline: v.inkOutline }; } catch (_) {}
   function setInk(p) { ink = p && p.enabled ? p : null; window.CityTerrainInk?.(!!ink); if (!ink) wantTextures(); }
   return { draw, invalidate, setInk, get active() { return ready && !failed; }, stats };
 })();

@@ -3,7 +3,7 @@
  const SETTINGS='cityofgod.front.settings.v1',SAVE='cityofgod.front.save.v1',BACKUP='cityofgod.front.backup.v1';
  const defaults={quality:'balanced',brightness:1,music:.35,ambient:.7,effects:.8,voices:.8,interface:.8,master:.75,reducedMotion:false,cameraFollow:true,cameraShake:.6,theme:'light',hud:'minimal',
   // URBAN INK — CARTOON (urban-ink.mjs): estilo gráfico e seus controles (0–1); ink:false volta ao estilo original
-  ink:true,inkOutline:.75,inkThickness:.2,inkToon:.6,inkSaturation:.75,inkContrast:.5,inkQuality:'balanced'};
+  ink:true,inkOutline:.75,inkThickness:.2,inkToon:.6,inkSaturation:.75,inkContrast:.5,inkQuality:'balanced',inkGround:false};
  const cap=(v,a,b,f)=>Number.isFinite(Number(v))?Math.max(a,Math.min(b,Number(v))):f;
  function settings(raw){return {...defaults,quality:['low','balanced','high'].includes(raw?.quality)?raw.quality:defaults.quality,
   brightness:cap(raw?.brightness,.75,1.3,1),music:cap(raw?.music,0,1,.35),ambient:cap(raw?.ambient,0,1,.7),effects:cap(raw?.effects,0,1,.8),voices:cap(raw?.voices,0,1,.8),interface:cap(raw?.interface,0,1,.8),master:cap(raw?.master,0,1,.75),reducedMotion:typeof raw?.reducedMotion==='boolean'?raw.reducedMotion:false,
@@ -11,7 +11,8 @@
   // interface (css/ui-theme.css): aparência clara/escura/automática e HUD discreta ou completa
   theme:['light','dark','auto'].includes(raw?.theme)?raw.theme:'light',hud:['minimal','full'].includes(raw?.hud)?raw.hud:'minimal',
   ink:typeof raw?.ink==='boolean'?raw.ink:true,inkOutline:cap(raw?.inkOutline,0,1,.75),inkThickness:cap(raw?.inkThickness,0,1,.2),inkToon:cap(raw?.inkToon,0,1,.6),
-  inkSaturation:cap(raw?.inkSaturation,0,1,.75),inkContrast:cap(raw?.inkContrast,0,1,.5),inkQuality:['performance','balanced','quality'].includes(raw?.inkQuality)?raw.inkQuality:'balanced'};}
+  inkSaturation:cap(raw?.inkSaturation,0,1,.75),inkContrast:cap(raw?.inkContrast,0,1,.5),inkQuality:['performance','balanced','quality'].includes(raw?.inkQuality)?raw.inkQuality:'balanced',
+  inkGround:typeof raw?.inkGround==='boolean'?raw.inkGround:false};}
  function checkpoint(raw){
   if(raw?.version!==1||!['open','local'].includes(raw.mode)||![raw.x,raw.y,raw.seed,raw.clock].every(Number.isFinite)||raw.x<.5||raw.y<.5||raw.seed<0||raw.clock<0||!Number.isInteger(raw.floor)||raw.floor<0||raw.floor>19)return null;
   const point={version:1,mode:raw.mode,seed:raw.seed,x:raw.x,y:raw.y,floor:raw.floor,clock:raw.clock,at:Number.isFinite(raw.at)?raw.at:0};

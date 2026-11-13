@@ -418,7 +418,11 @@ system.applyInk=settings=>{
  const on=urbanInk.enabled;
  renderer.toneMappingExposure=on?INK_LIGHT.exposure:1.38;
  document.body?.classList.toggle('urban-ink',on);
- window.GroundGPU?.setInk?.(on?inkParamsFrom(settings):null);
+ // chão (terreno 2D e chão da GPU): no estilo Urban Ink só se a opção "Chão no estilo Urban Ink" estiver ligada;
+ // senão fica o chão original (texturas, cores e filtros de antes)
+ const ground=on&&!!settings?.inkGround;
+ document.body?.classList.toggle('urban-ink-ground',ground);
+ window.GroundGPU?.setInk?.(ground?inkParamsFrom(settings):null);
 };
 // sombra do sol no Urban Ink: o passe de sombra redesenha ~300 objetos (mais da metade dos desenhos do quadro).
 // O mapa guardado continua preso ao mundo, então casas, árvores e postes não mudam se ele for refeito um quadro sim,
