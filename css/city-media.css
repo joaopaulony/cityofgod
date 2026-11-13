@@ -1,0 +1,41 @@
+/* City of God — diegetic YouTube screens and car radio */
+#cog-tv-screen{position:fixed;z-index:5;pointer-events:none;overflow:hidden;border-radius:3px;background:#06090d;
+ border:2px solid #181c21;box-shadow:0 0 14px #102432bb;transform:skewY(-2deg);transform-origin:center center}
+#cog-tv-screen iframe{width:100%;height:100%;border:0;pointer-events:none}
+#cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden]{display:none!important}
+#cog-media-dialog,#cog-radio-list{position:fixed;inset:0;z-index:110;display:grid;place-items:center;
+ background:#000a;padding:16px;box-sizing:border-box;overflow:auto;color:#eef5f1;font:14px/1.45 system-ui,sans-serif}
+.cog-media-card{position:relative;width:min(540px,100%);max-height:calc(100vh - 30px);overflow:auto;box-sizing:border-box;
+ background:linear-gradient(155deg,#192c30,#0b141d);border:1px solid #7a9b965c;border-radius:18px;
+ padding:26px;box-shadow:0 14px 60px #000b}
+.cog-media-card h2{font-size:24px;margin:5px 0 10px;color:#fff}
+.cog-media-tag{font:800 10px/1.4 system-ui;letter-spacing:.22em;color:#b9d1c8}
+.cog-media-card p{color:#c3d3d1;margin:7px 0 18px}
+.cog-media-card small{display:block;color:#99aca9;font-size:11px;margin:8px 0}
+.cog-media-card label{display:block;font-size:12px;font-weight:650;color:#d8eae5;margin:12px 0}
+.cog-media-card input:not([type=range]){box-sizing:border-box;display:block;width:100%;background:#09141c;color:white;
+ padding:12px 13px;border:1px solid #6b8f8a79;border-radius:9px;margin-top:6px;font:13px system-ui}
+.cog-media-card input[type=range]{width:100%;accent-color:#67c6ab}
+.cog-media-card details{border-top:1px solid #ffffff20;margin-top:16px;padding-top:10px}
+.cog-media-card summary{cursor:pointer;font-weight:700;color:#e5f0e9}
+.cog-media-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.cog-media-actions button,.cog-station-list button{border:1px solid #70a89977;border-radius:9px;background:#183b36;
+ color:#ecfff8;padding:10px 13px;font:650 12px system-ui;cursor:pointer}
+.cog-media-actions button:hover,.cog-station-list button:hover{background:#2d665a}
+.cog-media-close{position:absolute;right:15px;top:13px;border:0;background:transparent;color:white;font-size:19px;cursor:pointer}
+#cog-media-status{font-size:12px;min-height:24px;color:#efd9a0}
+#cog-car-radio{position:fixed;z-index:9;right:18px;bottom:74px;display:flex;align-items:center;gap:7px;
+ width:min(410px,calc(100vw - 36px));box-sizing:border-box;padding:9px;border:1px solid #8abda76a;border-radius:13px;
+ background:#0c1922ed;box-shadow:0 7px 25px #0009;color:#fff;font-family:system-ui}
+#cog-car-radio div{display:grid;gap:3px;flex:1;min-width:0}
+#cog-car-radio strong{font-size:12px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+#cog-car-radio span{font-size:10px;color:#b5d2c6;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+#cog-car-radio button{min-width:31px;min-height:31px;border:1px solid #b4cab544;background:#203631;color:white;
+ border-radius:7px;cursor:pointer;font-size:15px}
+#cog-radio-list .cog-station-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:360px;overflow:auto}
+.cog-station-list button{text-align:left}
+.cog-station-list small{margin:3px 0;color:#b4d1c4}
+body.front-open #cog-tv-screen,body.front-open #cog-car-radio,
+body.city-home-open #cog-tv-screen{display:none!important}
+@media(max-width:550px){.cog-media-card{padding:19px}#cog-car-radio{right:8px;bottom:48px;width:calc(100vw - 16px)}
+ #cog-radio-list .cog-station-list{grid-template-columns:1fr}}
