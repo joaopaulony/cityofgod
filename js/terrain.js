@@ -249,6 +249,18 @@ const TC = h => hexToRgb(h);
 const COL = Object.fromEntries(Object.entries(VISUAL_REFERENCE.terrain)
   .map(([name,hex])=>[name,TC(hex)]));
 const COLB = COL;
+// decalques de chão (gramado e terreiro dos lotes, miami-city.js) pintados com a MESMA textura do terreno em volta,
+// presa à origem do mundo (emenda sem costura com o chão do lado). null se a textura ainda não carregou.
+const groundPatSrc = {};
+function groundPattern(g, key) {
+  const T = typeof GTEX !== 'undefined' && GTEX.ready && !terrain.ink && GTEX.t[key]; if (!T) return null;
+  let c = groundPatSrc[key];
+  if (!c || c.n !== T.n) { c = makeCanvas(T.n, T.n); c.n = T.n; const x = c.getContext('2d'), im = x.createImageData(T.n, T.n); im.data.set(T.data); x.putImageData(im, 0, 0); groundPatSrc[key] = c; }
+  const p = g.createPattern(c, 'repeat'); if (p.setTransform) p.setTransform(new DOMMatrix().scale(1 / TP)); return p;
+}
+// cor chapada do terreno p/ o mesmo uso (chão Urban Ink ou texturas ainda carregando)
+function groundFlat(key) { const c = (terrain.ink ? INK_COL : COLB)[key]; return c ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : null; }
+if (typeof window !== 'undefined') Object.assign(window, { groundPattern, groundFlat });
 const INK_SKIP = new Set(['oil', 'patch', 'alligator', 'pothole', 'acrack', 'gjunk', 'grit', 'paper', 'gum', 'crack', 'pebble']);
 // URBAN INK (urban-ink.mjs): paleta chapada da referência — asfalto cinza-azulado, calçada bege clara, grama viva,
 // terra alaranjada; as demais cores seguem o padrão oficial

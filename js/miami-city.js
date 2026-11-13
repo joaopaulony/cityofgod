@@ -1190,7 +1190,13 @@ function paintDecal(g, d) {
   const q = d.q, r = mulberry(d.seed), path = () => { g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); };
   const [x0, y0, x1, y1] = d.bb;
   g.save(); path(); g.clip();
-  if (d.kind === 'lawn') {   // grama de São Agostinho cortada em faixas claras/escuras
+  // gramado e terreiro: a mesma textura (ou cor) do terreno em volta, sem faixas nem pontinhos de outro estilo
+  const groundKey = d.kind === 'lawn' ? 'lawn' : d.kind === 'dirtyard' ? 'dirt' : null;
+  const groundFill = groundKey && typeof groundPattern === 'function' ? (groundPattern(g, groundKey) || groundFlat(groundKey === 'lawn' ? 'lush' : 'dirt')) : null;
+  if (groundFill) {
+    g.fillStyle = groundFill; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle = 'rgba(0,0,0,0.06)'; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // o terreno usa o tom ~0,93 da textura
+  } else if (d.kind === 'lawn') {   // grama de São Agostinho cortada em faixas claras/escuras
     g.fillStyle = 'rgba(96,126,60,0.9)'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
     for (let k = 0, v = d.dir ? x0 : y0; v < (d.dir ? x1 : y1); v += 1.2, k++) { g.fillStyle = k % 2 ? 'rgba(170,190,110,0.16)' : 'rgba(30,50,20,0.12)'; if (d.dir) g.fillRect(v, y0, 1.2, y1 - y0); else g.fillRect(x0, v, x1 - x0, 1.2); }
     for (let i = 0; i < (x1 - x0) * (y1 - y0) * 4; i++) { g.fillStyle = r() < 0.5 ? 'rgba(40,80,25,0.35)' : 'rgba(170,210,110,0.3)'; g.fillRect(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.05, 0.12); }
