@@ -16,7 +16,7 @@ test('watching is forbidden in a different room, outside the property or upstair
  const room=C.roomAt(house,0,2,2,roomAt);
  for(const p of [{x:8,y:4,floor:0},{x:2,y:4,floor:1},{x:14,y:4,floor:0}])
   assert.equal(C.canHear(house,p,room,roomAt),false);
- assert.match(media,/function canWatch\(/);
+ assert.match(media,/const canWatch=sel=>/);
  assert.match(media,/C\.canHear\(sel\.house,p,sel\.room/);
  assert.match(media,/if\(!canWatch\(\{house:expanded\.house,room:expanded\.room\}\)/);
 });
