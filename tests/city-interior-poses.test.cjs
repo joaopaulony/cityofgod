@@ -60,7 +60,10 @@ test('shower moves the actor INSIDE the enclosure during the effect and restores
  }
  assert.ok(entered,'character did not reach shower');
  assert.ok(insidePose,'character never entered the enclosure');
- assert.equal(paid,1,'hygiene reward exactly once');
+ assert.equal(f.window.CityHomeRoutine.active,true,'shower stays active until movement');
+ assert.equal(paid,0,'no automatic hygiene reward');
+ f.window.CityHomeRoutine.tick(.08,f.player,(x,y)=>[x,y],true); // WASD
+ assert.equal(paid,1,'hygiene reward exactly once on player movement');
  assert.equal(f.player.homeAction,null);
  assert.ok(f.H.contains(f.player.x,f.player.y,0),'shower pushed player out of home');
  assert.ok(f.window.CityHomeNav.safeSpot(f.H,f.item,f.player.x,f.player.y),'exited onto an obstacle');
