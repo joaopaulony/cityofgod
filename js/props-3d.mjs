@@ -11,6 +11,7 @@ import {hospitalModels,HOSPITAL_FABRIC,HOSPITAL_STEEL} from './hospital-props.mj
 import {policeModels,POLICE_FABRIC,POLICE_STEEL} from './police-props.mjs';
 import {dealerModels,DEALER_STEEL} from './dealer-props.mjs';
 import {loadQuaterniusFurniture} from './furniture-3d.mjs';
+import {projectMediaFace} from './media-screen-projection.mjs';
 // a lista mudou de um jeito que importa aqui? encolheu (algo saiu) ou entrou item novo perto da câmera; itens
 // novos longe (setor distante sendo gerado) não pedem reconstrução
 const changedNear = (list, from, cx, cy, R) => { if (list.length < from) return true; for (let i = from; i < list.length; i++) { const o = list[i]; if (!o) continue; const x = o.x ?? (o.x0 + o.x1) / 2, y = o.y ?? (o.y0 + o.y1) / 2; if (!(Math.abs(x - cx) > R + 20 || Math.abs(y - cy) > R + 20)) return true; } return false; };
@@ -586,6 +587,7 @@ export function createProps(THREE, scene, bridge) {
 
   // ======================= distribuição =======================
   const handles = b => (bridge.props3d ? bridge.props3d(b) : false) && M[b.kind] && b.kind !== 'blanket';
+  const MEDIA_KINDS=new Set(['tv','screen']);
   const upstairsIn = H => H.upper && H.inside && (bridge.player.floor === 1 || (bridge.player.stairTravel && bridge.player.stairTravel.to === 1));
   const state = { objects: 0, furniture: 0, lamps: 0, signals: 0, curbs: 0, ms: 0 };
   const sync = { x: 1e9, y: 1e9, n: -1, v: -1, inside: '' }, mat = new THREE.Matrix4(), q = new THREE.Quaternion(), ps = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -708,8 +710,22 @@ export function createProps(THREE, scene, bridge) {
     photoCache.clear();   // fotos da loja tiradas antes (modelos procedurais) saem do cache
     sync.v=-1;state.furniturePack=changed.size;window.dispatchEvent(new Event('city-home-change'));
   }).catch(error=>{state.furniturePackError=String(error.message||error);console.warn('Móveis Quaternius',error);});
+  // The same instance matrices used by the renderer also locate the exact
+  // black screen in DOM pixel space. No guesses from 2D camera, faceW or rot.
+  const mediaMatrix=new THREE.Matrix4();
+  function screenPose(item,camera,viewport){
+    if(!item||!MEDIA_KINDS.has(item.kind))return null;
+    for(const k of kinds.values()){
+      if(k.def!==M[item.kind]||!k.meshes?.length)continue;
+      const index=k.list.indexOf(item);
+      if(index<0||index>=k.meshes[0].count)continue;
+      k.meshes[0].getMatrixAt(index,mediaMatrix);
+      return projectMediaFace(THREE,item.kind,mediaMatrix,camera,viewport);
+    }
+    return null;
+  }
   return {
-    state,thumbnail,
+    state,thumbnail,screenPose,
     update(now, T) {
       const c = bridge.cam, w = bridge.world, night = !!w.night;
       glowPts.visible = night; glowPts.material.size = (c.zoom || 50) * 1.7;   // ~1,7 m de halo em qualquer zoom
