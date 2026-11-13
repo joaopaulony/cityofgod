@@ -350,7 +350,7 @@ const CityMedia=(()=>{
    const direction=typeof facingCam==='function'?facingCam(nx,ny):1;
    const isTV=item.kind==='tv',bottom=(item.z||0)+(isTV?(item.h||.8)*1.08:(item.h||.7)*.07);
    const top=bottom+(item.h||.7)*(isTV?1.01:.91);
-   const half=(item.w||1.2)*(isTV?.455:.475)*.5;
+   const half=(item.w||1.2)*(isTV?.455:.475);
    const x=item.x+nx*.035,y=item.y+ny*.035;
    const tl=proj(x-tangent[0]*half,y-tangent[1]*half,top);
    const tr=proj(x+tangent[0]*half,y+tangent[1]*half,top);
