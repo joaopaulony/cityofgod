@@ -242,6 +242,8 @@ const CityHomePlus=(()=>{
    if(!own(H))return {ok:false,text:'Acesso negado'};
    const item=CityHome.placed(H).find(r=>r.id===id);
    if(!item)return {ok:false,text:'Móvel não está instalado'};
+   if(['tv','screen'].includes(item.kind)&&window.CityMedia)
+     return CityMedia.openTV(H,item);
    const actions={bed:'sleep',mattress:'sleep',sofa:'sit',couch:'sit',
      sectional:'sit',chair:'sit',tv:'watch',screen:'watch',desk:'work',
      studentdesk:'work',stove:'cook',fridge:'fridge',microwave:'eat',
