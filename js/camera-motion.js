@@ -18,6 +18,8 @@ const CameraMotion = (() => {
   const angFor = h => Math.atan2(-Math.cos(h), -Math.sin(h));
   const blocked = () => !!(window.CityFront?.blocked || window.cityCharacterEditorOpen || window.CityHomeUI?.active || window.CityJobs?.busy || window.CityUI?.phoneOpen || document.querySelector('dialog[open]'));
 
+  function pauseManual(seconds=6) { hold=Math.max(hold,seconds); }
+
   function shake(strength = 0.3, duration = 0.35, withPunch = false) {
     const s = Math.max(0, Math.min(1, strength));
     if (s <= 0.01) return;
@@ -100,6 +102,6 @@ const CameraMotion = (() => {
     const c = Math.cos(ctrl), s = Math.sin(ctrl);
     return [c * dx + s * dy, -s * dx + c * dy];
   }
-  return { pre, post, shake, moveDir, followLead, get state() { return { hold, zoomMul, kicks: kicks.length, punch, lead: [lead.x, lead.y] }; } };
+  return { pre, post, shake, pauseManual, moveDir, followLead, get state() { return { hold, zoomMul, kicks: kicks.length, punch, lead: [lead.x, lead.y] }; } };
 })();
 window.CameraMotion = CameraMotion;
