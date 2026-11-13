@@ -122,9 +122,24 @@ const CityMedia=(()=>{
         <small>Vídeos podem bloquear incorporação, som automático ou reprodução em segundo plano por regras do YouTube e do navegador.</small>
       </section>
     </div>
-    <div id="cog-car-radio" hidden><button data-cm="radio-toggle" aria-label="Ligar rádio">📻</button><div><strong id="cog-radio-title">Rádio</strong><span id="cog-radio-detail">Desligado</span></div>
-      <button data-cm="prev" title="Estação anterior">‹</button><button data-cm="next" title="Próxima estação">›</button>
-      <button data-cm="radio-list" title="Escolher rádio">☷</button>
+    <div id="cog-car-radio" hidden role="group" aria-label="Rádio retrô do veículo">
+      <div class="cog-retro-topline"><span>CLASSIC CITY</span><span>AM / FM · STEREO</span></div>
+      <div class="cog-retro-body">
+        <div class="cog-retro-speaker" aria-hidden="true"><div class="cog-retro-speaker-disc"></div><span>HIGH FIDELITY</span></div>
+        <div class="cog-retro-right">
+          <div class="cog-retro-glass">
+            <div class="cog-retro-frequency"><span>88</span><i></i><span>92</span><i></i><span>96</span><i></i><span>102</span><i></i><span>108</span><small>FM</small></div>
+            <strong id="cog-radio-title">Rádio</strong>
+            <span id="cog-radio-detail">Desligado</span>
+          </div>
+          <div class="cog-retro-controls">
+            <button class="cog-retro-knob" data-cm="radio-toggle" title="Ligar / desligar" aria-label="Ligar ou desligar rádio">⏻</button>
+            <button data-cm="prev" title="Sintonizar estação anterior" aria-label="Estação anterior">◀</button>
+            <button data-cm="next" title="Sintonizar próxima estação" aria-label="Próxima estação">▶</button>
+            <button data-cm="radio-list" title="Escolher emissora" aria-label="Lista de estações">LIST</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="cog-ambient-radio" hidden><button data-cm="ambient-toggle">📻 Ativar som</button><span id="cog-ambient-radio-label">Rádio de carro próximo</span></div>
     <div id="cog-radio-list" hidden role="dialog" aria-label="Emissoras brasileiras"><section class="cog-media-card">
@@ -291,7 +306,8 @@ const CityMedia=(()=>{
   const st=currentStation();
   document.getElementById('cog-radio-title').textContent=st.name;
   document.getElementById('cog-radio-detail').textContent=(state.radioOn?'● AO VIVO · ':'○ Desligado · ')+st.genre;
-  radioUI.querySelector('[data-cm="radio-toggle"]').textContent=state.radioOn?'⏹':'📻';
+  radioUI.classList.toggle('cog-retro-on',!!state.radioOn);
+  radioUI.querySelector('[data-cm="radio-toggle"]').setAttribute('aria-pressed',String(!!state.radioOn));
  }
  const vehicleKey=()=>String(window.cityVehicles?.mediaVehicleId||('player-car-'+state.roomCode.slice(-12))).replace(/[^-\w:.|]/g,'').slice(0,210);
  function broadcastRadio(playing=state.radioOn){
