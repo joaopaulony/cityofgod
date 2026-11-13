@@ -1184,7 +1184,9 @@ function tick(dt) {
   window.cityVehicles?.update(dt);
   // Indoor A* guide owns movement only while an autonomous domestic action
   // is running. Any manual movement key cancels it immediately.
-  const manualHomeInput=['w','a','s','d','shift'].some(k=>input.down(k))||input.rmb;
+  // Sustained home actions end only when the player presses a movement key.
+  // Holding Shift or using right mouse to look around must not lift the actor.
+  const manualHomeInput=['w','a','s','d'].some(k=>input.down(k));
   const guided=window.CityHomeRoutine?.tick(dt,player,(x,y)=>
     moveTo(player.x,player.y,x,y,.28,player.floor||0),manualHomeInput);
   if(!guided&&!window.CityBus?.riding)updatePlayer(dt);   // no ônibus, a posição vem do ônibus (city-bus.mjs)

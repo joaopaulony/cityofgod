@@ -2,6 +2,9 @@
 'use strict';
 const CityHomeRoutine=(()=>{
  let task=null,epoch=0;const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+ // Ongoing activities are not a countdown. They end only through player movement.
+ const CONTINUOUS=new Set(['sit','watch','work','sleep','wash','toilet']);
+ const LONG_DURATION=1e9; // keep skeleton IK active; no fade-out at four seconds.
  const ANG=(to,from)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
  function cancel(message='',silent=false){
    if(task?.player){
@@ -27,7 +30,7 @@ const CityHomeRoutine=(()=>{
    if(!planned)return {ok:false,text:'Sem caminho livre até este móvel. Reposicione os obstáculos'};
    cancel('',true);
    task={id:++epoch,H,itemId:item.id,kind,options,player,
-     points:planned.points,step:0,stand:planned.stand,face:planned.face,stage:'walk',itemSnapshot:{...item},
+     points:planned.points,step:0,stand:planned.stand,face:planned.face,stage:'walk',persistent:CONTINUOUS.has(kind),itemSnapshot:{...item},
      elapsed:0,stuck:0,lastX:player.x,lastY:player.y,replans:0,
      houseVersion:typeof world!=='undefined'?world.version:0,wasArmed:!!player.armed};
    player.homeAction=null;player.wantShot=false;player.aiming=false;player.armed=false;
@@ -37,7 +40,15 @@ const CityHomeRoutine=(()=>{
  function tick(dt,player,move,manual=false){
    if(!task)return false;
    const t=task;
-   if(manual||window.cityVehicles?.driver||!window.CityHome?.owned(t.H)||
+   if(manual){
+     // WASD ends the ongoing action; apply its result only after real participation.
+     // Cancelling on the approach path does not grant a reward.
+     if(t.stage==='pose'&&t.persistent&&t.elapsed>=2){
+       window.CityHomePlus?.completeActivity?.(t.H,t.itemId,t.kind,t.options);
+     }
+     cancel('',true);return false;
+   }
+   if(window.cityVehicles?.driver||!window.CityHome?.owned(t.H)||
       (player.floor||0)!==(t.H&&CityHome.find(t.H,t.itemId)?.floor||0)){
      cancel('Interação interrompida',true);return false;
    }
@@ -47,7 +58,7 @@ const CityHomeRoutine=(()=>{
      t.elapsed+=dt;player.speed=0;player.aiming=false;player.wantShot=false;
      if(player.homeAction)player.homeAction.t=Math.min(t.duration,t.elapsed);
      if(t.poseTarget){
-       const u=clamp(Math.min(t.elapsed/.65,(t.duration-t.elapsed)/.65),0,1),w=u*u*(3-2*u);
+       const u=clamp(t.persistent?t.elapsed/.65:Math.min(t.elapsed/.65,(t.duration-t.elapsed)/.65),0,1),w=u*u*(3-2*u);
        player.x=t.poseOrigin.x+(t.poseTarget.x-t.poseOrigin.x)*w;
        player.y=t.poseOrigin.y+(t.poseTarget.y-t.poseOrigin.y)*w;
      }
@@ -59,7 +70,7 @@ const CityHomeRoutine=(()=>{
        if(CityHomeNav.safeSpot(t.H,furniture,x,y,furniture.id)){player.x=x;player.y=y;}
      }
      player.face+=ANG(t.face,player.face)*clamp(dt*8,0,1);
-     if(t.elapsed>=t.duration){
+     if(!t.persistent&&t.elapsed>=t.duration){
        const result=window.CityHomePlus?.completeActivity?.(t.H,t.itemId,t.kind,t.options);
        cancel('',true);
        window.CityUI?.notify?.(result?.text||'Atividade concluída');
@@ -74,7 +85,7 @@ const CityHomeRoutine=(()=>{
      t.replans++;t.houseVersion=world.version;
    }
    const point=t.points[t.step];
-   if(!point){t.stage='pose';t.elapsed=0;t.duration=t.kind==='sleep'?6:t.kind==='cook'?5:4;
+   if(!point){t.stage='pose';t.elapsed=0;t.duration=t.persistent?LONG_DURATION:t.kind==='cook'?5:4;
      t.poseOrigin={x:player.x,y:player.y};
      if(!CityHomeNav.safeSpot(t.H,furniture,player.x,player.y)){
        const safe=CityHomeNav.exitSpot(t.H,furniture,t.stand);
@@ -127,20 +138,25 @@ const CityHomeRoutine=(()=>{
  function draw(h,W,H){
    if(!task)return;
    const t=task,w=286,x=W/2-w/2,y=74;
+   const persistentPose=t.stage==='pose'&&t.persistent;
    const progress=t.stage==='pose'?clamp(t.elapsed/t.duration,0,1):clamp(t.step/Math.max(1,t.points.length),0,1);
    h.save();h.fillStyle='#0c1b29e9';h.strokeStyle='#66c4c675';h.lineWidth=1.2;
    h.beginPath();h.roundRect(x,y,w,57,12);h.fill();h.stroke();
    h.font='700 12px system-ui';h.textAlign='left';h.fillStyle='#e9faf8';
    const label=({sit:'Sentar',sleep:'Dormir',cook:'Cozinhar',eat:'Comer',watch:'Assistir',
      work:'Trabalhar',wash:'Higiene',toilet:'Banheiro',drink:'Beber água',fridge:'Abrir geladeira'})[t.kind]||'Atividade';
-   h.fillText((t.stage==='walk'?'↳ Indo até o móvel':'✓ '+label+' em andamento'),x+13,y+21);
+   h.fillText(t.stage==='walk'?'↳ Indo até o móvel':persistentPose?'✓ '+label+' · sem limite de tempo':'✓ '+label+' em andamento',x+13,y+21);
    h.font='10px system-ui';h.fillStyle='#9bc9d1';
-   h.fillText('WASD para cancelar · '+(t.stage==='walk'?'Caminhando':'Interagindo'),x+13,y+48);
-   h.fillStyle='#183942';h.fillRect(x+13,y+29,w-26,5);
-   h.fillStyle='#72e3c7';h.fillRect(x+13,y+29,(w-26)*progress,5);
+   h.fillText(persistentPose?'Pressione W, A, S ou D para levantar/sair':t.stage==='walk'?'WASD para cancelar o percurso':'WASD para interromper',x+13,y+48);
+   if(!persistentPose){
+     h.fillStyle='#183942';h.fillRect(x+13,y+29,w-26,5);
+     h.fillStyle='#72e3c7';h.fillRect(x+13,y+29,(w-26)*progress,5);
+   }else{
+     h.fillStyle='#72e3c7';h.fillText('● Em atividade',x+13,y+37);
+   }
    h.restore();
  }
  return {start,tick,cancel,draw,get active(){return !!task},get stage(){return task?.stage||null},
-   get task(){return task&&{kind:task.kind,stage:task.stage,points:task.points.length,step:task.step}}};
+   get task(){return task&&{kind:task.kind,stage:task.stage,persistent:task.persistent,points:task.points.length,step:task.step}}};
 })();
 window.CityHomeRoutine=CityHomeRoutine;

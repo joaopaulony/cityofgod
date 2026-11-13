@@ -51,18 +51,25 @@ test('interior approach respects furniture collision and chooses an adjacent sta
  assert.ok(result.distance>0&&result.cells<14000);
  assert.ok(result.points.length>=2);
 });
-test('guided character walks, then receives the reward only after completing animation',()=>{
+test('guided character stays seated after many seconds, then stands only when WASD is pressed',()=>{
  const f=fixture();
  const result=f.window.CityHomeRoutine.start(f.H,f.sofa,'sit');
  assert.equal(result.ok,true,result.text);
  assert.equal(f.completed(),0);
  assert.equal(f.player.armed,false);
- for(let i=0;i<500&&f.window.CityHomeRoutine.active;i++)
+ for(let i=0;i<500;i++)
    f.window.CityHomeRoutine.tick(.05,f.player,(x,y)=>[x,y],false);
- assert.equal(f.completed(),1,'action must finish exactly once');
+ assert.equal(f.window.CityHomeRoutine.stage,'pose');
+ assert.equal(f.window.CityHomeRoutine.active,true,'sitting must not time out');
+ assert.equal(f.completed(),0,'reward must not be granted while player remains seated');
+ assert.equal(f.player.homeAction?.kind,'sit');
+ assert.ok(Math.hypot(f.player.x-f.sofa.x,f.player.y-f.sofa.y)<.2,'stay in the sofa');
+ f.window.CityHomeRoutine.tick(.05,f.player,(x,y)=>[x,y],true); // WASD
+ assert.equal(f.completed(),1,'finish exactly once on movement');
  assert.equal(f.window.CityHomeRoutine.active,false);
- assert.equal(f.player.armed,true,'weapon state restored after interaction');
- assert.ok(Math.hypot(f.player.x-f.sofa.x,f.player.y-f.sofa.y)<2.6);
+ assert.equal(f.player.armed,true,'weapon state restored after standing');
+ assert.ok(f.window.CityHomeNav.safeSpot(f.H,f.sofa,f.player.x,f.player.y),
+   'standing must happen inside a safe walkable area');
 });
 test('manual movement cancels autopilot without granting rewards',()=>{
  const f=fixture();
