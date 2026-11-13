@@ -211,33 +211,56 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
-// ---------- entrada do mouse / câmera ----------
+// ---------- Zomboid × Sims orbit camera ----------
+// Middle-drag: full 360° horizontal orbit plus limited vertical tilt.
+// Alt+right-drag offers the same controls for mice/trackpads without middle click.
+// Ordinary right-drag remains aim, left click remains gameplay / object selection.
+let orbitButton = null;
+const orbitLocked = () => wmap.open || !!window.CityFront?.blocked ||
+  !!window.CityUI?.blocksGameInput?.() || !!window.cityCharacterEditorOpen ||
+  !!window.CityRealty?.dialogOpen;
+function stopOrbit() { dragX = dragY = null; orbitButton = null; }
+function orbitMove(e) {
+  if(dragX===null)return;
+  if(orbitLocked()) { stopOrbit(); return; }
+  const mask=orbitButton===1?4:2;
+  if(!(e.buttons & mask)) { stopOrbit(); return; }
+  const dx=e.clientX-dragX,dy=e.clientY-dragY;
+  if(dx||dy) {
+    cam.tang += dx*.007; // Horizontal rotation is continuous: never quantized.
+    // Convert vertical pointer pixels into elevation degrees, then clamp 28°–60°.
+    const degrees=Math.asin(clamp(cam.ttilt,TILT_MIN,TILT_MAX))*180/Math.PI;
+    cam.ttilt=Math.sin(clamp(degrees-dy*.19,CAMERA_ELEVATION_MIN,CAMERA_ELEVATION_MAX)*Math.PI/180);
+    window.CameraMotion?.pauseManual?.(6);
+  }
+  dragX=e.clientX;dragY=e.clientY;
+}
 view.addEventListener('mousemove', e => {
-  input.mx = e.clientX; input.my = e.clientY;
+  input.mx=e.clientX;input.my=e.clientY;
   if(wmap.open){
     wmapPointer(e.clientX,e.clientY);
-    if(wmap.drag){
-      wmapDrag(e.clientX-wmap.drag[0],e.clientY-wmap.drag[1]);
-      wmap.drag=[e.clientX,e.clientY];
-    }
+    if(wmap.drag){wmapDrag(e.clientX-wmap.drag[0],e.clientY-wmap.drag[1]);wmap.drag=[e.clientX,e.clientY];}
     return;
   }
-  if (dragX !== null) {
-    cam.tang += (e.clientX - dragX) * .008;
-    cam.ttilt = clamp(cam.ttilt - (e.clientY - dragY) * .0025, TILT_MIN, TILT_MAX);
-    dragX = e.clientX; dragY = e.clientY;
-  }
+  orbitMove(e);
 });
+// Drag can safely leave the canvas; releasing outside must never stick orbit on.
+addEventListener('mousemove',e=>{if(e.target!==view&&dragX!==null)orbitMove(e);},true);
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
-  if (wmap.open) { if (e.button === 0) {wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;} e.preventDefault(); return; }   // mapa aberto: arrastar move o mapa, sem atirar
+  if (wmap.open) { if(e.button===0){wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;}e.preventDefault();return; }
   if (e.button === 0 && !player.armed && window.CityRealty?.clickLot?.(e.clientX/RS,e.clientY/RS,proj,player)) {
     // Clicking the nearby sale sign selects its exact property, not a phone entry.
     input.lmb=false;player.wantShot=false;e.preventDefault();return;
   }
+  if(e.button===1 || (e.button===2&&e.altKey&&!window.CityHomeUI?.active)){
+    orbitButton=e.button;dragX=e.clientX;dragY=e.clientY;
+    input.rmb=false;player.wantShot=false;
+    window.CameraMotion?.pauseManual?.(6);
+    e.preventDefault();return;
+  }
   if (e.button === 0) { input.lmb = true; player.wantShot = true; }
   if (e.button === 2) input.rmb = true;
-  if (e.button === 1) { dragX = e.clientX; dragY = e.clientY; e.preventDefault(); }
 });
 // botão do mouse "preso": o clique num menu chega aqui como apertado, mas a soltura pode ficar com o menu; o navegador
 // informa os botões realmente apertados a cada movimento
@@ -245,6 +268,7 @@ addEventListener('mousemove', e => { if (!(e.buttons & 1)) input.lmb = false; if
 // ao fechar qualquer menu (celular, roda, conversa, diálogo): solta teclas, botões, mira e tiro em fila e tira o foco
 // do botão do menu (senão espaço/setas continuam acionando o menu e o personagem não segue a câmera)
 function releaseAfterMenu() {
+  stopOrbit();
   input.keys.clear(); input.pressed.clear(); input.lmb = input.rmb = false;
   player.wantShot = false; player.aiming = false; player.aimHold = 0;
   const a = document.activeElement;
@@ -256,12 +280,13 @@ document.addEventListener('close', releaseAfterMenu, true);
 addEventListener('keydown', e => { if (e.key === 'Alt') { document.body.classList.add('cursor-alt'); e.preventDefault(); } });
 addEventListener('keyup', e => { if (e.key === 'Alt') document.body.classList.remove('cursor-alt'); });
 addEventListener('blur', () => document.body.classList.remove('cursor-alt'));
+addEventListener('blur', stopOrbit);
 addEventListener('mouseup', e => {
   if (e.button === 0 && wmap.open && wmap.clickStart && wmap.dragDistance<8 && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
   if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
-  if (e.button === 1) { dragX = null; dragY = null; } // persiste ângulo e inclinação
+  if(e.button===orbitButton) stopOrbit(); // Keep chosen yaw/pitch when released
 });
 view.addEventListener('wheel', e => { if(window.CityUI?.blocksGameInput()) {e.preventDefault();return;} if (wmap.open) { wmapZoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.17 : 1/1.17); e.preventDefault(); return; } zi = clamp(zi + (e.deltaY > 0 ? -1 : 1), 0, ZOOMS.length - 1); cam.tzoom = ZOOMS[zi]; e.preventDefault(); }, { passive: false });
 
@@ -1102,9 +1127,19 @@ function tick(dt) {
   if (st.night !== ENV.night) st.night = world.night = ENV.night;
   // câmera livre: segurar Q/E gira em qualquer ângulo (sem travar de 90 em 90°)
   const spin = (input.down('q') ? 1 : 0) - (input.down('e') ? 1 : 0);
-  if (spin) cam.tang += spin * 1.6 * dt;   // ~90°/s; cam.update suaviza a chegada ao soltar
-  const pitch = (input.down('pageup') ? 1 : 0) - (input.down('pagedown') ? 1 : 0);
-  if (pitch) cam.ttilt = clamp(cam.ttilt + pitch * .5 * dt, TILT_MIN, TILT_MAX);
+  if(spin) {cam.tang+=spin*1.6*dt;window.CameraMotion?.pauseManual?.(6);}
+  const pitch=(input.down('pageup')?1:0)-(input.down('pagedown')?1:0);
+  if(pitch){
+    const elevation=Math.asin(clamp(cam.ttilt,TILT_MIN,TILT_MAX));
+    cam.ttilt=Math.sin(clamp(elevation+pitch*.70*dt,Math.asin(TILT_MIN),Math.asin(TILT_MAX)));
+    window.CameraMotion?.pauseManual?.(6);
+  }
+  // Home returns to the legible default isometric angle without changing zoom or camera focus.
+  if(input.hit('home')){
+    cam.tang=Math.PI/4;cam.ttilt=CAMERA_DEFAULT_TILT;
+    window.CameraMotion?.pauseManual?.(6);
+    hud.msg='Câmera isométrica restaurada';hud.msgT=2;
+  }
   if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   // N pula p/ a manhã ou p/ a noite; K troca o clima (calmo, brisa, ventania, neve)
