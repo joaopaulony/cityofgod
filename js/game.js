@@ -253,6 +253,19 @@ view.addEventListener('mousedown', e => {
     // Clicking the nearby sale sign selects its exact property, not a phone entry.
     input.lmb=false;player.wantShot=false;e.preventDefault();return;
   }
+
+  // A TV can be selected directly, rather than choosing among nearby F prompts.
+  if(e.button===0&&!player.armed&&!window.cityVehicles?.driver){
+    const hit=findHouseInteraction(player);
+    if(hit&&['tv','screen'].includes(hit.kind)){
+      const center=proj(hit.obj.x,hit.obj.y,(hit.obj.z||0)+(hit.obj.h||.8)*.65);
+      const limit=Math.max(18,cam.zoom*.55);
+      if(Math.hypot(e.clientX/RS-center.x,e.clientY/RS-center.y)<limit){
+        const result=window.CityMedia?.openTV?.(hit.house,hit.obj);
+        if(result?.ok){input.lmb=false;player.wantShot=false;e.preventDefault();return;}
+      }
+    }
+  }
   if(e.button===1 || (e.button===2&&e.altKey&&!window.CityHomeUI?.active)){
     orbitButton=e.button;dragX=e.clientX;dragY=e.clientY;
     input.rmb=false;player.wantShot=false;
@@ -1103,7 +1116,8 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
-  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
+  if(window.CityMedia?.dialogOpen||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
+    window.CityMedia?.tick?.(); // Keep active TV, room audio and spatial media in sync while media controls are open.
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
@@ -1119,6 +1133,7 @@ function tick(dt) {
     }
   }
   T += dt;
+  window.CityMedia?.tick?.();
   document.body.classList.toggle('cursor-free', !player.armed || !!window.cityVehicles?.driver);
   st.clock += dt * envClockRate(st.clock) * (window.CityTimeScale || 1);   // aula acelerada (careers.mjs)
   hud.msgT -= dt; window.CityUI?.syncClock?.(st.clock);

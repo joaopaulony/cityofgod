@@ -40,7 +40,7 @@ const FEATURE_PALETTE={
 const INTERIOR_LABELS={
  door:'porta',switch:'interruptor',fridge:'geladeira',stove:'fogao',
  sink:'pia',cabinet:'armario',bed:'cama',sofa:'sofa',
- wardrobe:'guarda-roupa',tv:'televisao',shower:'chuveiro',
+ wardrobe:'guarda-roupa',tv:'televisao',screen:'monitor',shower:'chuveiro',
  toilet:'vaso sanitario',mirror:'espelho',table:'mesa',
  desk:'escrivaninha',shelf:'estante'
 };
@@ -146,9 +146,10 @@ function useHouseInteraction(p,st,time){
     }else{
       H.lightOn=!H.lightOn;message=H.lightOn?'Luzes acesas':'Luzes apagadas';
     }
-  }else if(kind==='tv'){
-    H.tvOn=!H.tvOn;
-    message=H.tvOn?'Televisao ligada':'Televisao desligada';
+  }else if(kind==='tv'||kind==='screen'){
+    const result=window.CityMedia?.openTV?.(H,obj);
+    if(result){H.tvOn=!!result.ok;message=result.text;}
+    else{H.tvOn=!H.tvOn;message=H.tvOn?'Televisão ligada':'Televisão desligada';}
   }else if(kind==='cabinet'||kind==='wardrobe'){
     obj.open=!obj.open;
     message=obj.open?'Armario aberto':'Armario fechado';
