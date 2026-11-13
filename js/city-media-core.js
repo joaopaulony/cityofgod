@@ -5,13 +5,12 @@
  root.CityMediaCore=API;
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
  const STATIONS=Object.freeze([
-  {id:'jovempan',name:'Jovem Pan FM · São Paulo',genre:'Pop / Notícias',url:'https://stream.zeno.fm/c45wbq2us3buv'},
-  {id:'mix',name:'Rádio Mix 106.3 · São Paulo',genre:'Hits / Pop',url:'https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac'},
-  {id:'antena1',name:'Antena 1 · São Paulo',genre:'Adulta / Flashback',url:'https://antenaone.crossradio.com.br/stream/1'},
+  {id:'mix',name:'Rádio Mix FM · São Paulo',genre:'Hits / Pop',url:'https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac'},
+  {id:'antena1',name:'Antena 1 · Porto Alegre',genre:'Adulta / Flashback',url:'https://antenaone.crossradio.com.br/stream/1'},
+  {id:'jovempanbh',name:'Jovem Pan FM · Belo Horizonte',genre:'Pop / Rock',url:'https://8062.brasilstream.com.br/stream?origem=task_site'},
   {id:'sertaneja',name:'Sertaneja 106.7',genre:'Sertanejo',url:'https://sc4s.cdn.upx.com:8067/stream'},
-  {id:'fmodia',name:'FM O Dia 99.7 · Rio',genre:'Pagode / Samba',url:'https://wz7.servidoresbrasil.com:8274/stream'},
+  {id:'fmodia',name:'FM O Dia · Rio',genre:'Pagode / Samba',url:'https://wz7.servidoresbrasil.com:8274/stream'},
   {id:'novidades80',name:'80 Hits Brasil',genre:'Anos 80 / MPB',url:'https://stm5.painelcast.com:7662/stream'},
-  {id:'jovempannews',name:'Jovem Pan News',genre:'Notícias / Esportes',url:'https://stream.zeno.fm/vlcraijc6yiuv'},
   {id:'rock98',name:'98 Rock · BH',genre:'Rock',url:'https://8185.brasilstream.com.br/stream'}
  ]);
  const youtubeId=input=>{
