@@ -47,6 +47,9 @@ test('Real HTTPS stations are editable and car radio is wired into game',()=>{
  assert.match(read('city-media.js'),/audio\.play\(\)/);
  assert.match(read('city-media.js'),/YT\.Player/);
  assert.match(read('city-media.js'),/BroadcastChannel/);
+ assert.match(read('city-media.js'),/syncNearbyRadio/);
+ assert.match(read('city-media.js'),/broadcastRadio\(false\)/);
+ assert.match(read('vehicle-webgl.mjs'),/mediaVehicleId/);
  assert.match(read('interiors.js'),/CityMedia\?\.openTV/);
  assert.match(read('city-home-plus.js'),/CityMedia\.openTV/);
  assert.match(read('game.js'),/CityMedia\?\.tick/);
