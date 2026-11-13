@@ -229,7 +229,9 @@ const CityMedia=(()=>{
   const shell=document.getElementById('cog-tv-viewer');if(shell)shell.hidden=true;
   try{expanded.player?.mute?.();expanded.player?.pauseVideo?.();}catch{}
   if(document.fullscreenElement?.closest?.('.cog-tv-viewer-panel'))document.exitFullscreen?.().catch(()=>{});
-  syncTVVolume();
+  const current=active&&tvs.get(active.screen);
+  if(current?.playing&&current.video&&canWatch(active))syncVideo(current);
+  else syncTVVolume();
  }
  function ensureExpandedPlayer(){
   if(expanded.player||expanded.loading)return;
@@ -493,7 +495,10 @@ const CityMedia=(()=>{
   }
   const face=window.cityVehicles?.mediaScreenPose?.(shown.item);
   if(!face){
-   screenEl.hidden=true;muteVideo(true);return;
+   screenEl.hidden=true;
+   // Hearing a TV depends on the room, not on whether the camera sees its face.
+   syncTVVolume();
+   return;
   }
   const wasHidden=screenEl.hidden;
   const W=640,H=360;
