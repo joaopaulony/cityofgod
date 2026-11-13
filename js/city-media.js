@@ -62,7 +62,10 @@ const CityMedia=(()=>{
    const previous=tvs.get(record.screen);
    if(previous&&previous.at>record.at+1000)return;
    tvs.set(record.screen,record);saveTV();
-   if(active?.screen===record.screen)syncVideo(record);
+   if(active?.screen===record.screen){
+    syncVideo(record);
+    if(dialog&&!dialog.hidden)syncDialog(); // enable "Assistir em tela grande" immediately after video starts
+   }
    if(expanded.open&&expanded.screen===record.screen){
     if(!record.playing||!record.video)closeExpanded();else syncExpanded(record,true);
    }
