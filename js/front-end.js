@@ -9,6 +9,14 @@
  const hadProgressOnEntry=S.hasProgress(storage);
  let settings=S.settings(S.read(storage,S.SETTINGS));
  if(!S.read(storage,S.SETTINGS))settings.reducedMotion=!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+ // uma vez só: placa de vídeo fraca começa no perfil leve (Qualidade 3D "Desempenho" e contorno "Desempenho");
+ // o jogador pode mudar depois em Vídeo e a escolha dele fica
+ if(!settings.perfTuned){
+  try{const gl=document.createElement('canvas').getContext('webgl2'),e=gl?.getExtension('WEBGL_debug_renderer_info'),name=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl?.getParameter(gl.RENDERER);
+   if(!gl||S.weakGPU(name)){settings.quality='low';settings.inkQuality='performance';}
+   gl?.getExtension('WEBGL_lose_context')?.loseContext();}catch{}
+  settings.perfTuned=true;try{storage.setItem(S.SETTINGS,JSON.stringify(settings));}catch{}
+ }
  let phase='title',parent='title',tab='video',runtime=false,started=false,game=null,pending=null,frameReady=false,loadingError=null,rotation=null,music=null,startKind='new',casIntroShown=false;
  // vitrine: no menu inicial o jogo carrega em silêncio por trás e, pronto, a cidade viva aparece no fundo (drone em game.js)
  let quiet=false,quietReady=false,live=false,previewError='',menuLoadQueued=false,entering=false;

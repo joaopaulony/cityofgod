@@ -332,6 +332,9 @@ function initRenderer(){
  viewCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,260);
  // URBAN INK (urban-ink.mjs): toon + contorno preto em pós-processo; desligado, o quadro sai pelo caminho original
  urbanInk=createUrbanInk(THREE,renderer,scene,viewCamera,{settings:window.CityFront?.settings});
+ // shaders compilam em paralelo (KHR_parallel_shader_compile) enquanto a tela de carregamento está aberta — sem travar
+ // o jogo depois, a cada material novo que aparece (no Windows cada um levava centenas de ms)
+ system.precompile=()=>renderer.compileAsync?.(scene,viewCamera,scene).catch(()=>{});
  system.urbanInk=urbanInk.state;system.urbanInkPost=urbanInk.uniforms;renderer.info.autoReset=false;
  makeOccluders();
  createCharacterSystem(scene,bridge,{camera:viewCamera,canvas});
@@ -371,6 +374,7 @@ function initRenderer(){
  }
  architecture3d=createArchitecture3D(THREE,scene,bridge,{seeThrough:m=>vegetation?vegetation.seeThrough(m):m});
  window.CityFront?.applySettings();
+ system.precompile();
 }
 // Qualidade (menu Vídeo): resolução base, sombras e o piso da resolução dinâmica.
 //  baixa: 75% da tela, sem sombras · equilibrada: tela nativa, sombra 2048 · alta: 150% (supersampling), sombra 4096

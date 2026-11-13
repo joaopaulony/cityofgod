@@ -59,3 +59,13 @@ test('integração: renderizador usa o Urban Ink sem duplicar a cena', async () 
   const ch = await readFile(new URL('../js/character-webgl.mjs', import.meta.url), 'utf8');
   assert.match(ch, /root\.userData\.inkHuman=true/);
 });
+
+test('desempenho: placa de vídeo fraca é reconhecida e começa no perfil leve', () => {
+  const S = require('../js/front-state.js');
+  for (const weak of ['ANGLE (AMD, AMD Radeon(TM) Vega 3 Graphics (0x000015DD) Direct3D11 vs_5_0 ps_5_0, D3D11)', 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)', 'Mali-G52', 'Google SwiftShader'])
+    assert.ok(S.weakGPU(weak), weak);
+  for (const strong of ['ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11)', 'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11)', 'Apple M2'])
+    assert.ok(!S.weakGPU(strong), strong);
+  assert.equal(S.settings({}).perfTuned, false);
+  assert.equal(S.settings({ perfTuned: true }).perfTuned, true);
+});

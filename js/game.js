@@ -937,14 +937,17 @@ function frame(now) {
     window.cityVehicleBridge.frameCost = performance.now() - t0;   // CPU do quadro (resolução dinâmica em vehicle-webgl.mjs)
     const driving=!!window.cityVehicles?.driver;
     terrain.driving=driving;
-    terrain.budget = clamp(14 - cost, driving?1:1.5, driving?4:7);
+    // tela de carregamento: o mundo quase não é desenhado (ver tick), então o chão e os setores ganham a maior parte do
+    // quadro — em placa de vídeo fraca o carregamento ficava com ~5% do tempo e demorava minutos
+    const loadingScreen=!!window.CityFront?.loading&&!window.CityFront?.showcase;
+    terrain.budget = loadingScreen?clamp(40 - cost, 8, 30):clamp(14 - cost, driving?1:1.5, driving?4:7);
     // mundo grande: gera/descarrega setores em volta do jogador (ou do carro) com orçamento próprio
     // à frente do movimento (~3 s), p/ o carro não chegar antes do setor
     const lead = terrain.vel || [0, 0];
     if(!window.CityFront?.blocked||window.CityFront?.loading||window.CityFront?.showcase){
       // no menu, o mundo carrega em torno do drone; ao entrar, primeiro carrega a região do personagem
       const sx=drone.saved&&!preparePlayerRegion?drone.x:player.x+lead[0]*3,sy=drone.saved&&!preparePlayerRegion?drone.y:player.y+lead[1]*3;
-      if (world.streamTick) world.streamTick(sx, sy, clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
+      if (world.streamTick) world.streamTick(sx, sy, loadingScreen?clamp(45 - cost - terrain.workMs, 10, 30):clamp(15 - cost - terrain.workMs, driving?.75:2.5, driving?4:6));
       if (cost + terrain.workMs < 12) warmIdle();
     }
   }
@@ -1039,14 +1042,18 @@ function showcaseTick(dt) {
   render(); window.cityVehicles?.render(); h.clearRect(0, 0, hudC.width, hudC.height);
   window.CityFront.markFrame(); window.CityFront.markLive?.();
 }
-let frontFrameDebt=0;
+let frontFrameDebt=0,frontLoadDebt=0;
 function tick(dt) {
   failScreen.tick(dt / (window.__timeScale || 1));
   if(window.cityCharacters?.socialInputBlocked){input.keys.clear();input.pressed.clear();input.lmb=input.rmb=false;player.wantShot=false;player.aiming=false;}
   if(window.CityFront?.blocked){
     if(window.CityFront.loading){
       for(const a of actors)if(!a.J){a.clock=T;a.pose=animate(a,0);a.J=solveSkeleton(a,a.pose);}
-      window.cityCharacters?.update(0);droneCam(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();
+      // atrás da tela de carregamento: desenha só ~4 vezes por segundo (o suficiente p/ o "primeiro quadro" e p/ os shaders
+      // já compilarem); o resto do tempo vai p/ carregar o chão, os setores e os personagens
+      frontLoadDebt+=dt;
+      if(frontLoadDebt>=.25||!window.cityVehicles?.frames){frontLoadDebt=0;
+       window.cityCharacters?.update(0);droneCam(dt);render();window.cityVehicles?.render();h.clearRect(0,0,hudC.width,hudC.height);window.CityFront.markFrame();window.CityFront.markLive?.();}
     }else if(window.CityFront.showcase){
       // 30 Hz no fundo do menu evita gastar potência para renderizar uma tela atrás de botões.
       frontFrameDebt=Math.min(.1,frontFrameDebt+dt);

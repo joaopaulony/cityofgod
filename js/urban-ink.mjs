@@ -67,13 +67,15 @@ export const INK_CLASS = { foliage: 0.85, human: 0.5, solid: 1 };
 
 const INK_DECL = 'uniform vec4 inkParams;\nuniform vec4 inkMark;\n';
 const INK_LIGHT = `
+	// luz em escala log (calculada sempre: derivada fora de condição — o compilador do Windows/ANGLE trava com fwidth
+	// dentro de if e cada material demorava a compilar)
+	vec3 inkAlb = max( material.diffuseColor, vec3( 0.035 ) );
+	vec3 inkIrr = ( reflectedLight.directDiffuse + reflectedLight.indirectDiffuse ) / inkAlb;
+	float inkL = max( dot( inkIrr, vec3( 0.2126, 0.7152, 0.0722 ) ), 1e-4 );
+	float inkX = log2( inkL ) * inkParams.y;
+	float inkW = clamp( fwidth( inkX ) * 0.8, 0.12, 0.3 );   // passagem macia entre as faixas
 	if ( inkParams.x > 0.0 ) {
-		vec3 inkAlb = max( material.diffuseColor, vec3( 0.035 ) );
-		vec3 inkIrr = ( reflectedLight.directDiffuse + reflectedLight.indirectDiffuse ) / inkAlb;
-		float inkL = max( dot( inkIrr, vec3( 0.2126, 0.7152, 0.0722 ) ), 1e-4 );
-		float inkX = log2( inkL ) * inkParams.y;
 		float inkF = floor( inkX ), inkR = fract( inkX );
-		float inkW = clamp( fwidth( inkX ) * 0.8, 0.12, 0.3 );   // passagem macia entre as faixas
 		float inkQ = exp2( ( inkF + smoothstep( 0.5 - inkW, 0.5 + inkW, inkR ) ) / inkParams.y );
 		float inkS = mix( 1.0, inkQ / inkL, inkParams.x );
 		reflectedLight.directDiffuse *= inkS; reflectedLight.indirectDiffuse *= inkS;
@@ -189,9 +191,10 @@ float contact( vec3 P, vec3 N ) {
 	for ( int i = 0; i < 6; i ++ ) {
 		float a = rot + float( i ) * 2.0944 + ( i > 2 ? 1.0472 : 0.0 ), r = Rpx * ( i > 2 ? 1.0 : 0.45 );
 		vec2 uv = vUv + vec2( cos( a ), sin( a ) ) * r * uTexel;
-		float d = texture2D( tDepth, uv ).r; if ( d > 0.99999 ) continue;
+		float d = texture2D( tDepth, uv ).r;
 		vec3 v = wpos( uv, d ) - P; float L = length( v );
-		occ += max( 0.0, dot( N, v / max( L, 1e-4 ) ) - 0.12 ) * ( 1.0 - smoothstep( 0.2 * Rw, Rw * 1.4, L ) );
+		// sem 'continue' (o compilador do Windows desenrola o laço muito mais rápido): vazio pesa zero
+		occ += step( d, 0.99999 ) * max( 0.0, dot( N, v / max( L, 1e-4 ) ) - 0.12 ) * ( 1.0 - smoothstep( 0.2 * Rw, Rw * 1.4, L ) );
 	}
 	return clamp( occ / 6.0 * 1.9, 0.0, 1.0 );
 }
