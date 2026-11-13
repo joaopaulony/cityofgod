@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- só para testes/capturas (?pump=1): o navegador pausa requestAnimationFrame em aba escondida; este laço por mensagens
+     mantém o jogo rodando para tools/urban-ink-capture.js. Sem o parâmetro, nada muda. -->
+<script>if(/[?&]pump=1/.test(location.search)){const q=new Map(),ch=new MessageChannel();let last=0;ch.port1.onmessage=()=>{const now=performance.now();if(now-last<15){setTimeout(()=>ch.port2.postMessage(0),0);return;}last=now;const cbs=[...q.values()];q.clear();for(const cb of cbs){try{cb(now)}catch(e){console.error(e)}}if(q.size)ch.port2.postMessage(0);};window.requestAnimationFrame=cb=>{const had=q.size;q.set(cb,cb);if(!had)ch.port2.postMessage(0);return 1;};window.cancelAnimationFrame=()=>{};}</script>
 <title>City of God — Cidade Aberta</title>
 <link rel="stylesheet" href="css/city-ui.css">
 <link rel="stylesheet" href="css/city-expansion.css">

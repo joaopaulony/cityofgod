@@ -1210,7 +1210,8 @@ function paintDecal(g, d) {
     g.stroke();
     if (d.kind === 'pavers') for (let i = 0; i < (x1 - x0) * (y1 - y0) * 6; i++) { g.fillStyle = r() < 0.5 ? 'rgba(150,90,60,0.18)' : 'rgba(240,230,210,0.2)'; g.fillRect(Math.floor((x0 + r() * (x1 - x0)) / 0.3) * 0.3, Math.floor((y0 + r() * (y1 - y0)) / 0.15) * 0.15, 0.3, 0.15); }
     if (d.kind === 'terrazzo') for (let i = 0; i < (x1 - x0) * (y1 - y0) * 30; i++) { g.fillStyle = ['rgba(240,160,170,0.5)', 'rgba(120,200,190,0.5)', 'rgba(255,255,255,0.6)', 'rgba(90,90,90,0.3)'][(r() * 4) | 0]; g.fillRect(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.04, 0.04); }
-    if (d.kind === 'driveway' || d.kind === 'apron') for (let i = 0; i < 3; i++) { const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), rr = 0.4 + r() * 0.8, gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, 'rgba(30,28,26,0.4)'); gr.addColorStop(1, 'rgba(30,28,26,0)'); g.fillStyle = gr; g.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); }
+    // manchas de óleo: não no Urban Ink (urban-ink.mjs), que pinta o chão limpo e chapado
+    if ((d.kind === 'driveway' || d.kind === 'apron') && !(typeof terrain !== 'undefined' && terrain.ink)) for (let i = 0; i < 3; i++) { const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), rr = 0.4 + r() * 0.8, gr = g.createRadialGradient(cx, cy, 0, cx, cy, rr); gr.addColorStop(0, 'rgba(30,28,26,0.4)'); gr.addColorStop(1, 'rgba(30,28,26,0)'); g.fillStyle = gr; g.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); }
     if (d.kind === 'deck' || d.kind === 'plaza') { g.fillStyle = 'rgba(255,255,255,0.08)'; for (let i = 0; i < 20; i++) g.fillRect(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 0.5, 0.5); }
   } else if (d.kind === 'pool') {   // piscina: borda de pedra, água turquesa, faixas de luz e raia escura do fundo
     g.fillStyle = '#efeae0'; g.fillRect(x0, y0, x1 - x0, y1 - y0);

@@ -32,7 +32,7 @@ import {createVehicleLights} from './vehicle-lights.mjs';
 import {createVehicleDamage,damageTier,registerCrash,collisionPanel,engineEfficiency,repairVehicleDamage} from './vehicle-damage.mjs';
 import {createVehicleDeformation} from './vehicle-deformation.mjs';
 import {createVehicleDamageEffects,smokeIntensityForIntegrity,hoodSmokeEmitters} from './vehicle-damage-effects.mjs';
-import {installInkShaders,createUrbanInk,inkParamsFrom} from './urban-ink.mjs';
+import {installInkShaders,createUrbanInk,inkParamsFrom,INK} from './urban-ink.mjs';
 // URBAN INK: os shaders de luz ganham o toon em faixas antes de qualquer material compilar (desligado = idêntico)
 installInkShaders(THREE);
 
@@ -423,18 +423,52 @@ system.applyInk=settings=>{
 // sombra do sol no Urban Ink: o passe de sombra redesenha ~300 objetos (mais da metade dos desenhos do quadro).
 // O mapa guardado continua preso ao mundo, então casas, árvores e postes não mudam se ele for refeito um quadro sim,
 // um não; só o que se move atrasa 1 quadro (a pé: centímetros). Dirigindo, a sombra é refeita todo quadro.
-let shadowTick=0;
+let shadowTick=0,shadowSig='';
+// lâmpadas da casa (architecture-3d.mjs, força refeita a cada quadro: 26 de dia, 85 à noite): de dia o sol já entra
+// pelas janelas e 4 lâmpadas fortes estouravam o piso e as paredes em branco. No Urban Ink elas acompanham o dia.
+function inkInteriorLights(){
+ if(!urbanInk?.enabled)return;
+ const day=Math.max(0,Math.min(1,globalThis.ENV?.day??(bridge.world.night?0:1))),k=1-.68*day;
+ for(const L of scene.userData.homeLights||[])L.intensity*=k;
+}
 function inkShadowCadence(){
  const sm=renderer.shadowMap;
  if(!urbanInk?.enabled){sm.autoUpdate=true;return;}
  const every=system.driver?1:urbanInk.params().quality==='performance'?3:2;
- sm.autoUpdate=false;sm.needsUpdate=(++shadowTick%every)===0;
+ // o sol ligou/desligou a sombra (amanhecer, anoitecer, luar) ou o mapa foi refeito: atualiza já, sem esperar a vez
+ const sun=scene.userData.sun,sig=(sun.castShadow?1:0)+':'+(sun.shadow.map?1:0)+':'+sun.shadow.mapSize.x;
+ sm.autoUpdate=false;sm.needsUpdate=(++shadowTick%every)===0||sig!==shadowSig;shadowSig=sig;
  system.shadowEvery=every;
 }
+const inkBounce=new THREE.Color(0x6d7f3e);
+// atmosfera do Urban Ink: véu da cor do céu no alto da tela (o fundo, na câmera isométrica) e vinheta suave,
+// por cima de todas as camadas do mundo e por baixo da HUD; cor pela hora do dia (dia azulado, fim de tarde dourado, noite)
+let atmo=null,atmoT=0;
+function inkAtmosphere(){
+ if(!atmo){atmo=document.createElement('div');atmo.id='ink-atmo';atmo.setAttribute('aria-hidden','true');
+  Object.assign(atmo.style,{position:'absolute',inset:'0',pointerEvents:'none',zIndex:'1'});canvas.after(atmo);}
+ const on=!!urbanInk?.enabled;atmo.hidden=!on;if(!on||(atmoT++%15))return;
+ const a=atmoParams();
+ atmo.style.background=`linear-gradient(to bottom,rgba(${a.sky},${a.veil.toFixed(3)}) 0%,rgba(${a.sky},0) 46%),radial-gradient(ellipse 75% 70% at 50% 52%,rgba(0,0,0,0) 62%,rgba(12,14,26,${a.dark.toFixed(3)}) 100%)`;
+}
+function atmoParams(){
+ const E=globalThis.ENV||{},day=E.day??1,gold=Math.max(E.golden||0,E.twilight||0);
+ return {sky:day<.35?'38,58,110':gold>.3?'255,186,128':'188,214,246',veil:.16*(.45+.55*day)+.06*gold,dark:.14+.14*(1-day)};
+}
+// mesma atmosfera pintada num contexto 2D (capturas de tela: tools/urban-ink-capture.js)
+system.paintAtmosphere=(g,W,H)=>{
+ if(!urbanInk?.enabled)return;const a=atmoParams();
+ const lin=g.createLinearGradient(0,0,0,H*.46);lin.addColorStop(0,`rgba(${a.sky},${a.veil})`);lin.addColorStop(1,`rgba(${a.sky},0)`);g.fillStyle=lin;g.fillRect(0,0,W,H*.46);
+ g.save();g.translate(W/2,H*.52);g.scale(W*.75,H*.7);const rad=g.createRadialGradient(0,0,0,0,0,1);rad.addColorStop(.62,'rgba(0,0,0,0)');rad.addColorStop(1,`rgba(12,14,26,${a.dark})`);g.fillStyle=rad;g.fillRect(-2,-2,4,4);g.restore();
+};
 function inkLights(){
  if(!urbanInk?.enabled)return;
  const [[hemi],[sun],[bounce]]=scene.userData.lights;
  hemi.intensity*=INK_LIGHT.hemi;sun.intensity*=INK_LIGHT.sun;bounce.intensity*=INK_LIGHT.bounce;
+ // luz rebatida: o chão de grama devolve um pouco de verde quente p/ as faces de baixo e as sombras
+ hemi.groundColor.lerp(inkBounce,.45);
+ // quanto é dia (reflexo do céu e contorno de luz somem à noite)
+ INK.mark.y=Math.max(0,Math.min(1,globalThis.ENV?.day??1));
 }
 let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
 function setCamera(){
@@ -744,7 +778,7 @@ system.render=()=>{
  lap('occlusion');
  warmGPU();
  dynamicResolution(performance.now());
- inkShadowCadence();
+ inkShadowCadence();inkAtmosphere();inkInteriorLights();
  if(!urbanInk?.render())renderer.render(scene,viewCamera);lap('draw');
  system.frames=(system.frames||0)+1;
  system.lastScreenPosition={

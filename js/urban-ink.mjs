@@ -20,9 +20,9 @@
 //  balanced:    suavização 4×, silhuetas + copas + vincos principais
 //  quality:     como balanced, mais as diagonais e as bordas de material (tábuas, azulejos)
 export const INK_QUALITY = {
-  performance: { msaa: 0, foliage: false, crease: false, color: false, fine: false },
-  balanced: { msaa: 4, foliage: true, crease: true, color: false, fine: false },
-  quality: { msaa: 4, foliage: true, crease: true, color: true, fine: true },
+  performance: { msaa: 0, foliage: false, crease: false, color: false, fine: false, ao: 0 },
+  balanced: { msaa: 4, foliage: true, crease: true, color: false, fine: false, ao: 1 },
+  quality: { msaa: 4, foliage: true, crease: true, color: true, fine: true, ao: 1 },
 };
 export const INK_DEFAULTS = Object.freeze({
   ink: true, inkOutline: 0.75, inkThickness: 0.2, inkToon: 0.6, inkSaturation: 0.75, inkContrast: 0.5, inkQuality: 'balanced',
@@ -59,7 +59,7 @@ export function inkParamsFrom(s) {
 // uniforms; um Vector4 seria clonado por material).
 //  inkParams: x = força do toon (0 desliga), y = faixas por stop de luz, z = viés de mip da textura (menos microdetalhe),
 //             w = highlight especular estilizado
-//  inkMark:   x = marca de classe no alpha da render target (0 = não marca)
+//  inkMark:   x = marca de classe no alpha da render target (0 = não marca) · y = quanto é dia (0 noite, 1 dia)
 export const INK = { params: { x: 0, y: 1.9, z: 0, w: 0 }, mark: { x: 0, y: 0, z: 0, w: 0 } };
 // marcas no alpha (8 bits): sólido 1 · folhagem (alphaTest) 0,85 · pessoa 0,5. Misturas da borda suavizada de uma
 // pessoa com o vazio ficam abaixo de 0,5 e nunca parecem folhagem nem sólido.
@@ -81,6 +81,27 @@ const INK_LIGHT = `
 		vec3 inkSpC = reflectedLight.directSpecular / max( inkSp, 1e-4 );
 		reflectedLight.directSpecular = mix( reflectedLight.directSpecular, inkSpC * smoothstep( 0.18, 0.45, inkSp ) * 0.6, inkParams.w );
 		reflectedLight.indirectSpecular *= 1.0 - 0.45 * inkParams.w;
+	}
+	if ( inkParams.w > 0.0 ) {
+		// luz pintada: a luz do sol puxa p/ o quente e a luz do céu (sombra) p/ o frio, como em ilustração
+		reflectedLight.directDiffuse *= mix( vec3( 1.0 ), vec3( 1.05, 1.0, 0.93 ), inkParams.w );
+		reflectedLight.indirectDiffuse *= mix( vec3( 1.0 ), vec3( 0.93, 0.98, 1.08 ), inkParams.w );
+		// contorno do céu: bordas viradas p/ cima e de lado ganham um fio de luz fria (volume, separa do fundo)
+		vec3 inkN = normalize( normal );
+		vec3 inkUp = normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz );
+		float inkRim = pow( 1.0 - clamp( abs( dot( inkN, geometryViewDir ) ), 0.0, 1.0 ), 3.0 ) * smoothstep( -0.2, 0.6, dot( inkN, inkUp ) );
+		float inkDay = mix( 0.12, 1.0, inkMark.y );
+		reflectedLight.indirectDiffuse += material.diffuseColor * vec3( 0.62, 0.72, 0.95 ) * inkRim * 0.55 * inkDay * inkParams.w;
+		#ifdef STANDARD
+		// reflexo estilizado do céu e do chão em superfícies lisas (lataria, vidro, piso encerado): horizonte claro,
+		// céu azulado em cima, chão escuro embaixo — sem mapa de ambiente
+		vec3 inkRf = reflect( - geometryViewDir, inkN );
+		float inkRy = dot( inkRf, inkUp );
+		vec3 inkEnv = mix( vec3( 0.2, 0.2, 0.19 ), mix( vec3( 1.0, 0.92, 0.8 ), vec3( 0.58, 0.72, 0.95 ), smoothstep( 0.08, 0.65, inkRy ) ), smoothstep( -0.12, 0.06, inkRy ) );
+		float inkGloss = pow( 1.0 - material.roughness, 2.2 );
+		float inkFres = 0.25 + 0.75 * pow( 1.0 - clamp( dot( inkN, geometryViewDir ), 0.0, 1.0 ), 4.0 );
+		reflectedLight.indirectSpecular += inkEnv * material.specularColorBlended * inkGloss * inkFres * inkDay * 0.9 * inkParams.w;
+		#endif
 	}
 `;
 const INK_MARK = `
@@ -127,7 +148,8 @@ const POST_FS = `
 uniform sampler2D tColor;
 uniform sampler2D tDepth;
 uniform vec2 uTexel;
-uniform float uThick, uOutline, uRange, uPx, uSat, uCon, uFoliage, uCrease, uFine, uColorEdge;
+uniform float uThick, uOutline, uRange, uPx, uSat, uCon, uFoliage, uCrease, uFine, uColorEdge, uAO, uDay;
+uniform mat4 uInvVP;   // câmera: tela -> mundo (reconstrói a posição de cada pixel pela profundidade)
 uniform vec3 uInk;
 uniform vec4 uSee;    // vegetação vazada (vegetation-3d.mjs): uv.xy do alvo, raio em pixels e profundidade do alvo
 uniform vec4 uTune;   // limiares: vinco (início, fim), borda de material (início, fim)
@@ -140,6 +162,10 @@ float cls( float a, float d ) {
 }
 float clsAt( vec2 uv ) { return cls( texture2D( tColor, uv ).a, texture2D( tDepth, uv ).r ); }
 float luma( vec3 c ) { return dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ); }
+vec3 wpos( vec2 uv, float d ) { vec4 p = uInvVP * vec4( uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0 ); return p.xyz / p.w; }
+// ponto do chão (altura 0) visto por este pixel — o chão é a tela 2D por baixo, sem profundidade própria
+vec3 groundAt( vec2 uv ) { vec3 a = wpos( uv, 0.0 ), b = wpos( uv, 1.0 ); float t = a.y / max( a.y - b.y, 1e-4 ); return mix( a, b, clamp( t, 0.0, 1.0 ) ); }
+float hash12( vec2 p ) { vec3 q = fract( vec3( p.xyx ) * 0.1031 ); q += dot( q, q.yzx + 33.33 ); return fract( ( q.x + q.y ) * q.z ); }
 // um vizinho: laplaciano (vinco), maior degrau, quanto um SÓLIDO está à frente, folhagem à frente e degrau de cor
 void tap( vec2 o, float cC, float dC, float lC, inout float lapSum, inout float jump, inout float front, inout float leaf, inout float leafD, inout float tone ) {
 	vec2 uv = vUv + o * uTexel;
@@ -155,11 +181,25 @@ void tap( vec2 o, float cC, float dC, float lC, inout float lapSum, inout float 
 		if ( abs( diff ) < 0.05 ) tone = max( tone, luma( col.rgb ) - lC );   // vizinho mais claro no mesmo plano
 	}
 }
+// sombra de contato (oclusão de ambiente em espaço de mundo): quanto a geometria em volta tampa o céu deste ponto.
+// Escurece a base das paredes, cantos, embaixo de móveis e carros — e o chão 2D em volta de tudo que está nele.
+float contact( vec3 P, vec3 N ) {
+	float Rw = 0.6, occ = 0.0;
+	float Rpx = clamp( Rw / max( uPx, 1e-4 ), 3.0, 42.0 ), rot = hash12( gl_FragCoord.xy ) * 6.2832;
+	for ( int i = 0; i < 6; i ++ ) {
+		float a = rot + float( i ) * 2.0944 + ( i > 2 ? 1.0472 : 0.0 ), r = Rpx * ( i > 2 ? 1.0 : 0.45 );
+		vec2 uv = vUv + vec2( cos( a ), sin( a ) ) * r * uTexel;
+		float d = texture2D( tDepth, uv ).r; if ( d > 0.99999 ) continue;
+		vec3 v = wpos( uv, d ) - P; float L = length( v );
+		occ += max( 0.0, dot( N, v / max( L, 1e-4 ) ) - 0.12 ) * ( 1.0 - smoothstep( 0.2 * Rw, Rw * 1.4, L ) );
+	}
+	return clamp( occ / 6.0 * 1.9, 0.0, 1.0 );
+}
 void main() {
 	vec4 col = texture2D( tColor, vUv );
 	float dRaw = texture2D( tDepth, vUv ).r;
 	float cC = cls( col.a, dRaw );
-	float edge = 0.0;
+	float edge = 0.0, convex = 0.0;
 	// quanto detalhe cabe na tela: de perto, traço inteiro; de longe só as silhuetas, mais leves
 	float near = 1.0 - smoothstep( 0.014, 0.045, uPx );
 	if ( ( cC == 0.0 || cC == 3.0 ) && uOutline > 0.0 ) {
@@ -167,7 +207,7 @@ void main() {
 		float jump = 0.0, front = 0.0, leaf = 0.0, leafD = 1.0, tone = 0.0, s = uThick, l1 = 0.0, l2 = 0.0;
 		tap( vec2( s, 0.0 ), cC, dC, lC, l1, jump, front, leaf, leafD, tone ); tap( vec2( -s, 0.0 ), cC, dC, lC, l1, jump, front, leaf, leafD, tone );
 		tap( vec2( 0.0, s ), cC, dC, lC, l2, jump, front, leaf, leafD, tone ); tap( vec2( 0.0, -s ), cC, dC, lC, l2, jump, front, leaf, leafD, tone );
-		float lap = max( abs( l1 ), abs( l2 ) );
+		float lap = max( abs( l1 ), abs( l2 ) ), lapS = l1 + l2;
 		if ( uFine > 0.5 ) {
 			float l3 = 0.0, l4 = 0.0, k = s * 0.7071;
 			tap( vec2( k, k ), cC, dC, lC, l3, jump, front, leaf, leafD, tone ); tap( vec2( -k, -k ), cC, dC, lC, l3, jump, front, leaf, leafD, tone );
@@ -178,7 +218,10 @@ void main() {
 		float sil = smoothstep( 0.05, 0.16, front ) * ( 0.6 + 0.4 * near );
 		// vinco (quina de parede, beiral): segunda derivada da profundidade, só onde não há degrau; mais leve que a silhueta
 		float flatK = 1.0 - smoothstep( 0.05, 0.14, jump );
-		float crease = ( cC == 3.0 && uCrease > 0.5 ) ? smoothstep( uTune.x, uTune.y, lap / max( uPx * s, 1e-5 ) ) * flatK * 0.55 * near : 0.0;
+		float creaseK = ( cC == 3.0 && uCrease > 0.5 ) ? smoothstep( uTune.x, uTune.y, lap / max( uPx * s, 1e-5 ) ) * flatK * near : 0.0;
+		// quina p/ fora (beiral, aresta da parede, tampo): fio de luz como um chanfro pintado; p/ dentro: traço
+		convex = lapS > 0.0 ? creaseK : 0.0;
+		float crease = lapS > 0.0 ? 0.0 : creaseK * 0.55;
 		// borda de material (tábua, azulejo, caixilho): bem suave, só de perto
 		float material = ( cC == 3.0 && uColorEdge > 0.5 ) ? smoothstep( uTune.z, uTune.w, tone ) * flatK * 0.35 * near : 0.0;
 		edge = max( max( crease, sil ), material );
@@ -207,9 +250,46 @@ void main() {
 	c = clamp( c, 0.0, 1.0 );
 	// ombro suave nos brancos: piso claro e parede ao sol não estouram (interiores)
 	c *= 1.0 - 0.13 * smoothstep( 0.72, 1.0, luma( c ) );
+	float alpha = cC == 0.0 ? col.a : 1.0;   // vazio mantém o alpha original (sombra no chão, fumaça)
+	// volume: sombra de contato, quina iluminada e encardido na base das paredes
+	if ( uAO > 0.0 && ( cC == 3.0 || cC == 0.0 ) ) {
+		vec3 P, N = vec3( 0.0, 1.0, 0.0 );
+		if ( cC == 3.0 ) {
+			P = wpos( vUv, dRaw );
+			vec3 dx = wpos( vUv + vec2( uTexel.x, 0.0 ), texture2D( tDepth, vUv + vec2( uTexel.x, 0.0 ) ).r ) - P;
+			vec3 dy = wpos( vUv + vec2( 0.0, uTexel.y ), texture2D( tDepth, vUv + vec2( 0.0, uTexel.y ) ).r ) - P;
+			N = normalize( cross( dx, dy ) ); vec3 toCam = normalize( wpos( vUv, 0.0 ) - wpos( vUv, 1.0 ) );
+			if ( dot( N, toCam ) < 0.0 ) N = - N;
+		} else P = groundAt( vUv );
+		float occ = contact( P, N ) * uAO;
+		if ( cC == 3.0 ) {
+			c *= 1.0 - 0.42 * occ;
+			// encardido: faixa de sujeira suave no pé das paredes (só superfícies em pé, perto do chão)
+			float wall = 1.0 - smoothstep( 0.35, 0.6, abs( N.y ) );
+			c *= 1.0 - 0.1 * wall * ( 1.0 - smoothstep( 0.02, 0.4, P.y ) ) * uAO;
+			// quina p/ fora pega luz (mais forte de dia)
+			c = mix( c, min( c * 1.18 + 0.05, vec3( 1.0 ) ), convex * 0.55 * mix( 0.35, 1.0, uDay ) );
+		} else if ( occ > 0.0 ) {
+			// chão 2D: a sombra de contato é desenhada por cima como uma película escura
+			float k = 0.55 * occ;
+			c = mix( c, vec3( 0.04, 0.05, 0.08 ), k / max( alpha + k * ( 1.0 - alpha ), 1e-3 ) );
+			alpha = alpha + k * ( 1.0 - alpha );
+		}
+	}
+	// halo das luzes à noite (janelas acesas, postes, faróis): brilho suave em volta do que é claro e quente
+	if ( uDay < 0.6 && uAO > 0.0 ) {
+		float glow = 0.0, Rg = clamp( 0.45 / max( uPx, 1e-4 ), 4.0, 22.0 ), rot = hash12( gl_FragCoord.yx ) * 6.2832;
+		for ( int i = 0; i < 6; i ++ ) {
+			float a = rot + float( i ) * 1.0472; vec2 uv = vUv + vec2( cos( a ), sin( a ) ) * Rg * ( i > 2 ? 1.0 : 0.5 ) * uTexel;
+			vec3 t = texture2D( tColor, uv ).rgb; glow += max( luma( t ) - 0.72, 0.0 ) * ( t.r > t.b ? 1.0 : 0.6 );
+		}
+		glow = clamp( glow / 6.0 * 3.2, 0.0, 1.0 ) * ( 1.0 - uDay / 0.6 );
+		vec3 g = vec3( 1.0, 0.78, 0.48 ) * glow * 0.55;
+		c = 1.0 - ( 1.0 - c ) * ( 1.0 - g );   // tela: clareia sem estourar
+		if ( cC == 0.0 && glow > 0.0 ) { float k = glow * 0.5; c = mix( c, vec3( 1.0, 0.8, 0.5 ), k / max( alpha + k * ( 1.0 - alpha ), 1e-3 ) * 0.6 ); alpha = alpha + k * ( 1.0 - alpha ); }
+	}
 	// traço tingido: escurece a cor de baixo em direção ao tom da tinta, em vez de pintar preto chapado
 	vec3 inkC = mix( uInk, c * 0.32, 0.35 );
-	float alpha = cC == 0.0 ? col.a : 1.0;   // vazio mantém o alpha original (sombra no chão, fumaça)
 	edge *= uOutline;
 	gl_FragColor = vec4( mix( c, inkC, edge ), max( alpha, edge ) );
 }
@@ -226,7 +306,7 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
       tColor: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2() },
       uThick: { value: 1 }, uOutline: { value: 1 }, uRange: { value: 1 }, uPx: { value: 0.02 },
       uSat: { value: 0.1 }, uCon: { value: 0.2 }, uFoliage: { value: 1 }, uCrease: { value: 1 }, uFine: { value: 0 }, uColorEdge: { value: 0 },
-      uSee: { value: new THREE.Vector4(-1, -1, 0, 0) }, uTune: { value: new THREE.Vector4(0.6, 1.2, 0.1, 0.22) },
+      uSee: { value: new THREE.Vector4(-1, -1, 0, 0) }, uAO: { value: 1 }, uDay: { value: 1 }, uInvVP: { value: new THREE.Matrix4() }, uTune: { value: new THREE.Vector4(0.6, 1.2, 0.1, 0.22) },
       uInk: { value: new THREE.Color() },
     },
   });
@@ -293,7 +373,7 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
     arm(false);
     const u = post.uniforms, q = INK_QUALITY[params.quality] || INK_QUALITY.balanced;
     u.uOutline.value = params.outline; u.uSat.value = params.saturation; u.uCon.value = params.contrast;
-    u.uFoliage.value = q.foliage ? 1 : 0; u.uCrease.value = q.crease ? 1 : 0; u.uFine.value = q.fine ? 1 : 0; u.uColorEdge.value = q.color ? 1 : 0;
+    u.uAO.value = q.ao; u.uFoliage.value = q.foliage ? 1 : 0; u.uCrease.value = q.crease ? 1 : 0; u.uFine.value = q.fine ? 1 : 0; u.uColorEdge.value = q.color ? 1 : 0;
     state.enabled = params.enabled; state.quality = params.quality;
   }
   applyUniforms();
@@ -323,6 +403,8 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
       u.uRange.value = camera.far - camera.near;
       // metros por pixel da render target (câmera ortográfica)
       u.uPx.value = (camera.top - camera.bottom) / camera.zoom / rt.height;
+      camera.updateMatrixWorld(); u.uInvVP.value.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+      u.uDay.value = INK.mark.y;
       renderer.setRenderTarget(rt);
       arm(true);
       try { renderer.render(scene, camera); } finally { arm(false); renderer.setRenderTarget(null); }

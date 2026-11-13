@@ -10,6 +10,27 @@ Visual de ilustração viva, não de desenho saturado: **vibração** em vez de 
 neon nem amarelo gritando), curva em S suave, sombra levemente fria e luz levemente quente, toon com passagem macia
 entre faixas e paleta do chão natural (grama oliva, calçada bege suave, asfalto grafite, terra ocre).
 
+## Realismo e detalhe (dentro do estilo)
+
+| Camada | O quê | Onde |
+|---|---|---|
+| Sombra de contato | oclusão de ambiente em espaço de mundo (profundidade → posição): base das paredes, cantos, embaixo de móveis e carros, e no chão 2D em volta de tudo | passe de tela (`urban-ink.mjs`, `contact`) |
+| Quinas | aresta p/ fora ganha um fio de luz (chanfro pintado); p/ dentro, traço | passe de tela |
+| Encardido | faixa suave de sujeira no pé das paredes | passe de tela |
+| Luz pintada | sol puxa p/ o quente, céu (sombra) p/ o frio; fio de luz fria do céu nas bordas | materiais (`INK_LIGHT`) |
+| Reflexo estilizado | lataria, vidro e superfícies lisas refletem horizonte, céu e chão (sem mapa de ambiente; some à noite) | materiais |
+| Luz rebatida | o gramado devolve verde quente às faces de baixo e às sombras | `vehicle-webgl.mjs` (`inkLights`) |
+| Interiores | de dia as lâmpadas da casa acompanham a luz do sol (antes estouravam piso e paredes em branco) | `inkInteriorLights` |
+| Chão | sombra do meio-fio na sarjeta; garagens sem manchas de óleo | `terrain.js`, `miami-city.js` |
+| Atmosfera | véu da cor do céu no fundo da tela e vinheta, pela hora do dia | camada `#ink-atmo` |
+| Noite | halo suave em janelas acesas, postes e faróis | passe de tela |
+
+Custo: com o jogo rodando, Urban Ink com realismo 27,1–29,3 ms × original 26,4–30,1 ms por quadro (mesma cena,
+resolução travada) — empatados; a sombra de contato sozinha custa ~2 ms e é paga pela sombra do sol em cadência.
+Qualidade "Desempenho" desliga a sombra de contato e o halo.
+
+Capturas: `docs/screenshots/urban-ink/realismo-*.jpg`.
+
 ## Como funciona
 
 | Parte | Arquivo | O quê |

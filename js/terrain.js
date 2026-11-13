@@ -422,6 +422,8 @@ function paintRows(ch, rows, L = ch) {
         let il = Math.max(inkBand(rd - ROAD_W - 0.02, 0.045) * 0.6, rd < s1 + 0.2 ? inkBand(rd - s1, 0.045) * 0.5 : 0, inkBand(pv - 1.0, 0.004) * (pv < 1.3 ? 0.55 : 0));
         // placas da calçada contornadas (1,5 m), como na referência
         if (rd > ROAD_W + 0.2 && rd < s1 - 0.05) { const wx = Xp / TP, wy = Yp / TP, jx = Math.abs(((wx / 1.5) % 1 + 1) % 1 - 0.5) * 1.5, jy = Math.abs(((wy / 1.5) % 1 + 1) % 1 - 0.5) * 1.5; il = Math.max(il, inkBand(0.75 - Math.max(jx, jy), 0.035) * 0.28); }
+        // sarjeta: sombra suave do meio-fio sobre o asfalto (o degrau ganha volume)
+        if (rd < ROAD_W && rd > ROAD_W - 0.45) { const k = (rd - (ROAD_W - 0.45)) / 0.45 * 0.2; r *= 1 - k; gg *= 1 - k; b *= 1 - k * 0.85; }
         // traço tingido: a própria cor escurecida puxada p/ o tom da tinta (#171A20), não preto chapado
         if (il > 0) { r = lerp(r, r * 0.3 + 16, il); gg = lerp(gg, gg * 0.3 + 18, il); b = lerp(b, b * 0.3 + 22, il); }
       }

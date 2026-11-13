@@ -6,7 +6,8 @@
 //   await inkBench(240)              → mede quadro (ms), passe 3D, draw calls, triângulos, programas e geometrias
 (() => {
   'use strict';
-  const wait = ms => new Promise(r => setTimeout(r, ms));
+  // espera contando quadros (o navegador segura setTimeout em aba escondida; com ?pump=1 os quadros continuam)
+  const wait = ms => new Promise(r => { const t = performance.now(), f = () => (performance.now() - t >= ms ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   // cenas fixas: mesmo ponto, zoom, ângulo e hora em todas as comparações
   const SCENES = {
     house: { x: 1942, y: 1176, zoom: 48, clock: 17 * 60 + 44 },
@@ -57,6 +58,7 @@
     // a tela WebGL é lida no mesmo quadro em que foi desenhada
     const v3 = document.getElementById('vehicle3d'); window.cityVehicles.render();
     g.filter = filterOf(v3); g.drawImage(v3, 0, 0, W, H); g.filter = 'none';
+    window.cityVehicles.paintAtmosphere?.(g, W, H);   // véu do céu e vinheta (camada #ink-atmo)
     await fetch('/__shot?name=' + encodeURIComponent(name), { method: 'POST', body: c.toDataURL('image/jpeg', 0.92) });
     return { name, W, H };
   }
@@ -82,5 +84,5 @@
       pixelRatio: r.getPixelRatio(),
     };
   }
-  Object.assign(window, { inkScene, inkSet, inkShot, inkBench, groundReady, INK_SCENES: SCENES });
+  Object.assign(window, { inkScene, inkSet, inkShot, inkBench, groundReady, inkWait: wait, INK_SCENES: SCENES });
 })();
