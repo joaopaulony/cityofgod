@@ -98,6 +98,7 @@ const CityMedia=(()=>{
   if(!/^[a-zA-Z0-9_-]{12,100}$/.test(code||''))return false;
   const ws=C.cleanWS(relay);
   if(relay&&!ws)return false;
+  if(state.roomCode!==code){tvs.clear();radios.clear();saveTV();muteVideo(true);videoID=null;}
   state.roomCode=code;state.relay=ws;persist();resetChannel();return true;
  }
  function ensure(){
@@ -238,7 +239,7 @@ const CityMedia=(()=>{
   try{
    if(videoID!==next){videoID=next;videoPlayer.loadVideoById({videoId:next,startSeconds:elapsed});}
    else if(Math.abs((videoPlayer.getCurrentTime?.()||0)-elapsed)>3)videoPlayer.seekTo(elapsed,true);
-   if(gesture)videoPlayer.playVideo();
+   if(gesture||videoPlayer.getPlayerState?.()!==1)videoPlayer.playVideo();
    syncTVVolume();
   }catch{}
  }
@@ -290,7 +291,7 @@ const CityMedia=(()=>{
   document.getElementById('cog-radio-detail').textContent=(state.radioOn?'● AO VIVO · ':'○ Desligado · ')+st.genre;
   radioUI.querySelector('[data-cm="radio-toggle"]').textContent=state.radioOn?'⏹':'📻';
  }
- const vehicleKey=()=>String(window.cityVehicles?.mediaVehicleId||('player-car-'+state.roomCode.slice(-12))).slice(0,210);
+ const vehicleKey=()=>String(window.cityVehicles?.mediaVehicleId||('player-car-'+state.roomCode.slice(-12))).replace(/[^-\w:.|]/g,'').slice(0,210);
  function broadcastRadio(playing=state.radioOn){
   const p=getPlayer(),vehicle=radioVehicle||vehicleKey();
   if(!p||!vehicle)return;
@@ -319,7 +320,7 @@ const CityMedia=(()=>{
   }
   const d=Math.hypot(near.x-p.x,near.y-p.y);
   remoteRadio.volume=document.hidden?0:Math.max(0,Math.min(.45,state.volume*.7*(1-d/10)));
-  if(gesture||remoteRadio.paused)remoteRadio.play().catch(()=>{});
+  if(gesture)remoteRadio.play().catch(()=>{notify('O navegador bloqueou o áudio. Clique em Ouvir novamente.');});
  }
 
  function tick(){
@@ -329,7 +330,7 @@ const CityMedia=(()=>{
   if(driving!==lastCar){
    if(lastCar&&!driving&&radioVehicle)broadcastRadio(false);
    lastCar=driving;
-   if(driving){radioVehicle=vehicleKey();startRadio(false);if(state.radioOn)broadcastRadio(true);}
+   if(driving){radioVehicle=vehicleKey();startRadio(false);if(state.radioOn)broadcastRadio(true);notify('📻 Rádio do carro: clique em 📻 para ativar o som.');}
    else{radioAudio?.pause();radioCurrent=null;radioVehicle=null;}
    renderRadio();
   }
@@ -355,6 +356,6 @@ const CityMedia=(()=>{
  }
  return {ensure,openTV,tick,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
   get state(){return {...state};},get screens(){return [...tvs.values()]},get active(){return active},
-  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;}};
+  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
 })();
 window.CityMedia=CityMedia;
