@@ -12,7 +12,7 @@ const CityMedia=(()=>{
  let started=false,dialog=null,radioUI=null,screenEl=null,radioAudio=null;
  let active=null,videoPlayer=null,videoReady=false,videoID=null,playerLoading=false;
  let connection=null,channel=null,lastRender=0,lastCar=false,radioVehicle=null;
- let remoteRadio=null,radioCurrent=null,radioAttempt='',lastSend=0;
+ let remoteRadio=null,remoteStation=null,remoteOn=false,radioCurrent=null,lastSend=0;
  const notify=s=>window.CityUI?.notify?.(s);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const getPlayer=()=>window.__game?.player||null;
@@ -64,7 +64,7 @@ const CityMedia=(()=>{
    return;
   }
   if(m.type==='radio'&&typeof m.vehicle==='string'&&stations.some(s=>s.id===m.station)){
-   radios.set(m.vehicle,{...m});return;
+   if(m.playing)radios.set(m.vehicle,{...m});else radios.delete(m.vehicle);return;
   }
  }
  function transmit(message){
@@ -124,6 +124,7 @@ const CityMedia=(()=>{
       <button data-cm="prev" title="Estação anterior">‹</button><button data-cm="next" title="Próxima estação">›</button>
       <button data-cm="radio-list" title="Escolher rádio">☷</button>
     </div>
+    <div id="cog-ambient-radio" hidden><button data-cm="ambient-toggle">📻 Ativar som</button><span id="cog-ambient-radio-label">Rádio de carro próximo</span></div>
     <div id="cog-radio-list" hidden role="dialog" aria-label="Emissoras brasileiras"><section class="cog-media-card">
       <button data-cm="radio-close" class="cog-media-close" aria-label="Fechar">✕</button>
       <h2>📻 Rádios brasileiras ao vivo</h2><p>Escolha a emissora. São transmissões reais pela internet, sujeitas à disponibilidade do servidor da rádio.</p>
@@ -142,6 +143,7 @@ const CityMedia=(()=>{
    if(cmd==='close'){dialog.hidden=true;return;}
    if(cmd==='radio-close'){document.getElementById('cog-radio-list').hidden=true;return;}
    if(cmd==='radio-list'){document.getElementById('cog-radio-list').hidden=false;return;}
+   if(cmd==='ambient-toggle'){remoteOn=!remoteOn;syncNearbyRadio(true);return;}
    if(cmd==='radio-toggle'){toggleRadio();return;}
    if(cmd==='next'||cmd==='prev'){const i=stations.findIndex(s=>s.id===state.station);selectStation(stations[(i+(cmd==='next'?1:stations.length-1))%stations.length].id);return;}
    if(cmd==='play'){const id=C.youtubeId(document.getElementById('cog-media-link').value);if(!id){setStatus('Link inválido. Use vídeo, Shorts ou youtu.be.');return;}playTV(id);return;}
@@ -261,7 +263,7 @@ const CityMedia=(()=>{
  }
  function selectStation(id){
   ensure();if(!stations.some(s=>s.id===id))return false;
-  state.station=id;state.radioOn=true;persist();startRadio(true);renderRadio();
+  state.station=id;state.radioOn=true;persist();startRadio(true);broadcastRadio();renderRadio();
   return true;
  }
  function startRadio(userGesture=false){
@@ -276,7 +278,7 @@ const CityMedia=(()=>{
   if(!driver())return;
   state.radioOn=!state.radioOn;persist();
   if(state.radioOn)startRadio(true);else radioAudio?.pause();
-  renderRadio();
+  broadcastRadio();renderRadio();
  }
  function renderRadio(){
   if(!radioUI)return;
@@ -288,12 +290,49 @@ const CityMedia=(()=>{
   document.getElementById('cog-radio-detail').textContent=(state.radioOn?'● AO VIVO · ':'○ Desligado · ')+st.genre;
   radioUI.querySelector('[data-cm="radio-toggle"]').textContent=state.radioOn?'⏹':'📻';
  }
- const vehicleKey=()=>String(window.cityVehicles?.car?.modelId||window.cityVehicles?.car?.id||'player-car');
+ const vehicleKey=()=>String(window.cityVehicles?.mediaVehicleId||('player-car-'+state.roomCode.slice(-12))).slice(0,210);
+ function broadcastRadio(playing=state.radioOn){
+  const p=getPlayer(),vehicle=radioVehicle||vehicleKey();
+  if(!p||!vehicle)return;
+  const packet={type:'radio',vehicle,station:state.station,playing:!!playing,x:p.x,y:p.y};
+  if(playing)radios.set(vehicle,{...packet,at:Date.now()});else radios.delete(vehicle);
+  transmit(packet);
+ }
+ function syncNearbyRadio(gesture=false){
+  const el=document.getElementById('cog-ambient-radio');
+  if(!el)return;
+  const p=getPlayer();
+  const near=!driver()&&!inMenu()&&p?[...radios.values()].filter(r=>r.playing&&Date.now()-r.at<10500&&
+   Math.hypot(r.x-p.x,r.y-p.y)<9&&stations.some(s=>s.id===r.station))
+   .sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]:null;
+  el.hidden=!near;
+  if(!near){remoteRadio?.pause();return;}
+  const station=stations.find(s=>s.id===near.station);
+  document.getElementById('cog-ambient-radio-label').textContent=station.name;
+  el.querySelector('button').textContent=remoteOn?'⏹ Silenciar':'📻 Ouvir';
+  if(!remoteOn){remoteRadio?.pause();return;}
+  if(!remoteRadio){remoteRadio=new Audio();remoteRadio.preload='none';}
+  if(remoteStation!==station.id){
+   remoteStation=station.id;remoteRadio.pause();remoteRadio.src=station.url;remoteRadio.load();
+   // Station changes may need another click if autoplay is restricted.
+   gesture=true;
+  }
+  const d=Math.hypot(near.x-p.x,near.y-p.y);
+  remoteRadio.volume=document.hidden?0:Math.max(0,Math.min(.45,state.volume*.7*(1-d/10)));
+  if(gesture||remoteRadio.paused)remoteRadio.play().catch(()=>{});
+ }
+
  function tick(){
   ensure();
   const now=performance.now();if(now-lastRender<180)return;lastRender=now;
   const driving=driver();
-  if(driving!==lastCar){lastCar=driving;startRadio(false);if(!driving){radioAudio?.pause();radioCurrent=null;remoteRadio=null;}renderRadio();}
+  if(driving!==lastCar){
+   if(lastCar&&!driving&&radioVehicle)broadcastRadio(false);
+   lastCar=driving;
+   if(driving){radioVehicle=vehicleKey();startRadio(false);if(state.radioOn)broadcastRadio(true);}
+   else{radioAudio?.pause();radioCurrent=null;radioVehicle=null;}
+   renderRadio();
+  }
   if(driving&&state.radioOn){if(!radioAudio?.src)startRadio(false);syncRadioVolume();}
   const choices=allScreens();
   const shown=choices.find(b=>tvs.get(b.screen)?.playing)||null;
@@ -309,10 +348,10 @@ const CityMedia=(()=>{
     syncTVVolume();
    }else {screenEl.hidden=true;muteVideo(true);}
   }else{screenEl.hidden=true;muteVideo(true);if(dialog.hidden)active=null;}
-  if(now-lastSend>4000&&driving&&state.radioOn&&connection?.readyState===WebSocket.OPEN){
-   lastSend=now;const p=getPlayer();
-   if(p)transmit({type:'radio',vehicle:vehicleKey(),station:state.station,playing:state.radioOn,x:p.x,y:p.y});
+  if(now-lastSend>4000&&driving&&state.radioOn){
+   lastSend=now;broadcastRadio(true);
   }
+  syncNearbyRadio();
  }
  return {ensure,openTV,tick,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
   get state(){return {...state};},get screens(){return [...tvs.values()]},get active(){return active},
