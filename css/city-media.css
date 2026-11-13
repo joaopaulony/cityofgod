@@ -1,6 +1,8 @@
 /* City of God — diegetic YouTube screens and car radio */
-#cog-tv-screen{position:fixed;z-index:5;pointer-events:none;overflow:hidden;border-radius:3px;background:#06090d;
- border:2px solid #181c21;box-shadow:0 0 14px #102432bb;transform:skewY(-2deg);transform-origin:center center}
+/* The affine matrix is computed from the actual WebGL instanced-mesh face.
+   Avoid borders, skew and center transforms that offset the real screen. */
+#cog-tv-screen{position:fixed;z-index:5;pointer-events:none;overflow:hidden;border:0;border-radius:0;
+ background:#06090d;box-shadow:none;transform-origin:0 0;}
 #cog-tv-screen iframe{width:100%;height:100%;border:0;pointer-events:none}
 #cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden],#cog-ambient-radio[hidden]{display:none!important}
 #cog-media-dialog,#cog-radio-list{position:fixed;inset:0;z-index:110;display:grid;place-items:center;
@@ -24,23 +26,62 @@
 .cog-media-actions button:hover,.cog-station-list button:hover{background:#2d665a}
 .cog-media-close{position:absolute;right:15px;top:13px;border:0;background:transparent;color:white;font-size:19px;cursor:pointer}
 #cog-media-status{font-size:12px;min-height:24px;color:#efd9a0}
-#cog-car-radio{position:fixed;z-index:9;right:18px;bottom:74px;display:flex;align-items:center;gap:7px;
- width:min(410px,calc(100vw - 36px));box-sizing:border-box;padding:9px;border:1px solid #8abda76a;border-radius:13px;
- background:#0c1922ed;box-shadow:0 7px 25px #0009;color:#fff;font-family:system-ui}
-#cog-car-radio div{display:grid;gap:3px;flex:1;min-width:0}
-#cog-car-radio strong{font-size:12px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
-#cog-car-radio span{font-size:10px;color:#b5d2c6;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
-#cog-car-radio button{min-width:31px;min-height:31px;border:1px solid #b4cab544;background:#203631;color:white;
- border-radius:7px;cursor:pointer;font-size:15px}
+/* Compact old-school automotive radio — floats above the bottom-left minimap. */
+#cog-car-radio{position:fixed;z-index:18;left:18px;right:auto;bottom:190px;
+ width:min(334px,calc(100vw - 36px));box-sizing:border-box;padding:8px 10px 10px;
+ border:3px solid #1b110e;border-radius:13px;
+ background:repeating-linear-gradient(6deg,transparent 0 4px,#ffffff05 5px 6px,transparent 7px 14px),
+ linear-gradient(140deg,#7a4a2d 0%,#38251c 22%,#65452e 46%,#2c1c17 81%,#805132 100%);
+ box-shadow:inset 0 0 0 1px #bf956155,inset 0 3px 7px #e3a96b28,0 7px 0 #150d0bb8,0 13px 28px #0009;
+ color:#f9e0ab;font-family:"Trebuchet MS","Arial Narrow",sans-serif;pointer-events:auto}
+.cog-retro-topline{height:17px;display:flex;justify-content:space-between;align-items:start;
+ color:#eac793;font:700 9px/1 "Trebuchet MS",sans-serif;letter-spacing:.17em;text-shadow:0 1px 2px #000}
+.cog-retro-topline span:last-child{font-size:7px;color:#dcc4a0;letter-spacing:.13em}
+.cog-retro-body{display:grid;grid-template-columns:69px minmax(0,1fr);gap:9px;align-items:stretch}
+.cog-retro-speaker{position:relative;display:grid;place-items:center;min-height:89px;overflow:hidden;
+ border-radius:6px;border:2px solid #1e1714;background:#1e1c1a;
+ box-shadow:inset 0 1px 9px #000b,0 1px 0 #a27a50}
+.cog-retro-speaker:before{position:absolute;inset:5px;content:"";opacity:.85;
+ background:radial-gradient(#736557 1px,#100d0c 1.6px);background-size:5px 5px;border-radius:50%}
+.cog-retro-speaker-disc{position:absolute;width:45px;height:45px;border:3px solid #58483a;border-radius:50%;
+ background:radial-gradient(circle,#302b27 7%,#0c0d0d 8% 16%,#4a4239 17% 19%,#181512 22% 73%,#746150 78%);box-shadow:0 0 1px #ddc4a7}
+.cog-retro-speaker span{position:absolute;bottom:4px;z-index:1;font:700 6px/1 sans-serif;letter-spacing:.12em;color:#cab18a}
+.cog-retro-right{display:flex;min-width:0;flex-direction:column;gap:5px}
+.cog-retro-glass{position:relative;display:flex;flex:1;flex-direction:column;justify-content:center;
+ min-width:0;padding:7px 9px 5px;border:2px solid #1b1a18;border-radius:5px;
+ background:linear-gradient(165deg,#181c1b,#202520 55%,#101411);
+ box-shadow:inset 0 1px 9px #000c,inset 0 0 14px #f0b45a13,0 1px 1px #c29a67}
+.cog-retro-frequency{display:flex;align-items:center;justify-content:space-between;height:11px;
+ font:700 8px/1 monospace;letter-spacing:.03em;color:#9a815b}
+.cog-retro-frequency i{width:1px;height:6px;background:#9e7647;display:block}
+.cog-retro-frequency small{font-size:7px;color:#e2ae62}
+#cog-car-radio strong{display:block;max-width:100%;font:700 12px/1.2 "Trebuchet MS",sans-serif;
+ letter-spacing:.025em;color:#a7ad83;text-shadow:0 0 4px #e6ac4540;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+#cog-car-radio.cog-retro-on strong{color:#ffda82;text-shadow:0 0 8px #d99d4488}
+#cog-radio-detail{font:700 9px/1.2 "Trebuchet MS",sans-serif;color:#a9a38b;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+#cog-car-radio.cog-retro-on #cog-radio-detail{color:#e9bf76}
+.cog-retro-controls{display:flex;align-items:center;justify-content:space-between;gap:5px}
+#cog-car-radio button{height:29px;min-width:34px;flex:1;cursor:pointer;color:#d9c7ab;
+ border-radius:5px;border:1px solid #130e0c;background:linear-gradient(155deg,#59534a,#25231f 67%,#51453a);
+ box-shadow:inset 0 1px 1px #fff3,0 2px 1px #0a0807;font:700 10px/1 "Trebuchet MS",sans-serif}
+#cog-car-radio button:hover{filter:brightness(1.28)}
+#cog-car-radio button:focus-visible{outline:2px solid #f8dca3;outline-offset:2px}
+#cog-car-radio .cog-retro-knob{flex:0 0 31px;min-width:31px;height:31px;border-radius:50%;
+ background:repeating-conic-gradient(from 8deg,#8b8276 0deg 12deg,#2a2926 12deg 23deg);
+ box-shadow:inset 0 0 0 5px #3a3630,inset 0 1px 3px #b4aaa0,0 2px 2px #000;
+ font-size:19px;text-align:center;line-height:28px;color:#cbb89f}
+#cog-car-radio.cog-retro-on .cog-retro-knob{color:#ffd381;text-shadow:0 0 5px #dfae53}
 #cog-radio-list .cog-station-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:360px;overflow:auto}
 .cog-station-list button{text-align:left}
 .cog-station-list small{margin:3px 0;color:#b4d1c4}
 body.front-open #cog-tv-screen,body.front-open #cog-car-radio,
 body.city-home-open #cog-tv-screen{display:none!important}
-@media(max-width:550px){.cog-media-card{padding:19px}#cog-car-radio{right:8px;bottom:48px;width:calc(100vw - 16px)}
+@media(max-width:550px){.cog-media-card{padding:19px}#cog-car-radio{left:9px;right:auto;bottom:165px;width:min(304px,calc(100vw - 18px))}
  #cog-radio-list .cog-station-list{grid-template-columns:1fr}}
 
-#cog-ambient-radio{position:fixed;z-index:9;right:18px;bottom:72px;display:flex;align-items:center;gap:10px;
+#cog-ambient-radio{position:fixed;z-index:9;left:18px;right:auto;bottom:190px;display:flex;align-items:center;gap:10px;
  max-width:min(330px,calc(100vw - 36px));padding:8px 11px;background:#0c1922ed;
  border:1px solid #70b29c66;border-radius:11px;color:#e5efe8;font:12px system-ui}
 #cog-ambient-radio button{background:#245445;border:1px solid #76b8a1aa;border-radius:8px;color:white;
