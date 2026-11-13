@@ -4,9 +4,14 @@
 // ?quality=performance mantém a renderização antiga em meia resolução.
 const RS = new URLSearchParams(location.search).get('quality') === 'performance' ? 2 : 1;
 const RENDER_SCALE = 2 / RS; // mantém o tamanho visual dos objetos ao mudar a resolução
-let TILT = 0.5; // inclinação vertical ajustável (seno do ângulo da câmera acima do chão)
-// limites da inclinação (arrastar com o botão do meio / Page Up e Page Down): 0,132 ≈ 7,6° rasante · 0,84 ≈ 57° de cima
-const TILT_MIN = 0.132, TILT_MAX = 0.84;
+// Zomboid × Sims 4: readable isometric starting elevation with Sims-style orbit.
+// Vertical orbit is constrained to 28°–60° above the ground; yaw is 360° free.
+// TILT is sin(elevation) so projection, unprojection and WebGL agree.
+const CAMERA_ELEVATION_MIN = 28, CAMERA_ELEVATION_MAX = 60, CAMERA_ELEVATION_DEFAULT = 35;
+const TILT_MIN = Math.sin(CAMERA_ELEVATION_MIN * Math.PI / 180);
+const TILT_MAX = Math.sin(CAMERA_ELEVATION_MAX * Math.PI / 180);
+const CAMERA_DEFAULT_TILT = Math.sin(CAMERA_ELEVATION_DEFAULT * Math.PI / 180);
+let TILT = CAMERA_DEFAULT_TILT;
 let HZ = Math.sqrt(1 - TILT * TILT); // sincronizada com câmera 3D
 const INK = VISUAL_REFERENCE.anchors.outline;   // contorno de tinta
 const TAU = Math.PI * 2;
@@ -46,8 +51,16 @@ const cam = {
   x: 20, y: 10, ang: Math.PI / 4, zoom: 34,
   tx: 20, ty: 10, tang: Math.PI / 4, tzoom: 34,
   W: 0, H: 0, cos: 1, sin: 0,
-  tilt: .5, ttilt: .5,
+  tilt: CAMERA_DEFAULT_TILT, ttilt: CAMERA_DEFAULT_TILT,
   update(dt) {
+    // Clamp the target even when modified by a vehicle, cinematic, or editor.
+    this.ttilt = clamp(Number.isFinite(this.ttilt) ? this.ttilt : CAMERA_DEFAULT_TILT, TILT_MIN, TILT_MAX);
+    // Long free-orbit sessions must not accumulate enormous radian angles.
+    // Reduce both endpoints by identical turns, preserving the actual view.
+    if(Math.abs(this.tang)>TAU*8){
+      const turns=Math.trunc(this.tang/TAU);
+      this.tang-=turns*TAU;this.ang-=turns*TAU;
+    }
     const k = 1 - Math.exp(-dt * 6);
     this.x = lerp(this.x, this.tx, k);
     this.y = lerp(this.y, this.ty, k);
