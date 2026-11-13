@@ -12,6 +12,7 @@ const CityMedia=(()=>{
  let started=false,dialog=null,radioUI=null,screenEl=null,radioAudio=null;
  let active=null,videoPlayer=null,videoReady=false,videoID=null,playerLoading=false;
  let connection=null,channel=null,lastRender=0,lastCar=false,radioVehicle=null;
+ let visibleScreen=null;
  let remoteRadio=null,remoteStation=null,remoteOn=false,radioCurrent=null,lastSend=0;
  const notify=s=>window.CityUI?.notify?.(s);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -338,42 +339,47 @@ const CityMedia=(()=>{
   if(driving&&state.radioOn){if(!radioAudio?.src)startRadio(false);syncRadioVolume();}
   const choices=allScreens();
   const shown=choices.find(b=>tvs.get(b.screen)?.playing)||null;
+  visibleScreen=shown;
   if(shown){
    const changed=active?.screen!==shown.screen;
    if(changed){active=shown;videoID=null;syncVideo(tvs.get(shown.screen));}
-   // The iframe is attached to the four projected corners of the actual
-   // furniture screen. It follows the free-orbit isometric camera, rather
-   // than floating as a rectangular billboard above the TV.
-   const item=shown.item,scale=typeof RS==='number'?RS:1;
-   const front=item.faceW?.length===2?item.faceW:[-Math.sin(item.rot||0),Math.cos(item.rot||0)];
-   const n=Math.hypot(front[0],front[1])||1,nx=front[0]/n,ny=front[1]/n;
-   const tangent=item.faceW?.length===2?[ny,-nx]:[Math.cos(item.rot||0),Math.sin(item.rot||0)];
-   const direction=typeof facingCam==='function'?facingCam(nx,ny):1;
-   const isTV=item.kind==='tv',bottom=(item.z||0)+(isTV?(item.h||.8)*1.08:(item.h||.7)*.07);
-   const top=bottom+(item.h||.7)*(isTV?1.01:.91);
-   const half=(item.w||1.2)*(isTV?.455:.475);
-   const x=item.x+nx*.035,y=item.y+ny*.035;
-   const tl=proj(x-tangent[0]*half,y-tangent[1]*half,top);
-   const tr=proj(x+tangent[0]*half,y+tangent[1]*half,top);
-   const bl=proj(x-tangent[0]*half,y-tangent[1]*half,bottom);
-   const W=640,H=360;
-   const a=(tr.x-tl.x)*scale/W,b=(tr.y-tl.y)*scale/W;
-   const c=(bl.x-tl.x)*scale/H,d=(bl.y-tl.y)*scale/H;
-   const area=Math.abs(a*d-b*c)*W*H;
-   if(direction>.08&&area>300&&tl.x>-280&&tl.x<window.innerWidth/scale+280&&tl.y>-280&&tl.y<window.innerHeight/scale+280){
-    screenEl.style.left=(tl.x*scale)+'px';screenEl.style.top=(tl.y*scale)+'px';
-    screenEl.style.width=W+'px';screenEl.style.height=H+'px';
-    screenEl.style.transform='matrix('+[a,b,c,d,0,0].map(v=>Number(v.toFixed(6))).join(',')+')';
-    screenEl.hidden=false;
-    syncTVVolume();
-   }else {screenEl.hidden=true;muteVideo(true);}
-  }else{screenEl.hidden=true;muteVideo(true);if(dialog.hidden)active=null;}
+  }else{
+   if(screenEl)screenEl.hidden=true;
+   muteVideo(true);
+   if(dialog.hidden)active=null;
+  }
   if(now-lastSend>4000&&driving&&state.radioOn){
    lastSend=now;broadcastRadio(true);
   }
   syncNearbyRadio();
  }
- return {ensure,openTV,tick,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
+ // Rendered after setCamera() and props3d.update() on each WebGL frame.
+ // This is the authoritative visible 3D screen projection, not a 2D guess.
+ function updateOverlay(){
+  if(!screenEl)return;
+  const shown=visibleScreen,record=shown&&tvs.get(shown.screen);
+  if(!shown||!record?.playing){
+   screenEl.hidden=true;return;
+  }
+  const face=window.cityVehicles?.mediaScreenPose?.(shown.item);
+  if(!face){
+   screenEl.hidden=true;muteVideo(true);return;
+  }
+  const wasHidden=screenEl.hidden;
+  const W=640,H=360;
+  const {tl,tr,bl}=face;
+  const a=(tr.x-tl.x)/W,b=(tr.y-tl.y)/W;
+  const c=(bl.x-tl.x)/H,d=(bl.y-tl.y)/H;
+  // The 3D furniture is orthographically projected, so a CSS affine matrix
+  // exactly maps the video to its real rectangular black display surface.
+  screenEl.style.left=tl.x+'px';screenEl.style.top=tl.y+'px';
+  screenEl.style.width=W+'px';screenEl.style.height=H+'px';
+  screenEl.style.transform='matrix('+[a,b,c,d,0,0].map(v=>Number(v.toFixed(7))).join(',')+')';
+  screenEl.hidden=false;
+  if(wasHidden)syncVideo(record);
+  syncTVVolume();
+ }
+ return {ensure,openTV,tick,updateOverlay,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
   get state(){return {...state};},get screens(){return [...tvs.values()]},get active(){return active},
   get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
 })();
