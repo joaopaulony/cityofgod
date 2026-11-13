@@ -497,10 +497,10 @@ function owTryHouse(S, key, c, rects) {
   const W = k % 2 ? T.d : T.w, Dp = k % 2 ? T.w : T.d, depth = k % 2 ? W : Dp;
   const dist = ROAD_W + c.off + SIDE + Math.min(T.setback, .85) + Math.abs(o[0])*W/2 + Math.abs(o[1])*Dp/2;
   const x0 = Math.round(p.x + o[0] * dist - W / 2), y0 = Math.round(p.y + o[1] * dist - Dp / 2);
-  const m = T.yard ? 3.2 : 1, box = [x0 - m, y0 - m, x0 + W + m, y0 + Dp + m];
+  const m = c.infill ? .4 : T.yard ? 3.2 : 1, box = [x0 - m, y0 - m, x0 + W + m, y0 + Dp + m];
   // o lote inteiro cabe no setor: casas nunca cruzam a fronteira (setores independentes)
   if (box[0] < sx0 + 1 || box[1] < sy0 + 1 || box[2] > sx1 - 1 || box[3] > sy1 - 1) return null;
-  if (rects.some(b => box[0] < b[2] + 2 && box[2] > b[0] - 2 && box[1] < b[3] + 2 && box[3] > b[1] - 2)) return null;
+  if (rects.some(b => box[0] < b[2] + (c.infill ? .3 : 2) && box[2] > b[0] - (c.infill ? .3 : 2) && box[1] < b[3] + (c.infill ? .3 : 2) && box[3] > b[1] - (c.infill ? .3 : 2))) return null;
   for (let y = box[1]; y <= box[3]; y += 1) for (let x = box[0]; x <= box[2]; x += 1) {
     const inHouse = x >= x0 - 0.5 && x <= x0 + W + 0.5 && y >= y0 - 0.5 && y <= y0 + Dp + 0.5;
     if (roadDist(x, y) < ROAD_W + SIDE + (inHouse ? 0.6 : 0.1) || pondVal(x, y) < 1.4) return null;
