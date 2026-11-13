@@ -736,6 +736,8 @@ system.update=dt=>{
 };
 system.interact=interact;
 system.drawHUD=drawPanel;
+// Read exact rendered TV/monitor instance geometry after the 3D camera updates.
+system.mediaScreenPose=item=>props3d?.screenPose(item,viewCamera,canvas.getBoundingClientRect())||null;
 system.prompt=()=>{const b=system.ready&&!system.driver&&fleet.nearest(bridge.boxes,bridge.player.x,bridge.player.y);return b?'F — entrar no '+getVehicleById(streetModel(b)).name:null;};
 system.render=()=>{
  // Não executar uma cena 3D pesada enquanto o GLB inicial é decodificado.
@@ -765,6 +767,7 @@ system.render=()=>{
  }
  lap('vegetation');
  props3d?.update(performance.now()/1000,bridge.gameTime||0);lap('props');
+ window.CityMedia?.updateOverlay?.(); // Same camera and furniture matrices used for THIS WebGL frame.
  window.CityPets?.render();lap('pets');
  architecture3d?.update();lap('architecture');
  house3d?.update(performance.now()/1000);lap('houses');
