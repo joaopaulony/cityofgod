@@ -755,7 +755,7 @@ system.render=()=>{
   // vazado em volta de quem a câmera segue: o jogador a pé (1 m de altura) ou o carro
   const p=bridge.player,occupied=bridge.houses.find(H=>H.architecture&&H.inside),indoorRadius=occupied?Math.min(12,Math.hypot(occupied.x1-occupied.x0,occupied.y1-occupied.y0)*.52):1.7;
   const target=system.driver?{x:state.x,y:state.y,z:.8,r:3.2}:p&&{x:p.x,y:p.y,z:.95+(p.floorZ||0),r:indoorRadius};
-  vegetation.update(performance.now()/1000,viewCamera,renderer,target);urbanInk?.setSeeThrough(target);shadowGround.visible=false;
+  vegetation.update(performance.now()/1000,viewCamera,renderer,target);urbanInk?.setSeeThrough(vegetation.see?.());shadowGround.visible=false;
  }
  lap('vegetation');
  props3d?.update(performance.now()/1000,bridge.gameTime||0);lap('props');

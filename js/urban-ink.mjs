@@ -234,7 +234,7 @@ void main() {
 				cover += clsAt( vUv + vec2( cos( ang ), sin( ang ) ) * R * uTexel ) == 1.0 ? 1.0 : 0.0;
 			}
 			float q = length( ( vUv - uSee.xy ) / uTexel ) / max( uSee.z, 1.0 );
-			float keep = ( uSee.z > 0.0 && q < 1.0 && leafD < uSee.w ) ? smoothstep( 0.84, 0.97, q ) : 1.0;
+			float keep = ( uSee.z > 0.0 && q < 1.0 && leafD < uSee.w ) ? mix( 0.08, 1.0, smoothstep( 0.55, 1.0, q ) ) : 1.0;
 			edge = max( edge, ( 1.0 - smoothstep( 4.5 * keep, 6.0 * keep, cover ) ) * smoothstep( 0.3, 0.55, keep ) * ( 0.5 + 0.3 * near ) );
 		}
 	}
@@ -251,6 +251,8 @@ void main() {
 	// ombro suave nos brancos: piso claro e parede ao sol não estouram (interiores)
 	c *= 1.0 - 0.13 * smoothstep( 0.72, 1.0, luma( c ) );
 	float alpha = cC == 0.0 ? col.a : 1.0;   // vazio mantém o alpha original (sombra no chão, fumaça)
+	// área vazada em volta do personagem: sem traço nem sombra de contato nos pontinhos do pontilhado
+	float seeK = uSee.z > 0.0 ? smoothstep( 0.8, 1.05, length( ( vUv - uSee.xy ) / uTexel ) / uSee.z ) : 1.0;
 	// volume: sombra de contato, quina iluminada e encardido na base das paredes
 	if ( uAO > 0.0 && ( cC == 3.0 || cC == 0.0 ) ) {
 		vec3 P, N = vec3( 0.0, 1.0, 0.0 );
@@ -261,7 +263,7 @@ void main() {
 			N = normalize( cross( dx, dy ) ); vec3 toCam = normalize( wpos( vUv, 0.0 ) - wpos( vUv, 1.0 ) );
 			if ( dot( N, toCam ) < 0.0 ) N = - N;
 		} else P = groundAt( vUv );
-		float occ = contact( P, N ) * uAO;
+		float occ = contact( P, N ) * uAO * seeK;
 		if ( cC == 3.0 ) {
 			c *= 1.0 - 0.42 * occ;
 			// encardido: faixa de sujeira suave no pé das paredes (só superfícies em pé, perto do chão)
@@ -288,6 +290,8 @@ void main() {
 		c = 1.0 - ( 1.0 - c ) * ( 1.0 - g );   // tela: clareia sem estourar
 		if ( cC == 0.0 && glow > 0.0 ) { float k = glow * 0.5; c = mix( c, vec3( 1.0, 0.8, 0.5 ), k / max( alpha + k * ( 1.0 - alpha ), 1e-3 ) * 0.6 ); alpha = alpha + k * ( 1.0 - alpha ); }
 	}
+	// dentro da área vazada em volta do personagem: sem traço (senão cada pontinho do pontilhado ganha contorno)
+	edge *= seeK;
 	// traço tingido: escurece a cor de baixo em direção ao tom da tinta, em vez de pintar preto chapado
 	vec3 inkC = mix( uInk, c * 0.32, 0.35 );
 	edge *= uOutline;
@@ -384,11 +388,11 @@ export function createUrbanInk(THREE, renderer, scene, camera, opts = {}) {
     get enabled() { return params.enabled; },
     setSettings(s) { params = inkParamsFrom(s); applyUniforms(); },
     // vegetação vazada em volta de quem a câmera segue (vegetation-3d.mjs): mesmo círculo e mesma profundidade
-    setSeeThrough(target) {
+    // see: {x, y em px do buffer, z profundidade, r raio em px} — o mesmo vazado da vegetação (vegetation-3d.mjs)
+    setSeeThrough(see) {
       const u = post.uniforms.uSee.value;
-      if (!target || !Number.isFinite(target.x) || !rt) { u.set(-1, -1, 0, 0); return; }
-      const v = seeV.set(target.x, target.z, target.y).project(camera);
-      u.set(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5, Math.min(rt.width, rt.height) * 1.7 / 3, v.z * 0.5 + 0.5 - 0.0004);
+      if (!see || !(see.r > 0) || !rt) { u.set(-1, -1, 0, 0); return; }
+      u.set(see.x / rt.width, see.y / rt.height, see.r, see.z);
     },
     params: () => ({ ...params }),
     uniforms: post.uniforms,   // p/ ajuste e depuração no console (cityVehicles.urbanInkPost)
