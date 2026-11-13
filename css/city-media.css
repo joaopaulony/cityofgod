@@ -2,7 +2,7 @@
 #cog-tv-screen{position:fixed;z-index:5;pointer-events:none;overflow:hidden;border-radius:3px;background:#06090d;
  border:2px solid #181c21;box-shadow:0 0 14px #102432bb;transform:skewY(-2deg);transform-origin:center center}
 #cog-tv-screen iframe{width:100%;height:100%;border:0;pointer-events:none}
-#cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden]{display:none!important}
+#cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden],#cog-ambient-radio[hidden]{display:none!important}
 #cog-media-dialog,#cog-radio-list{position:fixed;inset:0;z-index:110;display:grid;place-items:center;
  background:#000a;padding:16px;box-sizing:border-box;overflow:auto;color:#eef5f1;font:14px/1.45 system-ui,sans-serif}
 .cog-media-card{position:relative;width:min(540px,100%);max-height:calc(100vh - 30px);overflow:auto;box-sizing:border-box;
@@ -39,3 +39,10 @@ body.front-open #cog-tv-screen,body.front-open #cog-car-radio,
 body.city-home-open #cog-tv-screen{display:none!important}
 @media(max-width:550px){.cog-media-card{padding:19px}#cog-car-radio{right:8px;bottom:48px;width:calc(100vw - 16px)}
  #cog-radio-list .cog-station-list{grid-template-columns:1fr}}
+
+#cog-ambient-radio{position:fixed;z-index:9;right:18px;bottom:72px;display:flex;align-items:center;gap:10px;
+ max-width:min(330px,calc(100vw - 36px));padding:8px 11px;background:#0c1922ed;
+ border:1px solid #70b29c66;border-radius:11px;color:#e5efe8;font:12px system-ui}
+#cog-ambient-radio button{background:#245445;border:1px solid #76b8a1aa;border-radius:8px;color:white;
+ font:600 12px system-ui;padding:7px 10px;cursor:pointer}
+body.front-open #cog-ambient-radio,body.map-open #cog-ambient-radio{display:none!important}
