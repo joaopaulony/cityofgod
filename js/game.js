@@ -1116,7 +1116,7 @@ function tick(dt) {
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
     return;
   }
-  if(window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
+  if(window.CityMedia?.dialogOpen||window.CityRealty?.dialogOpen||window.CityStreetFood?.open||window.CityBus?.uiOpen||window.CityAdventures?.active||window.CityDesk?.open||window.CityCommerce?.open){
     cam.update(dt);render();window.cityVehicles?.render();
     h.clearRect(0,0,hudC.width,hudC.height);
     input.keys.clear();input.pressed.clear();input.lmb=false;input.rmb=false;input.endFrame();
