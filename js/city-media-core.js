@@ -43,7 +43,7 @@
  const inside=(house,player,floor)=>{
   if(!house||!player||Math.round(player.floor||0)!==Math.round(floor||0))return false;
   if(typeof house.contains==='function'){
-   try{if(house.contains(player.x,player.y,player.floor||0))return true;}catch{}
+   try{return !!house.contains(player.x,player.y,player.floor||0);}catch{return false;}
   }
   return player.x>house.x0&&player.x<house.x1&&player.y>house.y0&&player.y<house.y1;
  };
