@@ -487,8 +487,9 @@ function setCamera(){
  if(canvas.width!==wantedW||canvas.height!==wantedH)
   renderer.setSize(w,h,false);
  // Canvas 2D world x/y -> Three x/z, world height -> Three Y.
- // Câmera isometrica exatamente igual a proj(): TILT=.5 e HZ=.866.
- const distance=90,elev=Math.asin(c.tilt||.5),plane=Math.cos(elev)*distance;
+ // Match the *interpolated* 2D projection this frame, not the target tilt;
+ // otherwise walls, furniture and humans slide against each other while orbiting.
+ const distance=90,elev=Math.asin(Math.max(.01,Math.min(.99,c.tilt))),plane=Math.cos(elev)*distance;
  const a=c.ang;
  viewCamera.position.set(c.x+Math.sin(a)*plane,Math.sin(elev)*distance,
   c.y+Math.cos(a)*plane);
