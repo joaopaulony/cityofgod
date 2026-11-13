@@ -13,6 +13,7 @@ const CityMedia=(()=>{
  let active=null,videoPlayer=null,videoReady=false,videoID=null,playerLoading=false;
  let connection=null,channel=null,lastRender=0,lastCar=false,radioVehicle=null;
  let visibleScreen=null;
+ let expanded={open:false,screen:null,room:null,house:null,player:null,ready:false,video:null,lastSync:0};
  let remoteRadio=null,remoteStation=null,remoteOn=false,radioCurrent=null,lastSend=0;
  const notify=s=>window.CityUI?.notify?.(s);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -61,7 +62,13 @@ const CityMedia=(()=>{
    const previous=tvs.get(record.screen);
    if(previous&&previous.at>record.at+1000)return;
    tvs.set(record.screen,record);saveTV();
-   if(active?.screen===record.screen)syncVideo(record);
+   if(active?.screen===record.screen){
+    syncVideo(record);
+    if(dialog&&!dialog.hidden)syncDialog(); // enable "Assistir em tela grande" immediately after video starts
+   }
+   if(expanded.open&&expanded.screen===record.screen){
+    if(!record.playing||!record.video)closeExpanded();else syncExpanded(record,true);
+   }
    return;
   }
   if(m.type==='radio'&&typeof m.vehicle==='string'&&stations.some(s=>s.id===m.station)){
@@ -111,7 +118,10 @@ const CityMedia=(()=>{
         <div class="cog-media-tag">CITY OF GOD · MÍDIA</div>
         <h2>📺 Televisão YouTube</h2><p id="cog-media-room"></p>
         <label>Link do YouTube<input id="cog-media-link" type="url" maxlength="2048" placeholder="https://www.youtube.com/watch?v=..." spellcheck="false"></label>
-        <div class="cog-media-actions"><button data-cm="play">▶ Reproduzir</button><button data-cm="stop">■ Desligar</button><button data-cm="audio">🔊 Ativar áudio</button></div>
+        <div class="cog-media-actions">
+          <button data-cm="play">▶ Reproduzir</button><button data-cm="stop">■ Desligar</button>
+          <button data-cm="audio">🔊 Ativar áudio</button><button data-cm="expand">▣ Assistir em tela grande</button>
+        </div>
         <p id="cog-media-status" role="status">Cole um link e clique em Reproduzir.</p>
         <details><summary>Multiplayer · sala compartilhada</summary>
           <label>Código da sala<input id="cog-media-code" maxlength="100" autocomplete="off" spellcheck="false"></label>
@@ -120,6 +130,25 @@ const CityMedia=(()=>{
           <p id="cog-media-peers"></p><small>Na mesma sala, todos recebem o vídeo e o horário. O áudio só toca para quem está no cômodo. Sem servidor, sincroniza somente outras abas do mesmo navegador.</small>
         </details>
         <small>Vídeos podem bloquear incorporação, som automático ou reprodução em segundo plano por regras do YouTube e do navegador.</small>
+      </section>
+    </div>
+    <button type="button" id="cog-tv-expand" data-cm="expand" hidden title="Assistir em uma janela maior">▣ Assistir em tela grande</button>
+    <div id="cog-tv-viewer" hidden role="dialog" aria-label="Assistir televisão em tela ampliada">
+      <section class="cog-tv-viewer-panel">
+        <header class="cog-tv-viewer-header">
+          <span class="cog-tv-viewer-mark">CITY OF GOD <small>TV AO VIVO NO CÔMODO</small></span>
+          <span id="cog-tv-viewer-room"></span>
+          <div class="cog-tv-viewer-tools">
+            <button type="button" data-cm="viewer-audio" title="Habilitar som">🔊 Som</button>
+            <button type="button" data-cm="viewer-fullscreen" title="Tela cheia">⛶</button>
+            <button type="button" data-cm="viewer-close" title="Fechar janela">✕</button>
+          </div>
+        </header>
+        <div id="cog-tv-large-screen" class="cog-tv-large-screen"><div id="cog-tv-large-mount"></div></div>
+        <footer class="cog-tv-viewer-footer">
+          <span id="cog-tv-viewer-status" role="status">Reprodução sincronizada com a televisão do cômodo</span>
+          <button type="button" data-cm="viewer-close">Voltar ao jogo</button>
+        </footer>
       </section>
     </div>
     <div id="cog-car-radio" hidden role="group" aria-label="Rádio retrô do veículo">
@@ -158,6 +187,10 @@ const CityMedia=(()=>{
    if(!btn)return;
    const cmd=btn.dataset.cm;
    if(cmd==='close'){dialog.hidden=true;return;}
+   if(cmd==='viewer-close'){closeExpanded();return;}
+   if(cmd==='viewer-audio'){enableExpandedAudio();return;}
+   if(cmd==='viewer-fullscreen'){const panel=document.querySelector('.cog-tv-viewer-panel');if(document.fullscreenElement)document.exitFullscreen?.();else panel?.requestFullscreen?.().catch(()=>{});return;}
+   if(cmd==='expand'){openExpanded();return;}
    if(cmd==='radio-close'){document.getElementById('cog-radio-list').hidden=true;return;}
    if(cmd==='radio-list'){document.getElementById('cog-radio-list').hidden=false;return;}
    if(cmd==='ambient-toggle'){remoteOn=!remoteOn;syncNearbyRadio(true);return;}
@@ -176,12 +209,88 @@ const CityMedia=(()=>{
    if(cmd==='copy-room'){navigator.clipboard?.writeText(document.getElementById('cog-media-code').value);setStatus('Código copiado. Compartilhe com os outros jogadores.');}
   });
   document.getElementById('cog-radio-volume').addEventListener('input',e=>{state.volume=Number(e.target.value)/100;persist();syncRadioVolume();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!dialog.hidden){dialog.hidden=true;}});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden){safeAudio().volume=0;try{videoPlayer?.mute?.();}catch{}}});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded.open){closeExpanded();e.preventDefault();e.stopImmediatePropagation?.();return;}if(e.key==='Escape'&&!dialog.hidden){dialog.hidden=true;}} ,true);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){safeAudio().volume=0;try{videoPlayer?.mute?.();expanded.player?.mute?.();}catch{}}});
   radioUI.addEventListener('pointerdown',e=>e.stopPropagation());
   resetChannel();
  }
  function setStatus(text){const el=document.getElementById('cog-media-status');if(el)el.textContent=text;}
+
+ // Everyone physically in this exact room can watch; editing remains owner-gated.
+ const canWatch=sel=>{
+  const p=getPlayer();
+  return !!sel?.house&&!!p&&!driver()&&!inMenu()&&C.canHear(sel.house,p,sel.room,window.CityHomePlus?.roomAt);
+ };
+ const canEdit=sel=>!!sel&&(!window.CityRealty?.canUse||!!window.CityRealty.canUse(sel.house,sel.item.floor||0,sel.item.unit));
+ const viewerStatus=msg=>{const e=document.getElementById('cog-tv-viewer-status');if(e)e.textContent=msg;};
+ function closeExpanded(){
+  if(!expanded.open)return;
+  expanded.open=false;expanded.screen=null;expanded.house=null;expanded.room=null;expanded.video=null;expanded.lastSync=0;
+  const shell=document.getElementById('cog-tv-viewer');if(shell)shell.hidden=true;
+  try{expanded.player?.mute?.();expanded.player?.pauseVideo?.();}catch{}
+  if(document.fullscreenElement?.closest?.('.cog-tv-viewer-panel'))document.exitFullscreen?.().catch(()=>{});
+  const current=active&&tvs.get(active.screen);
+  if(current?.playing&&current.video&&canWatch(active))syncVideo(current);
+  else syncTVVolume();
+ }
+ function ensureExpandedPlayer(){
+  if(expanded.player||expanded.loading)return;
+  expanded.loading=true;
+  youtubeAPI().then(YT=>{
+   const mount=document.getElementById('cog-tv-large-mount');
+   if(!mount)return;
+   expanded.player=new YT.Player(mount,{width:960,height:540,
+    playerVars:{playsinline:1,controls:0,autoplay:0,disablekb:1,rel:0,origin:location.origin},
+    events:{
+     onReady(){expanded.ready=true;expanded.player.mute();if(expanded.open)syncExpanded(tvs.get(expanded.screen),true);},
+     onError(e){viewerStatus('O YouTube bloqueou este vídeo para incorporação (código '+e.data+').');}
+    }});
+  }).catch(()=>{expanded.loading=false;viewerStatus('Não foi possível carregar o YouTube.');});
+ }
+ function syncExpanded(record,force=false){
+  if(!expanded.open)return;
+  if(!canWatch({house:expanded.house,room:expanded.room})||!record?.playing||
+     !record.video||record.screen!==expanded.screen){closeExpanded();return;}
+  ensureExpandedPlayer();
+  if(!expanded.ready)return;
+  const now=Date.now();
+  if(!force&&now-expanded.lastSync<4500)return;
+  expanded.lastSync=now;
+  const position=Math.max(0,Math.min(86400,(now-record.at)/1000));
+  try{
+   if(expanded.video!==record.video){
+    expanded.video=record.video;
+    expanded.player.loadVideoById({videoId:record.video,startSeconds:position});
+   }else if(Math.abs((expanded.player.getCurrentTime?.()||0)-position)>2.7){
+    expanded.player.seekTo(position,true);
+   }
+   if(expanded.player.getPlayerState?.()!==1)expanded.player.playVideo?.();
+   if(document.hidden)expanded.player.mute?.();
+   else{expanded.player.unMute?.();expanded.player.setVolume?.(64);}
+  }catch{viewerStatus('Falha na sincronização. Feche e reabra a janela.');}
+ }
+ function openExpanded(){
+  ensure();
+  const sel=visibleScreen||active,record=sel&&tvs.get(sel.screen);
+  if(!canWatch(sel)){notify('É necessário estar no mesmo cômodo da TV.');return false;}
+  if(!record?.playing||!record.video){setStatus('Ligue um vídeo na TV antes de ampliar.');return false;}
+  const shell=document.getElementById('cog-tv-viewer');
+  if(!shell)return false;
+  expanded.open=true;expanded.screen=sel.screen;expanded.house=sel.house;
+  expanded.room=sel.room;expanded.video=null;expanded.lastSync=0;
+  shell.hidden=false;dialog.hidden=true;
+  const e=document.getElementById('cog-tv-viewer-room');
+  if(e)e.textContent='Cômodo: '+sel.room.split(':').slice(1).join(':');
+  viewerStatus('O mesmo vídeo e horário da TV; cada pessoa pode abrir sua própria janela.');
+  syncTVVolume();
+  syncExpanded(record,true);
+  return true;
+ }
+ function enableExpandedAudio(){
+  if(!expanded.open)return;
+  syncExpanded(tvs.get(expanded.screen),true);
+  try{expanded.player?.unMute?.();expanded.player?.setVolume?.(64);expanded.player?.playVideo?.();}catch{}
+ }
  function syncDialog(){
   if(!active)return;
   const room=document.getElementById('cog-media-room');
@@ -189,14 +298,17 @@ const CityMedia=(()=>{
   const record=tvs.get(active.screen);
   if(record?.video)document.getElementById('cog-media-link').value='https://www.youtube.com/watch?v='+record.video;
   const peer=document.getElementById('cog-media-peers');
-  if(peer)peer.textContent=peers.connected?'🟢 Sala online · '+peers.count+' conexão(ões)':'⚪ Somente local · '+(peers.error||'Servidor não conectado');
+  if(peer)peer.textContent=peers.connected?'🟢 Sala de mídia online · '+peers.count+' conexão(ões)':'⚪ Somente local · '+(peers.error||'Servidor não conectado');
+  const editing=canEdit(active);
+  document.getElementById('cog-media-link').readOnly=!editing;
+  for(const name of ['play','stop'])dialog.querySelector('[data-cm="'+name+'"]').disabled=!editing;
+  dialog.querySelector('[data-cm="expand"]').disabled=!record?.playing;
  }
  function openTV(H,item){
   ensure();
   if(!H||!item||!['tv','screen'].includes(item.kind))return {ok:false,text:'Televisão indisponível'};
   const p=getPlayer();
   if(!p||Math.hypot(p.x-item.x,p.y-item.y)>4.2)return {ok:false,text:'Aproxime-se da televisão'};
-  if(window.CityRealty?.canUse&&!window.CityRealty.canUse(H,item.floor||0,item.unit))return {ok:false,text:'Você não tem acesso a esta residência'};
   const room=C.roomAt(H,item.floor||0,item.x,item.y,window.CityHomePlus?.roomAt);
   if(!C.canHear(H,p,room,window.CityHomePlus?.roomAt))return {ok:false,text:'Entre no cômodo da televisão'};
   const powered=!window.CityHomePlus||window.CityHomePlus.powerOn?.(H)!==false;
@@ -204,7 +316,7 @@ const CityMedia=(()=>{
   active={house:H,item,screen:recordKey(H,item),room};
   dialog.hidden=false;syncDialog();
   const record=tvs.get(active.screen);if(record)syncVideo(record);
-  return {ok:true,text:'Televisão pronta'};
+  return {ok:true,text:canEdit(active)?'Televisão pronta':'Assistir como visitante no cômodo'};
  }
  function allScreens(){
   const p=getPlayer();if(!p||driver())return [];
@@ -215,12 +327,12 @@ const CityMedia=(()=>{
     .map(item=>({house:H,item,screen:recordKey(H,item),room:C.roomAt(H,item.floor||0,item.x,item.y,window.CityHomePlus?.roomAt)}));
  }
  function playTV(id){
-  if(!active)return;
+  if(!active||!canEdit(active))return;
   const record={type:'tv',screen:active.screen,room:active.room,video:id,playing:true,at:Date.now()};
   ingest(record);transmit(record);syncVideo(record,true);setStatus('Vídeo selecionado. Caso o navegador bloqueie, clique em Ativar áudio.');
  }
  function stopTV(){
-  if(!active)return;
+  if(!active||!canEdit(active))return;
   const record={type:'tv',screen:active.screen,room:active.room,video:null,playing:false,at:Date.now()};
   ingest(record);transmit(record);muteVideo(true);setStatus('Televisão desligada.');
  }
@@ -264,8 +376,10 @@ const CityMedia=(()=>{
  function syncTVVolume(){
   if(!videoReady)return;
   const p=getPlayer();
-  const ok=active&&p&&!inMenu()&&!driver()&&C.canHear(active.house,p,active.room,window.CityHomePlus?.roomAt);
-  try{if(ok&&!document.hidden){videoPlayer.unMute();videoPlayer.setVolume(55);}else muteVideo(true);}catch{}
+  const record=active&&tvs.get(active.screen);
+  const ok=record?.playing&&record?.video&&p&&!inMenu()&&!driver()&&C.canHear(active.house,p,active.room,window.CityHomePlus?.roomAt);
+  try{if(ok&&!document.hidden&&!expanded.open){videoPlayer.unMute();videoPlayer.setVolume(55);}
+   else muteVideo(!expanded.open);}catch{}
  }
  function enableAudio(){
   if(!active)return;
@@ -356,6 +470,9 @@ const CityMedia=(()=>{
   const choices=allScreens();
   const shown=choices.find(b=>tvs.get(b.screen)?.playing)||null;
   visibleScreen=shown;
+  const expandBtn=document.getElementById('cog-tv-expand');
+  if(expandBtn)expandBtn.hidden=!shown||!canWatch(shown)||expanded.open;
+  if(expanded.open)syncExpanded(tvs.get(expanded.screen));
   if(shown){
    const changed=active?.screen!==shown.screen;
    if(changed){active=shown;videoID=null;syncVideo(tvs.get(shown.screen));}
@@ -379,7 +496,10 @@ const CityMedia=(()=>{
   }
   const face=window.cityVehicles?.mediaScreenPose?.(shown.item);
   if(!face){
-   screenEl.hidden=true;muteVideo(true);return;
+   screenEl.hidden=true;
+   // Hearing a TV depends on the room, not on whether the camera sees its face.
+   syncTVVolume();
+   return;
   }
   const wasHidden=screenEl.hidden;
   const W=640,H=360;
@@ -395,8 +515,8 @@ const CityMedia=(()=>{
   if(wasHidden)syncVideo(record);
   syncTVVolume();
  }
- return {ensure,openTV,tick,updateOverlay,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
+ return {ensure,openTV,openExpanded,closeExpanded,tick,updateOverlay,selectStation,toggleRadio,setRoom,get STATIONS(){return stations;},get peers(){return {...peers};},
   get state(){return {...state};},get screens(){return [...tvs.values()]},get active(){return active},
-  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
+  get radio(){return radioAudio;},get videoPlayer(){return videoPlayer;},get expandedOpen(){return expanded.open;},get expandedState(){return {open:expanded.open,screen:expanded.screen,room:expanded.room,ready:expanded.ready};},get dialogOpen(){return !!dialog&&!dialog.hidden;}};
 })();
 window.CityMedia=CityMedia;

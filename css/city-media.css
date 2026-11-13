@@ -4,7 +4,7 @@
 #cog-tv-screen{position:fixed;z-index:5;pointer-events:none;overflow:hidden;border:0;border-radius:0;
  background:#06090d;box-shadow:none;transform-origin:0 0;}
 #cog-tv-screen iframe{width:100%;height:100%;border:0;pointer-events:none}
-#cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden],#cog-ambient-radio[hidden]{display:none!important}
+#cog-tv-screen[hidden],#cog-media-dialog[hidden],#cog-car-radio[hidden],#cog-radio-list[hidden],#cog-ambient-radio[hidden],#cog-tv-expand[hidden],#cog-tv-viewer[hidden]{display:none!important}
 #cog-media-dialog,#cog-radio-list{position:fixed;inset:0;z-index:110;display:grid;place-items:center;
  background:#000a;padding:16px;box-sizing:border-box;overflow:auto;color:#eef5f1;font:14px/1.45 system-ui,sans-serif}
 .cog-media-card{position:relative;width:min(540px,100%);max-height:calc(100vh - 30px);overflow:auto;box-sizing:border-box;
@@ -87,3 +87,50 @@ body.city-home-open #cog-tv-screen{display:none!important}
 #cog-ambient-radio button{background:#245445;border:1px solid #76b8a1aa;border-radius:8px;color:white;
  font:600 12px system-ui;padding:7px 10px;cursor:pointer}
 body.front-open #cog-ambient-radio,body.map-open #cog-ambient-radio{display:none!important}
+
+/* A second, room-synchronized YouTube player. The original iframe remains on
+   the actual 3D television; only the personal expanded viewer is enlarged. */
+#cog-tv-expand{position:fixed;z-index:25;left:20px;bottom:214px;max-width:min(250px,calc(100vw - 40px));
+ border:1px solid #d5c4907c;border-radius:9px;background:#142329ed;
+ color:#f3ead5;box-shadow:0 5px 18px #0009;padding:11px 15px;
+ cursor:pointer;font:700 12px/1.2 "Trebuchet MS",system-ui,sans-serif;letter-spacing:.025em}
+#cog-tv-expand:hover{background:#2b484e;filter:brightness(1.13)}
+#cog-tv-expand:focus-visible{outline:2px solid #f9d497;outline-offset:3px}
+#cog-tv-viewer{position:fixed;z-index:130;inset:0;display:grid;place-items:center;
+ padding:20px;box-sizing:border-box;background:#020608c9;backdrop-filter:blur(5px);pointer-events:auto}
+.cog-tv-viewer-panel{display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;
+ width:min(1060px,96vw);max-height:calc(100vh - 32px);background:#0c181d;
+ color:#f4eddb;border:1px solid #8fa4a47a;border-radius:13px;
+ box-shadow:0 23px 75px #000e,0 0 0 1px #ffffff12;font-family:"Trebuchet MS",system-ui,sans-serif}
+.cog-tv-viewer-header{display:flex;align-items:center;gap:12px;min-height:53px;
+ background:linear-gradient(115deg,#192b31,#132127 65%,#253332);padding:8px 16px}
+.cog-tv-viewer-mark{font-size:13px;font-weight:900;letter-spacing:.16em;white-space:nowrap}
+.cog-tv-viewer-mark small{display:block;margin-top:4px;color:#b5c4bb;font:650 9px sans-serif;letter-spacing:.13em}
+#cog-tv-viewer-room{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ text-align:right;font-size:12px;color:#c6d5cd}
+.cog-tv-viewer-tools{display:flex;gap:6px}
+.cog-tv-viewer-tools button,.cog-tv-viewer-footer button{color:#f5e7c7;
+ background:#243941;border:1px solid #afc2b064;border-radius:7px;
+ padding:8px 11px;cursor:pointer;font:700 12px system-ui}
+.cog-tv-viewer-tools button:hover,.cog-tv-viewer-footer button:hover{background:#3f5861}
+.cog-tv-viewer-tools button:focus-visible,.cog-tv-viewer-footer button:focus-visible{outline:2px solid #eed49b;outline-offset:2px}
+.cog-tv-large-screen{position:relative;flex:0 1 auto;aspect-ratio:16/9;min-height:0;max-height:calc(100vh - 159px);
+ overflow:hidden;background:#010204}
+#cog-tv-large-mount,#cog-tv-large-mount iframe,.cog-tv-large-screen>iframe{display:block;width:100%;height:100%;border:0}
+.cog-tv-viewer-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;
+ min-height:39px;padding:9px 16px;background:#15262b;font-size:11px;color:#c0d0c7}
+#cog-tv-viewer-status{line-height:1.35}
+.cog-tv-viewer-panel:fullscreen{width:100%;height:100%;max-height:100%;border:0;border-radius:0}
+.cog-tv-viewer-panel:fullscreen .cog-tv-large-screen{flex:1;max-height:none}
+.cog-tv-viewer-panel:fullscreen .cog-tv-viewer-footer{flex:0 0 auto}
+body.front-open #cog-tv-expand{display:none!important}
+@media(max-width:640px){
+ #cog-tv-expand{left:8px;bottom:185px;padding:9px 12px;font-size:11px}
+ #cog-tv-viewer{padding:8px}
+ .cog-tv-viewer-panel{width:100%;max-height:calc(100vh - 16px)}
+ .cog-tv-viewer-header{padding:7px 10px;gap:6px;flex-wrap:wrap}
+ .cog-tv-viewer-mark{font-size:11px}
+ #cog-tv-viewer-room{font-size:10px}
+ .cog-tv-viewer-tools button{padding:7px}
+ .cog-tv-viewer-footer{padding:8px 10px;font-size:10px}
+}
