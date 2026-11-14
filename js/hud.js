@@ -111,6 +111,7 @@ function drawHUD(h, W, H, st) {
   const nmx=mcx+north[0]*(R+4), nmy=mcy+north[1]*(R+4);
   h.beginPath();h.arc(nmx,nmy,9,0,TAU);h.fillStyle=T.strong;h.fill();h.strokeStyle=T.line;h.lineWidth=1;h.stroke();
   h.fillStyle=T.text;h.textAlign='center';h.textBaseline='middle';h.font='700 10px '+HUD_FONT;h.fillText('N',nmx,nmy+.5);h.textBaseline='alphabetic';
+  drawMiniExtras(h,mcx,mcy,R,mx,my,ms,p,compact,W);
 
   // Vida, fôlego e necessidades vão cair/subir no loop real e são atualizadas aqui.
   const conditions=[
@@ -236,5 +237,37 @@ function drawIcon(h, i, x, y) {
   else if (i === 4) { P([[-5, -6], [-3, -12], [3, -12], [5, -6], [5, 12], [-5, 12]], '#9cc8e6'); }
   else if (i === 5) { P([[-12, -8], [12, -8], [12, 10], [-12, 10]], '#d33b2c'); h.fillStyle = '#fff'; h.fillRect(-2, -5, 4, 12); h.fillRect(-6, -1, 12, 4); }
   else { P([[-3, -12], [3, -12], [3, 6], [6, 12], [-6, 12], [-3, 6]], '#9a9aa2'); }
+  h.restore();
+}
+
+// ---------- extras do minimapa: pontos cardeais no aro, nome da rua e cartão do GPS (próxima curva) ----------
+function drawMiniExtras(h,cx,cy,R,mx,my,ms,p,compact,W){
+  h.save();h.textAlign='center';h.textBaseline='middle';h.font='700 8px '+HUD_FONT;
+  for(const [lab,dx,dy] of [['L',1,0],['S',0,1],['O',-1,0]]){const d=screenDirOf(dx,dy);h.fillStyle='rgba(255,255,255,.75)';h.fillText(lab,cx+d[0]*(R-8),cy+d[1]*(R-8));}
+  for(let i=0;i<24;i++){const a=i/24*TAU+(Math.atan2(screenDirOf(0,-1)[1],screenDirOf(0,-1)[0])),r1=R-1.5,r2=R-(i%6===0?6:3.5);h.beginPath();h.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);h.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);h.strokeStyle='rgba(255,255,255,.35)';h.lineWidth=1;h.stroke();}
+  // nome da rua (pastilha na base do radar)
+  const name=typeof miniStreetName==='function'?miniStreetName(p):'';
+  if(name){h.font='700 '+(compact?9:11)+'px '+HUD_FONT;const w=Math.min(ms+40,h.measureText(name).width+22),y=cy+R+(compact?2:4);
+    h.fillStyle='rgba(9,17,25,.86)';h.beginPath();h.roundRect(cx-w/2,y-9,w,18,9);h.fill();h.strokeStyle='rgba(255,255,255,.18)';h.stroke();
+    h.fillStyle='#f3f7fa';h.fillText(name,cx,y+.5,w-12);}
+  // GPS: seta da próxima manobra, distância e rua
+  const gps=window.CityGPS,t=gps?.target&&gps.nextTurn?.(p);
+  if(t){
+    const x=mx+ms+16,y=my-(compact?6:2),w=compact?150:206,hh=compact?40:48;
+    h.fillStyle='rgba(9,17,25,.9)';h.beginPath();h.roundRect(x,y,w,hh,10);h.fill();h.strokeStyle='rgba(70,188,250,.55)';h.lineWidth=1.4;h.stroke();
+    // seta
+    const ax=x+(compact?20:25),ay=y+hh/2;h.save();h.translate(ax,ay);h.strokeStyle='#46bcfa';h.fillStyle='#46bcfa';h.lineWidth=3;h.lineCap='round';h.lineJoin='round';
+    h.beginPath();
+    if(t.dir==='arrive'){h.arc(0,-2,6,0,TAU);h.stroke();h.beginPath();h.moveTo(0,4);h.lineTo(0,10);h.stroke();}
+    else if(t.dir==='uturn'){h.moveTo(5,10);h.lineTo(5,-3);h.arc(0,-3,5,0,Math.PI,true);h.lineTo(-5,4);h.stroke();h.beginPath();h.moveTo(-9,1);h.lineTo(-5,7);h.lineTo(-1,1);h.stroke();}
+    else{const s=t.dir==='right'?1:-1;h.moveTo(-s*4,11);h.lineTo(-s*4,0);h.quadraticCurveTo(-s*4,-6,s*3,-6);h.lineTo(s*8,-6);h.stroke();h.beginPath();h.moveTo(s*4,-11);h.lineTo(s*10,-6);h.lineTo(s*4,-1);h.stroke();}
+    h.restore();
+    const dm=t.dist<1000?Math.max(10,Math.round(t.dist/10)*10)+' m':(t.dist/1000).toFixed(1)+' km';
+    const verb=t.dir==='arrive'?'Destino':t.dir==='uturn'?'Retorne':t.dir==='right'?'Vire à direita':'Vire à esquerda';
+    h.textAlign='left';h.textBaseline='alphabetic';h.fillStyle='#ffffff';h.font='800 '+(compact?13:16)+'px '+HUD_FONT;h.fillText(dm,x+(compact?40:50),y+(compact?17:21));
+    h.font='600 '+(compact?9:11)+'px '+HUD_FONT;h.fillStyle='#b9d7ea';h.fillText(verb+(t.street&&t.dir!=='arrive'?' · '+t.street:t.dir==='arrive'?' · '+t.street:''),x+(compact?40:50),y+(compact?31:37),w-(compact?46:58));
+    // dica do piloto a pé
+    if(!window.cityVehicles?.driver&&!window.CityAutopilot?.active){h.font='600 '+(compact?8:10)+'px '+HUD_FONT;h.fillStyle='rgba(185,215,234,.8)';h.textAlign='right';h.fillText('G 🚶',x+w-8,y+(compact?13:15));}
+  }
   h.restore();
 }

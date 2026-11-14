@@ -18,6 +18,7 @@ import {createBirds} from './birds-3d.mjs';
 import {createLandmarks} from './landmarks-3d.mjs';
 import {createAirport3D} from './airport-3d.mjs';
 import {createGas3D} from './gas-3d.mjs';
+import './map3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';

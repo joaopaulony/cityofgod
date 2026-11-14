@@ -240,6 +240,8 @@ view.addEventListener('mousemove', e => {
   if(wmap.open){
     wmapPointer(e.clientX,e.clientY);
     if(wmap.drag){wmapDrag(e.clientX-wmap.drag[0],e.clientY-wmap.drag[1]);wmap.drag=[e.clientX,e.clientY];}
+    // botão direito: gira (horizontal) e inclina (vertical) a maquete 3D
+    if(wmap.rot&&window.CityMap3D?.ready){CityMap3D.rotate(-(e.clientX-wmap.rot[0])*.006,(e.clientY-wmap.rot[1])*.004);wmap.rot=[e.clientX,e.clientY];}
     return;
   }
   orbitMove(e);
@@ -248,7 +250,7 @@ view.addEventListener('mousemove', e => {
 addEventListener('mousemove',e=>{if(e.target!==view&&dragX!==null)orbitMove(e);},true);
 view.addEventListener('mousedown', e => {
   if (window.CityUI?.blocksGameInput()) { e.preventDefault(); return; }
-  if (wmap.open) { if(e.button===0){wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;}e.preventDefault();return; }
+  if (wmap.open) { if(e.button===0){wmap.drag=[e.clientX,e.clientY];wmap.clickStart=[e.clientX,e.clientY];wmap.dragDistance=0;}if(e.button===2)wmap.rot=[e.clientX,e.clientY];e.preventDefault();return; }
   if (e.button === 0 && !player.armed && window.CityRealty?.clickLot?.(e.clientX/RS,e.clientY/RS,proj,player)) {
     // Clicking the nearby sale sign selects its exact property, not a phone entry.
     input.lmb=false;player.wantShot=false;e.preventDefault();return;
@@ -297,6 +299,7 @@ addEventListener('blur', stopOrbit);
 addEventListener('mouseup', e => {
   if (e.button === 0 && wmap.open && wmap.clickStart && wmap.dragDistance<8 && Math.hypot(e.clientX-wmap.clickStart[0],e.clientY-wmap.clickStart[1])<8) window.CityGPS?.click?.(e.clientX,e.clientY);
   if (e.button === 0) {wmap.drag = null;wmap.clickStart=null;}
+  if (e.button === 2) wmap.rot = null;
   if (e.button === 0) input.lmb = false;
   if (e.button === 2) input.rmb = false;
   if(e.button===orbitButton) stopOrbit(); // Keep chosen yaw/pitch when released
@@ -399,6 +402,17 @@ function fire(J) {
 }
 
 // ---------- atualização ----------
+// piloto automático a pé até o destino do GPS (tecla G ou botão no mapa)
+function gpsWalkToggle(){
+  const A=window.CityAutopilot,gps=window.CityGPS;
+  if(!A)return;
+  if(A.active){A.cancel('');hud.msg='Piloto automático desligado';hud.msgT=2;return;}
+  const t=gps?.target;
+  if(!t){hud.msg='Marque um destino no mapa (M) para ir a pé sozinho';hud.msgT=2.6;return;}
+  const r=A.go({x:t.x,y:t.y,name:t.name,fromGps:true},{onArrive:()=>gps.clear(true)});
+  hud.msg=r.text;hud.msgT=2.6;
+}
+window.gpsWalkToggle=gpsWalkToggle;
 function updatePlayer(dt) {
   const p = player;
   p.hurtT = Math.max(0, (p.hurtT || 0) - dt);
@@ -1126,6 +1140,12 @@ function tick(dt) {
   // Pause gameplay while the full map owns the mouse and keyboard.
   if(wmap.open){
     if(input.hit('m')||input.hit('escape'))wmapToggle();
+    // Q/E giram a maquete, setas/WASD andam pelo mapa
+    if(wmap.open&&window.CityMap3D?.ready&&world.open){
+      const rs=(input.down('q')?1:0)-(input.down('e')?1:0);if(rs)CityMap3D.rotate(rs*dt*1.4,0);
+      const kx=(input.down('d')||input.down('arrowright')?1:0)-(input.down('a')||input.down('arrowleft')?1:0),ky=(input.down('s')||input.down('arrowdown')?1:0)-(input.down('w')||input.down('arrowup')?1:0);
+      if(kx||ky)CityMap3D.pan(-kx*dt*600,-ky*dt*600);
+    }
     if(wmap.open){
       h.clearRect(0,0,hudC.width,hudC.height);
       drawWorldMap(h,hudC.width,hudC.height,st);
@@ -1155,7 +1175,8 @@ function tick(dt) {
     window.CameraMotion?.pauseManual?.(6);
     hud.msg='Câmera isométrica restaurada';hud.msgT=2;
   }
-  if (input.hit('g')) location.search = '?seed=' + ((Math.random() * 1e6) | 0);
+  // G: o personagem segue sozinho, a pé pela calçada, a rota do GPS (G de novo devolve o controle); mapa de teste: novo mapa
+  if (input.hit('g')) { if (world.open) gpsWalkToggle(); else location.search = '?seed=' + ((Math.random() * 1e6) | 0); }
   if (input.hit('m') || (wmap.open && input.hit('escape'))) wmapToggle();
   // N pula p/ a manhã ou p/ a noite; K troca o clima (calmo, brisa, ventania, neve)
   if (input.hit('n')) { st.clock = ENV.night ? 7 * 60 : 21 * 60 + 5; envTick(0, st.clock); st.night = world.night = ENV.night; }

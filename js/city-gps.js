@@ -63,34 +63,37 @@ const CityGPS=(()=>{
      snapped:{x:candidate.to[0],y:candidate.to[1]}};
    route=candidate;selection=point;remaining=candidate.length;lastRepath=nowMs();
    if(!quiet)window.CityUI?.notify('🧭 Rota calculada pelas ruas: '+Math.round(candidate.length)+' m');
+   // piloto a pé seguindo o GPS: troca para o destino novo
+   const A=window.CityAutopilot;if(A?.active&&A.job?.target?.fromGps){A.cancel('');setTimeout(()=>window.gpsWalkToggle?.(),0);}
    updateMapUI();
    return true;
  }
  function set(point){return choose(point);}
  function clear(notify=false){
+   const A=window.CityAutopilot;if(!notify&&waypoint&&A?.active&&A.job?.target?.fromGps)A.cancel('Rota do GPS removida.');
    waypoint=null;route=null;selection=null;remaining=0;
    if(notify)window.CityUI?.notify('Destino alcançado — GPS encerrado');
    updateMapUI();
  }
  function click(x,y){
-   if(typeof wmap==='undefined'||!wmap.open||!wmap.scale)return false;
+   if(typeof wmap==='undefined'||!wmap.open)return false;
    if(x<14||x>hudC.width-14||y<64||y>hudC.height-55)return false;
    let best=null,radius=17;
    for(const poi of pois()){
      if(visibleTypes&&!visibleTypes.has(poi.type))continue;
-     const dx=wmap.ox+poi.x*wmap.scale-x,dy=wmap.oy+poi.y*wmap.scale-y;
+     const sp=wmapS(poi.x,poi.y,2);if(!sp[2])continue;const dx=sp[0]-x,dy=sp[1]-y;
      const d=Math.hypot(dx,dy);
      if(d<radius){best=poi;radius=d;}
    }
    if(best)return choose(best);
-   const wx=(x-wmap.ox)/wmap.scale,wy=(y-wmap.oy)/wmap.scale;
+   const wp=wmapW(x,y);if(!wp)return false;const wx=wp.x,wy=wp.y;
    if(world.open&&typeof OW!=='undefined'&&!OW.geo.isLand(wx,wy))return false;
    const net=network(),near=net?.nearest(wx,wy);
    if(!near||near.d>85){
      window.CityUI?.notify('Clique numa rua para marcar a rota');
      return false;
    }
-   return choose({id:'manual',x:near.x,y:near.y,name:'Ponto marcado na via'});
+   return choose({id:'manual',x:near.x,y:near.y,name:roads()[near.seg?.roadId]?.streetName||'Ponto marcado na via'});
  }
  function nearRoute(p){
    if(!route)return Infinity;
@@ -110,9 +113,10 @@ const CityGPS=(()=>{
      clear(true);return;
    }
    const now=nowMs();
-   if(now-lastRepath<3000)return;
+   if(now-(tick.at||0)<450)return;tick.at=now;
    const d=nearRoute(p);
    updateMapUI();
+   if(now-lastRepath<3000)return;
    if(d>37){
      lastRepath=now;
      const updated=network()?.route(p,waypoint);
@@ -125,6 +129,8 @@ const CityGPS=(()=>{
      'Rota ativa · '+waypoint.name+' · '+Math.round(remaining)+' m':'Clique em uma rua ou ícone para traçar uma rota';
    const btn=document.getElementById('city-gps-clear');
    if(btn)btn.hidden=!waypoint;
+   const walk=document.getElementById('city-gps-walk');
+   if(walk)walk.hidden=!waypoint||!!window.cityVehicles?.driver;
  }
  function status(){return waypoint&&route?waypoint.name+' · '+Math.round(remaining)+' m':'Selecione uma via ou ponto de interesse';}
  function paintRoute(h,S,lineWidth=5){
@@ -151,12 +157,12 @@ const CityGPS=(()=>{
    h.restore();
  }
  function drawFull(h,S,st){
-   h.save();paintRoute(h,S,Math.max(4,Math.min(8,wmap.scale*5)));
+   const ppm=wmapPPM();h.save();paintRoute(h,S,Math.max(4,Math.min(8,ppm*5)));
    const shown=[];const xLimit=h.canvas.width-285;
-   const zoomed=wmap.scale>.45;
+   const zoomed=ppm>.45;
    for(const p of pois()){
      if(visibleTypes&&!visibleTypes.has(p.type))continue;
-     const [x,y]=S(p.x,p.y);
+     const [x,y,vis=true]=S(p.x,p.y);if(!vis)continue;
      if(x<12||x>xLimit||y<67||y>h.canvas.height-58)continue;
      const chosen=waypoint&&waypoint.id===p.id;
      if(!chosen&&shown.some(q=>Math.hypot(q[0]-x,q[1]-y)<(zoomed?19:25)))continue;
@@ -199,8 +205,31 @@ const CityGPS=(()=>{
    if(!near||near.d>26)return '';
    return roads()[near.seg.roadId]?.streetName||'Via urbana';
  }
+ // próxima manobra pela rota: vira à direita/esquerda em X m (e em qual rua) ou chegada
+ let turnCache=null,turnAt=0;
+ function nextTurn(p){
+   if(!route?.points?.length||!p)return null;
+   const now=nowMs();if(turnCache&&now-turnAt<300)return turnCache;turnAt=now;
+   const pts=route.points,D=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+   let bi=0,bd=Infinity;
+   for(let i=1;i<pts.length;i++){const q=CityRoadRouting.project(p.x,p.y,pts[i-1],pts[i]);if(q.d<bd){bd=q.d;bi=i;}}
+   // ponto a ~L metros antes/depois do vértice i (direção estável mesmo com vértices bem próximos)
+   const along=(i,L,dir)=>{let acc=0,j=i;while(acc<L&&j+dir>=0&&j+dir<pts.length){acc+=D(pts[j],pts[j+dir]);j+=dir;}return pts[j];};
+   let acc=Math.hypot(pts[bi][0]-p.x,pts[bi][1]-p.y);
+   for(let i=bi;i<pts.length-1;i++){
+     const a=along(i,9,-1),c=along(i,9,1),v=pts[i];
+     const ix=v[0]-a[0],iy=v[1]-a[1],ox=c[0]-v[0],oy=c[1]-v[1],li=Math.hypot(ix,iy)||1,lo=Math.hypot(ox,oy)||1;
+     const cross=(ix*oy-iy*ox)/(li*lo),dot=(ix*ox+iy*oy)/(li*lo),ang=Math.atan2(cross,dot);
+     if(Math.abs(ang)>.6){
+       const after=along(i,14,1),name=roads()[network()?.nearest(after[0],after[1])?.seg?.roadId]?.streetName||'';
+       turnCache={dist:acc,dir:Math.abs(ang)>2.5?'uturn':ang>0?'right':'left',street:name,remaining};return turnCache;
+     }
+     acc+=D(pts[i],pts[i+1]);
+   }
+   turnCache={dist:acc,dir:'arrive',street:waypoint?.name||'Destino',remaining};return turnCache;
+ }
  function quickPanel(){return pois().slice(0,60).map(p=>({...p})).sort((a,b)=>a.name.localeCompare(b.name));}
- return {pois,labels,colors,set,click,drawFull,drawMini,quickPanel,filter,enabled,clear,tick,status,roadAt,
+ return {pois,labels,colors,glyph,nextTurn,set,click,drawFull,drawMini,quickPanel,filter,enabled,clear,tick,status,roadAt,
    get target(){return waypoint;},get route(){return route;},get networkStats(){const g=network();return g?{nodes:g.nodeCount,edges:g.edgeCount}:null;}};
 })();
 window.CityGPS=CityGPS;
