@@ -21,11 +21,12 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  const step=Math.min(Math.max(dt,0),.05);
  if(!step)return {...state};
  const car={...state};
- const gas=controls.engineOn&&controls.forward?1:0,
+ // analógico (piloto automático): throttle 0–1, brakePedal 0–1, steerAxis −1…1; sem eles, as teclas (0 ou 1)
+ const gasAmt=controls.engineOn?Math.max(0,Math.min(1,controls.throttle??(controls.forward?1:0))):0,gas=gasAmt>0?1:0,
   reverse=controls.engineOn&&controls.reverse?1:0;
  const brake=controls.handbrake?1:0,driftKey=controls.drift?1:0;
  const left=controls.left?1:0,right=controls.right?1:0;
- const targetSteer=(right-left)*steerLimit(car.speed,spec);
+ const targetSteer=Math.max(-1,Math.min(1,controls.steerAxis??(right-left)))*steerLimit(car.speed,spec);
  car.steer=approach(car.steer,targetSteer,spec.steeringRate*step*steerLimit(car.speed,spec));
  let speed=car.speed;
  // freio de mão (espaço): trava as rodas — o carro para de verdade, arrastando os pneus, quase sem esterçar.
@@ -48,11 +49,13 @@ export function stepCar(state,controls,dt,spec=CAR_SPEC){
  }else if(gas&&!reverse){
   speed=speed<-.08
     ?approach(speed,0,spec.brakeAccel*step)
-    :speed+spec.engineAccel*step;
+    :speed+spec.engineAccel*gasAmt*step;
  }else if(reverse&&!gas){
   speed=speed>.08
     ?approach(speed,0,spec.brakeAccel*step)
     :speed-spec.reverseAccel*step;
+ }else if(controls.brakePedal>0){
+  speed=approach(speed,0,(spec.brakeAccel*Math.min(1,controls.brakePedal)+spec.rollingDrag)*step);
  }else{
   const drag=(spec.rollingDrag+spec.airDrag*speed*speed)*step;
   speed=approach(speed,0,drag);

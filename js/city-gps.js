@@ -64,13 +64,16 @@ const CityGPS=(()=>{
    route=candidate;selection=point;remaining=candidate.length;lastRepath=nowMs();
    if(!quiet)window.CityUI?.notify('🧭 Rota calculada pelas ruas: '+Math.round(candidate.length)+' m');
    // piloto a pé seguindo o GPS: troca para o destino novo
-   const A=window.CityAutopilot;if(A?.active&&A.job?.target?.fromGps){A.cancel('');setTimeout(()=>window.gpsWalkToggle?.(),0);}
+   const A=window.CityAutopilot,D=window.CityDrivePilot;
+   if(A?.active&&A.job?.target?.fromGps){A.cancel('');setTimeout(()=>window.gpsWalkToggle?.(),0);}
+   if(D?.active&&D.job?.target?.fromGps){D.cancel('');setTimeout(()=>window.gpsWalkToggle?.(),0);}
    updateMapUI();
    return true;
  }
  function set(point){return choose(point);}
  function clear(notify=false){
-   const A=window.CityAutopilot;if(!notify&&waypoint&&A?.active&&A.job?.target?.fromGps)A.cancel('Rota do GPS removida.');
+   const A=window.CityAutopilot,D=window.CityDrivePilot;if(!notify&&waypoint&&A?.active&&A.job?.target?.fromGps)A.cancel('Rota do GPS removida.');
+   if(!notify&&waypoint&&D?.active&&D.job?.target?.fromGps)D.cancel('Rota do GPS removida.');
    waypoint=null;route=null;selection=null;remaining=0;
    if(notify)window.CityUI?.notify('Destino alcançado — GPS encerrado');
    updateMapUI();
@@ -130,7 +133,7 @@ const CityGPS=(()=>{
    const btn=document.getElementById('city-gps-clear');
    if(btn)btn.hidden=!waypoint;
    const walk=document.getElementById('city-gps-walk');
-   if(walk)walk.hidden=!waypoint||!!window.cityVehicles?.driver;
+   if(walk){walk.hidden=!waypoint;walk.textContent=window.cityVehicles?.driver?'🚗 Dirigir sozinho':'🚶 Ir a pé';}
  }
  function status(){return waypoint&&route?waypoint.name+' · '+Math.round(remaining)+' m':'Selecione uma via ou ponto de interesse';}
  function paintRoute(h,S,lineWidth=5){

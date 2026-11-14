@@ -19,6 +19,7 @@ import {createLandmarks} from './landmarks-3d.mjs';
 import {createAirport3D} from './airport-3d.mjs';
 import {createGas3D} from './gas-3d.mjs';
 import './map3d.mjs';
+import './drive-pilot.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
@@ -525,6 +526,12 @@ function moveCar(dt){
   reverseAccel:CAR_SPEC.reverseAccel*Math.max(.12,efficiency),
   length:activeModel.length,
   wheelbase:activeModel.wheelbase||Math.min(CAR_SPEC.wheelbase,activeModel.length*.65)};
+ // piloto automático (drive-pilot.mjs): dirige até o destino do GPS obedecendo ao trânsito; WASD/espaço devolvem o volante
+ const pilot=window.CityDrivePilot;
+ if(pilot?.active){
+  if(c.down('w')||c.down('s')||c.down('a')||c.down('d')||c.down(' '))pilot.cancel();
+  else{const ap=pilot.controls(state,spec,dt);if(ap)Object.assign(inControl,{forward:false,reverse:false},ap,{throttle:fuel.level>0?ap.throttle:0,reverse:fuel.level>0&&!!ap.reverse});}
+ }
  const old={...state},next=stepCar(state,inControl,dt,spec);
  const collision=sweepCar(bridge.world,{...old,...hitbox()},
   {...next,...hitbox(next.x,next.y,next.angle)},collisionOptions());

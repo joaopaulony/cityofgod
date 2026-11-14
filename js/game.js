@@ -404,7 +404,14 @@ function fire(J) {
 // ---------- atualização ----------
 // piloto automático a pé até o destino do GPS (tecla G ou botão no mapa)
 function gpsWalkToggle(){
-  const A=window.CityAutopilot,gps=window.CityGPS;
+  const gps=window.CityGPS,D=window.CityDrivePilot;
+  // de carro: o piloto dirige até o destino obedecendo ao trânsito
+  if(window.cityVehicles?.driver&&D){
+    if(D.active){D.cancel('');hud.msg='Piloto automático desligado';hud.msgT=2;return;}
+    const t=gps?.target;if(!t){hud.msg='Marque um destino no mapa (M) para o carro ir sozinho';hud.msgT=2.6;return;}
+    const r=D.go({x:t.x,y:t.y,name:t.name,fromGps:true});hud.msg=r.text;hud.msgT=2.6;return;
+  }
+  const A=window.CityAutopilot;
   if(!A)return;
   if(A.active){A.cancel('');hud.msg='Piloto automático desligado';hud.msgT=2;return;}
   const t=gps?.target;

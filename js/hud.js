@@ -267,7 +267,7 @@ function drawMiniExtras(h,cx,cy,R,mx,my,ms,p,compact,W){
     h.textAlign='left';h.textBaseline='alphabetic';h.fillStyle='#ffffff';h.font='800 '+(compact?13:16)+'px '+HUD_FONT;h.fillText(dm,x+(compact?40:50),y+(compact?17:21));
     h.font='600 '+(compact?9:11)+'px '+HUD_FONT;h.fillStyle='#b9d7ea';h.fillText(verb+(t.street&&t.dir!=='arrive'?' · '+t.street:t.dir==='arrive'?' · '+t.street:''),x+(compact?40:50),y+(compact?31:37),w-(compact?46:58));
     // dica do piloto a pé
-    if(!window.cityVehicles?.driver&&!window.CityAutopilot?.active){h.font='600 '+(compact?8:10)+'px '+HUD_FONT;h.fillStyle='rgba(185,215,234,.8)';h.textAlign='right';h.fillText('G 🚶',x+w-8,y+(compact?13:15));}
+    if(!window.CityAutopilot?.active&&!window.CityDrivePilot?.active){h.font='600 '+(compact?8:10)+'px '+HUD_FONT;h.fillStyle='rgba(185,215,234,.8)';h.textAlign='right';h.fillText(window.cityVehicles?.driver?'G 🚗':'G 🚶',x+w-8,y+(compact?13:15));}
   }
   h.restore();
 }

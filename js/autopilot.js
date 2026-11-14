@@ -162,8 +162,7 @@
   if(!legs.length&&lead)legs=lead.slice(0,-1);
   if(tail)legs=[...legs,...tail.slice(0,-1)];
   const path=markCrossings([...points.slice(0,-1),{...from},...legs,{...goal}],env());
-  // as pontas fora da rua (lote, porta) não são faixa de pedestre
-  for(const q of path)if(q.cross&&roadDist(q.x,q.y)>ROAD_W+SIDE+.5&&!onAsphalt(q))q.cross=false;
+  // (travessia = trecho que de fato passa pelo asfalto; markCrossings já amostrou cada trecho)
   if(td)path.push({...td.in,inside:true});
   for(const q of target.after||[])path.push({...q,inside:true});
   job={target,path,i:hd?0:1,onArrive,onFail,stuck:0,lastPos:{x:p.x,y:p.y},check:0,wait:0,waiting:false,side:0,sideT:0,total:path.reduce((s,q,i)=>i?s+dist(path[i-1],q):0,0),start:performance.now()};
@@ -186,11 +185,45 @@
   if(reason)window.CityUI?.notify?.('Piloto automático desligado. '+reason);
   j.onFail?.(reason);
  }
- // semáforo de pedestre por perto e carros em movimento perto da faixa
+ // ---------- faixas de pedestre ----------
+ // cada braço de cruzamento (decal 'xarm', miami-city.js) tem a zebra entre e+0,35 e e+3,35 m do centro, de lado a lado
+ // da via; sem zebra (rua × rua sem PARE) a travessia é no mesmo lugar, na esquina. Devolve as pontas na calçada.
+ function crosswalkEnds(d){
+  const u=d.e+1.85,rx=d.dy,ry=-d.dx,v=d.hw+SIDE*.55;
+  return [{x:d.x+d.dx*u-rx*v,y:d.y+d.dy*u-ry*v},{x:d.x+d.dx*u+rx*v,y:d.y+d.dy*u+ry*v}];
+ }
+ // troca a travessia a→b (que corta o asfalto) pela faixa de pedestre mais próxima da mesma via
+ function alignCrossing(path,i){
+  const a=path[i-1],b=path[i];if(!a||!b)return false;
+  const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};let best=null;
+  for(const d of world.decals||[]){
+   if(d.kind!=='xarm'||Math.hypot(d.x-mid.x,d.y-mid.y)>120)continue;
+   const rx=d.dy,ry=-d.dx,va=(a.x-d.x)*rx+(a.y-d.y)*ry,vb=(b.x-d.x)*rx+(b.y-d.y)*ry;
+   if(va*vb>=0||Math.abs(va)<d.hw*.6||Math.abs(vb)<d.hw*.6)continue;   // a e b em lados opostos desta via
+   const [e1,e2]=crosswalkEnds(d),near=va<0?e1:e2,far=va<0?e2:e1;
+   // CTB art. 69: usa a faixa quando ela está a até 50 m; mais longe que isso, atravessa reto onde está (com cuidado)
+   if(Math.hypot((e1.x+e2.x)/2-mid.x,(e1.y+e2.y)/2-mid.y)>50)continue;
+   const cost=dist(a,near)+dist(near,far)+dist(far,b)+(d.zebra?0:12);
+   if(!best||cost<best.cost)best={cost,near,far,d};
+  }
+  if(!best){
+   // sem faixa a até 50 m: travessia perpendicular à via, a partir de onde está
+   const rd=roadDist(a.x,a.y),gx=(roadDist(a.x+.5,a.y)-roadDist(a.x-.5,a.y)),gy=(roadDist(a.x,a.y+.5)-roadDist(a.x,a.y-.5)),gl=Math.hypot(gx,gy);
+   if(gl>.3&&rd>=ROAD_W){const nx=-gx/gl,ny=-gy/gl;let w=ROAD_W*2+2;for(let k=0;k<40;k++){const x=a.x+nx*w,y=a.y+ny*w;if(roadDist(x,y)>=ROAD_W+SIDE*.3)break;w+=.5;}
+    const c={x:a.x+nx*(w+SIDE*.3),y:a.y+ny*(w+SIDE*.3)};
+    if(roadDist(c.x,c.y)>=ROAD_W&&dist(c,b)<dist(a,b)+8){path.splice(i,1,{...c,cross:true,aligned:true},{...b,cross:false,aligned:true});return true;}}
+   b.aligned=true;return false;
+  }
+  const sig=(world.trafficSignals||[]).filter(s=>Math.hypot(s.x-best.far.x,s.y-best.far.y)<30&&Math.abs(s.ax*best.d.dx+s.ay*best.d.dy)>.7);
+  path.splice(i,1,{...best.near,cross:false,aligned:true},{...best.far,cross:true,aligned:true,zebra:!!best.d.zebra,sigs:sig},{...b,cross:false,aligned:true});
+  return true;
+ }
+ // semáforo e carros: com semáforo, só atravessa com o sinal vermelho para os carros desta via (boneco verde);
+ // na zebra sem semáforo, espera os carros que vêm na direção da faixa passarem
  function canCross(a,b){
-  const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
-  const sig=(world.trafficSignals||[]).find(s=>Math.hypot(s.x-mid.x,s.y-mid.y)<16);
-  if(sig&&typeof trafficPhase==='function'&&trafficPhase(typeof T!=='undefined'?T:0).pedestrian!=='walk')return 'sinal';
+  const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},ph=typeof trafficPhase==='function'?trafficPhase(typeof T!=='undefined'?T:0):null;
+  if(ph&&b.sigs?.length){if(b.sigs.some(s=>ph[s.group]!=='red'))return 'sinal';}
+  else{const sig=(world.trafficSignals||[]).find(s=>Math.hypot(s.x-mid.x,s.y-mid.y)<16);if(sig&&ph&&ph.pedestrian!=='walk')return 'sinal';}
   const cars=[...(world.aiCars||[])];const own=window.cityVehicles?.car;if(own&&!window.cityVehicles.driver&&Math.abs(own.speed||0)>.5)cars.push(own);
   for(const c of cars){
    const sp=Math.abs(c.unit?.speed??c.speed??0);if(sp<.6)continue;
@@ -212,7 +245,8 @@
   // dentro de prédio o raio de chegada é pequeno: alinha com o vão da porta antes de passar (senão bate no batente)
   while(q&&dist(p,q)<(q.inside?.32:job.i===path.length-1?.7:1.1)){job.i++;q=path[job.i];job.waiting=false;}
   if(!q){const j=job;job=null;hideHud();window.CityUI?.notify?.('Você chegou: '+(j.target.name||'destino')+'.');j.onArrive?.();return null;}
-  // travessia: espera no meio-fio
+  // travessia: leva até a faixa de pedestre (uma vez) e espera no meio-fio
+  if(q.cross&&!q.aligned&&dist(p,q)<40&&alignCrossing(path,job.i)){q=path[job.i];}
   if(q.cross&&!q.approved){
    const why=canCross(path[job.i-1]||p,q);
    if(why){job.waiting=why;updateHud();p.face=Math.atan2(q.y-p.y,q.x-p.x);job.lastPos={x:p.x,y:p.y};job.stuck=0;return {w:[0,0],hold:true};}
