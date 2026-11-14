@@ -118,8 +118,10 @@ const CityFood = (() => {
   function show(s) { open = { type: s.type, name: s.name, kind: K.SHOPS[s.type].kind }; renderDialog(); dialog().hidden = false; document.body.classList.add('city-property-open'); window.CityAudio?.ui?.('confirm'); }
   function close() { open = null; const d = document.getElementById('city-food-dialog'); if (d) d.hidden = true; document.body.classList.remove('city-property-open'); }
   addEventListener('keydown', e => { if (e.key === 'Escape' && open) { e.preventDefault(); close(); } });
-  function prompt(p) { const s = shopNear(p); return s ? 'F · ' + K.SHOPS[s.type].icon + ' ' + s.name + ' — ' + (K.SHOPS[s.type].kind === 'store' ? 'comprar' : 'ver cardápio') : ''; }
-  function interact(p) { const s = shopNear(p); if (!s) return false; show(s); return s.name; }
+  function prompt(p) { const pk = packageNear(p); if (pk) return 'F · Pegar pedido ' + pk.id + ' (' + pk.shopName + ') na porta';
+    const s = shopNear(p); return s ? 'F · ' + K.SHOPS[s.type].icon + ' ' + s.name + ' — ' + (K.SHOPS[s.type].kind === 'store' ? 'comprar' : 'ver cardápio') : ''; }
+  function interact(p) { const got = pickUp(p); if (got) { notify(got); return got; }
+    const s = shopNear(p); if (!s) return false; show(s); return s.name; }
 
   // ---------- delivery: app Rango ----------
   const ui = { tab: 'restaurants', shop: null, cart: {}, addr: 'here' };
@@ -175,21 +177,42 @@ const CityFood = (() => {
   };
 
   // ---------- tempo: pedidos andando, entregador na porta ----------
+  // porta do endereço: prédio que contém o ponto (ou porta a até 15 m) → um passo para fora da porta, virado p/ a rua
+  const FRONT = { S: [0, 1], N: [0, -1], E: [1, 0], W: [-1, 0] };
+  function doorFor(pt) {
+    let best = null, bd = 15;
+    for (const H of houseList()) {
+      if (!H.doorPt) continue;
+      const inside = pt.x > H.x0 - 1 && pt.x < H.x1 + 1 && pt.y > H.y0 - 1 && pt.y < H.y1 + 1, d = inside ? 0 : Math.hypot(H.doorPt[0] - pt.x, H.doorPt[1] - pt.y);
+      if (d < bd) { bd = d; best = H; }
+    }
+    if (!best) return { x: pt.x, y: pt.y, a: 0, found: false };
+    const n = FRONT[best.frontSide || 'S'];
+    return { x: best.doorPt[0] + n[0] * .9, y: best.doorPt[1] + n[1] * .9, a: Math.atan2(n[1], n[0]), found: true };
+  }
   let tickT = 0, courierNpc = null;
+  const fx = (id, d, gain = 1) => window.CityAudio?.fx?.(id, d.x, d.y, { ref: 10, max: 140, gain });
   function tick(dt) {
     if (!dt || window.CityFront?.blocked || (typeof wmap !== 'undefined' && wmap.open)) return;
     S.t += dt; tickT -= dt; if (tickT > 0) return; tickT = .5;
     const p = P(); let changed = false;
     for (const o of S.orders) {
       if (o.courier && o.courier.auto === false) continue;   // entregador de verdade: ele decide as etapas
-      const ev = K.advance(o, S.t, o.customer ? null : p); if (!ev) continue; changed = true;
+      // a porta é calculada quando o prédio do endereço está carregado (perto do jogador)
+      if (!o.customer && (!o.door || !o.door.found) && p && Math.hypot(p.x - o.to.x, p.y - o.to.y) < 150) o.door = doorFor(o.to);
+      const ev = K.advance(o, S.t); if (!ev) continue; changed = true;
       if (o.customer) continue;
+      const d = o.door || o.to, far = p ? Math.round(Math.hypot(p.x - d.x, p.y - d.y)) : 0;
       if (ev === 'preparing') notify('👨‍🍳 ' + o.shopName + ' está preparando o pedido ' + o.id);
       if (ev === 'on_the_way') notify('🛵 ' + o.courier.name + ' saiu com o pedido ' + o.id + ' · ' + Math.max(1, Math.ceil(K.eta(o, S.t) / 60)) + ' min');
-      if (ev === 'arrived') notify('🛵 ' + o.courier.name + ' chegou com o pedido ' + o.id + ' (' + o.address + ')' + (Math.hypot(p.x - o.to.x, p.y - o.to.y) > K.NEAR ? ' — vá até o endereço' : ''));
-      if (ev === 'delivered') notify('🍽️ Pedido ' + o.id + ' entregue! Está na mochila' + handOver(o));
-      if (ev === 'left') notify('📦 Ninguém atendeu: o pedido ' + o.id + ' foi deixado na porta de ' + o.address);
-      if (ev === 'collected') notify('📦 Você pegou o pedido ' + o.id + ' na porta' + handOver(o));
+      // chegou: toca a campainha e avisa
+      if (ev === 'arrived') { fx('doorbell', d, 1.2); notify('🔔 Ding-dong! ' + o.courier.name + ' do Rango chegou com o pedido ' + o.id + (far > 40 ? ' em ' + o.address + ' (' + far + ' m)' : '')); }
+      // deixa a caixa/sacola na porta
+      if (ev === 'left') {
+        fx(K.packageKind(o) === 'box' ? 'box_drop' : 'bag_drop', d);
+        notify('📦 Seu pedido ' + o.id + ' está na porta' + (far > 6 ? ' de ' + o.address : '') + ' — chegue perto e aperte F para pegar');
+        if (courierNpc?.npc && courierNpc.order === o.id) window.cityCharacters?.say?.(courierNpc.npc, 'Deixei aqui na porta! Bom apetite!', '📦');
+      }
     }
     // terminados vão para o histórico
     for (const o of S.orders.filter(o => !o.customer && ['delivered', 'collected', 'cancelled'].includes(o.status))) { S.history.unshift({ id: o.id, shop: o.shopName, total: o.total, status: o.status, lines: o.lines.map(l => l.icon + ' ' + l.n + '× ' + l.name).join(', ') }); S.orders.splice(S.orders.indexOf(o), 1); changed = true; }
@@ -197,17 +220,34 @@ const CityFood = (() => {
     if (changed) { save(); window.CityUI?.refreshPhone?.(); }
     courierAtDoor(p);
   }
-  // o entregador aparece de verdade na porta quando o pedido chega e o jogador está por perto
+  // o entregador aparece na porta (perto do jogador): toca a campainha, deixa o pedido e vai embora uns segundos depois
   function courierAtDoor(p) {
-    const ch = window.cityCharacters, o = S.orders.find(o => !o.customer && o.status === 'arrived');
+    const ch = window.cityCharacters;
+    const o = S.orders.find(o => !o.customer && (o.status === 'arrived' || o.status === 'left' && S.t - (o.leftAt || 0) < 4));
     if (courierNpc && (!o || courierNpc.order !== o.id)) { if (courierNpc.npc && !courierNpc.npc.dead) ch?.removeExtra?.(courierNpc.npc); courierNpc = null; }
-    if (!o || courierNpc || !ch?.spawnExtra || !p || Math.hypot(p.x - o.to.x, p.y - o.to.y) > 70) return;
+    const d = o && (o.door || o.to);
+    if (!o || courierNpc || !ch?.spawnExtra || !p || Math.hypot(p.x - d.x, p.y - d.y) > 90) return;
     courierNpc = { order: o.id, npc: null };
-    const face = Math.atan2(p.y - o.to.y, p.x - o.to.x), slot = courierNpc;
-    ch.spawnExtra(o.to.x + Math.cos(face) * 1.5, o.to.y + Math.sin(face) * 1.5, { face }).then(n => { if (slot !== courierNpc) { if (n) ch.removeExtra(n); return; } slot.npc = n; if (n) { n.vendor = true; ch.say?.(n, 'Pedido do Rango! ' + o.id, '🛵'); } }).catch(() => {});
+    // de pé ao lado da porta, virado para ela
+    const side = (d.a || 0) + Math.PI / 2, x = d.x + Math.cos(d.a || 0) * .6 + Math.cos(side) * .7, y = d.y + Math.sin(d.a || 0) * .6 + Math.sin(side) * .7, slot = courierNpc;
+    ch.spawnExtra(x, y, { face: Math.atan2(d.y - y, d.x - x) + Math.PI }).then(n => {
+      if (slot !== courierNpc) { if (n) ch.removeExtra(n); return; }
+      slot.npc = n; if (n) { n.vendor = true; ch.say?.(n, o.status === 'arrived' ? 'Rango! Pedido ' + o.id + ' chegou!' : 'Deixei aqui na porta!', '🛵'); }
+    }).catch(() => {});
   }
-  // entregadores a caminho (minimapa e mapa)
-  function couriers() { return S.orders.filter(o => !o.customer && ['on_the_way', 'arrived', 'left'].includes(o.status)).map(o => ({ ...K.courierPos(o, S.t), id: o.id, status: o.status, to: o.to })); }
+  // entregadores a caminho (minimapa e mapa); na porta só enquanto toca a campainha
+  function couriers() { return S.orders.filter(o => !o.customer && ['on_the_way', 'arrived'].includes(o.status)).map(o => ({ ...K.courierPos(o, S.t), id: o.id, status: o.status, to: o.to })); }
+  // pedidos esperando na porta (caixa de pizza/sushi ou sacola) — desenhados em 3D por delivery-3d.mjs
+  function packages() {
+    return S.orders.filter(o => !o.customer && o.status === 'left').map(o => { const d = o.door || o.to; return { id: o.id, x: d.x, y: d.y, a: d.a || 0, kind: K.packageKind(o), shop: o.shopType }; });
+  }
+  function packageNear(p, r = 2.2) { if (!p || (p.floor || 0) > 0) return null; return S.orders.find(o => !o.customer && o.status === 'left' && Math.hypot(p.x - (o.door || o.to).x, p.y - (o.door || o.to).y) < r) || null; }
+  function pickUp(p) {
+    const o = packageNear(p); if (!o || !K.pickup(o, S.t, p, 2.3)) return null;
+    const extra = handOver(o); fx(K.packageKind(o) === 'box' ? 'box_drop' : 'bag_drop', o.door || o.to, .6);
+    tickT = 0; tick(.001);   // vai para o histórico já
+    return '🍽️ Você pegou o pedido ' + o.id + ' (' + o.lines.map(l => l.icon + ' ' + l.n + '× ' + l.name).join(', ') + ') — está na mochila' + extra;
+  }
 
   // ---------- telas do app ----------
   function renderApp({ card, banner, btn }) {
@@ -221,7 +261,7 @@ const CityFood = (() => {
         return card('Pedido ' + o.id + ' · ' + o.shopName, K.STATUS[o.status] + (eta ? ' · chega em ~' + Math.max(1, Math.ceil(eta / 60)) + ' min' : '') + ' · ' + o.address + (o.status === 'arrived' || o.status === 'left' ? ' · você está a ' + d + ' m' : '') +
           ' · ' + o.lines.map(l => l.icon + ' ' + l.n + '× ' + l.name).join(', ') + ' · total ' + money(o.total),
           '<div class="food-steps">' + ['Confirmado', 'Preparando', 'A caminho', 'Na porta'].map((s, i) => '<span class="' + (i <= k ? 'on' : '') + '">' + s + '</span>').join('') + '</div>' +
-          (o.status === 'confirmed' ? btn('food:cancel:' + o.id, 'Cancelar') : '') + (['arrived', 'left'].includes(o.status) ? btn('food:route:' + o.id, 'Ir até o endereço (GPS)') : ''), '🛵');
+          (o.status === 'confirmed' ? btn('food:cancel:' + o.id, 'Cancelar') : '') + (o.status === 'left' ? btn('food:route:' + o.id, 'Ir até a porta (GPS)') : ''), '🛵');
       }).join('') : '<p class="city-help">Nenhum pedido em andamento.</p>';
       if (S.history.length) body += '<div class="city-phone-label">Últimos pedidos</div>' + S.history.slice(0, 6).map(h => '<div class="city-log"><span>' + esc(h.shop) + '<small> · ' + esc(h.lines) + '</small></span><b>' + money(h.total) + '</b></div>').join('');
     } else if (ui.shop) {
@@ -255,7 +295,7 @@ const CityFood = (() => {
     return { ok: false, text: 'Ação indisponível' };
   }
 
-  return { tick, prompt, interact, close, renderApp, appAction, couriers, places, delivery, shopNear, buyAtCounter, placeOrder, eatNow,
+  return { tick, prompt, interact, close, renderApp, appAction, couriers, packages, pickUp, places, delivery, shopNear, buyAtCounter, placeOrder, eatNow,
     get open() { return !!open; }, get orders() { return S.orders; }, get history() { return S.history; }, get ui() { return ui; }, get state() { return S; },
     _brands: brands, _show: show, _setOpen: (type, name) => { open = type ? { type, name: name || K.SHOPS[type].name, kind: K.SHOPS[type].kind } : null; } };
 })();

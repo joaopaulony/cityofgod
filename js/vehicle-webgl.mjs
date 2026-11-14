@@ -20,6 +20,7 @@ import {createAirport3D} from './airport-3d.mjs';
 import {createGas3D} from './gas-3d.mjs';
 import './map3d.mjs';
 import './drive-pilot.mjs';
+import {createDelivery3D} from './delivery-3d.mjs';
 import {createParked3D} from './parked-3d.mjs';
 import {VehicleFleet,streetModel} from './vehicle-fleet.mjs';
 import {syncCivicFleetParking} from './civic-fleet.mjs';
@@ -371,6 +372,9 @@ function initRenderer(){
   // postos de gasolina: cobertura, bombas, loja e totem (gas-3d.mjs)
   try{gas3d=createGas3D(THREE,scene,bridge);system.gas3d=gas3d.state;}
   catch(error){console.error('Postos 3D falharam',error);}
+  // pedidos do Rango deixados na porta: caixa de pizza ou sacola (delivery-3d.mjs)
+  try{delivery3d=createDelivery3D(THREE,scene);system.delivery3d=delivery3d.state;}
+  catch(error){console.error('Pedidos 3D falharam',error);}
   // carros estacionados com os modelos GLB (parked-3d.mjs)
   try{parked3d=createParked3D(THREE,scene,bridge,damageFX);system.parked3d=parked3d.state;}
   catch(error){console.error('Carros estacionados 3D falharam',error);}
@@ -481,7 +485,7 @@ function inkLights(){
  // quanto é dia (reflexo do céu e contorno de luz somem à noite)
  INK.mark.y=Math.max(0,Math.min(1,globalThis.ENV?.day??1));
 }
-let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null;
+let vegetation=null,props3d=null,house3d=null,architecture3d=null,ambience=null,birds=null,landmarks=null,airport3d=null,gas3d=null,parked3d=null,delivery3d=null;
 function setCamera(){
  const c=bridge.cam,w=c.W,h=c.H;
  if(!w||!h)return;
@@ -783,6 +787,7 @@ system.render=()=>{
  landmarks?.update();
  airport3d?.update();
  gas3d?.update();
+ delivery3d?.update();
  parked3d?.update();lap('misc');
  // O pivô do GLB aponta para +X; Three Y positivo gira ao contrario
  // do yaw positivo em coordenadas x/y do jogo.

@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 function boot({ funds } = {}) {
   const kv = new Map();
-  const notes = [];
+  const notes = [], sounds = [];
   const ctx = {
     localStorage: { getItem: k => kv.get(k) ?? null, setItem: (k, v) => kv.set(k, v) },
     Event: class { constructor(t) { this.type = t; } }, console,
@@ -15,6 +15,7 @@ function boot({ funds } = {}) {
   ctx.window = ctx;
   ctx.cityVehicles = { driver: false };
   ctx.CityUI = { notify: t => notes.push(t), refreshPhone() {} };
+  ctx.CityAudio = { fx: id => { sounds.push(id); return {}; } };
   ctx.CityHome = { key: () => 'casa-1', owned: () => true };
   // mapa mínimo: bairros p/ os restaurantes do app e o Mercado Municipal
   ctx.OW = { geo: { neighborhoods: [{ x: 100, y: 100, name: 'Centro' }, { x: 400, y: 100, name: 'Praia' }, { x: 100, y: 400, name: 'Morro' }], anchors: { towns: [] } },
@@ -25,7 +26,7 @@ function boot({ funds } = {}) {
   ctx.CityLife.init(st);
   ctx.__game = { player: st.player };
   if (funds !== undefined) { const cur = ctx.CityLife.funds; if (funds < cur) ctx.CityLife.debit(cur - funds, 'ajuste'); else ctx.CityLife.credit(funds - cur, 'ajuste'); }
-  return { ctx, st, K: ctx.CityFoodCore, life: ctx.CityLife, kitchen: ctx.CityHomeKitchen, food: ctx.CityFood, notes };
+  return { ctx, st, K: ctx.CityFoodCore, life: ctx.CityLife, kitchen: ctx.CityHomeKitchen, food: ctx.CityFood, notes, sounds };
 }
 const run = (food, seconds) => { for (let t = 0; t < seconds; t += .5) food.tick(.5); };
 
@@ -102,20 +103,26 @@ test('fogão usa primeiro a despensa da casa e completa com a mochila', () => {
   assert.ok(kitchen.recipes.find(x => x.id === 'omelette' && !x.toBag));
 });
 
-test('delivery (núcleo): etapas, taxa por distância e entregador andando até a porta', () => {
+test('delivery (núcleo): etapas, taxa por distância, entregador andando até a porta e pedido deixado na porta', () => {
   const { K } = boot();
   assert.equal(K.deliveryFee(300, 50), 5); assert.ok(K.deliveryFee(1500, 50) > 5); assert.equal(K.deliveryFee(1500, 130), 0, 'frete grátis acima de R$ 120');
-  const o = K.createOrder({ id: 'T1', from: { x: 0, y: 0 }, to: { x: 900, y: 0 }, lines: [], subtotal: 40, fee: 6, now: 0, prep: 30 });
+  const o = K.createOrder({ id: 'T1', from: { x: 0, y: 0 }, to: { x: 900, y: 0 }, lines: [{ item: 'pizza', qty: 8 }], subtotal: 40, fee: 6, now: 0, prep: 30 });
   assert.equal(o.status, 'confirmed'); assert.equal(o.total, 46);
-  const far = { x: 5000, y: 0 }; let last = -1, t = 0;
+  let last = -1, t = 0;
   const seen = [];
-  for (; t < 400; t += 1) { const ev = K.advance(o, t, far); if (ev) seen.push(ev); const c = K.courierPos(o, t); if (o.status === 'on_the_way') { assert.ok(c.x >= last - 1e-6, 'só avança'); last = c.x; } }
-  assert.deepEqual(seen, ['preparing', 'on_the_way', 'arrived', 'left'], 'longe: deixa na porta');
-  assert.equal(K.advance(o, t, { x: 900, y: 10 }), 'collected', 'pega depois, quando chega perto');
+  for (; t < 400; t += 1) { const ev = K.advance(o, t); if (ev) seen.push(ev); const c = K.courierPos(o, t); if (o.status === 'on_the_way') { assert.ok(c.x >= last - 1e-6, 'só avança'); last = c.x; } }
+  assert.deepEqual(seen, ['preparing', 'on_the_way', 'arrived', 'left'], 'chega, toca a campainha e deixa na porta');
+  assert.ok(o.leftAt - o.arrivedAt >= K.HANDOFF, 'fica uns segundos na porta antes de deixar');
+  assert.equal(K.packageKind(o), 'box', 'pizza vai em caixa');
+  assert.equal(K.packageKind({ lines: [{ item: 'coxinha' }] }), 'bag', 'salgado vai em sacola');
+  assert.equal(K.pickup(o, t, { x: 950, y: 0 }), false, 'longe da caixa não pega');
+  assert.ok(K.pickup(o, t, { x: 900.5, y: 1 }), 'perto pega'); assert.equal(o.status, 'collected');
 });
 
-test('app Rango: carrinho, pedido mínimo, pagar, acompanhar e receber na mochila', () => {
-  const { food, life, K, st, notes } = boot({ funds: 300 });
+test('app Rango: carrinho, pedido mínimo, pagar, campainha, caixa na porta e pegar com F', () => {
+  const { food, life, K, st, notes, sounds, ctx } = boot({ funds: 300 });
+  // a casa onde o jogador está: porta para o sul em (120, 150)
+  ctx.houses = [{ x0: 110, y0: 130, x1: 130, y1: 150, doorPt: [120, 150], frontSide: 'S' }];
   st.player.x = 120; st.player.y = 140;
   food.appAction('shop', 'doceria');
   const sweets = K.menuOf('doceria', life.items), one = sweets.find(m => m.item === 'brigadeiro' && m.qty === 1);
@@ -132,26 +139,40 @@ test('app Rango: carrinho, pedido mínimo, pagar, acompanhar e receber na mochil
   run(food, 30);
   assert.equal(o.status, 'preparing');
   assert.equal(food.couriers().length, 0, 'entregador ainda no restaurante');
-  run(food, 80);
-  assert.ok(['on_the_way', 'arrived'].includes(o.status) || life.inventory.pizza === 8, 'saiu para entrega');
-  run(food, 200);
+  run(food, 300);
+  assert.equal(o.status, 'left', 'deixou na porta');
+  assert.ok(sounds.includes('doorbell'), 'tocou a campainha');
+  assert.ok(sounds.includes('box_drop'), 'som da caixa no chão');
+  assert.ok(notes.some(n => /Ding-dong/.test(n)), 'avisou que chegou');
+  assert.ok(notes.some(n => /está na porta/.test(n)), 'avisou que está na porta');
+  const pk = food.packages();
+  assert.equal(pk.length, 1); assert.equal(pk[0].kind, 'box');
+  assert.ok(Math.abs(pk[0].x - 120) < .01 && Math.abs(pk[0].y - 150.9) < .01, 'caixa do lado de fora da porta');
+  assert.equal(life.inventory.pizza || 0, 0, 'ainda não pegou');
+  assert.equal(food.interact(st.player), false, 'de dentro da casa não alcança a caixa');
+  st.player.y = 151.5;
+  assert.match(food.prompt(st.player), /Pegar pedido/);
+  assert.match(String(food.interact(st.player)), /pegou o pedido/);
   assert.equal(life.inventory.pizza, 8, 'pizza na mochila');
-  assert.equal(food.orders.length, 0); assert.equal(food.history[0].status, 'delivered');
-  assert.ok(notes.some(n => /entregue/.test(n)));
+  assert.equal(food.packages().length, 0, 'caixa sumiu da porta');
+  assert.equal(food.orders.length, 0); assert.equal(food.history[0].status, 'collected');
 });
 
-test('app Rango: longe de casa o pedido fica na porta e é retirado quando volta; cancelar estorna', () => {
-  const { food, life, K, st } = boot({ funds: 300 });
+test('app Rango: entrega em casa com o jogador longe — a sacola espera na porta; cancelar estorna', () => {
+  const { food, life, K, st, ctx } = boot({ funds: 300 });
   st.player.x = 400; st.player.y = 110;
-  food.appAction('shop', 'sushi');
-  food.appAction('plus', K.menuOf('sushi', life.items)[0].key);
+  food.appAction('shop', 'lanchonete');
+  const cox = K.menuOf('lanchonete', life.items).find(m => m.item === 'coxinha');
+  food.appAction('plus', cox.key); food.appAction('plus', cox.key);
   assert.ok(food.appAction('order').ok);
   const o = food.orders[0];
   st.player.x = 2000;   // saiu andando
-  run(food, 400);
-  assert.equal(o.status, 'left'); assert.equal(life.inventory.sushi || 0, 0);
-  st.player.x = 400; run(food, 2);
-  assert.equal(life.inventory.sushi, 1, 'pegou na porta');
+  run(food, 600);
+  assert.equal(o.status, 'left'); assert.equal(food.packages()[0].kind, 'bag', 'coxinha vai em sacola');
+  run(food, 600);
+  assert.equal(o.status, 'left', 'continua esperando na porta'); assert.equal(life.inventory.coxinha || 0, 0);
+  st.player.x = 400; st.player.y = 110.5;
+  assert.ok(food.pickUp(st.player)); assert.equal(life.inventory.coxinha, 2, 'pegou na porta');
   // cancelar logo depois de pedir devolve o dinheiro
   food.appAction('shop', 'padaria'); food.appAction('plus', K.menuOf('padaria', life.items)[1].key);
   const before = life.funds; assert.ok(food.appAction('order').ok);

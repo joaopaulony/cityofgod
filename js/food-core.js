@@ -138,11 +138,10 @@
     for (const [key, n] of Object.entries(cart || {})) { const m = menu.find(x => x.key === key); if (!m || !(n > 0)) continue; subtotal += m.price * n; items += n; }
     return { subtotal, items };
   }
-  const STATUS = { confirmed: 'Pedido confirmado', preparing: 'Preparando', on_the_way: 'Saiu para entrega', arrived: 'Entregador chegou', delivered: 'Entregue', left: 'Deixado na porta', collected: 'Retirado', cancelled: 'Cancelado' };
+  const STATUS = { confirmed: 'Pedido confirmado', preparing: 'Preparando', on_the_way: 'Saiu para entrega', arrived: 'Entregador na porta', delivered: 'Entregue', left: 'Na sua porta', collected: 'Retirado', cancelled: 'Cancelado' };
   const COURIER_SPEED = 9;          // m/s (moto na cidade)
-  const WAIT_AT_DOOR = 90;          // s esperando o cliente antes de deixar na porta
   const NEAR = 30;                  // m: cliente perto o bastante para receber
-  const HANDOFF = 3;                // s do entregador na porta entregando
+  const HANDOFF = 3;                // s do entregador na porta: toca a campainha, avisa e deixa a caixa/sacola
   // route: pontos [x,y] do restaurante até o endereço (ou null = linha reta)
   function createOrder({ id, shopType, shopName, from, to, address, lines, subtotal, fee, now, prep, route = null }) {
     const pts = route && route.length > 1 ? route : [[from.x, from.y], [to.x, to.y]];
@@ -150,20 +149,24 @@
     return { id, shopType, shopName, from, to, address, lines, subtotal, fee, total: Math.round((subtotal + fee) * 100) / 100, status: 'confirmed',
       created: now, readyAt: now + 6 + (prep || 40), arriveAt: now + 6 + (prep || 40) + len / COURIER_SPEED, route: pts, length: len, courier: null };
   }
-  // avança o pedido no tempo; player = posição do cliente agora. Devolve o evento novo (ou null)
-  function advance(o, now, player) {
+  // avança o pedido no tempo. Na chegada o entregador toca a campainha e, depois de HANDOFF s, deixa o pedido na
+  // porta ('left'); quem pega é o cliente (pickup). Devolve o evento novo (ou null)
+  function advance(o, now) {
     if (['delivered', 'collected', 'cancelled'].includes(o.status)) return null;
-    const near = player && Math.hypot(player.x - o.to.x, player.y - o.to.y) < NEAR;
     if (o.status === 'confirmed' && now >= o.created + 6) { o.status = 'preparing'; return 'preparing'; }
     if (o.status === 'preparing' && now >= o.readyAt) { o.status = 'on_the_way'; return 'on_the_way'; }
     if (o.status === 'on_the_way' && now >= o.arriveAt) { o.status = 'arrived'; o.arrivedAt = now; return 'arrived'; }
-    if (o.status === 'arrived') {
-      if (near && now >= o.arrivedAt + HANDOFF) { o.status = 'delivered'; o.doneAt = now; return 'delivered'; }   // entrega na mão (o entregador aparece na porta)
-      if (now >= o.arrivedAt + WAIT_AT_DOOR) { o.status = 'left'; return 'left'; }
-    }
-    if (o.status === 'left' && near) { o.status = 'collected'; o.doneAt = now; return 'collected'; }
+    if (o.status === 'arrived' && now >= o.arrivedAt + HANDOFF) { o.status = 'left'; o.leftAt = now; return 'left'; }
     return null;
   }
+  // o cliente pega o pedido deixado na porta (precisa estar perto da caixa/sacola)
+  function pickup(o, now, player, reach = 2.2) {
+    if (o.status !== 'left' || !player) return false;
+    const d = o.door || o.to; if (Math.hypot(player.x - d.x, player.y - d.y) > reach) return false;
+    o.status = 'collected'; o.doneAt = now; return true;
+  }
+  // embalagem: pizza e sushi em caixa, o resto em sacola de papel
+  const packageKind = o => o.lines?.some(l => l.item === 'pizza' || l.item === 'sushi') ? 'box' : 'bag';
   // onde está o entregador agora (no restaurante até sair, no trajeto, na porta depois de chegar)
   function courierPos(o, now) {
     if (o.status === 'confirmed' || o.status === 'preparing') return { x: o.from.x, y: o.from.y, moving: false };
@@ -179,8 +182,8 @@
   const eta = (o, now) => o.status === 'on_the_way' || o.status === 'preparing' || o.status === 'confirmed' ? Math.max(0, Math.round(o.arriveAt - now)) : 0;
   const delivered = o => o.status === 'delivered' || o.status === 'collected';
 
-  const api = { FOODS, INGREDIENTS, DISHES, RECIPES, SHOPS, RESTAURANT_TYPES, STATUS, MIN_ORDER, NEAR, WAIT_AT_DOOR, COURIER_SPEED,
-    itemDefs, priceOf, menuOf, shopTypeForSeed, missing, canCook, consumePlan, deliveryFee, cartTotal, createOrder, advance, courierPos, eta, delivered };
+  const api = { FOODS, INGREDIENTS, DISHES, RECIPES, SHOPS, RESTAURANT_TYPES, STATUS, MIN_ORDER, NEAR, COURIER_SPEED,
+    itemDefs, priceOf, menuOf, shopTypeForSeed, missing, canCook, consumePlan, deliveryFee, cartTotal, createOrder, advance, pickup, packageKind, courierPos, eta, delivered, HANDOFF };
   root.CityFoodCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

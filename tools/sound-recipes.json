@@ -46,6 +46,10 @@
   { "id": "amb_calm_night", "file": "AMB PARK Solo Cricket, Seagulls, City Rumble", "start": 5, "dur": 45, "loop": true, "stereo": true, "rms": 0.06 },
   { "id": "bullet_by", "file": "PM_BBI_Bullet_Passby_Whizzby_Airy", "variants": 5, "split": { "thresh": 0.25, "minGap": 0.5, "maxDur": 1 }, "peak": 0.7 },
   { "id": "bullet_flesh", "file": "PM_BBI_Bullet_Impact_Hit_Body_Flesh", "variants": 3, "split": { "thresh": 0.25, "minGap": 0.25, "maxDur": 0.6 } },
-  { "id": "explosion", "file": "Stefano Cremona - Explosions/(BigExplosion|DeepExplosion)", "variants": 2, "dur": 5, "fadeOut": 1, "stereo": true }
+  { "id": "explosion", "file": "Stefano Cremona - Explosions/(BigExplosion|DeepExplosion)", "variants": 2, "dur": 5, "fadeOut": 1, "stereo": true },
+  { "id": "doorbell", "file": "BELLDoor-INT_Door Bell Low Tone", "variants": 1, "dur": 3.5, "fadeOut": 0.6, "peak": 0.8 },
+  { "id": "box_drop", "file": "OBJPack_Big Cardboard Box Impact", "variants": 2, "split": { "thresh": 0.3, "minGap": 0.3, "maxDur": 0.8 } },
+  { "id": "bag_drop", "file": "PAPRHndl_Paper Sheet Crumple", "variants": 2, "split": { "thresh": 0.3, "minGap": 0.3, "maxDur": 0.7 }, "peak": 0.7 },
+  { "id": "door_knock", "file": "DOORKnck-INT_Glass Frontdoor Knock", "variants": 1, "dur": 2.5, "fadeOut": 0.3 }
  ]
 }
