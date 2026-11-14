@@ -74,13 +74,16 @@ test('segue a rua na faixa e vira na esquina (L), sem sair da faixa', () => {
   assert.ok(c.x < 100, 'na mão certa da rua B');
 });
 
-test('beco sem saída: para antes do fim e não dá meia-volta', () => {
+test('beco sem saída: reduz antes do fim, faz o retorno e volta pela outra faixa (não fica parado)', () => {
   const A = road(0, 100, 120, 100), b = city([A]);
   const T = createTraffic(THREE, new THREE.Scene(), b, { max: () => 1 }), c = T.add({ road: A, i: 40, dir: 1 }); c.speed = 9;
-  run(T, 25);
-  assert.ok(c.x < 120 && c.x > 100, 'parou perto do fim (x=' + c.x.toFixed(1) + ')');
-  assert.ok(Math.cos(c.a) > .95, 'continua virado p/ frente');
-  assert.equal(c.why, 'sem saida');
+  let maxX = 0; run(T, 14, () => { maxX = Math.max(maxX, c.x); });
+  assert.ok(maxX < 120 && maxX > 100, 'chegou perto do fim sem passar dele (x máx. ' + maxX.toFixed(1) + ')');
+  run(T, 9);
+  assert.ok(Math.cos(c.a) < -.9, 'virou para trás (ângulo ' + c.a.toFixed(2) + ')');
+  assert.ok(c.x < 95, 'voltou pela rua (x=' + c.x.toFixed(1) + ')');
+  assert.ok(c.y < 100, 'na mão certa: indo para oeste fica ao norte do eixo (y=' + c.y.toFixed(1) + ')');
+  assert.ok(c.speed > 1, 'andando, não parado');
 });
 
 test('fila no sinal vermelho: o de trás guarda distância e fica na faixa', () => {
@@ -117,4 +120,12 @@ test('rua com vagas: a faixa fica fora da faixa de estacionamento', () => {
   const r = { off: 2, lanes: 1, park: 2.2 }, lane = laneOffset(r);
   assert.ok(Math.abs(lane - 1.65) < .01);
   assert.ok(lane + 1.9 / 2 < 3.5 + 2 - 2.2 + .01, 'o carro inteiro cabe antes das vagas');
+});
+
+test('rua sem saída: o carro faz o retorno (único lugar permitido) em vez de ficar parado para sempre', async () => {
+  const { turnAround } = await import('../js/ai-traffic.mjs');
+  const u = { dir: 1, next: { road: {} }, deadEnd: true, deadT: 2, why: 'sem saida' };
+  turnAround(u);
+  assert.equal(u.dir, -1); assert.equal(u.deadEnd, false); assert.equal(u.next, null); assert.equal(u.why, 'retorno');
+  turnAround(u); assert.equal(u.dir, 1); assert.equal(u.turns, 2);
 });

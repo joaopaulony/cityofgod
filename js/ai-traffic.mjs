@@ -117,6 +117,13 @@ export function continuation(roads, road, i, dir, rnd = Math.random) {
   return opts[opts.length - 1];
 }
 
+// rua sem saída: o único retorno permitido — o carro inverte o sentido na própria rua (passa para a faixa do outro
+// lado) e volta; no resto da cidade o trânsito nunca faz meia-volta
+export function turnAround(u) {
+  u.dir = -u.dir; u.next = null; u.deadEnd = false; u.deadT = 0; u.why = 'retorno'; u.turns = (u.turns || 0) + 1;
+  return u;
+}
+
 // ---------------- trânsito no mundo ----------------
 export function createTraffic(THREE, scene, bridge, { people = () => [], max = () => 5 } = {}) {
   const world = bridge.world; world.aiCars = world.aiCars || [];
@@ -249,7 +256,11 @@ export function createTraffic(THREE, scene, bridge, { people = () => [], max = (
       if (turn > .35) { const left = u.dir > 0 ? u.road.pts.length - 1 - u.i : u.i; v = Math.min(v, Math.max(4, 8 - turn * 3) + left * .5 * .35); } }
     if (Math.abs(da) > .5) v = Math.min(v, 4.5);
     // fim de rua sem continuação: para antes (some quando sair da vista)
-    if (u.deadEnd) { const left = u.dir > 0 ? u.road.pts.length - 1 - u.i : u.i; v = Math.min(v, stopSpeed(left * .5 - 3)); if (v < .3) u.why = 'sem saida'; }
+    if (u.deadEnd) {
+      const left = u.dir > 0 ? u.road.pts.length - 1 - u.i : u.i; v = Math.min(v, stopSpeed(left * .5 - 3));
+      // parou no fim: depois de um instante faz o retorno (só aqui é permitido) em vez de ficar parado para sempre
+      if (v < .3) { u.why = 'sem saida'; u.deadT = (u.deadT || 0) + dt; if (u.deadT > 1.5 && u.speed < .3) { turnAround(u); v = 3; } }
+    } else u.deadT = 0;
     // carro da frente / pedestre / estacionado encostando
     const reach = 8 + u.speed * 1.6;
     let { gap, o: lead } = leadAhead(u, obs, reach);
