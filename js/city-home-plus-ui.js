@@ -45,15 +45,18 @@ const CityHomePlusUI=(()=>{
      const recipes=window.CityHomeKitchen?.recipes||[];
      const bundles=window.CityHomeKitchen?.bundles||[];
      const stove=CityHome.placed(H).find(r=>['stove','microwave'].includes(r.kind)&&r.floor===floor);
+     // nome e ícone dos ingredientes (food-core.js); saves antigos sem o catálogo usam os nomes antigos
+     const ING=window.CityFoodCore?.INGREDIENTS||{},ingName=k=>ING[k]?ING[k].icon+' '+ING[k].name:(({eggs:'🥚 Ovos',milk:'🥛 Leite',pasta:'🍝 Massa',tomato:'🍅 Tomate',greens:'🥬 Verduras',bread:'🍞 Pão',cheese:'🧀 Queijo'})[k]||k);
+     const bag=window.CityLife?.inventory||{},have=k=>(pantry?.stock?.[k]||0)+(bag[k]||0);
      const kitchen='<h3>🍳 Cozinha e receitas</h3>'+
        '<p class="home-copy">Compre ingredientes para sua despensa, cozinhe no fogão e guarde as refeições. O personagem precisa caminhar até o móvel antes de preparar ou comer.</p>'+
        '<p class="home-pantry-status">🍽️ Porções prontas: <b>'+(pantry?.portions||0)+'</b></p>'+
        '<div class="home-plus-actions">'+bundles.map(b=>
          btn('pantrybuy|'+b.id,esc(b.name)+' · '+CityLife.money(b.price))).join('')+'</div>'+
-       '<div class="home-pantry-stock">'+Object.entries(pantry?.stock||{}).map(([k,v])=>
-          '<span>'+esc(({eggs:'🥚 Ovos',milk:'🥛 Leite',pasta:'🍝 Massa',tomato:'🍅 Tomate',greens:'🥬 Verduras',bread:'🍞 Pão',cheese:'🧀 Queijo'})[k]||k)+': '+v+'</span>').join('')+'</div>'+
+       '<div class="home-pantry-stock">'+Object.entries(pantry?.stock||{}).filter(([k,v])=>v>0||Object.keys(ING).slice(0,7).includes(k)).map(([k,v])=>
+          '<span>'+esc(ingName(k))+': '+v+(bag[k]?' <small>(+'+bag[k]+' na mochila)</small>':'')+'</span>').join('')+'</div>'+
        (stove?recipes.map(r=>'<div class="home-plus-tile"><b>'+r.icon+' '+esc(r.name)+'</b><small>'+
-         Object.entries(r.ingredients).map(([k,v])=>esc(k)+' ×'+v).join(' · ')+'</small>'+
+         Object.entries(r.ingredients).map(([k,v])=>'<span'+(have(k)<v?' style="color:#ff9a8f"':'')+'>'+esc(ingName(k))+' ×'+v+'</span>').join(' · ')+(r.toBag?' · <b>vai para a mochila</b>':'')+'</small>'+
          btn('recipe|'+r.id, 'Preparar '+r.servings+' porção(ões)',window.CityHomeKitchen?.canPrepare(H,r.id)?'':'disabled')+
          '</div>').join(''):'<p class="home-empty">Instale um fogão ou micro-ondas para preparar receitas.</p>')+
        (pantry?.portions>0?btn('eat','🍽️ Comer uma refeição'):'');

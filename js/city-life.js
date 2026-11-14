@@ -2,7 +2,7 @@
 'use strict';
 const CityLife = (() => {
   const SAVE_KEY = 'cityofgod.life.v1';
-  const items = Object.freeze({
+  const baseItems = {
     water:   { name: 'Água mineral', icon: '💧', price: 8, effects: { water: .38 }, detail: 'Hidratação +38%' },
     soda:    { name: 'Refrigerante', icon: '🥤', price: 12, effects: { water: .22, food: .06 }, detail: 'Sede +22% · fome +6%' },
     sandwich:{ name: 'Sanduíche', icon: '🥪', price: 18, effects: { food: .35 }, detail: 'Saciedade +35%' },
@@ -11,7 +11,10 @@ const CityLife = (() => {
     coffee:  { name: 'Café', icon: '☕', price: 9, effects: { energy: .22, water: -.04 }, detail: 'Energia +22%' },
     firstaid:{ name: 'Kit de primeiros socorros', icon: '🩹', price: 55, effects: { hp: .34 }, detail: 'Vida +34%' },
     soap:    { name: 'Kit de higiene', icon: '🧼', price: 16, effects: { hygiene: .42 }, detail: 'Higiene +42%' }
-  });
+  };
+  // comidas, ingredientes e pratos caseiros do sistema de comida (food-core.js), quando carregado
+  const items = Object.freeze({ ...baseItems, ...(window.CityFoodCore?.itemDefs?.() || {}) });
+  const legacyItems = Object.freeze(Object.keys(baseItems));
   const starting = { water: 3, soda: 1, sandwich: 2, burger: 1, snack: 2, coffee: 1, firstaid: 1, soap: 1 };
   const defaults = { energy: .86, hygiene: .88, bladder: .12, stamina: 1 };
   // Armas (js/weapons.js): cada uma é uma peça única (uid) com acessórios e munição no pente — pronta p/ troca entre
@@ -138,15 +141,17 @@ const CityLife = (() => {
   function use(id) {
     const it = items[id];
     if (!st || !it || !inventory[id]) return { ok: false, text: 'Item indisponível no inventário' };
+    if (it.kind === 'ingredient') return { ok: false, text: it.icon + ' ' + it.name + ' é ingrediente — cozinhe no fogão de casa' };
     inventory[id]--;
     for (const [k, amount] of Object.entries(it.effects)) {
       if (k in st.needs) st.needs[k] = cap(st.needs[k] + amount);
       else if (k in st) st[k] = cap(st[k] + amount);
     }
-    addHistory('Usou ' + it.name);
+    addHistory((it.kind === 'food' || it.kind === 'dish' ? 'Comeu ' : 'Usou ') + it.name);
     save(); signal();
     if(id==='water'||id==='sandwich'||id==='burger'||id==='coffee'||id==='soda')window.CityAdventures?.signal?.('needs');
-    return { ok: true, text: it.icon + ' ' + it.name + ' utilizado' };
+    if (it.kind === 'food' || it.kind === 'dish') window.CityAdventures?.signal?.('needs');
+    return { ok: true, text: it.icon + ' ' + it.name + (it.kind === 'food' || it.kind === 'dish' ? ' — delícia!' : ' utilizado') };
   }
   function buy(id) {
     const it = items[id];
@@ -168,10 +173,16 @@ const CityLife = (() => {
     funds=Math.min(1000000,funds+Math.round(amount));
     addHistory(reason,Math.round(amount));save();signal();return true;
   }
-  function canAdd(id){return !!items[id]&&(inventory[id]||0)<999;}
+  function canAdd(id,qty=1){return !!items[id]&&(inventory[id]||0)+qty<=999;}
+  // tira itens (ingredientes usados no fogão, entrega de pedido); atômico: ou tira tudo ou nada
+  function takeItems(list){
+    for(const [id,n] of Object.entries(list||{}))if(!items[id]||!Number.isInteger(n)||n<0||(inventory[id]||0)<n)return false;
+    for(const [id,n] of Object.entries(list||{}))inventory[id]-=n;
+    save();signal();return true;
+  }
   function addItem(id,qty=1){
-    if(!canAdd(id)||!Number.isInteger(qty)||qty<1||inventory[id]+qty>999)return false;
-    inventory[id]+=qty;save();signal();return true;
+    if(!Number.isInteger(qty)||qty<1||!canAdd(id,qty))return false;
+    inventory[id]=(inventory[id]||0)+qty;save();signal();return true;
   }
   function interior(kind) {
     if (!st) return;
@@ -196,7 +207,7 @@ const CityLife = (() => {
     if (autosave > 10) { autosave = 0; save(); }
   }
   const api = {
-    items, init, tick, save, use, buy, equip, interior, money, debit, credit, canAdd, addItem, attach, detach, tradeOut, tradeIn, buyAmmo, AMMO_PRICE,
+    items, legacyItems, takeItems, init, tick, save, use, buy, equip, interior, money, debit, credit, canAdd, addItem, attach, detach, tradeOut, tradeIn, buyAmmo, AMMO_PRICE,
     get weapons() { return weapons; },
     get ammo() { return ammo; },
     get mods() { return mods; },

@@ -2,8 +2,8 @@
 'use strict';
 const CityApps = (() => {
  const names={ bank:'NexoBank',career:'Carreira',farm:'Fazenda',camera:'Câmera',social:'CitySocial',jobs:'Carreiras',taxi:'Viagens',business:'Meus negócios',
-   services:'Serviços',properties:'Imóveis',cars:'Concessionária',browser:'CityWeb',settings:'Aparência',calls:'Ligações',adventures:'Vida na Cidade',desk:'Home Office',shopping:'Marketplace' };
- const icons={bank:'💳',career:'🎓',farm:'🚜',camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞',adventures:'🏙️',desk:'💻',shopping:'🛍️'};
+   services:'Serviços',properties:'Imóveis',cars:'Concessionária',browser:'CityWeb',settings:'Aparência',calls:'Ligações',adventures:'Vida na Cidade',desk:'Home Office',shopping:'Marketplace',delivery:'Rango' };
+ const icons={delivery:'🛵',bank:'💳',career:'🎓',farm:'🚜',camera:'📷',social:'🌐',jobs:'💼',taxi:'🚕',business:'🏪',services:'🛎️',properties:'🏠',cars:'🚗',browser:'🌍',settings:'🎨',calls:'📞',adventures:'🏙️',desk:'💻',shopping:'🛍️'};
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let lastPhoto=null,lastPhotoUrl=null,selectedMode='world',lastCall='',frameTimestamp=0;
  const price=n=>CityLife.money(n);
@@ -20,6 +20,7 @@ const CityApps = (() => {
   if(app==='adventures'){const p=window.CityAdventures?.progress;return banner('<strong>Vida na Cidade</strong><small>Missões, acontecimentos e progresso de vida</small>')+card('Sua jornada',(p?'Etapa '+Math.min(8,p.step+1)+'/8 · Reputação '+p.reputation+' · Eventos resolvidos '+p.events:'Prepare a cidade para começar.'),btn('sim:adventure-open','Abrir objetivos e atividades'),'🏙️');}
   if(app==='bank')return window.CityBank?window.CityBank.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>NexoBank</strong><small>Carregando…</small>');
   if(app==='desk')return window.CityDesk?window.CityDesk.renderPhone({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Home Office</strong><small>Carregando…</small>');
+  if(app==='delivery')return window.CityFood?window.CityFood.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Rango</strong><small>Carregando…</small>');
   if(app==='shopping')return window.CityCommerce?window.CityCommerce.renderPhone({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Marketplace</strong><small>Carregando…</small>');
   if(app==='career')return window.CityCareers?window.CityCareers.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Carreira</strong><small>Carregando…</small>');
   if(app==='farm')return window.CityFarm?window.CityFarm.renderApp({card,banner,btn:(a,l,d)=>btn('sim:'+a,l,d)}):banner('<strong>Fazenda</strong><small>Carregando…</small>');
@@ -196,6 +197,7 @@ const CityApps = (() => {
   else if(type==='bank')result=window.CityBank?.action(id,arg,args[4])||{ok:false,text:'Banco indisponível'};
   else if(type==='farm')result=window.CityFarm?.action(id,arg,args[4])||{ok:false,text:'Fazenda indisponível'};
   else if(type==='desk')result=window.CityDesk?.phoneAction(id,arg)||{ok:false,text:'Home Office indisponível'};
+  else if(type==='food')result=window.CityFood?.appAction(id,arg)||{ok:false,text:'Rango indisponível'};
   else if(type==='shopping')result=window.CityCommerce?.phoneAction(id,arg)||{ok:false,text:'Marketplace indisponível'};
   else if(type==='career')result=window.CityCareers?.action(id,arg,args[4])||{ok:false,text:'Carreira indisponível'};
   else if(type==='apply')result=CitySim.applyJob(id);

@@ -156,15 +156,21 @@ const CityUI = (() => {
       <div class="city-phone-label">Itens</div>`;
   }
   function renderBag() {
-    return renderArsenal() + `<p class="city-help">Itens da mochila. Consumir altera suas necessidades de verdade. Atalhos: 1–5.</p>` +
-      Object.entries(CityLife.items).map(([id, it]) => `<div class="city-panel city-row">
-      <div><strong>${it.icon} ${safe(it.name)}</strong><small>${safe(it.detail)} · Em estoque: ${CityLife.inventory[id] || 0}</small></div>
-      ${btn('use:'+id,'Usar',!(CityLife.inventory[id] > 0) ? 'disabled' : '')}</div>`).join('');
+    // comidas, pratos caseiros e ingredientes (food-core.js) em grupos; mostra só o que tem, fora os itens básicos
+    const inv = CityLife.inventory, groups = [['food', 'Comidas e bebidas', 'Comer'], ['dish', 'Pratos feitos em casa', 'Comer'], ['ingredient', 'Ingredientes · cozinhe no fogão de casa', null]];
+    const row = (id, it, label) => `<div class="city-panel city-row">
+      <div><strong>${it.icon} ${safe(it.name)}</strong><small>${safe(it.detail)} · Em estoque: ${inv[id] || 0}</small></div>
+      ${label ? btn('use:'+id,label,!(inv[id] > 0) ? 'disabled' : '') : ''}</div>`;
+    const base = Object.entries(CityLife.items).filter(([id, it]) => !it.kind);
+    return renderArsenal() + `<p class="city-help">Itens da mochila. Consumir altera suas necessidades de verdade. Atalhos: 1–5. Peça comida pelo app Rango ou compre nas lojas da rua (F).</p>` +
+      base.map(([id, it]) => row(id, it, 'Usar')).join('') +
+      groups.map(([kind, title, label]) => { const list = Object.entries(CityLife.items).filter(([id, it]) => it.kind === kind && inv[id] > 0);
+        return list.length ? '<div class="city-phone-label">' + title + '</div>' + list.map(([id, it]) => row(id, it, label)).join('') : ''; }).join('');
   }
   function renderMarket() {
     return `<p class="city-help">Loja de teste: pedidos entram imediatamente no inventário. Integração com caixas, entregadores e NPCs virá depois.</p>
     <div class="city-panel"><div class="city-row"><b>Saldo</b><b>${CityLife.money(CityLife.funds)}</b></div></div>` +
-      Object.entries(CityLife.items).map(([id, it]) => `<div class="city-panel city-row">
+      Object.entries(CityLife.items).filter(([id, it]) => !it.kind).map(([id, it]) => `<div class="city-panel city-row">
       <div><strong>${it.icon} ${safe(it.name)}</strong><small>${safe(it.detail)}</small></div>
       ${btn('buy:'+id,CityLife.money(it.price),CityLife.funds < it.price ? 'disabled' : '')}</div>`).join('') +
       (window.CityWeapons ? '<div class="city-phone-label">Munição</div>' + Object.entries(CityLife.AMMO_PRICE).map(([cal, price]) => {
@@ -203,6 +209,7 @@ const CityUI = (() => {
         <div class="city-phone-label">Aplicativos</div><div class="city-app-grid">
         ${appBtn('status','❤️','Status')}
         ${appBtn('bag','🎒','Mochila')}
+        ${appBtn('delivery','🛵','Rango')}
         ${appBtn('market','🏪','Mercado')}
         ${appBtn('contacts','👥','Contatos')}
         ${appBtn('sms','💬','Mensagens')}

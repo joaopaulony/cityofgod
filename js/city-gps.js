@@ -3,12 +3,12 @@
 const CityGPS=(()=>{
  let waypoint=null,route=null,graph=null,graphSource=null,selection=null;
  let remaining=0,lastRepath=0,lastArrival=0,visibleTypes=null;
- const colors={gas:'#3fa4f5',home:'#49c98d',airport:'#53b6eb',town:'#a7b5ca',port:'#49bdd5',district:'#b3a5ec',lot:'#d9ae4e',
+ const colors={food:'#f39c4a',gas:'#3fa4f5',home:'#49c98d',airport:'#53b6eb',town:'#a7b5ca',port:'#49bdd5',district:'#b3a5ec',lot:'#d9ae4e',
   school:'#e3c65d',military:'#8fa87b',police:'#61a8ef',hospital:'#f27a73',cityhall:'#a6cce9',church:'#dddce9',mall:'#dc94db',stadium:'#82bf6b',
   market:'#e5bb7b',bus:'#e5a66c',university:'#58b7c9',lighthouse:'#d5dbe6'};
- const glyph={gas:'⛽',home:'⌂',airport:'✈',town:'◆',port:'⚓',district:'◈',lot:'▣',
+ const glyph={food:'🍴',gas:'⛽',home:'⌂',airport:'✈',town:'◆',port:'⚓',district:'◈',lot:'▣',
   school:'▦',military:'◆',police:'★',hospital:'✚',cityhall:'▥',church:'✝',mall:'▣',stadium:'◉',market:'▰',bus:'▤',university:'▦',lighthouse:'✦'};
- const labels={gas:'Postos de combustível',home:'Minhas casas',airport:'Aeroportos',school:'Escolas',military:'Batalhões',police:'Delegacias',
+ const labels={food:'Restaurantes e mercados',gas:'Postos de combustível',home:'Minhas casas',airport:'Aeroportos',school:'Escolas',military:'Batalhões',police:'Delegacias',
  hospital:'Hospitais',mall:'Comércio',market:'Mercados',cityhall:'Prefeitura',stadium:'Estádios',university:'Universidades',
  port:'Porto',town:'Bairros',bus:'Rodoviárias',church:'Igrejas',lighthouse:'Faróis',district:'Centro'};
  const nowMs=()=>typeof performance!=='undefined'?performance.now():Date.now();
@@ -48,6 +48,7 @@ const CityGPS=(()=>{
        list.push({id:'town:'+i,x:t.x,y:t.y,name:t.name||'Bairro',type:'town'});
      if(world.spawn)list.push({id:'airport',x:world.spawn[0],y:world.spawn[1],name:'Aeroporto Internacional',type:'airport'});
    }
+   for(const q of window.CityFood?.places?.()||[])list.push(q);
    return list;
  }
  function choose(point,quiet=false){

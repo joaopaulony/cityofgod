@@ -187,6 +187,12 @@ function drawMiniMap(h, mx, my, ms, p, st) {
     const [x, y] = toScr(u.x, u.y); if (Math.hypot(x - mx - ms / 2, y - my - ms / 2) > ms / 2 - 4) continue;
     h.beginPath(); h.arc(x, y, 4, 0, TAU); h.fillStyle = u.kind === 'police' ? (blink ? '#ff4d42' : '#4d8dff') : '#ffffff'; h.fill(); h.strokeStyle = '#0b1219'; h.lineWidth = 1.2; h.stroke();
   }
+  // entregador do Rango a caminho (moto laranja)
+  for (const c of window.CityFood?.couriers?.() || []) {
+    const [x, y] = toScr(c.x, c.y); if (Math.hypot(x - mx - ms / 2, y - my - ms / 2) > ms / 2 - 6) continue;
+    h.beginPath(); h.arc(x, y, 7.5, 0, TAU); h.fillStyle = '#f39c4a'; h.fill(); h.strokeStyle = '#fff'; h.lineWidth = 1.6; h.stroke();
+    h.font = '9px "Segoe UI Emoji",system-ui'; h.textAlign = 'center'; h.textBaseline = 'middle'; h.fillText('🛵', x, y + .5);
+  }
   // lugares de interesse por perto (em pé, não giram com o mapa)
   const gps = window.CityGPS;
   if (gps) {
@@ -330,6 +336,7 @@ function drawWorldMap3D(h,W,H,st){
   const gr=h.createLinearGradient(W-360,0,W,0);gr.addColorStop(0,'rgba(8,18,28,0)');gr.addColorStop(1,'rgba(8,18,28,.55)');h.fillStyle=gr;h.fillRect(W-360,0,360,H);
   wmapLabels3D(h,W,H);
   window.CityGPS?.drawFull(h,(x,y)=>wmapS(x,y,2),st);
+  for(const c of window.CityFood?.couriers?.()||[]){const [x,y,vis]=wmapS(c.x,c.y,2);if(!vis)continue;h.save();h.beginPath();h.arc(x,y,12,0,TAU);h.fillStyle='#f39c4a';h.fill();h.strokeStyle='#fff';h.lineWidth=2;h.stroke();h.font='13px "Segoe UI Emoji",system-ui';h.textAlign='center';h.textBaseline='middle';h.fillText('🛵',x,y+1);h.restore();}
   wmapPlayer3D(h,st.player);
   wmapCompass(h,W,H);
   h.restore();

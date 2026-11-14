@@ -6,11 +6,20 @@ const CityHomeKitchen=(()=>{
   {id:'omelette',name:'Omelete',icon:'🍳',cost:0,ingredients:{eggs:2,milk:1},servings:1,energy:.08,food:.32,seconds:4},
   {id:'pasta',name:'Macarrão',icon:'🍝',cost:0,ingredients:{pasta:1,tomato:2},servings:2,energy:.06,food:.42,seconds:5},
   {id:'salad',name:'Salada',icon:'🥗',cost:0,ingredients:{greens:2,tomato:1},servings:1,energy:.10,food:.25,seconds:3.7},
-  {id:'toast',name:'Sanduíche quente',icon:'🥪',cost:0,ingredients:{bread:2,cheese:1},servings:1,energy:.05,food:.36,seconds:3.6}];
+  {id:'toast',name:'Sanduíche quente',icon:'🥪',cost:0,ingredients:{bread:2,cheese:1},servings:1,energy:.05,food:.36,seconds:3.6},
+  // receitas do sistema de comida (food-core.js): usam a despensa e a mochila; o prato pronto vai para a mochila
+  ...(window.CityFoodCore?.RECIPES||[]).map(r=>({...r,cost:0,servings:r.makes.qty,toBag:true}))];
+ const FC=()=>window.CityFoodCore;
+ const ING_KEYS=window.CityFoodCore?Object.keys(window.CityFoodCore.INGREDIENTS):['eggs','milk','pasta','tomato','greens','bread','cheese'];
  const bundles=[
   {id:'breakfast',name:'Kit café da manhã',price:45,stock:{eggs:6,milk:3,bread:4,cheese:2}},
   {id:'dinner',name:'Kit refeições',price:56,stock:{pasta:3,tomato:6,greens:4}},
-  {id:'healthy',name:'Kit hortifruti',price:30,stock:{greens:5,tomato:5}}];
+  {id:'healthy',name:'Kit hortifruti',price:30,stock:{greens:5,tomato:5}},
+  ...(window.CityFoodCore?[
+   {id:'arrozfeijao',name:'Kit arroz, feijão e bife',price:62,stock:{rice:1,beans:1,beef:1,onion:2}},
+   {id:'feijoada',name:'Kit feijoada',price:78,stock:{beans:2,sausage:1,beef:1,rice:1}},
+   {id:'frango',name:'Kit frango assado',price:34,stock:{chicken:1,potato:3,onion:1}},
+   {id:'doces',name:'Kit doces (brigadeiro)',price:26,stock:{condensed:1,chocolate:1,milk:1}}]:[])];
  let cache={},loaded=false;
  function load(){if(loaded)return;loaded=true;try{
   const raw=JSON.parse(localStorage.getItem(KEY)||'{}');
@@ -18,7 +27,7 @@ const CityHomeKitchen=(()=>{
    for(const [key,v] of Object.entries(raw)){
     if(key.length>180||!v||typeof v!=='object')continue;
     const stock={};
-    for(const k of ['eggs','milk','pasta','tomato','greens','bread','cheese'])
+    for(const k of ING_KEYS)
       stock[k]=Math.min(99,Math.max(0,Number.isInteger(v.stock?.[k])?v.stock[k]:0));
     cache[key]={stock,portions:Math.max(0,Math.min(30,v.portions|0))};
    }
@@ -45,6 +54,7 @@ const CityHomeKitchen=(()=>{
   const recipe=recipes.find(r=>r.id===id);
   if(!recipe)return false;
   const s=pantry(H).stock;
+  if(recipe.toBag)return FC().canCook(recipe,k=>(s[k]||0)+(window.CityLife?.inventory?.[k]||0));
   return Object.entries(recipe.ingredients).every(([key,qty])=>(s[key]||0)>=qty);
  }
  function prepare(H,id){
@@ -55,6 +65,16 @@ const CityHomeKitchen=(()=>{
  function cook(H,id){
   if(!canPrepare(H,id))return {ok:false,text:'A despensa não tem mais os ingredientes'};
   const p=pantry(H),recipe=recipes.find(r=>r.id===id);
+  if(recipe.toBag){
+   const plan=FC().consumePlan(recipe,p.stock,CityLife.inventory),out=recipe.makes;
+   if(!plan)return {ok:false,text:'Faltam ingredientes'};
+   if(!CityLife.canAdd(out.item,out.qty))return {ok:false,text:'Mochila cheia'};
+   const old={...p.stock};for(const [k,n] of Object.entries(plan.pantry))p.stock[k]-=n;
+   if(!CityLife.takeItems(plan.bag)){p.stock=old;return {ok:false,text:'Faltam ingredientes na mochila'};}
+   if(!save()){p.stock=old;for(const [k,n] of Object.entries(plan.bag))CityLife.addItem(k,n);return {ok:false,text:'Não foi possível salvar a receita'};}
+   CityLife.addItem(out.item,out.qty);
+   return {ok:true,text:recipe.icon+' '+recipe.name+' pronto! '+out.qty+' porção(ões) na mochila'};
+  }
   if(p.portions+recipe.servings>30)return {ok:false,text:'Geladeira cheia de refeições'};
   for(const [k,v] of Object.entries(recipe.ingredients))p.stock[k]-=v;
   p.portions+=recipe.servings;
